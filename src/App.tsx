@@ -118,7 +118,7 @@ function FileMenu({ onImport, onExport, onLoad }: { onImport: () => void; onExpo
   )
 }
 
-function TopBar() {
+function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
   const view = useStudio((state) => state.view)
   const renderMode = useStudio((state) => state.renderMode)
   const openStudioView = useStudio((state) => state.openStudioView)
@@ -151,11 +151,46 @@ function TopBar() {
       <div className="project-actions">
         <button className="setup-sheet-button" onClick={() => setValue('setupSheetOpen', true)} title="產生燈位工作表">燈位工作表</button>
         <button className={professionalPanelOpen ? 'pro-console-button active' : 'pro-console-button'} onClick={() => setValue('professionalPanelOpen', !professionalPanelOpen)} title="專業控制台（P）" aria-pressed={professionalPanelOpen}>PRO</button>
+        <button className="guide-button" onClick={onOpenGuide} title="開啟網站使用教學">教學</button>
         <input ref={projectInput} className="asset-input" type="file" accept=".json,.lumen.json,application/json" onChange={async (event) => { const file = event.target.files?.[0]; if (file) importProject(await file.text()); event.target.value = '' }} />
         <FileMenu onImport={() => projectInput.current?.click()} onExport={exportProject} onLoad={loadProject} />
         <button className="save-button" onClick={saveProject} title="儲存場景到瀏覽器（⌘S）">儲存場景 <span>⌘S</span></button>
       </div>
     </header>
+  )
+}
+
+function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const closeButton = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    closeButton.current?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [open, onClose])
+
+  if (!open) return null
+  const guideUrl = '/LUMEN_STAGE_網站使用教學.pdf'
+
+  return (
+    <div className="guide-overlay" role="dialog" aria-modal="true" aria-label="LUMEN STAGE 網站使用教學" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <section className="guide-dialog">
+        <header>
+          <div><strong>網站使用教學</strong><small>LUMEN STAGE · 11 PAGES</small></div>
+          <div className="guide-actions">
+            <a href={guideUrl} target="_blank" rel="noreferrer">另開分頁</a>
+            <a href={guideUrl} download>下載 PDF</a>
+            <button ref={closeButton} onClick={onClose} aria-label="關閉網站使用教學">×</button>
+          </div>
+        </header>
+        <iframe src={`${guideUrl}#view=FitH&toolbar=1`} title="LUMEN STAGE 網站使用教學 PDF" />
+        <footer>從介面導覽、燈光與相機設定，到測光、鏡位管理及照片輸出。</footer>
+      </section>
+    </div>
   )
 }
 
@@ -340,6 +375,7 @@ export default function App() {
   const pathSepia = Math.max(0, (whiteBalance - 5600) / 3400) * 0.14 * rawMix
 
   const [sceneReady, setSceneReady] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
   const [hint, setHint] = useState<{ id: number; text: string } | null>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -361,7 +397,7 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <TopBar />
+      <TopBar onOpenGuide={() => setGuideOpen(true)} />
       <Library />
       <section className={`viewport ${renderMode === 'path' ? 'path-color-science' : ''}`} aria-label="3D 攝影棚" style={{ '--path-saturation': pathSaturation, '--path-contrast': pathContrast, '--path-sepia': pathSepia } as React.CSSProperties}>
         <Canvas
@@ -398,6 +434,7 @@ export default function App() {
       <BottomReadout />
       <ShortcutHelp />
       <SetupSheetHost />
+      <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
     </main>
   )
 }

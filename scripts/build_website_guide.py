@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 
 from PIL import Image
 from reportlab.lib.colors import HexColor, white
@@ -341,9 +342,13 @@ def build():
     c = canvas.Canvas(str(OUT), pagesize=(W, H), pageCompression=1)
     c.setTitle("LUMEN STAGE 網站使用教學")
     c.setAuthor("OpenAI Codex")
-    for fn in [cover, interface_map, first_workflow, objects, lighting, camera, exposure, shots, render, pro, project_shortcuts, practice]:
+    for fn in [cover, interface_map, first_workflow, objects, lighting, camera, exposure, shots, render, pro, project_shortcuts]:
         fn(c)
-    c.save(); print(OUT)
+    c.save()
+    public_pdf = ROOT / "public" / "LUMEN_STAGE_網站使用教學.pdf"
+    public_pdf.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(OUT, public_pdf)
+    print(OUT)
 
 
 if __name__ == "__main__": build()

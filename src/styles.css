@@ -32,7 +32,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 }
 
 .topbar {
-  grid-column: 1 / -1; display: grid; grid-template-columns: 222px 1fr auto 282px;
+  grid-column: 1 / -1; display: grid; grid-template-columns: 222px 1fr auto 320px;
   align-items: center; border-bottom: 1px solid var(--line); background: #121412; z-index: 10;
 }
 .brand { height: 100%; padding: 0 18px; display: flex; align-items: center; gap: 11px; border-right: 1px solid var(--line); }
@@ -53,10 +53,12 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .view-switch button { padding: 8px 13px; border: 0; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
 .view-switch button.active { background: #31352f; color: var(--paper); }
 .view-switch button.render-active { background: var(--signal); color: #141711; }
-.project-actions { align-self: stretch; margin-left: 12px; display: grid; grid-template-columns: 60px 44px 58px minmax(88px, 1fr); border-left: 1px solid var(--line); }
+.project-actions { align-self: stretch; margin-left: 12px; display: grid; grid-template-columns: 60px 44px 46px 58px minmax(88px, 1fr); border-left: 1px solid var(--line); }
 .project-actions button { border: 0; border-right: 1px solid var(--line); background: #171a17; color: #9ba097; font-size: 10px; cursor: pointer; }
 .project-actions .pro-console-button { color: var(--signal); font: 500 10.5px var(--mono); letter-spacing: .08em; }
 .project-actions .pro-console-button.active { background: var(--signal); color: #11140f; }
+.project-actions .guide-button { color: #d8ddd4; font-weight: 500; }
+.project-actions .guide-button:hover { background: #252a23; color: var(--signal); }
 .project-actions .save-button { border-right: 0; background: var(--signal); color: #151811; font-weight: 600; font-size: 11px; }
 .project-actions .save-button span { margin-left: 10px; font: 10px var(--mono); opacity: .65; }
 
@@ -760,6 +762,38 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .file-menu-list button:last-child { border-bottom: 0; }
 .file-menu-list button:hover { background: #2a2f27; color: #fff; }
 .file-menu-list small { color: #9aa295; font: 9.5px var(--mono); letter-spacing: .06em; }
+
+/* ── 網站使用教學 ─────────────────────────────────────────── */
+.guide-overlay {
+  position: fixed; inset: 0; z-index: 120; padding: 28px;
+  display: grid; place-items: center; background: rgba(5, 7, 5, .88); backdrop-filter: blur(8px);
+}
+.guide-dialog {
+  width: min(1180px, 96vw); height: min(820px, 92vh); overflow: hidden;
+  display: grid; grid-template-rows: 58px minmax(0, 1fr) 34px;
+  border: 1px solid #4b5447; background: #111411; box-shadow: 0 30px 90px rgba(0, 0, 0, .7);
+}
+.guide-dialog > header {
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  padding-left: 18px; border-bottom: 1px solid var(--line); background: #1a1e19;
+}
+.guide-dialog > header > div:first-child { display: flex; flex-direction: column; gap: 5px; }
+.guide-dialog > header strong { color: #edf0e9; font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+.guide-dialog > header small { color: #8f978b; font: 9px var(--mono); letter-spacing: .12em; }
+.guide-actions { align-self: stretch; display: flex; align-items: stretch; }
+.guide-actions a, .guide-actions button {
+  min-width: 82px; padding: 0 14px; display: grid; place-items: center;
+  border: 0; border-left: 1px solid var(--line); background: #20241f; color: #c9cec4;
+  font-size: 10.5px; text-decoration: none; cursor: pointer;
+}
+.guide-actions a:hover { background: #292f26; color: var(--signal); }
+.guide-actions button { min-width: 56px; padding: 0; color: var(--signal); font-size: 23px; }
+.guide-actions button:hover { background: var(--signal); color: #111411; }
+.guide-dialog iframe { width: 100%; height: 100%; border: 0; background: #252925; }
+.guide-dialog > footer {
+  padding: 0 16px; display: flex; align-items: center; border-top: 1px solid var(--line);
+  color: #8f978b; font-size: 10px; letter-spacing: .02em;
+}
 
 /* ── 捲軸與載入狀態 ───────────────────────────────────────── */
 .panel::-webkit-scrollbar, .pro-scroll::-webkit-scrollbar, .shot-list::-webkit-scrollbar, .exposure-panel::-webkit-scrollbar { width: 9px; }
