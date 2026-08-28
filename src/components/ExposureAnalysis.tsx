@@ -1,0 +1,199 @@
+import { useEffect, useMemo, useRef } from 'react'
+import { useStudio, type ExposureOverlay, type ExposureSample } from '../store'
+import { calculateMetering } from '../metering'
+import { effectiveLightOutput } from '../lightProfiles'
+
+type ExposureMetrics = {
+  histogram: number[]
+  rgbHistogram: { red: number[]; green: number[]; blue: number[] }
+  mean: number
+  shadows: number
+  highlights: number
+  clipped: number
+  evOffset: number
+}
+
+const EMPTY_METRICS: ExposureMetrics = {
+  histogram: Array.from({ length: 32 }, () => 0),
+  rgbHistogram: { red: Array.from({ length: 32 }, () => 0), green: Array.from({ length: 32 }, () => 0), blue: Array.from({ length: 32 }, () => 0) },
+  mean: 0,
+  shadows: 0,
+  highlights: 0,
+  clipped: 0,
+  evOffset: 0,
+}
+
+function falseColor(luma: number): [number, number, number, number] {
+  if (luma < 0.035) return [82, 36, 148, 220]
+  if (luma < 0.12) return [32, 112, 214, 205]
+  if (luma < 0.38) return [30, 191, 132, 180]
+  if (luma < 0.68) return [125, 128, 118, 105]
+  if (luma < 0.88) return [244, 205, 46, 195]
+  return [239, 55, 48, 225]
+}
+
+function analyzeFrame(sample: ExposureSample | null): ExposureMetrics {
+  if (!sample) return EMPTY_METRICS
+  const { width, height, pixels } = sample
+  const histogram = Array.from({ length: 32 }, () => 0)
+  const redHistogram = Array.from({ length: 32 }, () => 0)
+  const greenHistogram = Array.from({ length: 32 }, () => 0)
+  const blueHistogram = Array.from({ length: 32 }, () => 0)
+  let total = 0
+  let shadows = 0
+  let highlights = 0
+  let clipped = 0
+
+  for (let index = 0; index < pixels.length; index += 4) {
+    const red = pixels[index] / 255
+    const green = pixels[index + 1] / 255
+    const blue = pixels[index + 2] / 255
+    const luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    total += luma
+    histogram[Math.min(31, Math.floor(luma * 32))] += 1
+    redHistogram[Math.min(31, Math.floor(red * 32))] += 1
+    greenHistogram[Math.min(31, Math.floor(green * 32))] += 1
+    blueHistogram[Math.min(31, Math.floor(blue * 32))] += 1
+    if (luma < 0.08) shadows += 1
+    if (luma > 0.82) highlights += 1
+    if (luma < 0.015 || luma > 0.985) clipped += 1
+
+  }
+
+  const pixelCount = width * height
+  const mean = total / pixelCount
+  const peak = Math.max(1, ...histogram)
+  const rgbPeak = Math.max(1, ...redHistogram, ...greenHistogram, ...blueHistogram)
+  return {
+    histogram: histogram.map((value) => value / peak),
+    rgbHistogram: { red: redHistogram.map((value) => value / rgbPeak), green: greenHistogram.map((value) => value / rgbPeak), blue: blueHistogram.map((value) => value / rgbPeak) },
+    mean,
+    shadows: shadows / pixelCount,
+    highlights: highlights / pixelCount,
+    clipped: clipped / pixelCount,
+    evOffset: Math.max(-5, Math.min(5, Math.log2(Math.max(0.003, mean) / 0.42))),
+  }
+}
+
+export function ExposureAnalysis() {
+  const open = useStudio((state) => state.analysisOpen)
+  const overlay = useStudio((state) => state.exposureOverlay)
+  const soloLightId = useStudio((state) => state.soloLightId)
+  const lights = useStudio((state) => state.lights)
+  const modifiers = useStudio((state) => state.modifiers)
+  const meterPosition = useStudio((state) => state.meterPosition)
+  const aperture = useStudio((state) => state.aperture)
+  const shutter = useStudio((state) => state.shutter)
+  const iso = useStudio((state) => state.iso)
+  const syncSpeed = useStudio((state) => state.syncSpeed)
+  const ambientLevel = useStudio((state) => state.ambientLevel)
+  const modelPosition = useStudio((state) => state.modelPosition)
+  const modelHeight = useStudio((state) => state.modelHeight)
+  const studioObjects = useStudio((state) => state.studioObjects)
+  const subjectObjects = studioObjects.filter((object) => object.type === 'subject')
+  const setMeterPosition = useStudio((state) => state.setMeterPosition)
+  const moveMeterToSubject = useStudio((state) => state.moveMeterToSubject)
+  const selectObject = useStudio((state) => state.selectObject)
+  const sample = useStudio((state) => state.exposureSample)
+  const setValue = useStudio((state) => state.setValue)
+  const histogramMode = useStudio((state) => state.histogramMode)
+  const overlayCanvas = useRef<HTMLCanvasElement>(null)
+  const metrics = useMemo(() => analyzeFrame(sample), [sample])
+  const metering = useMemo(() => calculateMetering(lights, modifiers, meterPosition, aperture, shutter, iso, syncSpeed, ambientLevel), [ambientLevel, aperture, iso, lights, meterPosition, modifiers, shutter, syncSpeed])
+
+  useEffect(() => {
+    const canvas = overlayCanvas.current
+    if (!canvas || !sample) return
+    const context = canvas.getContext('2d')
+    if (!context) return
+    canvas.width = sample.width
+    canvas.height = sample.height
+    context.clearRect(0, 0, sample.width, sample.height)
+    if (overlay === 'none') return
+    const frame = context.createImageData(sample.width, sample.height)
+    for (let index = 0; index < sample.pixels.length; index += 4) {
+      const red = sample.pixels[index] / 255
+      const green = sample.pixels[index + 1] / 255
+      const blue = sample.pixels[index + 2] / 255
+      const luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+      const color = overlay === 'false-color'
+        ? falseColor(luma)
+        : luma > 0.92 ? [255, 45, 30, 218]
+          : luma < 0.045 ? [33, 93, 255, 205]
+            : [0, 0, 0, 0]
+      frame.data[index] = color[0]
+      frame.data[index + 1] = color[1]
+      frame.data[index + 2] = color[2]
+      frame.data[index + 3] = color[3]
+    }
+    context.putImageData(frame, 0, 0)
+  }, [overlay, sample])
+
+  const setOverlay = (mode: ExposureOverlay) => setValue('exposureOverlay', overlay === mode ? 'none' : mode)
+  const evLabel = `${metrics.evOffset >= 0 ? '+' : ''}${metrics.evOffset.toFixed(1)} EV`
+
+  return <>
+    <canvas ref={overlayCanvas} className={`exposure-overlay ${overlay !== 'none' ? 'visible' : ''}`} aria-hidden="true" />
+    <div className="exposure-launcher">
+      <button className={open ? 'active' : ''} onClick={() => setValue('analysisOpen', !open)} aria-expanded={open} aria-controls="exposure-panel"><i />測光分析 <kbd>M</kbd></button>
+      {overlay !== 'none' && <span>{overlay === 'false-color' ? 'FALSE COLOR' : 'CLIP ALERT'}</span>}
+      {soloLightId && <span>SOLO · {lights.find((light) => light.id === soloLightId)?.name.toUpperCase()}</span>}
+    </div>
+    {open && <aside id="exposure-panel" className="exposure-panel" aria-label="測光與曝光分析">
+      <header><span>EXPOSURE SCOPE</span><button aria-label="關閉測光分析" onClick={() => setValue('analysisOpen', false)}>×</button></header>
+      <div className="exposure-summary">
+        <div><span>平均亮度</span><strong>{Math.round(metrics.mean * 100)}<small>%</small></strong></div>
+        <div><span>曝光偏移</span><strong className={Math.abs(metrics.evOffset) > 1 ? 'warning' : ''}>{evLabel}</strong></div>
+      </div>
+      <div className="scope-mode-switch" role="group" aria-label="直方圖模式"><button className={histogramMode === 'luma' ? 'active' : ''} onClick={() => setValue('histogramMode', 'luma')}>亮度</button><button className={histogramMode === 'rgb' ? 'active' : ''} onClick={() => setValue('histogramMode', 'rgb')}>RGB</button></div>
+      <div className={`histogram ${histogramMode === 'rgb' ? 'rgb' : ''}`} aria-label={histogramMode === 'rgb' ? 'RGB 直方圖' : '亮度直方圖'}>
+        {histogramMode === 'luma' ? metrics.histogram.map((height, index) => <i key={index} style={{ height: `${Math.max(2, height * 100)}%` }} />) : <>{(['red','green','blue'] as const).map((channel) => <span key={channel} className={`histogram-channel ${channel}`}>{metrics.rgbHistogram[channel].map((height,index) => <i key={index} style={{ height: `${Math.max(1, height * 100)}%` }} />)}</span>)}</>}
+        <span className="histogram-mid" />
+      </div>
+      <div className="exposure-percentages">
+        <span><i className="shadow-dot" />陰影 <b>{Math.round(metrics.shadows * 100)}%</b></span>
+        <span><i className="highlight-dot" />高光 <b>{Math.round(metrics.highlights * 100)}%</b></span>
+        <span><i className="clip-dot" />剪裁 <b>{metrics.clipped < 0.001 ? '<0.1' : (metrics.clipped * 100).toFixed(1)}%</b></span>
+      </div>
+      <div className="exposure-modes" role="group" aria-label="曝光輔助顯示">
+        <button className={overlay === 'false-color' ? 'active' : ''} onClick={() => setOverlay('false-color')}>假色</button>
+        <button className={overlay === 'clipping' ? 'active' : ''} onClick={() => setOverlay('clipping')}>剪裁警示</button>
+        <button className={overlay === 'none' ? 'active' : ''} onClick={() => setValue('exposureOverlay', 'none')}>原始畫面</button>
+      </div>
+      <section className="incident-metering">
+        <div className="meter-heading"><span>入射式測光探針</span><button onClick={() => { selectObject('meter'); setValue('view', 'studio') }}>3D 移動</button></div>
+        <div className="meter-targets" role="group" aria-label="測光位置預設">
+          <button onClick={() => moveMeterToSubject('model', 'face')}>主角臉</button>
+          <button onClick={() => moveMeterToSubject('model', 'chest')}>主角胸</button>
+          {subjectObjects.map((subject, index) => <button key={subject.id} onClick={() => moveMeterToSubject(subject.id, 'face')}>{`人物 ${index + 2} 臉`}</button>)}
+          <button onClick={() => setMeterPosition([modelPosition[0], 1.45, -1.42])}>背景</button>
+        </div>
+        <div className="meter-primary">
+          <div><span>TOTAL INCIDENT</span><strong>{Math.round(metering.totalLux).toLocaleString()}<small> lx</small></strong></div>
+          <div><span>EV 100</span><strong>{metering.ev100.toFixed(1)}</strong></div>
+          <div><span>KEY : FILL</span><strong>{metering.keyFillRatio >= 99 ? '∞' : `${metering.keyFillRatio.toFixed(1)}:1`}</strong></div>
+        </div>
+        <div className="meter-balance">
+          <span>相機曝光差</span><b className={Math.abs(metering.exposureDelta) > 1 ? 'warning' : ''}>{metering.exposureDelta >= 0 ? '+' : ''}{metering.exposureDelta.toFixed(1)} EV</b>
+          <i><em style={{ left: `${Math.max(0, Math.min(100, 50 + metering.exposureDelta * 10))}%` }} /></i>
+        </div>
+        <div className="light-contributions">
+          {metering.readings.map((reading) => {
+            const share = metering.totalLux ? reading.totalLux / metering.totalLux : 0
+            return <div key={reading.lightId} className={reading.blocked ? 'blocked' : ''}>
+              <span>{reading.name}<small>{reading.blocked ? 'FLAGGED' : `${lights.find((light) => light.id === reading.lightId)?.operationMode === 'flash' ? 'FLASH' : 'CONT'}${reading.bouncedLux > 0.5 ? ` · +${Math.round(reading.bouncedLux)} bounce` : ''}`}</small></span>
+              <i><em style={{ width: `${Math.max(1, share * 100)}%` }} /></i>
+              <b>{Math.round(reading.totalLux)} lx</b>
+            </div>
+          })}
+        </div>
+        <footer><span>DIRECT {Math.round(metering.directLux)} lx</span><span>BOUNCE {Math.round(metering.bouncedLux)} lx</span><span>AMBIENT {Math.round(metering.ambientLux)} lx</span></footer>
+      </section>
+      <section className="solo-metering">
+        <div><span>單燈貢獻</span><button onClick={() => setValue('soloLightId', null)} disabled={!soloLightId}>全部燈光</button></div>
+        {lights.map((light) => <button key={light.id} className={soloLightId === light.id ? 'active' : ''} disabled={!light.enabled} onClick={() => setValue('soloLightId', soloLightId === light.id ? null : light.id)}><i style={{ background: light.colorMode === 'rgb' ? light.rgb : '#f3e6cd' }} /><span>{light.name}</span><b>{soloLightId === light.id ? 'SOLO' : light.enabled ? `${Math.round(effectiveLightOutput(light))} lm` : 'OFF'}</b></button>)}
+      </section>
+      <footer><span>0</span><span>18% GRAY</span><span>100 IRE</span></footer>
+    </aside>}
+  </>
+}

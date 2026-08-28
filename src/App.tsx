@@ -1,0 +1,403 @@
+import { Canvas } from '@react-three/fiber'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { StudioScene } from './components/StudioScene'
+import { Inspector } from './components/Inspector'
+import { Library } from './components/Library'
+import { ExposureAnalysis } from './components/ExposureAnalysis'
+import { ShotLibrary } from './components/ShotLibrary'
+import { ProfessionalPanel } from './components/ProfessionalPanel'
+import { SetupSheet } from './components/SetupSheet'
+import { ShortcutHelp, ShortcutHint, ShortcutLauncher } from './components/ShortcutHelp'
+import { runShortcut } from './shortcuts'
+import { applyLensOpticsToCanvas, calculateDepthOfField } from './optics'
+import { useStudio } from './store'
+import { applyColorScienceToCanvas, COLOR_PROFILES } from './colorScience'
+import { applySensorProcessingToCanvas } from './sensorProcessing'
+import { CAMERA_BODIES } from './cameraProfiles'
+
+let hintSequence = 0
+
+const FRAME_RATIOS = { '3:2': 3 / 2, '4:5': 4 / 5, '1:1': 1, '16:9': 16 / 9 } as const
+const SENSOR_LABELS = { 'full-frame': 'FULL FRAME', 'aps-c': 'APS-C', mft: 'MFT' } as const
+const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
+
+function getFrameRatio(aspect: keyof typeof FRAME_RATIOS, orientation: 'landscape' | 'portrait') {
+  const ratio = FRAME_RATIOS[aspect]
+  const landscape = Math.max(ratio, 1 / ratio)
+  return orientation === 'landscape' ? landscape : 1 / landscape
+}
+
+function ViewfinderOverlay() {
+  const view = useStudio((state) => state.view)
+  const renderMode = useStudio((state) => state.renderMode)
+  const focusGuide = useStudio((state) => state.focusGuide)
+  const focusDistance = useStudio((state) => state.focusDistance)
+  const focalLength = useStudio((state) => state.focalLength)
+  const aperture = useStudio((state) => state.aperture)
+  const sensorFormat = useStudio((state) => state.sensorFormat)
+  const frameAspect = useStudio((state) => state.frameAspect)
+  const frameOrientation = useStudio((state) => state.frameOrientation)
+  const compositionGuide = useStudio((state) => state.compositionGuide)
+  const shutter = useStudio((state) => state.shutter)
+  const cameraMode = useStudio((state) => state.cameraMode)
+  const frameRate = useStudio((state) => state.frameRate)
+  const shutterAngle = useStudio((state) => state.shutterAngle)
+  const syncSpeed = useStudio((state) => state.syncSpeed)
+  const lights = useStudio((state) => state.lights)
+  const syncError = shutter > syncSpeed && lights.some((light) => light.enabled && light.operationMode === 'flash' && !light.hssEnabled)
+  const depth = calculateDepthOfField(focalLength, aperture, focusDistance, SENSOR_COC[sensorFormat])
+  const landscapeSizes = { '3:2': [94, 82], '4:5': [86, 90], '1:1': [69, 90], '16:9': [94, 69] } as const
+  const portraitSizes = { '3:2': [46, 90], '4:5': [55, 90], '1:1': [69, 90], '16:9': [39, 90] } as const
+  const [frameWidth, frameHeight] = (frameOrientation === 'landscape' ? landscapeSizes : portraitSizes)[frameAspect]
+
+  return (
+    <div className={`viewfinder ${view === 'camera' ? 'is-visible' : ''}`} aria-hidden="true">
+      <div className="composition-frame" style={{ '--frame-width': `${frameWidth}%`, '--frame-height': `${frameHeight}%` } as React.CSSProperties}>
+        <span className="frame-corner top-left" />
+        <span className="frame-corner top-right" />
+        <span className="frame-corner bottom-left" />
+        <span className="frame-corner bottom-right" />
+        {focusGuide && renderMode === 'preview' && <span className="focus-point"><i /><b>AF-S · {focusDistance.toFixed(2)} M</b><small>DOF {depth.range.toFixed(2)} M</small></span>}
+        {compositionGuide === 'thirds' && <><div className="thirds vertical one" /><div className="thirds vertical two" /><div className="thirds horizontal one" /><div className="thirds horizontal two" /></>}
+        {compositionGuide === 'golden' && <><div className="guide-line vertical golden-one" /><div className="guide-line vertical golden-two" /><div className="guide-line horizontal golden-one" /><div className="guide-line horizontal golden-two" /></>}
+        {compositionGuide === 'safe' && <div className="safe-area-guide"><span>SAFE AREA</span></div>}
+      </div>
+      <span className="frame-format-label">{frameAspect} · {frameOrientation === 'landscape' ? 'LANDSCAPE' : 'PORTRAIT'}</span>
+      {cameraMode === 'cinema' && <><span className="cinema-frame-line top" /><span className="cinema-frame-line bottom" /><span className="cinema-status">REC FORMAT · {frameRate} FPS · {shutterAngle}°</span></>}
+      {syncError && <div className="sync-curtain-warning" style={{ '--curtain-height': `${Math.round((1 - syncSpeed / shutter) * 100)}%` } as React.CSSProperties}><i /><span>FLASH SYNC LIMIT · 1/{syncSpeed}s</span></div>}
+    </div>
+  )
+}
+
+function SetupSheetHost() {
+  const open = useStudio((state) => state.setupSheetOpen)
+  return open ? <SetupSheet /> : null
+}
+
+/** 把匯入／匯出／載入收進一個選單，讓頂欄剩下真正常用的動作 */
+function FileMenu({ onImport, onExport, onLoad }: { onImport: () => void; onExport: () => void; onLoad: () => void }) {
+  const [open, setOpen] = useState(false)
+  const wrapper = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!wrapper.current?.contains(event.target as Node)) setOpen(false)
+    }
+    // 用捕獲階段攔下 Esc，避免同時觸發全域快捷鍵把其他面板一起關掉
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.stopImmediatePropagation()
+      setOpen(false)
+      trigger.current?.focus()
+    }
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown, true)
+    }
+  }, [open])
+
+  const pick = (action: () => void) => () => { setOpen(false); action() }
+
+  return (
+    <div className="file-menu" ref={wrapper}>
+      <button ref={trigger} className={open ? 'active' : ''} onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} title="專案檔案">
+        檔案 <i aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="file-menu-list" role="menu">
+          <button role="menuitem" onClick={pick(onImport)}>匯入專案檔<small>.json</small></button>
+          <button role="menuitem" onClick={pick(onExport)}>匯出專案檔<small>⌘E</small></button>
+          <button role="menuitem" onClick={pick(onLoad)}>載入本機存檔<small>上次儲存</small></button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TopBar() {
+  const view = useStudio((state) => state.view)
+  const renderMode = useStudio((state) => state.renderMode)
+  const openStudioView = useStudio((state) => state.openStudioView)
+  const openCameraView = useStudio((state) => state.openCameraView)
+  const openTopView = useStudio((state) => state.openTopView)
+  const startPhotoRender = useStudio((state) => state.startPhotoRender)
+  const saveProject = useStudio((state) => state.saveProject)
+  const loadProject = useStudio((state) => state.loadProject)
+  const exportProject = useStudio((state) => state.exportProject)
+  const importProject = useStudio((state) => state.importProject)
+  const saveStatus = useStudio((state) => state.saveStatus)
+  const projectName = useStudio((state) => state.projectName)
+  const setValue = useStudio((state) => state.setValue)
+  const professionalPanelOpen = useStudio((state) => state.professionalPanelOpen)
+  const projectInput = useRef<HTMLInputElement>(null)
+
+  return (
+    <header className="topbar">
+      <div className="brand" aria-label="Lumen Stage">
+        <span className="brand-mark"><i /></span>
+        <div><strong>LUMEN</strong><small>STAGE / 001</small></div>
+      </div>
+      <div className="project-title"><span>PROJECT</span><input className="project-name-input" aria-label="專案名稱" value={projectName} onChange={(event) => setValue('projectName', event.target.value)} /><small className={`save-state ${saveStatus}`}>{saveStatus === 'saved' ? '已儲存' : saveStatus === 'autosaved' ? '自動儲存' : saveStatus === 'loaded' ? '已載入' : saveStatus === 'exported' ? '已匯出' : saveStatus === 'error' ? '沒有存檔' : '本機場景'}</small></div>
+      <div className="view-switch" role="group" aria-label="檢視模式">
+        <button className={view === 'studio' ? 'active' : ''} onClick={openStudioView} title="棚內視角（1）">棚內視角 <kbd>1</kbd></button>
+        <button className={view === 'top' ? 'active' : ''} onClick={openTopView} title="俯視燈位（2）">俯視燈位 <kbd>2</kbd></button>
+        <button className={view === 'camera' && renderMode === 'preview' ? 'active' : ''} onClick={openCameraView} title="相機取景（3）">相機取景 <kbd>3</kbd></button>
+        <button className={renderMode === 'path' ? 'active render-active' : ''} onClick={startPhotoRender} title="照片渲染（4）">照片渲染 <kbd>4</kbd></button>
+      </div>
+      <div className="project-actions">
+        <button className="setup-sheet-button" onClick={() => setValue('setupSheetOpen', true)} title="產生燈位工作表">燈位工作表</button>
+        <button className={professionalPanelOpen ? 'pro-console-button active' : 'pro-console-button'} onClick={() => setValue('professionalPanelOpen', !professionalPanelOpen)} title="專業控制台（P）" aria-pressed={professionalPanelOpen}>PRO</button>
+        <input ref={projectInput} className="asset-input" type="file" accept=".json,.lumen.json,application/json" onChange={async (event) => { const file = event.target.files?.[0]; if (file) importProject(await file.text()); event.target.value = '' }} />
+        <FileMenu onImport={() => projectInput.current?.click()} onExport={exportProject} onLoad={loadProject} />
+        <button className="save-button" onClick={saveProject} title="儲存場景到瀏覽器（⌘S）">儲存場景 <span>⌘S</span></button>
+      </div>
+    </header>
+  )
+}
+
+function RenderToolbar() {
+  const renderMode = useStudio((state) => state.renderMode)
+  const paused = useStudio((state) => state.pathTracingPaused)
+  const samples = useStudio((state) => state.pathTracingSamples)
+  const status = useStudio((state) => state.pathTracingStatus)
+  const setValue = useStudio((state) => state.setValue)
+  const restart = useStudio((state) => state.restartPhotoRender)
+  const frameAspect = useStudio((state) => state.frameAspect)
+  const frameOrientation = useStudio((state) => state.frameOrientation)
+  const lensOpticsEnabled = useStudio((state) => state.lensOpticsEnabled)
+  const lensVignette = useStudio((state) => state.lensVignette)
+  const lensDistortion = useStudio((state) => state.lensDistortion)
+  const lensChromaticAberration = useStudio((state) => state.lensChromaticAberration)
+  const lensBreathing = useStudio((state) => state.lensBreathing)
+  const imageFormat = useStudio((state) => state.imageFormat)
+  const whiteBalance = useStudio((state) => state.whiteBalance)
+  const whiteBalanceTint = useStudio((state) => state.whiteBalanceTint)
+  const colorProfileId = useStudio((state) => state.colorProfileId)
+  const highlightRolloff = useStudio((state) => state.highlightRolloff)
+  const toneCurve = useStudio((state) => state.toneCurve)
+  const lutIntensity = useStudio((state) => state.lutIntensity)
+  const cameraBodyId = useStudio((state) => state.cameraBodyId)
+  const sensorSimulationEnabled = useStudio((state) => state.sensorSimulationEnabled)
+  const shutterMode = useStudio((state) => state.shutterMode)
+  const sensorDynamicRange = useStudio((state) => state.sensorDynamicRange)
+  const noiseReduction = useStudio((state) => state.noiseReduction)
+  const colorNoise = useStudio((state) => state.colorNoise)
+  const motionBlur = useStudio((state) => state.motionBlur)
+  const rollingShutter = useStudio((state) => state.rollingShutter)
+  const iso = useStudio((state) => state.iso)
+  const shutter = useStudio((state) => state.shutter)
+  const outputResolution = useStudio((state) => state.outputResolution)
+  const denoiseEnabled = useStudio((state) => state.denoiseEnabled)
+
+  if (renderMode !== 'path') return null
+
+  const download = () => {
+    const canvas = document.querySelector<HTMLCanvasElement>('.viewport canvas:not(.exposure-overlay)')
+    if (!canvas) return
+    const targetRatio = getFrameRatio(frameAspect, frameOrientation)
+    const sourceRatio = canvas.width / canvas.height
+    let sourceX = 0
+    let sourceY = 0
+    let sourceWidth = canvas.width
+    let sourceHeight = canvas.height
+    if (sourceRatio > targetRatio) {
+      sourceWidth = Math.round(canvas.height * targetRatio)
+      sourceX = Math.round((canvas.width - sourceWidth) / 2)
+    } else {
+      sourceHeight = Math.round(canvas.width / targetRatio)
+      sourceY = Math.round((canvas.height - sourceHeight) / 2)
+    }
+    const output = document.createElement('canvas')
+    const longEdge = outputResolution === '4k' ? 3840 : outputResolution === '2k' ? 2560 : 1920
+    if (targetRatio >= 1) { output.width = longEdge; output.height = Math.round(longEdge / targetRatio) } else { output.height = longEdge; output.width = Math.round(longEdge * targetRatio) }
+    const outputContext = output.getContext('2d')
+    if (outputContext) { if (denoiseEnabled) outputContext.filter = 'blur(0.35px)'; outputContext.drawImage(canvas, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, output.width, output.height); outputContext.filter = 'none' }
+    applyLensOpticsToCanvas(output, { enabled: lensOpticsEnabled, vignette: lensVignette, distortion: lensDistortion, chromaticAberration: lensChromaticAberration, breathing: lensBreathing })
+    applyColorScienceToCanvas(output, { imageFormat, whiteBalance, whiteBalanceTint, colorProfileId, highlightRolloff, toneCurve, lutIntensity })
+    const body = CAMERA_BODIES[cameraBodyId]
+    applySensorProcessingToCanvas(output, { enabled: sensorSimulationEnabled, iso, nativeIso: body.nativeIso, noiseFactor: body.noiseFactor, dynamicRange: sensorDynamicRange, noiseReduction, colorNoise, shutter, shutterMode, motionBlur, rollingShutter, readoutMs: body.readoutMs, raw: imageFormat === 'raw' })
+    const link = document.createElement('a')
+    link.download = `lumen-stage-${new Date().toISOString().replace(/[:.]/g, '-')}.png`
+    link.href = output.toDataURL('image/png')
+    link.click()
+  }
+
+  const label = status === 'building' ? '建立光線場景' : status === 'error' ? '渲染失敗' : paused ? '已暫停' : '漸進取樣'
+
+  return (
+    <div className="render-toolbar" role="toolbar" aria-label="高品質照片渲染">
+      <div className="render-progress">
+        <span>{label}</span>
+        <strong>{Math.floor(samples)} <small>SPP</small></strong>
+        <i style={{ '--render-progress': `${Math.min(100, samples / 2.56)}%` } as React.CSSProperties} />
+      </div>
+      <button onClick={() => setValue('pathTracingPaused', !paused)} disabled={status === 'building' || status === 'error'} title="暫停／繼續取樣（Space）">{paused ? '繼續' : '暫停'} <kbd>Space</kbd></button>
+      <button onClick={restart} title="重新取樣（⇧R）">重新取樣 <kbd>⇧R</kbd></button>
+      <button className="export-button" onClick={download} disabled={samples < 1}>輸出 PNG</button>
+    </div>
+  )
+}
+
+function PathLensOverlay() {
+  const view = useStudio((state) => state.view)
+  const renderMode = useStudio((state) => state.renderMode)
+  const enabled = useStudio((state) => state.lensOpticsEnabled)
+  const vignette = useStudio((state) => state.lensVignette)
+  const chromaticAberration = useStudio((state) => state.lensChromaticAberration)
+  if (view !== 'camera' || renderMode !== 'path' || !enabled) return null
+  return <div className="path-lens-overlay" aria-hidden="true" style={{ '--vignette': Math.min(0.7, vignette * 0.0065), '--fringe': Math.min(0.2, chromaticAberration * 0.0012) } as React.CSSProperties} />
+}
+
+function PathColorOverlay() {
+  const renderMode = useStudio((state) => state.renderMode)
+  const profileId = useStudio((state) => state.colorProfileId)
+  const imageFormat = useStudio((state) => state.imageFormat)
+  const lutIntensity = useStudio((state) => state.lutIntensity)
+  if (renderMode !== 'path') return null
+  const colors = { neutral: '#ffffff', portrait: '#d98a73', vivid: '#e5b93d', cinema: '#2a7f83', monochrome: '#777777' } as const
+  const opacity = (imageFormat === 'raw' ? 0.018 : 0.075) * (lutIntensity / 100)
+  return <div className="path-color-overlay" aria-hidden="true" style={{ '--profile-tint': colors[profileId], '--profile-opacity': opacity } as React.CSSProperties} />
+}
+
+function PathSensorOverlay() {
+  const renderMode = useStudio((state) => state.renderMode)
+  const enabled = useStudio((state) => state.sensorSimulationEnabled)
+  const iso = useStudio((state) => state.iso)
+  const cameraBodyId = useStudio((state) => state.cameraBodyId)
+  const noiseReduction = useStudio((state) => state.noiseReduction)
+  const imageFormat = useStudio((state) => state.imageFormat)
+  if (renderMode !== 'path' || !enabled) return null
+  const body = CAMERA_BODIES[cameraBodyId]
+  const isoGain = Math.max(1, iso / body.nativeIso)
+  const opacity = Math.min(0.18, Math.sqrt(isoGain - 1) * 0.018 * body.noiseFactor * (1 - noiseReduction / 120) * (imageFormat === 'raw' ? 1 : 0.62))
+  return <div className="path-sensor-overlay" aria-hidden="true" style={{ '--sensor-noise': opacity } as React.CSSProperties} />
+}
+
+function SceneToolbar() {
+  const selected = useStudio((state) => state.selected)
+  const view = useStudio((state) => state.view)
+  const mode = useStudio((state) => state.transformMode)
+  const setValue = useStudio((state) => state.setValue)
+  const selectedLight = useStudio((state) => state.lights.find((light) => light.id === state.selected))
+  const selectedModifier = useStudio((state) => state.modifiers.find((modifier) => modifier.id === state.selected))
+  const selectedStudioObject = useStudio((state) => state.studioObjects.find((object) => object.id === state.selected))
+  const selectedCount = useStudio((state) => state.selectedIds.length)
+  const aimMode = useStudio((state) => state.lightAimMode)
+  if (view === 'camera') return null
+
+  return (
+    <div className="scene-toolbar" role="toolbar" aria-label="場景編輯工具">
+      <span>{selectedLight ? `${selectedLight.name.toUpperCase()}${selectedCount > 1 ? ` · ${selectedCount} SELECTED` : ''}` : selectedModifier ? `${selectedModifier.name.toUpperCase()} · GRIP` : selectedStudioObject ? `${selectedStudioObject.name.toUpperCase()} · SET` : selected === 'camera' ? 'CAMERA 01' : selected === 'meter' ? 'INCIDENT METER' : 'MODEL'}</span>
+      <button className={mode === 'translate' && !aimMode ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'translate') }} title="移動（G）"><i className="move-glyph" />移動 <kbd>G</kbd></button>
+      {selectedLight && <button className={aimMode ? 'active aim-active' : ''} onClick={() => setValue('lightAimMode', !aimMode)} title="編輯照射目標（T）"><i className="target-glyph" />瞄準 <kbd>T</kbd></button>}
+      <button disabled={selected !== 'model' && !selectedModifier && !selectedStudioObject} className={mode === 'rotate' ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'rotate') }} title="旋轉（R）"><i className="rotate-glyph" />旋轉 <kbd>R</kbd></button>
+    </div>
+  )
+}
+
+function BottomReadout() {
+  const { focalLength, aperture, iso, shutter, lights, cameraMode, frameRate, shutterAngle, tStop } = useStudio()
+  const keyLight = lights[0]
+  const ev = Math.log2((aperture * aperture * 100) / (1 / shutter * iso)).toFixed(1)
+  return (
+    <footer className="readout">
+      <div><span>LENS</span><strong>{focalLength}<small>mm</small></strong></div>
+      <div><span>{cameraMode === 'cinema' ? 'T-STOP' : 'APERTURE'}</span><strong>{cameraMode === 'cinema' ? `T${tStop}` : `ƒ/${aperture}`}</strong></div>
+      <div><span>{cameraMode === 'cinema' ? 'FPS / ANGLE' : 'SHUTTER'}</span><strong>{cameraMode === 'cinema' ? `${frameRate} / ${shutterAngle}°` : `1/${shutter}`}<small>{cameraMode === 'photo' ? 's' : ''}</small></strong></div>
+      <div><span>ISO</span><strong>{iso}</strong></div>
+      <div><span>{keyLight?.colorMode === 'rgb' ? 'KEY RGB' : 'KEY TEMP'}</span><strong>{keyLight?.colorMode === 'rgb' ? keyLight.rgb.toUpperCase() : keyLight?.temperature ?? '—'}{keyLight?.colorMode === 'kelvin' && <small>K</small>}</strong></div>
+      <div className="ev"><span>SCENE EV</span><strong>{ev}</strong><i style={{ '--meter': `${Math.min(100, Number(ev) * 7)}%` } as React.CSSProperties} /></div>
+    </footer>
+  )
+}
+
+export default function App() {
+  const view = useStudio((state) => state.view)
+  const renderMode = useStudio((state) => state.renderMode)
+  const pathStatus = useStudio((state) => state.pathTracingStatus)
+  const pathSamples = useStudio((state) => state.pathTracingSamples)
+  const sensorFormat = useStudio((state) => state.sensorFormat)
+  const frameAspect = useStudio((state) => state.frameAspect)
+  const frameOrientation = useStudio((state) => state.frameOrientation)
+  const imageFormat = useStudio((state) => state.imageFormat)
+  const colorProfileId = useStudio((state) => state.colorProfileId)
+  const lutIntensity = useStudio((state) => state.lutIntensity)
+  const whiteBalance = useStudio((state) => state.whiteBalance)
+  const roomWidth = useStudio((state) => state.roomWidth)
+  const roomDepth = useStudio((state) => state.roomDepth)
+  const activeCameraId = useStudio((state) => state.activeCameraId)
+  const cameras = useStudio((state) => state.cameras)
+  const cameraMode = useStudio((state) => state.cameraMode)
+  const profile = COLOR_PROFILES[colorProfileId]
+  const rawMix = imageFormat === 'raw' ? 0.24 : 1
+  const colorStrength = rawMix * lutIntensity / 100
+  const pathSaturation = 1 + (profile.saturation - 1) * colorStrength
+  const pathContrast = 1 + (profile.contrast - 1) * colorStrength
+  const pathSepia = Math.max(0, (whiteBalance - 5600) / 3400) * 0.14 * rawMix
+
+  const [sceneReady, setSceneReady] = useState(false)
+  const [hint, setHint] = useState<{ id: number; text: string } | null>(null)
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const result = runShortcut(event)
+      if (!result?.message) return
+      const text = result.message
+      setHint({ id: hintSequence++, text })
+      if (hintTimer.current) clearTimeout(hintTimer.current)
+      hintTimer.current = setTimeout(() => setHint(null), 1600)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      if (hintTimer.current) clearTimeout(hintTimer.current)
+    }
+  }, [])
+
+  return (
+    <main className="app-shell">
+      <TopBar />
+      <Library />
+      <section className={`viewport ${renderMode === 'path' ? 'path-color-science' : ''}`} aria-label="3D 攝影棚" style={{ '--path-saturation': pathSaturation, '--path-contrast': pathContrast, '--path-sepia': pathSepia } as React.CSSProperties}>
+        <Canvas
+          onCreated={() => setSceneReady(true)}
+          shadows="percentage"
+          dpr={[1, 1.75]}
+          gl={{ antialias: true, preserveDrawingBuffer: true }}
+          camera={{ position: [6.8, 4.8, 7.2], fov: 42, near: 0.05, far: 100 }}
+        >
+          <Suspense fallback={null}><StudioScene /></Suspense>
+        </Canvas>
+        {!sceneReady && (
+          <div className="viewport-loading" role="status">
+            <span className="viewport-loading-mark"><i /></span>
+            <strong>正在架設攝影棚</strong>
+            <small>BUILDING STUDIO · WEBGL</small>
+          </div>
+        )}
+        <div className={`viewport-label ${renderMode === 'path' ? 'rendering' : ''}`}><span className="status-dot" /> {renderMode === 'path' ? (pathStatus === 'building' ? 'BUILDING SCENE' : `PATH TRACING · ${Math.floor(pathSamples)} SPP`) : 'LIVE LIGHTING'} <b>{renderMode === 'path' ? 'HQ' : '60 FPS'}</b></div>
+        <div className="axis-label">{renderMode === 'path' ? `${cameraMode.toUpperCase()} · ${SENSOR_LABELS[sensorFormat]} · ${frameAspect}` : view === 'camera' ? `${cameras.find((camera) => camera.id === activeCameraId)?.name.toUpperCase() ?? 'CAMERA'} · ${SENSOR_LABELS[sensorFormat]} · ${frameAspect} ${frameOrientation === 'portrait' ? 'V' : 'H'}` : view === 'top' ? 'TOP PLAN · METERS' : `STUDIO · ${roomWidth} × ${roomDepth} M`}</div>
+        <SceneToolbar />
+        <RenderToolbar />
+        <ViewfinderOverlay />
+        <PathLensOverlay />
+        <PathColorOverlay />
+        <PathSensorOverlay />
+        <ExposureAnalysis />
+        <ShotLibrary />
+        <ShortcutLauncher />
+        <ShortcutHint hint={hint} />
+      </section>
+      <Inspector />
+      <ProfessionalPanel />
+      <BottomReadout />
+      <ShortcutHelp />
+      <SetupSheetHost />
+    </main>
+  )
+}
