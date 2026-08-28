@@ -162,27 +162,21 @@ function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
 
 function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const closeButton = useRef<HTMLButtonElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(1)
   const pageCount = 11
 
   useEffect(() => {
     if (!open) return
     setPage(1)
+    window.requestAnimationFrame(() => stageRef.current?.scrollTo({ top: 0 }))
     closeButton.current?.focus()
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
-      if (event.key === 'ArrowLeft') setPage((current) => Math.max(1, current - 1))
-      if (event.key === 'ArrowRight') setPage((current) => Math.min(pageCount, current + 1))
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [open, onClose, pageCount])
-
-  useEffect(() => {
-    if (!open || page >= pageCount) return
-    const next = new Image()
-    next.src = `/guide-pages/page-${String(page + 1).padStart(2, '0')}.jpg`
-  }, [open, page, pageCount])
+  }, [open, onClose])
 
   if (!open) return null
   const guideUrl = '/LUMEN_STAGE_網站使用教學.pdf'
@@ -197,15 +191,22 @@ function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
             <button ref={closeButton} onClick={onClose} aria-label="關閉網站使用教學">×</button>
           </div>
         </header>
-        <div className="guide-page-stage">
-          <img src={`/guide-pages/page-${String(page).padStart(2, '0')}.jpg`} alt={`LUMEN STAGE 網站使用教學第 ${page} 頁`} />
-          <div className="guide-page-progress" aria-live="polite">
-            <i><em style={{ width: `${page / pageCount * 100}%` }} /></i>
-            <button aria-label="上一頁" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>←</button>
-            <strong>{page} <span>/ {pageCount}</span></strong>
-            <button aria-label="下一頁" disabled={page === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>→</button>
-          </div>
+        <div ref={stageRef} className="guide-page-stage" role="document" aria-label="連續捲動教學頁面" tabIndex={0} onScroll={(event) => {
+          const viewport = event.currentTarget.getBoundingClientRect()
+          const center = viewport.top + viewport.height / 2
+          const pages = Array.from(event.currentTarget.querySelectorAll<HTMLImageElement>('[data-guide-page]'))
+          let nearest = 1
+          let distance = Number.POSITIVE_INFINITY
+          pages.forEach((image, index) => {
+            const rect = image.getBoundingClientRect()
+            const nextDistance = Math.abs(rect.top + rect.height / 2 - center)
+            if (nextDistance < distance) { distance = nextDistance; nearest = index + 1 }
+          })
+          setPage((current) => current === nearest ? current : nearest)
+        }}>
+          {Array.from({ length: pageCount }, (_, index) => <img key={index + 1} data-guide-page={index + 1} loading={index < 2 ? 'eager' : 'lazy'} src={`/guide-pages/page-${String(index + 1).padStart(2, '0')}.jpg`} alt={`LUMEN STAGE 網站使用教學第 ${index + 1} 頁`} />)}
         </div>
+        <div className="guide-page-indicator" aria-live="polite"><strong>{page}</strong><span>/ {pageCount}</span></div>
       </section>
     </div>
   )
