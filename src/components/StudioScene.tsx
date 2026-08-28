@@ -822,34 +822,6 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
   </>
 }
 
-function LightMeterProbe() {
-  const open = useStudio((state) => state.analysisOpen)
-  const selected = useStudio((state) => state.selected === 'meter')
-  const position = useStudio((state) => state.meterPosition)
-  const view = useStudio((state) => state.view)
-  const renderMode = useStudio((state) => state.renderMode)
-  const selectObject = useStudio((state) => state.selectObject)
-  const setMeterPosition = useStudio((state) => state.setMeterPosition)
-  const group = useRef<THREE.Group>(null)
-  if (!open || view === 'camera' || renderMode === 'path') return null
-
-  const probe = <group ref={group} position={position} onClick={(event) => { event.stopPropagation(); selectObject('meter') }}>
-    <mesh castShadow rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.095, 0.095, 0.035, 28]} /><meshStandardMaterial color="#252a25" metalness={0.55} roughness={0.3} /></mesh>
-    <mesh position={[0, 0.038, 0]}><sphereGeometry args={[0.061, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color="#f2f0e7" roughness={0.95} /></mesh>
-    <mesh position={[0, -0.21, 0]}><cylinderGeometry args={[0.013, 0.018, 0.38, 10]} /><meshStandardMaterial color="#222622" metalness={0.65} /></mesh>
-    <mesh position={[0, -0.41, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.11, 0.012, 8, 24]} /><meshStandardMaterial color="#232723" metalness={0.7} /></mesh>
-    {selected && <mesh><sphereGeometry args={[0.13, 18, 18]} /><meshBasicMaterial color="#d8ff3e" wireframe transparent opacity={0.5} /></mesh>}
-  </group>
-
-  return <>
-    {probe}
-    {selected && <TransformControls object={group as RefObject<THREE.Object3D>} mode="translate" size={0.65} translationSnap={0.05} onObjectChange={() => {
-      if (!group.current) return
-      setMeterPosition([Number(group.current.position.x.toFixed(2)), Number(Math.max(0.15, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))])
-    }} />}
-  </>
-}
-
 function CameraProp() {
   const selectObject = useStudio((state) => state.selectObject)
   const selected = useStudio((state) => state.selected === 'camera')
@@ -1191,7 +1163,6 @@ export function StudioScene() {
       {lights.map((light) => <Softbox key={light.id} light={light} />)}
       {modifiers.map((modifier) => <GripModifier key={modifier.id} modifier={modifier} />)}
       {studioObjects.map((object) => <MovableStudioObject key={object.id} object={object} />)}
-      <LightMeterProbe />
       {renderMode !== 'path' && <CameraProp />}
       {renderMode !== 'path' && <Grid position={[0, 0.006, 1.5]} args={[10, 10]} cellSize={0.5} cellThickness={0.4} cellColor="#747872" sectionSize={2} sectionThickness={0.75} sectionColor="#9ba197" fadeDistance={12} fadeStrength={1.8} infiniteGrid />}
       <CameraImaging />

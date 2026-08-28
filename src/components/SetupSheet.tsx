@@ -200,10 +200,11 @@ export function SetupSheet() {
   const body = CAMERA_BODIES[state.cameraBodyId]
   const lens = LENS_PROFILES[state.lensProfileId]
   const effectiveAperture = state.cameraMode === 'cinema' ? state.tStop : state.aperture
+  const subjectMeterPoint = useMemo<[number, number, number]>(() => [state.modelPosition[0], state.modelPosition[1] + state.modelHeight * 0.72, state.modelPosition[2]], [state.modelHeight, state.modelPosition])
 
   const metering = useMemo(
-    () => calculateMetering(state.lights, state.modifiers, state.meterPosition, effectiveAperture, state.shutter, state.iso, state.syncSpeed, state.ambientLevel),
-    [state.lights, state.modifiers, state.meterPosition, effectiveAperture, state.shutter, state.iso, state.syncSpeed, state.ambientLevel],
+    () => calculateMetering(state.lights, state.modifiers, subjectMeterPoint, effectiveAperture, state.shutter, state.iso, state.syncSpeed, state.ambientLevel),
+    [state.lights, state.modifiers, subjectMeterPoint, effectiveAperture, state.shutter, state.iso, state.syncSpeed, state.ambientLevel],
   )
 
   const depth = calculateDepthOfField(state.focalLength, effectiveAperture, state.focusDistance, SENSOR_COC[state.sensorFormat])
@@ -514,10 +515,10 @@ export function SetupSheet() {
           {/* ---------- Exposure block ---------- */}
           <g>
             <rect x={900} y={128} width={744} height={196} fill={C.block} rx={4} />
-            <text x={922} y={158} fontSize={11} fill="#8d979f" letterSpacing={1.6} fontFamily="ui-monospace, monospace">INCIDENT METER AT SUBJECT</text>
+            <text x={922} y={158} fontSize={11} fill="#8d979f" letterSpacing={1.6} fontFamily="ui-monospace, monospace">AUTO EXPOSURE AT SUBJECT</text>
             <g fill="#ffffff">
               <text x={922} y={200} fontSize={44} fontWeight={800} fontFamily="Inter, system-ui, sans-serif">{metering.recommendedApertureLabel}</text>
-              <text x={922} y={224} fontSize={11} fill="#8d979f" letterSpacing={1.4} fontFamily="ui-monospace, monospace">METERED APERTURE</text>
+              <text x={922} y={224} fontSize={11} fill="#8d979f" letterSpacing={1.4} fontFamily="ui-monospace, monospace">CALCULATED APERTURE</text>
 
               <text x={1150} y={192} fontSize={26} fontWeight={700} fontFamily="Inter, system-ui, sans-serif">EV {metering.ev100.toFixed(1)}</text>
               <text x={1150} y={212} fontSize={11} fill="#8d979f" letterSpacing={1.4} fontFamily="ui-monospace, monospace">AT ISO 100</text>

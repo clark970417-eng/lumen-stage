@@ -24,8 +24,6 @@ export function Library() {
   const setModelAsset = useStudio((state) => state.setModelAsset)
   const sensorFormat = useStudio((state) => state.sensorFormat)
   const frameAspect = useStudio((state) => state.frameAspect)
-  const analysisOpen = useStudio((state) => state.analysisOpen)
-  const setValue = useStudio((state) => state.setValue)
   const posePreset = useStudio((state) => state.posePreset)
   const modelHeight = useStudio((state) => state.modelHeight)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -47,7 +45,7 @@ export function Library() {
 
   return (
     <aside className="library panel">
-      <div className="panel-heading"><span>場景物件</span><b>{String(lights.length + modifiers.length + studioObjects.length + 3).padStart(2, '0')}</b></div>
+      <div className="panel-heading"><span>場景物件</span><b>{String(lights.length + modifiers.length + studioObjects.length + 2).padStart(2, '0')}</b></div>
       <div className="library-actions" role="toolbar" aria-label="場景歷史與新增">
         <button className="add-light-button" onClick={() => addLight('square')}>＋ 新增燈</button>
         <button onClick={undo} disabled={!canUndo} title="復原（⌘Z）">↶</button>
@@ -68,9 +66,6 @@ export function Library() {
         </button>
         <button className={selected === 'model' ? 'selected' : ''} onClick={() => selectObject('model')}>
           <span className="object-icon model-icon" /><span><strong>{modelAssetName || 'Model'}</strong><small>{modelImportStatus === 'ready' ? `Imported GLB · ${modelHeight.toFixed(2)} m` : modelImportStatus === 'loading' ? 'Loading model…' : modelImportStatus === 'error' ? 'Import failed' : `${posePreset.replaceAll('-', ' ')} · ${modelHeight.toFixed(2)} m`}</small></span><i>M</i>
-        </button>
-        <button className={selected === 'meter' ? 'selected primary-object' : ''} onClick={() => { selectObject('meter'); if (!analysisOpen) setValue('analysisOpen', true) }}>
-          <span className="object-icon meter-icon" /><span><strong>Incident Meter</strong><small>Movable probe · live lux</small></span><i>LM</i>
         </button>
         {lights.map((light, index) => matches(light.id, light.name, LIGHT_PROFILES[light.profileId].model, light.optic) && (
           <button key={light.id} className={`${selectedIds.includes(light.id) ? 'selected' : ''} ${selected === light.id ? 'primary-object' : ''} ${light.enabled ? '' : 'object-disabled'}`} onClick={(event) => selectObject(light.id, event.shiftKey)} onDoubleClick={() => toggleFavorite(light.id)}>

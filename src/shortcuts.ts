@@ -60,7 +60,7 @@ function selectionName(state: StudioState) {
   return selectedLight(state)?.name
     ?? selectedModifier(state)?.name
     ?? selectedStudioObject(state)?.name
-    ?? (state.selected === 'camera' ? '相機' : state.selected === 'meter' ? '測光表' : '模特兒')
+    ?? (state.selected === 'camera' ? '相機' : '模特兒')
 }
 
 const NUDGE_AXIS: Record<string, [number, number]> = {
@@ -111,11 +111,6 @@ function nudgeSelection(state: StudioState, event: KeyboardEvent): string | void
     const next = add(state.cameraPosition, delta)
     state.setCameraPosition(next)
     return `相機 · ${positionLabel(next)}`
-  }
-  if (state.selected === 'meter') {
-    const next = add(state.meterPosition, delta)
-    state.setMeterPosition(next)
-    return `測光表 · ${positionLabel(next)}`
   }
   const next = add(state.modelPosition, delta)
   state.setModelTransform(next)

@@ -162,16 +162,27 @@ function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
 
 function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const closeButton = useRef<HTMLButtonElement>(null)
+  const [page, setPage] = useState(1)
+  const pageCount = 11
 
   useEffect(() => {
     if (!open) return
+    setPage(1)
     closeButton.current?.focus()
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
+      if (event.key === 'ArrowLeft') setPage((current) => Math.max(1, current - 1))
+      if (event.key === 'ArrowRight') setPage((current) => Math.min(pageCount, current + 1))
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [open, onClose])
+  }, [open, onClose, pageCount])
+
+  useEffect(() => {
+    if (!open || page >= pageCount) return
+    const next = new Image()
+    next.src = `/guide-pages/page-${String(page + 1).padStart(2, '0')}.jpg`
+  }, [open, page, pageCount])
 
   if (!open) return null
   const guideUrl = '/LUMEN_STAGE_網站使用教學.pdf'
@@ -180,15 +191,21 @@ function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
     <div className="guide-overlay" role="dialog" aria-modal="true" aria-label="LUMEN STAGE 網站使用教學" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <section className="guide-dialog">
         <header>
-          <div><strong>網站使用教學</strong><small>LUMEN STAGE · 11 PAGES</small></div>
+          <div><strong>網站使用教學</strong><small>LUMEN STAGE · QUICK GUIDE</small></div>
           <div className="guide-actions">
-            <a href={guideUrl} target="_blank" rel="noreferrer">另開分頁</a>
             <a href={guideUrl} download>下載 PDF</a>
             <button ref={closeButton} onClick={onClose} aria-label="關閉網站使用教學">×</button>
           </div>
         </header>
-        <iframe src={`${guideUrl}#view=FitH&toolbar=1`} title="LUMEN STAGE 網站使用教學 PDF" />
-        <footer>從介面導覽、燈光與相機設定，到測光、鏡位管理及照片輸出。</footer>
+        <div className="guide-page-stage">
+          <img src={`/guide-pages/page-${String(page).padStart(2, '0')}.jpg`} alt={`LUMEN STAGE 網站使用教學第 ${page} 頁`} />
+          <div className="guide-page-progress" aria-live="polite">
+            <i><em style={{ width: `${page / pageCount * 100}%` }} /></i>
+            <button aria-label="上一頁" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>←</button>
+            <strong>{page} <span>/ {pageCount}</span></strong>
+            <button aria-label="下一頁" disabled={page === pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>→</button>
+          </div>
+        </div>
       </section>
     </div>
   )
@@ -326,7 +343,7 @@ function SceneToolbar() {
 
   return (
     <div className="scene-toolbar" role="toolbar" aria-label="場景編輯工具">
-      <span>{selectedLight ? `${selectedLight.name.toUpperCase()}${selectedCount > 1 ? ` · ${selectedCount} SELECTED` : ''}` : selectedModifier ? `${selectedModifier.name.toUpperCase()} · GRIP` : selectedStudioObject ? `${selectedStudioObject.name.toUpperCase()} · SET` : selected === 'camera' ? 'CAMERA 01' : selected === 'meter' ? 'INCIDENT METER' : 'MODEL'}</span>
+      <span>{selectedLight ? `${selectedLight.name.toUpperCase()}${selectedCount > 1 ? ` · ${selectedCount} SELECTED` : ''}` : selectedModifier ? `${selectedModifier.name.toUpperCase()} · GRIP` : selectedStudioObject ? `${selectedStudioObject.name.toUpperCase()} · SET` : selected === 'camera' ? 'CAMERA 01' : 'MODEL'}</span>
       <button className={mode === 'translate' && !aimMode ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'translate') }} title="移動（G）"><i className="move-glyph" />移動 <kbd>G</kbd></button>
       {selectedLight && <button className={aimMode ? 'active aim-active' : ''} onClick={() => setValue('lightAimMode', !aimMode)} title="編輯照射目標（T）"><i className="target-glyph" />瞄準 <kbd>T</kbd></button>}
       <button disabled={selected !== 'model' && !selectedModifier && !selectedStudioObject} className={mode === 'rotate' ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'rotate') }} title="旋轉（R）"><i className="rotate-glyph" />旋轉 <kbd>R</kbd></button>

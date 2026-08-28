@@ -81,7 +81,6 @@ export function ExposureAnalysis() {
   const soloLightId = useStudio((state) => state.soloLightId)
   const lights = useStudio((state) => state.lights)
   const modifiers = useStudio((state) => state.modifiers)
-  const meterPosition = useStudio((state) => state.meterPosition)
   const aperture = useStudio((state) => state.aperture)
   const shutter = useStudio((state) => state.shutter)
   const iso = useStudio((state) => state.iso)
@@ -89,17 +88,13 @@ export function ExposureAnalysis() {
   const ambientLevel = useStudio((state) => state.ambientLevel)
   const modelPosition = useStudio((state) => state.modelPosition)
   const modelHeight = useStudio((state) => state.modelHeight)
-  const studioObjects = useStudio((state) => state.studioObjects)
-  const subjectObjects = studioObjects.filter((object) => object.type === 'subject')
-  const setMeterPosition = useStudio((state) => state.setMeterPosition)
-  const moveMeterToSubject = useStudio((state) => state.moveMeterToSubject)
-  const selectObject = useStudio((state) => state.selectObject)
   const sample = useStudio((state) => state.exposureSample)
   const setValue = useStudio((state) => state.setValue)
   const histogramMode = useStudio((state) => state.histogramMode)
   const overlayCanvas = useRef<HTMLCanvasElement>(null)
   const metrics = useMemo(() => analyzeFrame(sample), [sample])
-  const metering = useMemo(() => calculateMetering(lights, modifiers, meterPosition, aperture, shutter, iso, syncSpeed, ambientLevel), [ambientLevel, aperture, iso, lights, meterPosition, modifiers, shutter, syncSpeed])
+  const subjectMeterPoint = useMemo<[number, number, number]>(() => [modelPosition[0], modelPosition[1] + modelHeight * 0.72, modelPosition[2]], [modelHeight, modelPosition])
+  const metering = useMemo(() => calculateMetering(lights, modifiers, subjectMeterPoint, aperture, shutter, iso, syncSpeed, ambientLevel), [ambientLevel, aperture, iso, lights, modifiers, shutter, subjectMeterPoint, syncSpeed])
 
   useEffect(() => {
     const canvas = overlayCanvas.current
@@ -161,13 +156,7 @@ export function ExposureAnalysis() {
         <button className={overlay === 'none' ? 'active' : ''} onClick={() => setValue('exposureOverlay', 'none')}>原始畫面</button>
       </div>
       <section className="incident-metering">
-        <div className="meter-heading"><span>入射式測光探針</span><button onClick={() => { selectObject('meter'); setValue('view', 'studio') }}>3D 移動</button></div>
-        <div className="meter-targets" role="group" aria-label="測光位置預設">
-          <button onClick={() => moveMeterToSubject('model', 'face')}>主角臉</button>
-          <button onClick={() => moveMeterToSubject('model', 'chest')}>主角胸</button>
-          {subjectObjects.map((subject, index) => <button key={subject.id} onClick={() => moveMeterToSubject(subject.id, 'face')}>{`人物 ${index + 2} 臉`}</button>)}
-          <button onClick={() => setMeterPosition([modelPosition[0], 1.45, -1.42])}>背景</button>
-        </div>
+        <div className="meter-heading"><span>人物位置曝光估算</span><small>AUTO · SUBJECT</small></div>
         <div className="meter-primary">
           <div><span>TOTAL INCIDENT</span><strong>{Math.round(metering.totalLux).toLocaleString()}<small> lx</small></strong></div>
           <div><span>EV 100</span><strong>{metering.ev100.toFixed(1)}</strong></div>

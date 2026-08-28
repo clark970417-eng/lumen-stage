@@ -783,7 +783,7 @@ const normalizeSnapshot = (value: unknown): SceneSnapshot => {
         normalizeLight({ id: 'key', name: 'Key light', enabled: true, intensity: raw.lightIntensity as number, temperature: raw.lightTemperature as number, shape: raw.lightShape as LightShape, softbox: raw.lightSoftbox as boolean, grid: raw.lightGrid as boolean, colorMode: raw.lightColorMode as LightColorMode, rgb: raw.lightRgb as string, position: raw.lightPosition as [number, number, number] }, 0),
         normalizeLight({ id: 'fill', name: 'Fill light', enabled: raw.fillEnabled as boolean, intensity: raw.fillIntensity as number, temperature: raw.fillTemperature as number, shape: raw.fillShape as LightShape, softbox: raw.fillSoftbox as boolean, grid: raw.fillGrid as boolean, colorMode: raw.fillColorMode as LightColorMode, rgb: raw.fillRgb as string, position: raw.fillPosition as [number, number, number] }, 1),
       ]
-  if (!lights.length || !Array.isArray(raw.modelPosition)) throw new Error('Invalid project scene')
+  if (!Array.isArray(raw.modelPosition)) throw new Error('Invalid project scene')
   const vector = (value: unknown, fallback: [number, number, number]): [number, number, number] => Array.isArray(value) && value.length === 3 && value.every((item) => Number.isFinite(Number(item))) ? value.map(Number) as [number, number, number] : fallback
   return {
     schemaVersion: 23,
@@ -1157,17 +1157,18 @@ export const useStudio = create<StudioState>((set, get) => ({
     return { lights: [...state.lights, ...copies], selected: selectedIds.at(-1)!, selectedIds, undoStack: withUndo(state), redoStack: [] }
   }),
   deleteLight: (id) => set((state) => {
-    if (state.lights.length <= 1 || !state.lights.some((light) => light.id === id)) return state
+    if (!state.lights.some((light) => light.id === id)) return state
     const lights = state.lights.filter((light) => light.id !== id)
-    return { lights, selected: lights[0].id, selectedIds: [lights[0].id], soloLightId: state.soloLightId === id ? null : state.soloLightId, undoStack: withUndo(state), redoStack: [] }
+    const nextLight = lights[0]
+    return { lights, selected: nextLight?.id ?? 'model', selectedIds: nextLight ? [nextLight.id] : [], soloLightId: state.soloLightId === id ? null : state.soloLightId, undoStack: withUndo(state), redoStack: [] }
   }),
   deleteSelectedLights: () => set((state) => {
     const removable = new Set(state.selectedIds)
     if (!removable.size) return state
-    let lights = state.lights.filter((light) => !removable.has(light.id))
-    if (!lights.length) lights = [state.lights[0]]
+    const lights = state.lights.filter((light) => !removable.has(light.id))
     if (lights.length === state.lights.length) return state
-    return { lights, selected: lights[0].id, selectedIds: [lights[0].id], soloLightId: state.soloLightId && removable.has(state.soloLightId) ? null : state.soloLightId, undoStack: withUndo(state), redoStack: [] }
+    const nextLight = lights[0]
+    return { lights, selected: nextLight?.id ?? 'model', selectedIds: nextLight ? [nextLight.id] : [], soloLightId: state.soloLightId && removable.has(state.soloLightId) ? null : state.soloLightId, undoStack: withUndo(state), redoStack: [] }
   }),
   addModifier: (type) => set((state) => {
     const id = `modifier-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
@@ -1379,7 +1380,8 @@ export const useStudio = create<StudioState>((set, get) => ({
       const snapshot = normalizeSnapshot(JSON.parse(raw))
       const shots = snapshot.shots ?? readStoredShots()
       persistShots(shots)
-      set((state) => ({ ...snapshotState(snapshot), shots, selected: snapshot.lights[0].id, selectedIds: [snapshot.lights[0].id], saveStatus: 'loaded', lastSavedAt: Date.now(), undoStack: withUndo(state), redoStack: [] }))
+      const firstLight = snapshot.lights[0]
+      set((state) => ({ ...snapshotState(snapshot), shots, selected: firstLight?.id ?? 'model', selectedIds: firstLight ? [firstLight.id] : [], saveStatus: 'loaded', lastSavedAt: Date.now(), undoStack: withUndo(state), redoStack: [] }))
     } catch { set({ saveStatus: 'error' }) }
   },
   exportProject: () => {
@@ -1402,7 +1404,8 @@ export const useStudio = create<StudioState>((set, get) => ({
       const snapshot = normalizeSnapshot(JSON.parse(raw))
       const shots = snapshot.shots ?? []
       persistShots(shots)
-      set((state) => ({ ...snapshotState(snapshot), shots, selected: snapshot.lights[0].id, selectedIds: [snapshot.lights[0].id], saveStatus: 'loaded', lastSavedAt: Date.now(), undoStack: withUndo(state), redoStack: [] }))
+      const firstLight = snapshot.lights[0]
+      set((state) => ({ ...snapshotState(snapshot), shots, selected: firstLight?.id ?? 'model', selectedIds: firstLight ? [firstLight.id] : [], saveStatus: 'loaded', lastSavedAt: Date.now(), undoStack: withUndo(state), redoStack: [] }))
     } catch { set({ saveStatus: 'error' }) }
   },
   mergeProject: (raw) => {

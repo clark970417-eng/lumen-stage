@@ -63,7 +63,7 @@ export function Inspector() {
   const studioObject = state.studioObjects.find((item) => item.id === state.selected)
   const subjectObjects = state.studioObjects.filter((item) => item.type === 'subject')
   const isLight = Boolean(light)
-  const selectionLabel = light ? `${light.name.toUpperCase()}${state.selectedIds.length > 1 ? ` +${state.selectedIds.length - 1}` : ''}` : modifier ? modifier.name.toUpperCase() : studioObject ? studioObject.name.toUpperCase() : state.selected === 'model' ? 'MODEL' : state.selected === 'meter' ? 'INCIDENT METER' : 'CAM 01'
+  const selectionLabel = light ? `${light.name.toUpperCase()}${state.selectedIds.length > 1 ? ` +${state.selectedIds.length - 1}` : ''}` : modifier ? modifier.name.toUpperCase() : studioObject ? studioObject.name.toUpperCase() : state.selected === 'model' ? 'MODEL' : 'CAM 01'
   const depth = calculateDepthOfField(state.focalLength, state.aperture, state.focusDistance, state.sensorFormat === 'full-frame' ? 0.03 : state.sensorFormat === 'aps-c' ? 0.019 : 0.015)
   const cameraDistance = Math.hypot(state.cameraPosition[0] - state.cameraTarget[0], state.cameraPosition[1] - state.cameraTarget[1], state.cameraPosition[2] - state.cameraTarget[2])
   const lightColor = light ? (light.colorMode === 'rgb' ? light.rgb : `rgb(${kelvinToRgb(light.temperature).join(',')})`) : '#ffffff'
@@ -87,7 +87,7 @@ export function Inspector() {
           <div className="object-management">
             <input aria-label="燈具名稱" value={light.name} maxLength={32} onChange={(event) => state.updateLight(light.id, { name: event.target.value || 'Untitled light' })} />
             <button onClick={state.duplicateSelectedLights}>複製</button>
-            <button className="danger" disabled={state.lights.length <= 1} onClick={state.deleteSelectedLights}>刪除</button>
+            <button className="danger" onClick={state.deleteSelectedLights}>刪除</button>
           </div>
           <div className="lock-row"><span>{light.groupId ? `群組 ${light.groupId.slice(-4).toUpperCase()}` : '未群組'}</span><button className={light.locked ? 'locked' : ''} onClick={() => state.updateLight(light.id, { locked: !light.locked })}>{light.locked ? '解除鎖定' : '鎖定位置'}</button></div>
           <div className="light-chip"><span style={{ background: lightColor, color: lightColor }} /><div><strong>{light.name}</strong><small>{shapeLabel} · {light.optic.replace('-', ' ')}{light.grid ? ' · 網格' : ''}</small></div><button className={light.enabled ? 'light-toggle on' : 'light-toggle'} onClick={() => state.updateLight(light.id, { enabled: !light.enabled })}>{light.enabled ? 'ON' : 'OFF'}</button></div>
@@ -248,21 +248,6 @@ export function Inspector() {
         <Range label="旋轉 Y" disabled={studioObject.locked} value={Math.round(THREE_RAD_TO_DEG * studioObject.rotationY)} min={-180} max={180} step={5} unit="°" onChange={(value) => state.setStudioObjectTransform(studioObject.id, studioObject.position, value / THREE_RAD_TO_DEG)} />
       </section>}
 
-      {state.selected === 'meter' && <section className="inspector-section meter-inspector">
-        <div className="section-title"><span>入射式測光探針</span><small>LIVE LUX</small></div>
-        <div className="meter-selection-chip"><i /><span><strong>Incident Meter</strong><small>白色半球接收所有入射光</small></span><b>ACTIVE</b></div>
-        <div className="meter-preset-buttons">
-          <button onClick={() => state.moveMeterToSubject('model', 'face')}>主角臉部</button>
-          <button onClick={() => state.moveMeterToSubject('model', 'chest')}>主角胸口</button>
-          {subjectObjects.map((subject, index) => <button key={subject.id} onClick={() => state.moveMeterToSubject(subject.id, 'face')}>{`人物 ${index + 2} 臉部`}</button>)}
-          <button onClick={() => state.setMeterPosition([state.modelPosition[0], 1.45, -1.42])}>背景中央</button>
-        </div>
-        <Range label="水平 X" value={state.meterPosition[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setMeterPosition([value, state.meterPosition[1], state.meterPosition[2]])} />
-        <Range label="高度 Y" value={state.meterPosition[1]} min={0.15} max={3} step={0.05} onChange={(value) => state.setMeterPosition([state.meterPosition[0], value, state.meterPosition[2]])} />
-        <Range label="深度 Z" value={state.meterPosition[2]} min={-1.5} max={4} step={0.05} onChange={(value) => state.setMeterPosition([state.meterPosition[0], state.meterPosition[1], value])} />
-        <button className="open-meter-panel" onClick={() => setValue('analysisOpen', true)}>開啟光比與逐燈分析</button>
-      </section>}
-
       {state.selected === 'model' && <section className="inspector-section model-inspector">
         <div className="section-title"><span>人物位置</span><small>METERS</small></div>
         <div className="selection-chip"><span className="model-silhouette" /><div><strong>{state.modelAssetName || 'Model'}</strong><small>{state.modelImportStatus === 'ready' ? 'Imported · 1.82 m normalized' : state.modelImportStatus === 'error' ? 'Import failed · using proxy' : 'Standing / neutral'}</small></div><b>SELECTED</b></div>
@@ -409,7 +394,12 @@ export function Inspector() {
         <Range label="焦段" disabled={lensProfile.minFocal === lensProfile.maxFocal} value={state.focalLength} min={lensProfile.minFocal} max={lensProfile.minFocal === lensProfile.maxFocal ? lensProfile.maxFocal + 1 : lensProfile.maxFocal} unit=" mm" onChange={(value) => setValue('focalLength', value)} />
         <Range label="光圈" value={state.aperture} min={lensProfile.maxAperture} max={16} step={0.1} onChange={(value) => setValue('aperture', Number(value.toFixed(1)))} />
         <Range label="對焦距離" value={state.focusDistance} min={1} max={10} step={0.05} displayValue={`${state.focusDistance.toFixed(2)} m`} onChange={(value) => { if (state.cameraAutoFocus) state.setCameraAutoFocus(false); setValue('focusDistance', Number(value.toFixed(2))) }} />
-        <label className="select-row"><span>快門</span><select aria-label="快門" value={state.shutter} onChange={(event) => setValue('shutter', Number(event.target.value))}>{[8, 15, 30, 60, 125, 250, 500, 1000, 2000].map((value) => <option key={value} value={value}>1/{value} s</option>)}</select></label>
+        <div className="shutter-speed-control">
+          <div><span>快門</span><output>1/{state.shutter} s</output></div>
+          <div role="group" aria-label="快門速度">
+            {[8, 15, 30, 60, 125, 250, 500, 1000, 2000].map((value) => <button key={value} aria-label={`快門 1/${value} 秒`} className={state.shutter === value ? 'active' : ''} onClick={() => setValue('shutter', value)}>1/{value}</button>)}
+          </div>
+        </div>
         <Range label="ISO" value={state.iso} min={100} max={12800} step={100} onChange={(value) => setValue('iso', value)} />
       </section>
     </aside>
