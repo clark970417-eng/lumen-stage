@@ -15,6 +15,10 @@ type Copy = {
   instrument: string
   instrumentBody: string
   capabilities: Array<[string, string]>
+  showcaseTitle: string
+  showcaseBody: string
+  showcase: Array<{ title: string; body: string; alt: string }>
+  photoBy: string
   workflowTitle: string
   workflow: Array<[string, string]>
   localTitle: string
@@ -40,6 +44,8 @@ const COPY: Record<Locale, Copy> = {
     proof: ['免安裝', '免帳號', '場景留在你的裝置'], instrument: '不是示意圖，是可以工作的攝影工具。',
     instrumentBody: '從林布蘭光到多燈商業棚拍，調整真實器材、曝光、色溫、鏡頭與姿勢；桌機負責精準控制，手機負責快速排光與取景。',
     capabilities: [['把抽象燈位變成空間', '以公尺、角度、照度與塑光附件建立可重現的配置。'], ['在拍攝前確認鏡頭', '切換片幅、焦段、光圈、景深與構圖，降低現場試錯。'], ['把方案帶到片場', '儲存、備份、分享場景並輸出燈位工作表與成品預覽。']],
+    showcaseTitle: '一個攝影棚，先對應三種真實任務。', showcaseBody: '從人像主光、商業商品到色光實驗，先在同一套工具裡確認光比、材質反光與色彩關係。', photoBy: '攝影',
+    showcase: [{ title: '色光人像', body: '用分離色塑造臉部輪廓與情緒層次。', alt: '紅藍色光交錯的棚內女性人像' }, { title: '商業商品', body: '控制包裝反光、陰影方向與品牌色。', alt: '黃色背景上的保養品商業攝影' }, { title: '雙色靜物', body: '在深色場景中分配輪廓光與產品焦點。', alt: '紅藍雙色光照明的專業耳機產品照' }],
     workflowTitle: '從想法到燈位，只要三個動作。', workflow: [['選一個起點', '使用經典燈位預設，或從空棚開始。'], ['調整畫面', '移動燈、人物與相機，查看曝光與景深。'], ['帶走方案', '分享連結、匯出專案，或下載燈位工作表。']],
     localTitle: 'Local-first，不把你的場景當成資料來源。', localBody: '專案預設儲存在你的瀏覽器，沒有帳號、廣告或行為追蹤。只有匿名技術錯誤會送出，且不包含場景與照片。',
     finalTitle: '下一次拍攝，先在 LUMEN STAGE 裡亮燈。', faqTitle: '正式開拍前，先回答幾個問題。',
@@ -53,6 +59,8 @@ const COPY: Record<Locale, Copy> = {
     title: ['Make the photograph', 'before the lights', ' turn on.'], intro: 'LUMEN STAGE lets photographers arrange lights, camera, subject and backdrop in the browser—so the light makes sense before the real studio clock starts.',
     proof: ['No install', 'No account', 'Scenes stay on your device'], instrument: 'Not a mock-up. A working photographic instrument.', instrumentBody: 'Build anything from Rembrandt light to a multi-light commercial set with real gear, exposure, colour, lenses and posing. Desktop delivers precision; phone delivers fast planning and framing.',
     capabilities: [['Turn diagrams into space', 'Build repeatable setups with metres, angles, illuminance and real modifiers.'], ['Confirm the lens before call time', 'Compare sensor, focal length, aperture, depth of field and composition before the shoot.'], ['Carry the plan to set', 'Save, back up and share scenes, then export a lighting sheet and frame preview.']],
+    showcaseTitle: 'One studio, three real assignments.', showcaseBody: 'Move from portrait key light to commercial product work and colour experiments—checking ratios, material reflections and colour relationships in the same instrument.', photoBy: 'Photo',
+    showcase: [{ title: 'Gel-lit portrait', body: 'Separate colour channels to shape facial contours and mood.', alt: 'Studio portrait of a woman shaped by intersecting red and blue light' }, { title: 'Commercial product', body: 'Control packaging reflections, shadow direction and brand colour.', alt: 'Commercial skincare products photographed on a yellow set' }, { title: 'Two-tone still life', body: 'Balance rim light and product focus in a dark set.', alt: 'Professional headphones photographed under blue and red studio light' }],
     workflowTitle: 'From idea to lighting plan in three moves.', workflow: [['Choose a starting point', 'Use a classic lighting setup or begin with an empty studio.'], ['Shape the frame', 'Move lights, subject and camera while checking exposure and depth.'], ['Take the plan with you', 'Share a link, export the project or download a setup sheet.']],
     localTitle: 'Local-first. Your scene is not our dataset.', localBody: 'Projects stay in your browser by default. There are no accounts, ads or behaviour analytics. Anonymous technical errors may be sent without scene or photo data.', finalTitle: 'Light your next shoot in LUMEN STAGE first.', faqTitle: 'A few answers before call time.',
     faq: [['Do I install anything?', 'No. Use a modern browser on a device that supports WebGL.'], ['Are phone and desktop the same?', 'They share the same scene format. Phone keeps the essential lighting and framing flow; desktop provides complete control.'], ['Are scenes uploaded?', 'No. Scenes and imported assets stay in your browser by default.'], ['Can I share a setup?', 'Yes. A compressed scene travels inside the share URL, with no account required.'], ['Does it replace a light meter?', 'No. It is a planning and communication tool; use real equipment and measurements on set.'], ['Does it cost anything?', 'The current public release is available without a card.']],
@@ -65,6 +73,8 @@ const COPY: Record<Locale, Copy> = {
     title: ['ライトを点ける', '前に、一度、', '撮り終える。'], intro: 'LUMEN STAGE はライト、カメラ、人物、背景をブラウザ上で組み立て、本番前に光を理解するための撮影設計ツールです。',
     proof: ['インストール不要', 'アカウント不要', 'シーンは端末内に保存'], instrument: 'イメージ図ではなく、実際に操作できる撮影ツール。', instrumentBody: 'レンブラントから多灯の商品撮影まで、実在機材、露出、色温度、レンズ、ポーズを調整。デスクトップは精密操作、スマートフォンは素早いライティングとフレーミングに対応します。',
     capabilities: [['照明図を空間にする', '距離、角度、照度、モディファイアで再現可能なセットを設計。'], ['撮影前にレンズを決める', 'センサー、焦点距離、絞り、被写界深度、構図を比較。'], ['プランを現場へ持ち出す', 'シーンを保存、バックアップ、共有し、照明シートを出力。']],
+    showcaseTitle: 'ひとつのスタジオで、3 つの実案件へ。', showcaseBody: 'ポートレートのキーライトから商品撮影、カラーライトまで。光比、素材の反射、色の関係を同じツールで確認できます。', photoBy: '撮影',
+    showcase: [{ title: 'カラーポートレート', body: '分離した色光で顔の輪郭とムードを設計。', alt: '赤と青のライトが交差する女性のスタジオポートレート' }, { title: '商業商品撮影', body: 'パッケージの反射、影の向き、ブランドカラーを制御。', alt: '黄色のセットで撮影されたスキンケア商品' }, { title: 'ツートーン静物', body: '暗いセットでリムライトと商品の焦点を調整。', alt: '赤と青のスタジオライトで撮影されたヘッドホン' }],
     workflowTitle: 'アイデアから照明プランまで、3 ステップ。', workflow: [['起点を選ぶ', '定番ライティング、または空のスタジオから開始。'], ['画を整える', 'ライト、人物、カメラを動かし露出と被写界深度を確認。'], ['プランを持ち出す', 'リンク共有、プロジェクト書き出し、照明シートを利用。']],
     localTitle: 'Local-first。シーンを学習データにしません。', localBody: 'プロジェクトはブラウザ内に保存され、アカウント、広告、行動解析はありません。匿名の技術エラーのみ、シーンや写真を含めず送信される場合があります。', finalTitle: '次の撮影は、まず LUMEN STAGE で点灯。', faqTitle: '撮影前によくある質問。',
     faq: [['インストールは必要ですか？', '不要です。WebGL 対応のモダンブラウザで利用できます。'], ['スマホとデスクトップは同じですか？', '同じシーン形式を使います。スマホは中核フロー、デスクトップは全機能を提供します。'], ['シーンはアップロードされますか？', 'いいえ。シーンと素材は既定でブラウザ内に残ります。'], ['共有できますか？', 'はい。圧縮シーンを URL に含めるため、アカウント不要です。'], ['露出計の代わりになりますか？', 'いいえ。計画と共有のためのツールです。本番では実機で確認してください。'], ['料金はかかりますか？', '現在の公開版はカードなしで利用できます。']],
@@ -142,9 +152,23 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     </section>
     <section className="site-intro" id="capabilities" data-reveal><span>01 / THE INSTRUMENT</span><h2>{copy.instrument}</h2><p>{copy.instrumentBody}</p></section>
     <section className="capability-grid" data-reveal>{copy.capabilities.map(([title, body], index) => <article key={title}><div><span>0{index + 1}</span><i aria-hidden="true" /></div><h3>{title}</h3><p>{body}</p></article>)}</section>
-    <section className="workflow" id="workflow"><div className="workflow-heading" data-reveal><span>02 / WORKFLOW</span><h2>{copy.workflowTitle}</h2><p>PLAN · SHAPE · CAPTURE</p></div><ol>{copy.workflow.map(([title, body], index) => <li key={title} data-reveal><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></li>)}</ol></section>
-    <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>03 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
-    <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>04 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
+    <section className="photo-showcase" aria-labelledby="photo-showcase-title">
+      <div className="photo-showcase-heading" data-reveal><span>02 / SHOOT RANGE</span><h2 id="photo-showcase-title">{copy.showcaseTitle}</h2><p>{copy.showcaseBody}</p></div>
+      <div className="photo-contact-sheet">{copy.showcase.map((item, index) => {
+        const photos = [
+          { src: '/showcase/gel-portrait.jpg', width: 1200, height: 2133, author: 'Jacquelin Perez', href: 'https://www.pexels.com/photo/studio-portrait-of-a-woman-lit-in-red-and-blue-6343596/', readout: '85 MM · GEL SPLIT' },
+          { src: '/showcase/commercial-skincare.jpg', width: 1200, height: 1800, author: 'Nora Topicals', href: 'https://www.pexels.com/photo/cosmetics-studio-shoot-7038148/', readout: '70 MM · HARD KEY' },
+          { src: '/showcase/two-tone-product.jpg', width: 1200, height: 1500, author: 'Guillaume Meurice', href: 'https://www.pexels.com/photo/black-headphones-on-blue-background-6587328/', readout: '90 MM · EDGE LIGHT' },
+        ][index]
+        return <figure key={item.title} className={`photo-frame photo-frame-${index + 1}`} data-reveal>
+          <div className="photo-frame-image"><img src={photos.src} alt={item.alt} width={photos.width} height={photos.height} loading="lazy" decoding="async" /><span>{photos.readout}</span></div>
+          <figcaption><div><span>0{index + 1}</span><h3>{item.title}</h3></div><p>{item.body}</p><a href={photos.href} target="_blank" rel="noreferrer">{copy.photoBy} / {photos.author} ↗</a></figcaption>
+        </figure>
+      })}</div>
+    </section>
+    <section className="workflow" id="workflow"><div className="workflow-heading" data-reveal><span>03 / WORKFLOW</span><h2>{copy.workflowTitle}</h2><p>PLAN · SHAPE · CAPTURE</p></div><ol>{copy.workflow.map(([title, body], index) => <li key={title} data-reveal><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></li>)}</ol></section>
+    <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>04 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
+    <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>05 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
     <section className="final-cta" data-reveal><span>READY / SET / LIGHT</span><h2>{copy.finalTitle}</h2><a className="site-cta" href="/studio"><span>{copy.open}</span><b aria-hidden="true">↗</b></a></section>
   </main><SiteFooter copy={copy} /></>
 }
