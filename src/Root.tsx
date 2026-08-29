@@ -6,8 +6,10 @@ import { routeFromLocation } from './routing'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { supportsWebGL } from './webgl'
 
-const App = lazy(() => import('./App'))
-const MobileApp = lazy(() => import('./components/MobileApp').then((module) => ({ default: module.MobileApp })))
+const loadApp = () => import('./App')
+const loadMobileApp = () => import('./components/MobileApp').then((module) => ({ default: module.MobileApp }))
+const App = lazy(loadApp)
+const MobileApp = lazy(loadMobileApp)
 const PublicSite = lazy(() => import('./components/PublicSite').then((module) => ({ default: module.PublicSite })))
 
 function ShellLoading() {
@@ -39,7 +41,10 @@ function StudioShell() {
   useEffect(() => {
     let active = true
     document.title = 'Studio — Lumen Stage'
-    Promise.all([import('./store'), import('./share'), import('./persistence')]).then(async ([store, share, persistence]) => {
+    // Start downloading the selected interface while project data is restored.
+    // React.lazy reuses the same module request, removing a serial network round trip.
+    const shell = mobile ? loadMobileApp() : loadApp()
+    Promise.all([import('./store'), import('./share'), import('./persistence'), shell]).then(async ([store, share, persistence]) => {
       const shared = await share.readSceneFromLocation()
       if (shared) store.useStudio.getState().importProject(shared)
       else {

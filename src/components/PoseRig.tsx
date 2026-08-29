@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
-import type { Physique } from '../anatomy'
+import type { Physique } from '../physique'
 import {
   armPatch, forwardKinematics, legPatch, solveArm, solveHeadAim, solveLeg,
   solveSpineAim, solveThigh, solveUpperArm, type Side,

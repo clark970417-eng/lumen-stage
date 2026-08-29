@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react'
-import { PHYSIQUE_PRESETS, type Physique } from '../anatomy'
+import { PHYSIQUE_PRESETS, type Physique } from '../physique'
 import { HAND_POSES, POSE_CATEGORIES, POSE_LIBRARY, type HandPose, type ModelPose, type PoseCategory } from '../pose'
 import { FABRICS, HAIR_STYLES, OUTFITS, type FabricKind, type HairStyle, type OutfitStyle } from '../wardrobe'
 import { useCatalogT, useT, type MessageKey } from '../i18n'
