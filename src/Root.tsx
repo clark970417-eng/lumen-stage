@@ -1,10 +1,14 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useT } from './i18n'
 import { useMobileShell, usePhoneScreen, useUiModeStore } from './uiMode'
 import { BrandMark } from './components/BrandMark'
+import { routeFromLocation } from './routing'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { supportsWebGL } from './webgl'
 
 const App = lazy(() => import('./App'))
 const MobileApp = lazy(() => import('./components/MobileApp').then((module) => ({ default: module.MobileApp })))
+const PublicSite = lazy(() => import('./components/PublicSite').then((module) => ({ default: module.PublicSite })))
 
 function ShellLoading() {
   return (
@@ -25,12 +29,40 @@ function ReturnToPhoneShell() {
   return <button className="m-return" onClick={() => setMode('auto')} title={t('mobile.compact.title')}>{t('mobile.compact')}</button>
 }
 
-export default function Root() {
-  if (useMobileShell()) return <Suspense fallback={<ShellLoading />}><MobileApp /></Suspense>
+function WebGLFallback() {
+  return <main className="fatal-screen"><BrandMark title="Lumen Stage" /><span>WEBGL REQUIRED</span><h1>This device cannot open the 3D studio.</h1><p>Update your browser, enable hardware acceleration, or open Lumen Stage on another device. Your browser data has not been changed.</p><div><button onClick={() => location.reload()}>Try again</button><a href="/support">Compatibility help</a></div></main>
+}
+
+function StudioShell() {
+  const [ready, setReady] = useState(false)
+  const mobile = useMobileShell()
+  useEffect(() => {
+    let active = true
+    document.title = 'Studio — Lumen Stage'
+    Promise.all([import('./store'), import('./share'), import('./persistence')]).then(async ([store, share, persistence]) => {
+      const shared = await share.readSceneFromLocation()
+      if (shared) store.useStudio.getState().importProject(shared)
+      else {
+        const backup = await persistence.readMirroredProject()
+        if (backup) store.useStudio.getState().importProject(backup)
+        else if (persistence.hasLocalProject()) store.useStudio.getState().loadProject()
+      }
+      void persistence.requestDurableStorage()
+    }).finally(() => { if (active) setReady(true) })
+    return () => { active = false }
+  }, [])
+  if (!supportsWebGL()) return <WebGLFallback />
+  if (!ready) return <ShellLoading />
+  if (mobile) return <Suspense fallback={<ShellLoading />}><MobileApp /></Suspense>
   return (
     <Suspense fallback={<ShellLoading />}>
       <App />
       <ReturnToPhoneShell />
     </Suspense>
   )
+}
+
+export default function Root() {
+  const route = routeFromLocation(location.pathname, location.search, location.hash)
+  return <ErrorBoundary>{route === 'studio' ? <StudioShell /> : <Suspense fallback={<ShellLoading />}><PublicSite route={route} /></Suspense>}</ErrorBoundary>
 }

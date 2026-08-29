@@ -1,0 +1,10 @@
+{
+  "name": "Lumen Stage",
+  "short_name": "Lumen",
+  "description": "Virtual photography studio for planning lights, cameras and portrait setups.",
+  "start_url": "/studio",
+  "display": "standalone",
+  "background_color": "#080b0f",
+  "theme_color": "#11161c",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /studio
+Disallow: /app
+Disallow: /analyze
+
+Sitemap: https://lumen-stage.vercel.app/sitemap.xml

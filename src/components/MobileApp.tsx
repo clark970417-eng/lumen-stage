@@ -23,9 +23,13 @@ import { useUiModeStore } from '../uiMode'
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
 import { POSE_LIBRARY } from '../pose'
 import { OUTFITS, type OutfitStyle } from '../wardrobe'
+import { buildShareLink, copyToClipboard } from '../share'
+import { MAX_PROJECT_FILE_BYTES, readTextFileWithinLimit } from '../security'
+import { formatStorage, storageUsage } from '../persistence'
+import { useDialogFocus } from './DialogFocus'
 import '../mobile.css'
 
-type Tab = 'setups' | 'subject' | 'lights' | 'camera'
+type Tab = 'setups' | 'subject' | 'lights' | 'camera' | 'project'
 
 const MobileStage = lazy(() => import('./MobileStage'))
 
@@ -493,18 +497,11 @@ function CameraTab() {
 function PhotoSheet({ photo, onClose }: { photo: string; onClose: () => void }) {
   const t = useT()
   const closeButton = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    closeButton.current?.focus()
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  const dialog = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialog, true, onClose)
 
   return (
-    <div className="m-photo" role="dialog" aria-modal="true" aria-label={t('mobile.photo.title')}>
+    <div ref={dialog} className="m-photo" role="dialog" aria-modal="true" aria-label={t('mobile.photo.title')}>
       <div className="m-photo-inner">
         <img src={photo} alt={t('mobile.photo.title')} />
         <p>{t('mobile.photo.hint')}</p>
@@ -515,6 +512,44 @@ function PhotoSheet({ photo, onClose }: { photo: string; onClose: () => void }) 
       </div>
     </div>
   )
+}
+
+function ProjectTab({ onOpenAbout }: { onOpenAbout: () => void }) {
+  const t = useT()
+  const locale = useLocaleStore((state) => state.locale)
+  const saveStatus = useStudio((state) => state.saveStatus)
+  const saveProject = useStudio((state) => state.saveProject)
+  const exportProject = useStudio((state) => state.exportProject)
+  const importProject = useStudio((state) => state.importProject)
+  const shareableJson = useStudio((state) => state.shareableJson)
+  const input = useRef<HTMLInputElement>(null)
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied' | 'error'>('idle')
+  const [usage, setUsage] = useState('—')
+
+  useEffect(() => { void storageUsage().then((value) => setUsage(value.quota ? `${formatStorage(value.usage)} / ${formatStorage(value.quota)}` : formatStorage(value.usage))) }, [saveStatus])
+  const share = async () => {
+    try {
+      setShareStatus(await copyToClipboard(await buildShareLink(shareableJson())) ? 'copied' : 'error')
+    } catch { setShareStatus('error') }
+  }
+  const guide = locale === 'en' ? '/LUMEN_STAGE_Site_Guide_EN.pdf' : locale === 'ja' ? '/LUMEN_STAGE_サイトガイド_JA.pdf' : '/LUMEN_STAGE_網站使用教學.pdf'
+
+  return <div className="m-tab m-project">
+    <div className={`m-save-card ${saveStatus === 'error' ? 'error' : ''}`} role="status"><span>{t('mobile.project.storage')}</span><strong>{saveStatus === 'error' ? t('mobile.project.failed') : t('mobile.project.saved')}</strong><small>{usage}</small></div>
+    <p className="m-note">{t('mobile.project.note')}</p>
+    <div className="m-project-actions">
+      <button onClick={saveProject}>{t('mobile.project.save')}</button>
+      <button onClick={share}>{shareStatus === 'copied' ? t('mobile.project.copied') : shareStatus === 'error' ? t('mobile.project.shareFailed') : t('mobile.project.share')}</button>
+      <button onClick={exportProject}>{t('mobile.project.export')}</button>
+      <button onClick={() => input.current?.click()}>{t('mobile.project.import')}</button>
+    </div>
+    <input ref={input} hidden type="file" accept=".json,.lumen.json,application/json" onChange={async (event) => {
+      const file = event.target.files?.[0]
+      if (file) { try { importProject(await readTextFileWithinLimit(file, MAX_PROJECT_FILE_BYTES)) } catch { useStudio.setState({ saveStatus: 'error' }) } }
+      event.target.value = ''
+    }} />
+    <div className="m-project-links"><a href={guide} target="_blank" rel="noreferrer">{t('mobile.project.guide')}</a><button onClick={onOpenAbout}>{t('mobile.project.about')}</button><a href="/support">{t('mobile.project.support')}</a></div>
+  </div>
 }
 
 export function MobileApp() {
@@ -602,7 +637,7 @@ export function MobileApp() {
       </Suspense>
 
       <nav className="m-tabs" role="tablist" aria-label={t('mobile.aria')}>
-        {(['setups', 'subject', 'lights', 'camera'] as const).map((item) => (
+        {(['setups', 'subject', 'lights', 'camera', 'project'] as const).map((item) => (
           <button key={item} role="tab" id={`m-tab-${item}`} aria-controls="m-tabpanel" aria-selected={tab === item && sheetOpen}
             className={tab === item && sheetOpen ? 'active' : ''}
             onClick={() => { if (tab === item && sheetOpen) setSheetOpen(false); else { setTab(item); setSheetOpen(true) } }}>
@@ -620,6 +655,7 @@ export function MobileApp() {
           {tab === 'subject' && <SubjectTab />}
           {tab === 'lights' && <LightsTab />}
           {tab === 'camera' && <CameraTab />}
+          {tab === 'project' && <ProjectTab onOpenAbout={() => setAboutOpen(true)} />}
         </section>
       )}
 

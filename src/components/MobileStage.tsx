@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber'
-import { Suspense, useState } from 'react'
+import { Suspense, useCallback, useState } from 'react'
 import { StudioScene } from './StudioScene'
+import { CanvasHealth } from './CanvasHealth'
 
 type MobileStageProps = {
   pageVisible: boolean
@@ -25,6 +26,9 @@ export default function MobileStage({
   capturing, viewsLabel, studioLabel, cameraLabel, hint, shutterLabel, loadingLabel,
 }: MobileStageProps) {
   const [sceneReady, setSceneReady] = useState(false)
+  const [webglLost, setWebglLost] = useState(false)
+  const onWebglLost = useCallback(() => setWebglLost(true), [])
+  const onWebglRestored = useCallback(() => setWebglLost(false), [])
 
   return (
     <section className="viewport m-viewport">
@@ -36,6 +40,7 @@ export default function MobileStage({
         gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' }}
         camera={{ position: [6.8, 4.8, 7.2], fov: 42, near: 0.05, far: 100 }}
       >
+        <CanvasHealth onLost={onWebglLost} onRestored={onWebglRestored} />
         <Suspense fallback={null}><StudioScene /></Suspense>
       </Canvas>
 
@@ -46,6 +51,7 @@ export default function MobileStage({
           <small>BUILDING STUDIO · WEBGL</small>
         </div>
       )}
+      {webglLost && <div className="webgl-notice" role="alert"><strong>3D renderer interrupted</strong><span>Your scene remains saved.</span><button onClick={() => location.reload()}>Reload</button></div>}
 
       <div className="m-views" role="group" aria-label={viewsLabel}>
         <button className={view === 'studio' ? 'active' : ''} onClick={onOpenStudio}>{studioLabel}</button>

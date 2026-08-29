@@ -227,7 +227,7 @@ const DICT = {
   'about.copyrightTitle': { en: 'Copyright', zh: '版權聲明', ja: '著作権' },
   'about.copyright': { en: '© {year} {owner}. Lumen Stage, its interface, text and original visual assets are protected. All rights reserved.', zh: '© {year} {owner}。Lumen Stage 的介面、文字與原創視覺資產均受版權保護，保留所有權利。', ja: '© {year} {owner}。Lumen Stage のインターフェース、文章、オリジナルのビジュアル資産は著作権で保護されています。無断転載を禁じます。' },
   'about.dataTitle': { en: 'Your data', zh: '你的資料', ja: 'あなたのデータ' },
-  'about.data': { en: 'Scenes, preferences and imported files stay in your browser on this device. This version has no account system or analytics tracking, and does not upload your scene or photos.', zh: '場景、偏好設定與匯入檔案只保留在這台裝置的瀏覽器中。本版本沒有帳號系統或分析追蹤，也不會上傳你的場景或照片。', ja: 'シーン、設定、読み込んだファイルは、この端末のブラウザ内に保存されます。このバージョンにはアカウント機能やアクセス解析はなく、シーンや写真をアップロードしません。' },
+  'about.data': { en: 'Scenes, preferences and imported files stay in your browser on this device. There are no accounts or behaviour analytics. Anonymous technical errors may be sent without scene, photo, project-name or imported-file data.', zh: '場景、偏好設定與匯入檔案只保留在這台裝置的瀏覽器中。本版本沒有帳號或行為分析；匿名技術錯誤可能送出，但不包含場景、照片、專案名稱或匯入檔案。', ja: 'シーン、設定、素材は端末のブラウザ内に保存され、アカウントや行動解析はありません。匿名の技術エラーを送る場合がありますが、シーン、写真、プロジェクト名、素材は含みません。' },
   'about.sharingTitle': { en: 'Sharing', zh: '分享連結', ja: '共有' },
   'about.sharing': { en: 'A share link stores the scene inside the URL itself. Anyone who receives that link can read the scene settings, so share it only with people you trust.', zh: '分享連結會把場景資料直接放在網址中；收到連結的人可以讀取場景設定，請只分享給你信任的人。', ja: '共有リンクはシーン情報を URL 自体に保存します。リンクを受け取った人は設定を確認できるため、信頼できる相手とのみ共有してください。' },
 
@@ -825,6 +825,20 @@ const DICT = {
   'mobile.photo.hint': { en: 'Press and hold the picture to save it to your camera roll.', zh: '長按照片即可存到相簿。', ja: '写真を長押しするとカメラロールに保存できます。' },
   'mobile.photo.download': { en: 'Download', zh: '下載', ja: 'ダウンロード' },
   'mobile.photo.close': { en: 'Close', zh: '關閉', ja: '閉じる' },
+  'mobile.tab.project': { en: 'Project', zh: '專案', ja: '保存' },
+  'mobile.project.storage': { en: 'Browser storage', zh: '瀏覽器儲存', ja: 'ブラウザ保存' },
+  'mobile.project.saved': { en: 'Protected by autosave', zh: '已由自動儲存保護', ja: '自動保存済み' },
+  'mobile.project.failed': { en: 'Backup needed', zh: '儲存失敗，請立即備份', ja: '保存失敗・書き出してください' },
+  'mobile.project.note': { en: 'Browser data can be cleared by the device. Export important projects before a shoot.', zh: '裝置可能清除瀏覽器資料；重要拍攝前請匯出專案備份。', ja: '端末がブラウザデータを消去する場合があります。重要な撮影前に書き出してください。' },
+  'mobile.project.save': { en: 'Save now', zh: '立即儲存', ja: '今すぐ保存' },
+  'mobile.project.share': { en: 'Copy share link', zh: '複製分享連結', ja: '共有リンクをコピー' },
+  'mobile.project.copied': { en: 'Link copied', zh: '連結已複製', ja: 'コピーしました' },
+  'mobile.project.shareFailed': { en: 'Could not copy', zh: '無法複製連結', ja: 'コピーできません' },
+  'mobile.project.export': { en: 'Export backup', zh: '匯出備份', ja: 'バックアップを書き出す' },
+  'mobile.project.import': { en: 'Import project', zh: '匯入專案', ja: 'プロジェクトを読み込む' },
+  'mobile.project.guide': { en: 'Open guide', zh: '開啟操作指南', ja: 'ガイドを開く' },
+  'mobile.project.about': { en: 'About & data', zh: '關於與資料說明', ja: '情報とデータ' },
+  'mobile.project.support': { en: 'Support', zh: '支援', ja: 'サポート' },
 } as const satisfies Record<string, Record<Locale, string>>
 
 export type MessageKey = keyof typeof DICT

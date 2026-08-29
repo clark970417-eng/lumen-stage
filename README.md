@@ -2,7 +2,7 @@
 
 Lumen Stage 是一套在瀏覽器中運作的 3D 攝影棚燈光與相機模擬器，讓使用者配置燈具、調整曝光與鏡頭參數，並預覽或輸出拍攝結果。
 
-線上版本：[lumen-stage.vercel.app](https://lumen-stage.vercel.app)
+官方網站：[lumen-stage.vercel.app](https://lumen-stage.vercel.app) · [直接開啟攝影棚](https://lumen-stage.vercel.app/studio)
 
 ![Lumen Stage 攝影棚介面](assets/lumen-stage-preview.png)
 
@@ -44,6 +44,23 @@ npm run dev
 npm run build
 npm run preview
 ```
+
+正式版驗證會同時執行場景分享、路由、儲存復原測試與完整 TypeScript 建置：
+
+```bash
+npm run check
+```
+
+## 正式網站
+
+- `/`：三語產品首頁
+- `/studio`：依螢幕寬度自動選擇完整或手機攝影棚
+- `/privacy`、`/terms`、`/support`：隱私、使用條款與支援
+- `/analyze`：Lumen Trace 照片後期分析工具
+
+公開頁包含搜尋引擎 sitemap、社群分享圖、SoftwareApplication 結構化資料與 PWA manifest。攝影棚程式採延遲載入，因此訪客瀏覽首頁時不會預先下載完整 3D 引擎。
+
+場景會同步保存到瀏覽器儲存與 IndexedDB 備援；清除網站資料仍可能移除專案，重要工作應使用「匯出備份」。匿名技術錯誤會送至同網域的 `/api/error-report`，內容不包含場景、照片、專案名稱或匯入檔案。
 
 ## 手機版
 

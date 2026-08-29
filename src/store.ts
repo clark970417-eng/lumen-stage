@@ -10,6 +10,8 @@ import { BACKDROPS, DEFAULT_BACKDROP_ID, getBackdrop } from './backdrops'
 import { GELS } from './gels'
 import { getSetup, specToLight } from './setups'
 import { clampToRoom, FOOTPRINT, isSittable, resolveCollisions, snapAroundSubject, type Occupant } from './layout'
+import { mirrorProject } from './persistence'
+import { reportError } from './monitoring'
 
 export type ViewMode = 'studio' | 'camera' | 'top'
 export type RenderMode = 'preview' | 'path'
@@ -1002,7 +1004,14 @@ const readStoredShots = (): StudioShot[] => {
 }
 
 const persistShots = (shots: StudioShot[]) => {
-  try { localStorage.setItem(SHOT_STORAGE_KEY, JSON.stringify(shots)) } catch { /* local quota can reject thumbnails */ }
+  try {
+    localStorage.setItem(SHOT_STORAGE_KEY, JSON.stringify(shots))
+    return true
+  } catch (error) {
+    reportError(error, { area: 'shot-storage' })
+    queueMicrotask(() => useStudio.setState({ saveStatus: 'error' }))
+    return false
+  }
 }
 
 const historyKeys = new Set<keyof StudioState>(['projectName', 'backdrop', 'backdropId', 'backdropWidth', 'backdropDistance', 'cameraMode', 'frameRate', 'shutterAngle', 'tStop', 'ndStops', 'anamorphic', 'roomWidth', 'roomDepth', 'roomHeight', 'wallColor', 'floorColor', 'windowEnabled', 'sunEnabled', 'sunAzimuth', 'sunElevation', 'sunIntensity', 'haze', 'qualityPreset', 'outputResolution', 'denoiseEnabled', 'modelLookAtCamera', 'modelEyesAtCamera', 'timelineDuration', 'focalLength', 'aperture', 'iso', 'shutter', 'focusDistance', 'dofEnabled', 'focusGuide', 'cameraPosition', 'cameraTarget', 'sensorFormat', 'frameAspect', 'frameOrientation', 'modelPosition', 'modelRotation', 'modelHeight', 'skinColor', 'outfitColor', 'skinRoughness', 'skinOil', 'skinSubsurface', 'makeupStyle', 'eyeColor', 'hairColor', 'hairGloss', 'outfitFabric', 'syncSpeed', 'ambientLevel', 'ambientTemperature', 'lensOpticsEnabled', 'lensVignette', 'lensDistortion', 'lensChromaticAberration', 'lensBreathing', 'imageFormat', 'whiteBalance', 'whiteBalanceTint', 'colorProfileId', 'highlightRolloff', 'toneCurve', 'lutIntensity', 'sensorSimulationEnabled', 'shutterMode', 'sensorDynamicRange', 'noiseReduction', 'colorNoise', 'motionBlur', 'rollingShutter'])
@@ -1580,6 +1589,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       const serialized = JSON.stringify(snapshotFrom(state))
       lastAutosave = JSON.stringify(snapshotFrom(state))
       localStorage.setItem(STORAGE_KEY, serialized)
+      void mirrorProject(serialized).catch((error) => reportError(error, { area: 'project-backup' }))
       window.clearTimeout(autosaveTimer)
       set({ lastSavedAt: Date.now(), saveStatus: 'saved' })
     } catch { set({ saveStatus: 'error' }) }
@@ -1651,8 +1661,11 @@ useStudio.subscribe((state) => {
   autosaveTimer = window.setTimeout(() => {
     try {
       localStorage.setItem(STORAGE_KEY, serialized)
+      void mirrorProject(serialized).catch((error) => reportError(error, { area: 'project-backup' }))
       useStudio.setState({ lastSavedAt: Date.now(), saveStatus: 'autosaved' })
-    } catch {
+    } catch (error) {
+      reportError(error, { area: 'project-storage' })
+      void mirrorProject(serialized).catch((backupError) => reportError(backupError, { area: 'project-backup' }))
       useStudio.setState({ saveStatus: 'error' })
     }
   }, 900)

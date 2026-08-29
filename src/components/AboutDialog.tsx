@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { useT } from '../i18n'
+import { useDialogFocus } from './DialogFocus'
 
 export const SITE_OWNER = 'YuYing'
 
@@ -9,7 +10,7 @@ export function CopyrightMark({ onOpen, compact = false }: { onOpen: () => void;
 
   return (
     <button className={compact ? 'copyright-mark compact' : 'copyright-mark'} onClick={onOpen} aria-label={t('about.open')}>
-      <span>© {year} {SITE_OWNER}</span>
+      <span aria-hidden="true">{compact ? '©' : `© ${year} ${SITE_OWNER}`}</span>
       {!compact && <small>{t('about.open')}</small>}
     </button>
   )
@@ -18,23 +19,15 @@ export function CopyrightMark({ onOpen, compact = false }: { onOpen: () => void;
 export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const t = useT()
   const closeButton = useRef<HTMLButtonElement>(null)
+  const dialog = useRef<HTMLElement>(null)
   const year = new Date().getFullYear()
-
-  useEffect(() => {
-    if (!open) return
-    closeButton.current?.focus()
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
+  useDialogFocus(dialog, open, onClose)
 
   if (!open) return null
 
   return (
     <div className="about-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <section className="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
+      <section ref={dialog} className="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
         <header>
           <div>
             <span>{t('about.eyebrow')}</span>

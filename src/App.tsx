@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { StudioScene } from './components/StudioScene'
 import { Inspector } from './components/Inspector'
 import { Library } from './components/Library'
@@ -15,11 +15,13 @@ import { downloadFramePng } from './shotCapture'
 import { calculateDepthOfField } from './optics'
 import { LOCALES, useLocaleStore, useT, type Locale } from './i18n'
 import { useStudio } from './store'
-import { buildShareLink, copyToClipboard, readSceneFromLocation } from './share'
+import { buildShareLink, copyToClipboard } from './share'
 import { COLOR_PROFILES } from './colorScience'
 import { CAMERA_BODIES } from './cameraProfiles'
 import { MAX_PROJECT_FILE_BYTES, readTextFileWithinLimit } from './security'
 import { BrandMark } from './components/BrandMark'
+import { CanvasHealth } from './components/CanvasHealth'
+import { useDialogFocus } from './components/DialogFocus'
 
 let hintSequence = 0
 
@@ -283,6 +285,7 @@ function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
 
 function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const closeButton = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(1)
   const pageCount = 11
@@ -293,13 +296,8 @@ function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
     if (!open) return
     setPage(1)
     window.requestAnimationFrame(() => stageRef.current?.scrollTo({ top: 0 }))
-    closeButton.current?.focus()
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown, true)
-    return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [open, onClose, locale])
+  useDialogFocus(dialogRef, open, onClose)
 
   if (!open) return null
   const guideUrl = locale === 'en'
@@ -310,7 +308,7 @@ function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
 
   return (
     <div className="guide-overlay" role="dialog" aria-modal="true" aria-label={t('guide.aria')} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <section className="guide-dialog">
+      <section ref={dialogRef} className="guide-dialog">
         <header>
           <div><strong>{t('guide.title')}</strong><small>{t('guide.languageNote')}</small></div>
           <div className="guide-actions">
@@ -471,20 +469,11 @@ export default function App() {
   const [sceneReady, setSceneReady] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [webglLost, setWebglLost] = useState(false)
+  const onWebglLost = useCallback(() => setWebglLost(true), [])
+  const onWebglRestored = useCallback(() => setWebglLost(false), [])
   const [hint, setHint] = useState<{ id: number; text: string } | null>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // A shared link carries the whole scene; opening one loads it before anything
-  // else touches the store, so it wins over the autosaved local scene.
-  useEffect(() => {
-    let active = true
-    readSceneFromLocation().then((json) => {
-      if (!active || !json) return
-      useStudio.getState().importProject(json)
-      setHint({ id: hintSequence++, text: t('msg.share.loaded') })
-    })
-    return () => { active = false }
-  }, [t])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -514,6 +503,7 @@ export default function App() {
           gl={{ antialias: true, preserveDrawingBuffer: true }}
           camera={{ position: [6.8, 4.8, 7.2], fov: 42, near: 0.05, far: 100 }}
         >
+          <CanvasHealth onLost={onWebglLost} onRestored={onWebglRestored} />
           <Suspense fallback={null}><StudioScene /></Suspense>
         </Canvas>
         {!sceneReady && (
@@ -523,6 +513,7 @@ export default function App() {
             <small>BUILDING STUDIO · WEBGL</small>
           </div>
         )}
+        {webglLost && <div className="webgl-notice" role="alert"><strong>3D renderer interrupted</strong><span>Your project is still saved. Reload to rebuild the studio.</span><button onClick={() => location.reload()}>Reload studio</button></div>}
         <div className={`viewport-label ${renderMode === 'path' ? 'rendering' : ''}`}><span className="status-dot" /> {renderMode === 'path' ? (pathStatus === 'building' ? 'BUILDING SCENE' : `PATH TRACING · ${Math.floor(pathSamples)} SPP`) : 'LIVE LIGHTING'} <b>{renderMode === 'path' ? 'HQ' : '60 FPS'}</b></div>
         <div className="axis-label">{renderMode === 'path' ? `${cameraMode.toUpperCase()} · ${SENSOR_LABELS[sensorFormat]} · ${frameAspect}` : view === 'camera' ? `${cameras.find((camera) => camera.id === activeCameraId)?.name.toUpperCase() ?? 'CAMERA'} · ${SENSOR_LABELS[sensorFormat]} · ${frameAspect} ${frameOrientation === 'portrait' ? 'V' : 'H'}` : view === 'top' ? 'TOP PLAN · METERS' : `STUDIO · ${roomWidth} × ${roomDepth} M`}</div>
         <SceneToolbar />
