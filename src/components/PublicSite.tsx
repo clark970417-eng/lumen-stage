@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import preview from '../../assets/lumen-stage-preview.png'
 import { LOCALES, useLocaleStore, type Locale } from '../i18n'
 import type { PublicRoute } from '../routing'
@@ -9,7 +9,7 @@ type Copy = {
   nav: [string, string, string, string]
   open: string
   eyebrow: string
-  title: string
+  title: [string, string, string]
   intro: string
   proof: string[]
   instrument: string
@@ -35,7 +35,7 @@ type Copy = {
 const COPY: Record<Locale, Copy> = {
   zh: {
     nav: ['功能', '流程', '常見問題', '支援'], open: '開啟攝影棚', eyebrow: '瀏覽器內的虛擬攝影棚',
-    title: '在燈亮起以前，先把畫面拍完一遍。',
+    title: ['在燈亮起以前，', '先把畫面', '拍完一遍。'],
     intro: 'LUMEN STAGE 讓攝影師在瀏覽器裡安排燈位、相機、人物與背景，先看懂光線，再走進真正的棚。',
     proof: ['免安裝', '免帳號', '場景留在你的裝置'], instrument: '不是示意圖，是可以工作的攝影工具。',
     instrumentBody: '從林布蘭光到多燈商業棚拍，調整真實器材、曝光、色溫、鏡頭與姿勢；桌機負責精準控制，手機負責快速排光與取景。',
@@ -50,7 +50,7 @@ const COPY: Record<Locale, Copy> = {
   },
   en: {
     nav: ['Capabilities', 'Workflow', 'FAQ', 'Support'], open: 'Open the studio', eyebrow: 'A virtual photography studio in your browser',
-    title: 'Make the photograph before the lights turn on.', intro: 'LUMEN STAGE lets photographers arrange lights, camera, subject and backdrop in the browser—so the light makes sense before the real studio clock starts.',
+    title: ['Make the photograph', 'before the lights', ' turn on.'], intro: 'LUMEN STAGE lets photographers arrange lights, camera, subject and backdrop in the browser—so the light makes sense before the real studio clock starts.',
     proof: ['No install', 'No account', 'Scenes stay on your device'], instrument: 'Not a mock-up. A working photographic instrument.', instrumentBody: 'Build anything from Rembrandt light to a multi-light commercial set with real gear, exposure, colour, lenses and posing. Desktop delivers precision; phone delivers fast planning and framing.',
     capabilities: [['Turn diagrams into space', 'Build repeatable setups with metres, angles, illuminance and real modifiers.'], ['Confirm the lens before call time', 'Compare sensor, focal length, aperture, depth of field and composition before the shoot.'], ['Carry the plan to set', 'Save, back up and share scenes, then export a lighting sheet and frame preview.']],
     workflowTitle: 'From idea to lighting plan in three moves.', workflow: [['Choose a starting point', 'Use a classic lighting setup or begin with an empty studio.'], ['Shape the frame', 'Move lights, subject and camera while checking exposure and depth.'], ['Take the plan with you', 'Share a link, export the project or download a setup sheet.']],
@@ -62,7 +62,7 @@ const COPY: Record<Locale, Copy> = {
   },
   ja: {
     nav: ['機能', '流れ', 'よくある質問', 'サポート'], open: 'スタジオを開く', eyebrow: 'ブラウザで動くバーチャル撮影スタジオ',
-    title: 'ライトを点ける前に、一度撮り終える。', intro: 'LUMEN STAGE はライト、カメラ、人物、背景をブラウザ上で組み立て、本番前に光を理解するための撮影設計ツールです。',
+    title: ['ライトを点ける', '前に、一度、', '撮り終える。'], intro: 'LUMEN STAGE はライト、カメラ、人物、背景をブラウザ上で組み立て、本番前に光を理解するための撮影設計ツールです。',
     proof: ['インストール不要', 'アカウント不要', 'シーンは端末内に保存'], instrument: 'イメージ図ではなく、実際に操作できる撮影ツール。', instrumentBody: 'レンブラントから多灯の商品撮影まで、実在機材、露出、色温度、レンズ、ポーズを調整。デスクトップは精密操作、スマートフォンは素早いライティングとフレーミングに対応します。',
     capabilities: [['照明図を空間にする', '距離、角度、照度、モディファイアで再現可能なセットを設計。'], ['撮影前にレンズを決める', 'センサー、焦点距離、絞り、被写界深度、構図を比較。'], ['プランを現場へ持ち出す', 'シーンを保存、バックアップ、共有し、照明シートを出力。']],
     workflowTitle: 'アイデアから照明プランまで、3 ステップ。', workflow: [['起点を選ぶ', '定番ライティング、または空のスタジオから開始。'], ['画を整える', 'ライト、人物、カメラを動かし露出と被写界深度を確認。'], ['プランを持ち出す', 'リンク共有、プロジェクト書き出し、照明シートを利用。']],
@@ -81,7 +81,7 @@ function LocaleSwitch() {
 }
 
 function SiteHeader({ copy }: { copy: Copy }) {
-  return <header className="site-header"><a className="site-brand" href="/" aria-label="Lumen Stage home"><BrandMark /><span><b>LUMEN</b><small>STAGE / WEB</small></span></a><nav aria-label="Primary"><a href="/#capabilities">{copy.nav[0]}</a><a href="/#workflow">{copy.nav[1]}</a><a href="/#faq">{copy.nav[2]}</a><a href="/support">{copy.nav[3]}</a></nav><LocaleSwitch /><a className="site-cta compact" href="/studio">{copy.open}</a></header>
+  return <header className="site-header"><div className="site-header-shell"><a className="site-brand" href="/" aria-label="Lumen Stage home"><BrandMark /><span><b>LUMEN</b><small>STAGE / WEB</small></span></a><nav aria-label="Primary"><a href="/#capabilities">{copy.nav[0]}</a><a href="/#workflow">{copy.nav[1]}</a><a href="/#faq">{copy.nav[2]}</a><a href="/support">{copy.nav[3]}</a></nav><div className="site-actions"><LocaleSwitch /><a className="site-cta compact" href="/studio"><span>{copy.open}</span><b aria-hidden="true">↗</b></a></div></div></header>
 }
 
 function SiteFooter({ copy }: { copy: Copy }) {
@@ -97,6 +97,7 @@ function LegalPage({ route, copy }: { route: Exclude<PublicRoute, 'home' | 'stud
 export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> }) {
   const locale = useLocaleStore((state) => state.locale)
   const copy = COPY[locale]
+  const heroStage = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const titles = { home: 'Lumen Stage — Virtual Photography Studio', privacy: `${copy.privacyTitle} — Lumen Stage`, terms: `${copy.termsTitle} — Lumen Stage`, support: `${copy.supportTitle} — Lumen Stage` }
     document.title = titles[route]
@@ -104,14 +105,46 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     document.documentElement.classList.add('public-site-root')
     return () => { document.body.classList.remove('public-site-body'); document.documentElement.classList.remove('public-site-root') }
   }, [copy, route])
+  useEffect(() => {
+    if (route !== 'home') return
+    const reveals = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'))
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible')
+        observer.unobserve(entry.target)
+      }
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' })
+    reveals.forEach((element) => observer.observe(element))
+    return () => observer.disconnect()
+  }, [locale, route])
+
+  const moveHeroLight = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!heroStage.current || event.pointerType === 'touch') return
+    const bounds = heroStage.current.getBoundingClientRect()
+    heroStage.current.style.setProperty('--pointer-x', `${((event.clientX - bounds.left) / bounds.width) * 100}%`)
+    heroStage.current.style.setProperty('--pointer-y', `${((event.clientY - bounds.top) / bounds.height) * 100}%`)
+  }
   if (route !== 'home') return <LegalPage route={route} copy={copy} />
   return <><SiteHeader copy={copy} /><main className="landing">
-    <section className="site-hero"><div className="hero-copy"><span>{copy.eyebrow}</span><h1>{copy.title}</h1><p>{copy.intro}</p><a className="site-cta" href="/studio">{copy.open}<b>↗</b></a><ul>{copy.proof.map((item) => <li key={item}>{item}</li>)}</ul></div><div className="hero-instrument"><span className="instrument-status"><i /> LIVE STUDIO · 60 FPS</span><img src={preview} alt="Lumen Stage desktop studio showing a portrait lighting setup" width="1280" height="720" fetchPriority="high" /><div className="instrument-readout"><span>LENS <b>50<small>mm</small></b></span><span>APERTURE <b>ƒ/4</b></span><span>KEY TEMP <b>5600<small>K</small></b></span></div></div></section>
-    <section className="site-intro" id="capabilities"><span>THE INSTRUMENT</span><h2>{copy.instrument}</h2><p>{copy.instrumentBody}</p></section>
-    <section className="capability-grid">{copy.capabilities.map(([title, body], index) => <article key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{body}</p></article>)}</section>
-    <section className="workflow" id="workflow"><div><span>WORKFLOW</span><h2>{copy.workflowTitle}</h2></div><ol>{copy.workflow.map(([title, body]) => <li key={title}><h3>{title}</h3><p>{body}</p></li>)}</ol></section>
-    <section className="local-first"><BrandMark /><div><span>DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div></section>
-    <section className="faq" id="faq"><span>FAQ</span><h2>{copy.faqTitle}</h2><div>{copy.faq.map(([question, answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</div></section>
-    <section className="final-cta"><h2>{copy.finalTitle}</h2><a className="site-cta" href="/studio">{copy.open}<b>↗</b></a></section>
+    <section className="site-hero" onPointerMove={moveHeroLight} ref={heroStage}>
+      <div className="hero-glow" aria-hidden="true" />
+      <div className="hero-copy">
+        <span className="hero-eyebrow"><i /> {copy.eyebrow}</span>
+        <h1><span>{copy.title[0]}</span><em><span>{copy.title[1]}</span><span>{copy.title[2]}</span></em></h1>
+        <div className="hero-lower"><p>{copy.intro}</p><div><a className="site-cta" href="/studio"><span>{copy.open}</span><b aria-hidden="true">↗</b></a><ul>{copy.proof.map((item) => <li key={item}>{item}</li>)}</ul></div></div>
+      </div>
+      <div className="hero-instrument" aria-label="Lumen Stage product preview">
+        <div className="instrument-chrome"><span className="instrument-status"><i /> LIVE STUDIO</span><span>SCENE / 001</span><span>60 FPS</span></div>
+        <div className="instrument-picture"><img src={preview} alt="Lumen Stage desktop studio showing a portrait lighting setup" width="1280" height="720" fetchPriority="high" /><div className="focus-mark" aria-hidden="true"><i /><i /><i /><i /></div><span className="light-scan" aria-hidden="true" /></div>
+        <div className="instrument-readout"><span>LENS <b>50<small>mm</small></b></span><span>APERTURE <b>ƒ/4</b></span><span>SHUTTER <b>1/125<small>s</small></b></span><span>KEY TEMP <b>5600<small>K</small></b></span></div>
+      </div>
+      <a className="scroll-cue" href="#capabilities"><span>SCROLL TO FOCUS</span><i /></a>
+    </section>
+    <section className="site-intro" id="capabilities" data-reveal><span>01 / THE INSTRUMENT</span><h2>{copy.instrument}</h2><p>{copy.instrumentBody}</p></section>
+    <section className="capability-grid" data-reveal>{copy.capabilities.map(([title, body], index) => <article key={title}><div><span>0{index + 1}</span><i aria-hidden="true" /></div><h3>{title}</h3><p>{body}</p></article>)}</section>
+    <section className="workflow" id="workflow"><div className="workflow-heading" data-reveal><span>02 / WORKFLOW</span><h2>{copy.workflowTitle}</h2><p>PLAN · SHAPE · CAPTURE</p></div><ol>{copy.workflow.map(([title, body], index) => <li key={title} data-reveal><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></li>)}</ol></section>
+    <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>03 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
+    <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>04 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
+    <section className="final-cta" data-reveal><span>READY / SET / LIGHT</span><h2>{copy.finalTitle}</h2><a className="site-cta" href="/studio"><span>{copy.open}</span><b aria-hidden="true">↗</b></a></section>
   </main><SiteFooter copy={copy} /></>
 }
