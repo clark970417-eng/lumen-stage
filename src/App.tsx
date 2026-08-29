@@ -531,7 +531,7 @@ export default function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
       const isEditing = target?.closest('input, textarea, select, button, a, [contenteditable="true"]')
-      if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey && !isEditing) {
+      if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey && (!isEditing || allPanelsHidden)) {
         event.preventDefault()
         toggleAllPanels()
         return
@@ -548,7 +548,7 @@ export default function App() {
       window.removeEventListener('keydown', onKeyDown)
       if (hintTimer.current) clearTimeout(hintTimer.current)
     }
-  }, [toggleAllPanels])
+  }, [allPanelsHidden, toggleAllPanels])
 
   useEffect(() => {
     if (!sceneReady || !shouldShowOnboarding('desktop')) return
@@ -600,12 +600,12 @@ export default function App() {
       <DecisionConsole />
       <ProfessionalPanel />
       <BottomReadout onOpenAbout={() => setAboutOpen(true)} />
-      <AssetDrawer />
-      <ReferenceMatchPanel />
-      <ContinuityGuardPanel />
       <ShortcutHelp />
       <SetupLibraryHost />
       <SetupSheetHost />
+      <AssetDrawer />
+      <ReferenceMatchPanel />
+      <ContinuityGuardPanel />
       <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} onStartTour={() => { setGuideOpen(false); setTourOpen(true) }} />
       <OnboardingTour open={tourOpen} scope="desktop" onClose={() => setTourOpen(false)} onOpenGuide={() => setGuideOpen(true)} />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />

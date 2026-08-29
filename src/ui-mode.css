@@ -22,3 +22,28 @@
 .desktop-compact-switch span { color: var(--signal); font-size: 15px; }
 .desktop-compact-switch:hover { border-color: var(--signal); color: #fff; transform: translateY(-1px); }
 .desktop-compact-switch:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+
+/* This control belongs to the root shell, so its styling must not depend on
+   the lazily loaded phone stylesheet having been visited first. */
+.m-return {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(176px, calc(164px + env(safe-area-inset-bottom)));
+  z-index: 60;
+  min-height: 44px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--signal);
+  border-radius: 999px;
+  background: rgba(12, 18, 23, .94);
+  color: var(--signal);
+  box-shadow: 0 10px 28px rgba(0,0,0,.34);
+  font: 500 11px var(--mono);
+  letter-spacing: .04em;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.m-return:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }

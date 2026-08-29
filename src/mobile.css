@@ -204,13 +204,6 @@
 }
 .m-photo-actions a { border-color: var(--signal); background: var(--signal); color: #141711; font-weight: 600; }
 
-/* The way back to the phone shell when the full interface is forced on a small screen. */
-.m-return {
-  position: fixed; right: 14px; bottom: 14px; z-index: 60;
-  min-height: 44px; padding: 0 16px; border: 1px solid var(--signal);
-  background: rgba(17,19,17,.92); color: var(--signal); font-size: 12px; cursor: pointer;
-}
-
 /* Keep the home indicator clear when the control sheet is collapsed. */
 .m-shell:not(.sheet-open) .m-tabs { padding-bottom: env(safe-area-inset-bottom); }
 

@@ -1512,6 +1512,100 @@ button, input, select { transition: border-color .16s ease, background-color .16
     linear-gradient(145deg, #090d12, #07090c 70%);
 }
 
+/* Lightroom-style workspace chrome: either rail can leave the stage, while
+   Tab restores both. Grid columns collapse so the image gains the real space. */
+.app-shell.left-panel-hidden { grid-template-columns: 0 minmax(480px, 1fr) 300px; }
+.app-shell.right-panel-hidden { grid-template-columns: 240px minmax(480px, 1fr) 0; }
+.app-shell.left-panel-hidden.right-panel-hidden { grid-template-columns: 0 minmax(480px, 1fr) 0; }
+.app-shell.top-panel-hidden { grid-template-rows: 0 minmax(0, 1fr) 84px; }
+.app-shell.bottom-panel-hidden { grid-template-rows: 66px minmax(0, 1fr) 0; }
+.app-shell.top-panel-hidden.bottom-panel-hidden { grid-template-rows: 0 minmax(0, 1fr) 0; }
+.blueprint-panel,
+.decision-console { min-width: 0; transition: opacity .18s ease, transform .18s ease; }
+.left-panel-hidden > .blueprint-panel { opacity: 0; pointer-events: none; transform: translateX(-18px); }
+.right-panel-hidden > .decision-console { opacity: 0; pointer-events: none; transform: translateX(18px); }
+.app-shell > .topbar,
+.app-shell > .readout { transition: opacity .18s ease, transform .18s ease; }
+.top-panel-hidden > .topbar { opacity: 0; pointer-events: none; transform: translateY(-18px); }
+.bottom-panel-hidden > .readout { opacity: 0; pointer-events: none; transform: translateY(18px); }
+
+.project-actions .workspace-focus-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #c9d4db;
+  font-size: 9.5px;
+  letter-spacing: .02em;
+}
+.workspace-focus-button i {
+  width: 15px;
+  height: 11px;
+  border: 1px solid currentColor;
+  box-shadow: inset 3px 0 0 rgba(103,216,255,.38), inset -3px 0 0 rgba(103,216,255,.38);
+}
+.project-actions .workspace-focus-button.active { background: #26343e; color: var(--signal-cool); }
+
+.workspace-panel-tab {
+  position: absolute;
+  top: 50%;
+  z-index: 12;
+  width: 30px;
+  height: 76px;
+  margin-top: -38px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid rgba(110,132,147,.92);
+  background: linear-gradient(180deg, rgba(25,35,43,.97), rgba(8,13,17,.97));
+  color: #c4d0d7;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.05);
+  opacity: .96;
+}
+.workspace-panel-tab:hover,
+.workspace-panel-tab:focus-visible { width: 34px; opacity: 1; color: var(--signal-cool); border-color: var(--signal-cool); background: #17232c; }
+.workspace-panel-tab.left { left: 0; border-left: 0; border-radius: 0 6px 6px 0; }
+.workspace-panel-tab.right { right: 0; border-right: 0; border-radius: 6px 0 0 6px; }
+.workspace-panel-tab.top,
+.workspace-panel-tab.bottom {
+  left: 50%; width: 92px; height: 30px; margin: 0; flex-direction: row; transform: translateX(-50%);
+}
+.workspace-panel-tab.top { top: 0; border-top: 0; border-radius: 0 0 6px 6px; }
+.workspace-panel-tab.bottom { top: auto; bottom: 0; border-bottom: 0; border-radius: 6px 6px 0 0; }
+.workspace-panel-tab.top:hover,
+.workspace-panel-tab.top:focus-visible,
+.workspace-panel-tab.bottom:hover,
+.workspace-panel-tab.bottom:focus-visible { width: 102px; }
+.workspace-panel-tab span {
+  color: inherit;
+  font: 500 8px/1 var(--mono);
+  letter-spacing: .08em;
+  writing-mode: vertical-rl;
+}
+.workspace-panel-tab.top span,
+.workspace-panel-tab.bottom span { writing-mode: horizontal-tb; }
+.workspace-panel-tab i {
+  display: block;
+  width: 8px;
+  height: 8px;
+  margin: 0;
+  border-top: 1px solid currentColor;
+  border-right: 1px solid currentColor;
+  transform: rotate(45deg);
+}
+.workspace-panel-tab.left.panel-visible i { transform: rotate(-135deg); }
+.workspace-panel-tab.right i { transform: rotate(-135deg); }
+.workspace-panel-tab.right.panel-visible i { transform: rotate(45deg); }
+.workspace-panel-tab.top i { transform: rotate(135deg); }
+.workspace-panel-tab.top.panel-visible i { transform: rotate(-45deg); }
+.workspace-panel-tab.bottom i { transform: rotate(-45deg); }
+.workspace-panel-tab.bottom.panel-visible i { transform: rotate(135deg); }
+
 .topbar {
   position: relative;
   grid-template-columns: 240px minmax(190px, 1fr) auto 370px;
@@ -1823,7 +1917,10 @@ button, input, select { transition: border-color .16s ease, background-color .16
 .impact-readout p { grid-column: 1 / -1; margin: 0; display: grid; grid-template-columns: 78px 1fr; align-items: center; }
 .impact-readout b { color: var(--signal-cool); font: 500 16px var(--mono); }
 .impact-readout span { color: #80919c; font: 8.5px/1.55 var(--mono); }
-.advanced-heading { flex: none; height: 30px; padding: 0 13px; display: flex; align-items: center; border-bottom: 1px solid var(--line); color: #7c8d98; font: 8px var(--mono); letter-spacing: .12em; }
+.advanced-heading { width: 100%; flex: none; height: 30px; padding: 0 13px; display: flex; align-items: center; justify-content: space-between; border: 0; border-bottom: 1px solid var(--line); background: rgba(10,15,20,.58); color: #7c8d98; font: 8px var(--mono); letter-spacing: .12em; text-align: left; cursor: pointer; }
+.advanced-heading:hover { background: #18232b; color: #dce5e9; }
+.advanced-heading i { color: var(--signal); font: normal 14px/1 var(--mono); }
+.advanced-heading[aria-expanded='false'] { border-bottom-color: transparent; }
 .decision-console > .inspector { min-height: 0; flex: 1; grid-column: auto; grid-row: auto; border: 0; border-radius: 0; box-shadow: none; }
 .decision-console > .inspector > .panel-heading { display: none; }
 .decision-console > .inspector .inspector-nav { top: 0; }
@@ -1911,4 +2008,339 @@ button, input, select { transition: border-color .16s ease, background-color .16
 
 @media (prefers-reduced-motion: reduce) {
   .asset-drawer-grid > button { transform: none !important; }
+}
+
+/* ── Calm studio pass ───────────────────────────────────────────────────
+   The workflow remains the visual signature; surrounding controls recede
+   into a few quiet islands so the image, not the chrome, carries the page. */
+main.app-shell {
+  min-width: 760px;
+  grid-template-columns: 232px minmax(440px, 1fr) 292px;
+  grid-template-rows: 72px minmax(0, 1fr) 78px;
+  gap: 10px;
+  padding: 10px;
+}
+
+header.topbar {
+  grid-template-columns: 220px minmax(250px, .8fr) minmax(500px, 1.25fr) 436px;
+  align-items: stretch;
+  overflow: hidden;
+  border-color: rgba(68, 84, 96, .78);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(23, 30, 37, .98), rgba(12, 17, 22, .98));
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .2), inset 0 1px 0 rgba(255,255,255,.035);
+}
+header.topbar::after { left: 32px; right: 32px; opacity: .42; }
+
+header.topbar .brand { padding-inline: 20px; gap: 12px; border-right-color: rgba(55, 69, 79, .72); }
+header.topbar .brand strong { font-size: 13px; letter-spacing: .22em; }
+header.topbar .brand small { margin-top: 6px; font-size: 8px; color: #70818d; }
+
+header.topbar .project-title {
+  min-width: 0;
+  padding: 0 16px;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+header.topbar .project-title > span { flex: none; color: #687985; font-size: 8px; }
+header.topbar .project-name-input {
+  min-width: 0;
+  width: clamp(118px, 15vw, 210px);
+  padding: 7px 9px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+header.topbar .project-title .save-state { max-width: 84px; overflow: hidden; text-overflow: ellipsis; }
+
+header.topbar .language-switch {
+  margin-left: auto;
+  padding: 3px;
+  gap: 2px;
+  overflow: visible;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(7, 12, 16, .76);
+  box-shadow: inset 0 0 0 1px rgba(69, 85, 97, .7);
+}
+header.topbar .language-switch button {
+  min-width: 29px;
+  min-height: 29px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 9.5px;
+}
+header.topbar .language-switch button.active { background: #2b3944; box-shadow: 0 2px 10px rgba(0,0,0,.22); }
+
+header.topbar .workflow-navigation {
+  height: 48px;
+  margin: 7px 4px;
+  padding: 4px;
+  align-self: center;
+  gap: 3px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(6, 10, 14, .62);
+  box-shadow: inset 0 0 0 1px rgba(58, 72, 83, .66);
+}
+header.topbar .workflow-navigation button {
+  min-height: 40px;
+  padding-inline: 10px;
+  gap: 7px;
+  border: 0;
+  border-radius: 8px;
+}
+header.topbar .workflow-navigation button:hover { background: rgba(103,216,255,.055); }
+header.topbar .workflow-navigation button.active { background: linear-gradient(180deg, rgba(103,216,255,.12), rgba(103,216,255,.045)); }
+header.topbar .workflow-navigation button.active::after { left: 18px; right: 18px; bottom: 0; border-radius: 2px; }
+header.topbar .workflow-navigation i { width: 18px; height: 18px; }
+header.topbar .workflow-navigation span { font-size: 10.5px; }
+
+header.topbar .project-actions {
+  height: 48px;
+  margin: 7px;
+  padding: 4px;
+  align-self: center;
+  gap: 2px;
+  overflow: hidden;
+  grid-template-columns: 68px 54px 62px 42px 50px 46px minmax(76px, 1fr);
+  border: 1px solid rgba(58, 72, 83, .7);
+  border-radius: 12px;
+  background: rgba(8, 13, 17, .72);
+}
+header.topbar .project-actions button,
+header.topbar .project-actions .setup-sheet-button,
+header.topbar .file-menu > button {
+  min-width: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+header.topbar .project-actions button:hover,
+header.topbar .project-actions .setup-sheet-button:hover,
+header.topbar .file-menu > button:hover,
+header.topbar .file-menu > button.active { background: #24313a; }
+header.topbar .project-actions .save-button { border-radius: 8px; }
+
+.panel,
+.decision-console,
+.viewport,
+.readout { border-radius: 13px; }
+.blueprint-heading { height: 52px; padding-inline: 16px; }
+.blueprint-shot { min-height: 100px; padding: 18px 17px; }
+.blueprint-section { padding: 18px 12px; }
+.blueprint-section h2 { margin-bottom: 12px; }
+.blueprint-row { min-height: 62px; margin-bottom: 6px; padding: 9px 10px 9px 12px; border-radius: 9px; }
+.blueprint-row.active { box-shadow: inset 2px 0 0 var(--signal), 0 7px 18px rgba(0,0,0,.12); }
+.blueprint-actions { height: 54px; padding: 8px; gap: 6px; }
+.blueprint-actions button { border-radius: 8px; }
+
+.decision-summary > header { min-height: 54px; padding: 11px 16px; }
+.decision-summary > div { padding: 12px 15px; }
+.decision-actions { gap: 6px; }
+.decision-actions button { min-height: 32px; padding-inline: 10px; border-radius: 8px; }
+.advanced-heading { height: 34px; padding-inline: 15px; }
+.inspector-section { padding: 18px 16px; }
+.inspector-nav { height: 42px; padding-inline: 12px; gap: 6px; }
+.inspector-nav button { height: 28px; padding-inline: 10px; border-radius: 7px; }
+
+.workspace-panel-tab {
+  width: 22px;
+  height: 54px;
+  margin-top: -27px;
+  gap: 0;
+  border-color: rgba(91, 111, 125, .72);
+  background: rgba(10, 16, 21, .82);
+  color: #8799a5;
+  box-shadow: 0 7px 18px rgba(0,0,0,.25);
+  opacity: .72;
+}
+.workspace-panel-tab:hover,
+.workspace-panel-tab:focus-visible { width: 26px; opacity: 1; }
+.workspace-panel-tab span { display: none; }
+.workspace-panel-tab.top,
+.workspace-panel-tab.bottom { width: 58px; height: 24px; }
+.workspace-panel-tab.top:hover,
+.workspace-panel-tab.top:focus-visible,
+.workspace-panel-tab.bottom:hover,
+.workspace-panel-tab.bottom:focus-visible { width: 66px; }
+.workspace-panel-tab i { width: 7px; height: 7px; }
+
+.readout { background: linear-gradient(180deg, rgba(19,26,33,.96), rgba(11,16,21,.98)); }
+.readout > div { padding: 12px 18px; border-right-color: rgba(50, 63, 73, .7); }
+.readout > div::before { display: none; }
+.readout span { padding-top: 0; font-size: 8px; letter-spacing: .14em; }
+.readout strong { margin-top: 6px; font-size: 18px; }
+
+@media (max-width: 1680px) {
+  main.app-shell,
+  main.app-shell.bottom-panel-hidden { grid-template-rows: 112px minmax(0, 1fr) 78px; }
+  main.app-shell.top-panel-hidden { grid-template-rows: 0 minmax(0, 1fr) 78px; }
+  main.app-shell.top-panel-hidden.bottom-panel-hidden { grid-template-rows: 0 minmax(0, 1fr) 0; }
+  header.topbar {
+    grid-template-columns: 196px minmax(0, 1fr) 372px;
+    grid-template-rows: 52px 52px;
+  }
+  header.topbar .brand { grid-column: 1; grid-row: 1 / 3; }
+  header.topbar .project-title { grid-column: 2; grid-row: 1; }
+  header.topbar .workflow-navigation { grid-column: 2; grid-row: 2; height: 46px; margin: 3px 8px 5px; }
+  header.topbar .project-actions {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    width: auto;
+    height: auto;
+    align-self: stretch;
+    margin: 7px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+  header.topbar .project-actions .save-button { grid-column: 3 / 5; }
+  header.topbar .project-actions .workspace-focus-button span { display: none; }
+}
+
+@media (min-width: 1681px) {
+  header.topbar .project-actions .save-button { grid-column: auto; }
+}
+
+@media (max-width: 1180px) {
+  main.app-shell,
+  main.app-shell.bottom-panel-hidden { grid-template-columns: 166px minmax(360px, 1fr) 218px; }
+  main.app-shell.left-panel-hidden { grid-template-columns: 0 minmax(360px, 1fr) 218px; }
+  main.app-shell.right-panel-hidden { grid-template-columns: 166px minmax(360px, 1fr) 0; }
+  main.app-shell.left-panel-hidden.right-panel-hidden { grid-template-columns: 0 minmax(360px, 1fr) 0; }
+  header.topbar { grid-template-columns: 156px minmax(0, 1fr) 266px; }
+  header.topbar .brand { padding-inline: 13px; }
+  header.topbar .brand-mark { width: 31px; height: 31px; }
+  header.topbar .brand small { display: none; }
+  header.topbar .project-title { padding-inline: 12px; }
+  header.topbar .project-title > span { display: none; }
+  header.topbar .project-name-input { width: min(150px, 22vw); }
+  header.topbar .project-title .save-state {
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 50%;
+    background: #6e7d88;
+    color: transparent;
+    font-size: 0;
+  }
+  header.topbar .project-title .save-state.saved,
+  header.topbar .project-title .save-state.autosaved,
+  header.topbar .project-title .save-state.loaded { background: var(--signal-cool); box-shadow: 0 0 8px rgba(103,216,255,.32); }
+  header.topbar .workflow-navigation i { display: none; }
+  header.topbar .workflow-navigation button { padding-inline: 6px; }
+  header.topbar .project-actions { margin: 7px 6px; }
+  .professional-panel { right: 228px; }
+}
+
+@media (max-width: 900px) {
+  main.app-shell,
+  main.app-shell.bottom-panel-hidden {
+    grid-template-columns: 142px minmax(360px, 1fr) 198px;
+    grid-template-rows: 112px minmax(0, 1fr) 72px;
+    gap: 6px;
+    padding: 6px;
+  }
+  main.app-shell.left-panel-hidden { grid-template-columns: 0 minmax(360px, 1fr) 198px; }
+  main.app-shell.right-panel-hidden { grid-template-columns: 142px minmax(360px, 1fr) 0; }
+  main.app-shell.left-panel-hidden.right-panel-hidden { grid-template-columns: 0 minmax(360px, 1fr) 0; }
+  header.topbar { grid-template-columns: 142px minmax(0, 1fr) 250px; }
+  header.topbar .brand > div { transform: scale(.9); transform-origin: left center; }
+  header.topbar .project-title { padding-inline: 10px; }
+  header.topbar .project-name-input { width: min(126px, 19vw); padding-inline: 6px; }
+  header.topbar .language-switch button { min-width: 27px; padding-inline: 5px; }
+  header.topbar .workflow-navigation { margin-inline: 5px; }
+  header.topbar .workflow-navigation span { font-size: 9.5px; }
+  header.topbar .project-actions { margin-inline: 5px; }
+  .blueprint-heading { padding-inline: 12px; }
+  .blueprint-shot { padding-inline: 13px; }
+  .blueprint-section { padding-inline: 8px; }
+  .blueprint-row { grid-template-columns: 28px minmax(0, 1fr) auto; padding-inline: 7px; }
+  .blueprint-row > i { width: 28px; height: 28px; }
+  .readout { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .readout > div { padding-inline: 10px; }
+  .readout strong { font-size: 16px; }
+  .professional-panel { right: 204px; }
+}
+
+@media (max-width: 759px) {
+  main.app-shell,
+  main.app-shell.left-panel-hidden,
+  main.app-shell.right-panel-hidden,
+  main.app-shell.left-panel-hidden.right-panel-hidden,
+  main.app-shell.bottom-panel-hidden {
+    min-width: 0;
+    grid-template-columns: 0 minmax(0, 1fr) 0;
+    grid-template-rows: 148px minmax(0, 1fr) 66px;
+    gap: 4px;
+    padding: 4px;
+  }
+  main.app-shell.top-panel-hidden { grid-template-rows: 0 minmax(0, 1fr) 66px; }
+  main.app-shell.top-panel-hidden.bottom-panel-hidden { grid-template-rows: 0 minmax(0, 1fr) 0; }
+  .blueprint-panel,
+  .decision-console { display: none; }
+  header.topbar {
+    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-rows: 48px 50px 46px;
+    border-radius: 10px;
+  }
+  header.topbar .brand { grid-column: 1; grid-row: 1; padding: 0; justify-content: center; border-right: 0; }
+  header.topbar .brand > div { display: none; }
+  header.topbar .brand-mark { width: 30px; height: 30px; }
+  header.topbar .project-title { grid-column: 2; grid-row: 1; padding: 0 8px 0 0; }
+  header.topbar .project-name-input { flex: 1; width: auto; font-size: 11px; }
+  header.topbar .language-switch { margin-left: 4px; }
+  header.topbar .workflow-navigation { grid-column: 1 / -1; grid-row: 2; height: 46px; margin: 2px 4px; }
+  header.topbar .workflow-navigation button { min-height: 38px; }
+  header.topbar .workflow-navigation span { font-size: 9px; }
+  header.topbar .project-actions {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    height: 42px;
+    margin: 2px 4px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-rows: 1fr;
+  }
+  header.topbar .project-actions .save-button { grid-column: auto; }
+  header.topbar .project-actions > button,
+  header.topbar .project-actions .file-menu > button,
+  header.topbar .project-actions .setup-sheet-button,
+  header.topbar .project-actions .pro-console-button,
+  header.topbar .project-actions .save-button { min-height: 34px; }
+  .viewport { grid-column: 2; }
+  .workspace-panel-tab.left,
+  .workspace-panel-tab.right { display: none; }
+  .readout { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .readout > div:nth-child(1),
+  .readout > div:nth-child(5) { display: none; }
+  .readout > div { padding: 8px; }
+  .readout span { font-size: 7px; }
+  .readout strong { font-size: 15px; }
+  .professional-panel { left: 8px; right: 8px; top: 156px; bottom: 74px; width: auto; }
+  .view-mode-dock { top: 9px; }
+  .view-mode-dock button { min-height: 31px; padding-inline: 7px; }
+  .viewport-label,
+  .axis-label,
+  .shortcut-launcher { display: none; }
+  .viewport .scene-toolbar {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    transform: none;
+  }
+  .viewport .scene-toolbar > span,
+  .viewport .scene-toolbar button:disabled { display: none; }
+  .viewport .scene-toolbar button { min-width: 42px; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blueprint-row.active,
+  .workspace-panel-tab,
+  header.topbar { transition: none; }
 }

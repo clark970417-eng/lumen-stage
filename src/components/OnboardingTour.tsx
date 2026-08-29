@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useT, type MessageKey } from '../i18n'
-import desktopViewsPreview from '../../assets/lumen-stage-preview.png'
 import '../onboarding.css'
 
 export type OnboardingScope = 'desktop' | 'mobile'
 
 type TourStep = {
-  target: string
+  target: string | string[]
   title: MessageKey
   body: MessageKey
   media: { kind: 'image'; src: string } | { kind: 'compare'; before: string; after: string }
+  aspect: 'wide' | 'panel' | 'strip'
   placement: 'below' | 'left' | 'above' | 'right'
 }
 
@@ -17,23 +17,25 @@ const STORAGE_PREFIX = 'lumen-stage:onboarding:v1:'
 
 const STEPS: Record<OnboardingScope, TourStep[]> = {
   desktop: [
-    { target: '.view-switch', title: 'tour.desktop.1.title', body: 'tour.desktop.1.body', media: { kind: 'image', src: desktopViewsPreview }, placement: 'below' },
-    { target: '.library', title: 'tour.desktop.2.title', body: 'tour.desktop.2.body', media: { kind: 'compare', before: '/onboarding/library-before.webp', after: '/onboarding/library-after.webp' }, placement: 'right' },
-    { target: '.scene-toolbar', title: 'tour.desktop.3.title', body: 'tour.desktop.3.body', media: { kind: 'image', src: '/onboarding/desktop-scene.webp' }, placement: 'below' },
-    { target: '.inspector', title: 'tour.desktop.4.title', body: 'tour.desktop.4.body', media: { kind: 'image', src: '/onboarding/desktop-inspector.webp' }, placement: 'left' },
-    { target: '.exposure-launcher', title: 'tour.desktop.5.title', body: 'tour.desktop.5.body', media: { kind: 'compare', before: '/onboarding/exposure-before.webp', after: '/onboarding/exposure-after.webp' }, placement: 'above' },
-    { target: '.readout', title: 'tour.desktop.6.title', body: 'tour.desktop.6.body', media: { kind: 'image', src: '/onboarding/desktop-readout.webp' }, placement: 'above' },
-    { target: '.view-switch', title: 'tour.desktop.7.title', body: 'tour.desktop.7.body', media: { kind: 'compare', before: '/onboarding/render-before.webp', after: '/onboarding/render-after.webp' }, placement: 'below' },
-    { target: '.project-actions', title: 'tour.desktop.8.title', body: 'tour.desktop.8.body', media: { kind: 'image', src: '/onboarding/desktop-save.webp' }, placement: 'below' },
+    { target: '.workflow-navigation', title: 'tour.desktop.1.title', body: 'tour.desktop.1.body', media: { kind: 'image', src: '/onboarding/desktop-workflow.webp' }, aspect: 'strip', placement: 'below' },
+    { target: '.blueprint-panel', title: 'tour.desktop.2.title', body: 'tour.desktop.2.body', media: { kind: 'compare', before: '/onboarding/blueprint-before.webp', after: '/onboarding/blueprint-after.webp' }, aspect: 'panel', placement: 'right' },
+    { target: '.scene-toolbar', title: 'tour.desktop.3.title', body: 'tour.desktop.3.body', media: { kind: 'image', src: '/onboarding/desktop-stage.webp' }, aspect: 'wide', placement: 'above' },
+    { target: '.decision-console', title: 'tour.desktop.4.title', body: 'tour.desktop.4.body', media: { kind: 'image', src: '/onboarding/desktop-decision.webp' }, aspect: 'panel', placement: 'left' },
+    { target: '.exposure-launcher', title: 'tour.desktop.5.title', body: 'tour.desktop.5.body', media: { kind: 'image', src: '/onboarding/exposure-after.webp' }, aspect: 'panel', placement: 'above' },
+    { target: '.readout', title: 'tour.desktop.6.title', body: 'tour.desktop.6.body', media: { kind: 'image', src: '/onboarding/desktop-readout.webp' }, aspect: 'strip', placement: 'above' },
+    { target: '.view-mode-dock', title: 'tour.desktop.7.title', body: 'tour.desktop.7.body', media: { kind: 'compare', before: '/onboarding/render-before.webp', after: '/onboarding/render-after.webp' }, aspect: 'wide', placement: 'below' },
+    { target: ['.save-button', '.file-menu', '.project-actions'], title: 'tour.desktop.8.title', body: 'tour.desktop.8.body', media: { kind: 'image', src: '/onboarding/desktop-save.webp' }, aspect: 'panel', placement: 'below' },
   ],
   mobile: [
-    { target: '.m-setup', title: 'tour.mobile.1.title', body: 'tour.mobile.1.body', media: { kind: 'image', src: '/onboarding/mobile-setup.webp' }, placement: 'above' },
-    { target: '.m-tabs', title: 'tour.mobile.2.title', body: 'tour.mobile.2.body', media: { kind: 'image', src: '/onboarding/mobile-subject.webp' }, placement: 'above' },
-    { target: '.m-tabs', title: 'tour.mobile.3.title', body: 'tour.mobile.3.body', media: { kind: 'image', src: '/onboarding/mobile-light.webp' }, placement: 'above' },
-    { target: '.m-tabs', title: 'tour.mobile.4.title', body: 'tour.mobile.4.body', media: { kind: 'image', src: '/onboarding/mobile-camera.webp' }, placement: 'above' },
-    { target: '.m-tabs', title: 'tour.mobile.5.title', body: 'tour.mobile.5.body', media: { kind: 'image', src: '/onboarding/mobile-project.webp' }, placement: 'above' },
+    { target: '#m-tab-intent', title: 'tour.mobile.1.title', body: 'tour.mobile.1.body', media: { kind: 'image', src: '/onboarding/mobile-setup.webp' }, aspect: 'wide', placement: 'above' },
+    { target: '#m-tab-blocking', title: 'tour.mobile.2.title', body: 'tour.mobile.2.body', media: { kind: 'image', src: '/onboarding/mobile-subject.webp' }, aspect: 'wide', placement: 'above' },
+    { target: '#m-tab-lighting', title: 'tour.mobile.3.title', body: 'tour.mobile.3.body', media: { kind: 'image', src: '/onboarding/mobile-light.webp' }, aspect: 'wide', placement: 'above' },
+    { target: '#m-tab-framing', title: 'tour.mobile.4.title', body: 'tour.mobile.4.body', media: { kind: 'image', src: '/onboarding/mobile-camera.webp' }, aspect: 'wide', placement: 'above' },
+    { target: '#m-tab-verify', title: 'tour.mobile.5.title', body: 'tour.mobile.5.body', media: { kind: 'image', src: '/onboarding/mobile-project.webp' }, aspect: 'wide', placement: 'above' },
   ],
 }
+
+const MOBILE_TABS = ['#m-tab-intent', '#m-tab-blocking', '#m-tab-lighting', '#m-tab-framing', '#m-tab-verify']
 
 export function shouldShowOnboarding(scope: OnboardingScope) {
   try { return localStorage.getItem(`${STORAGE_PREFIX}${scope}`) !== 'done' } catch { return true }
@@ -47,6 +49,26 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(Math.max(value, minimum), maximum)
 }
 
+function visibleArea(rect: DOMRect) {
+  const width = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0))
+  const height = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0))
+  return width * height
+}
+
+function findTarget(target: TourStep['target']) {
+  const selectors = Array.isArray(target) ? target : [target]
+  const elements = selectors.map((selector) => document.querySelector<HTMLElement>(selector)).filter(Boolean) as HTMLElement[]
+  return elements.find((element) => {
+    const rect = element.getBoundingClientRect()
+    return visibleArea(rect) >= Math.min(rect.width * rect.height * .35, 1200)
+  }) ?? elements.sort((a, b) => visibleArea(b.getBoundingClientRect()) - visibleArea(a.getBoundingClientRect()))[0]
+}
+
+function overlapArea(a: { left: number; top: number; right: number; bottom: number }, b: { left: number; top: number; right: number; bottom: number }) {
+  return Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+    * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+}
+
 export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
   open: boolean
   scope: OnboardingScope
@@ -57,6 +79,7 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
   const [stepIndex, setStepIndex] = useState(0)
   const [showAfter, setShowAfter] = useState(false)
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
+  const [cardSize, setCardSize] = useState({ width: 460, height: 460 })
   const cardRef = useRef<HTMLElement>(null)
   const steps = STEPS[scope]
   const step = steps[stepIndex]
@@ -74,20 +97,40 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
   }, [open, step])
 
   useEffect(() => {
+    if (!open || scope !== 'mobile') return
+    const tab = document.querySelector<HTMLButtonElement>(MOBILE_TABS[stepIndex])
+    if (tab?.getAttribute('aria-selected') !== 'true') tab?.click()
+  }, [open, scope, stepIndex])
+
+  useEffect(() => {
     if (!open) return
     const update = () => {
-      const target = document.querySelector<HTMLElement>(step.target)
+      const target = findTarget(step.target)
       setTargetRect(target?.getBoundingClientRect() ?? null)
     }
     update()
     window.addEventListener('resize', update)
     window.addEventListener('scroll', update, true)
     const frame = window.requestAnimationFrame(update)
+    const delayed = window.setTimeout(update, 120)
     return () => {
       window.cancelAnimationFrame(frame)
+      window.clearTimeout(delayed)
       window.removeEventListener('resize', update)
       window.removeEventListener('scroll', update, true)
     }
+  }, [open, step])
+
+  useLayoutEffect(() => {
+    if (!open || !cardRef.current) return
+    const update = () => {
+      const rect = cardRef.current?.getBoundingClientRect()
+      if (rect) setCardSize({ width: rect.width, height: rect.height })
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(cardRef.current)
+    return () => observer.disconnect()
   }, [open, step])
 
   useEffect(() => {
@@ -103,31 +146,43 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
 
   const cardStyle = useMemo<CSSProperties>(() => {
     if (!targetRect) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }
-    const width = Math.min(410, window.innerWidth - 32)
-    const estimatedHeight = 430
-    if (step.placement === 'left') {
-      return {
-        left: clamp(targetRect.left - width - 16, 16, window.innerWidth - width - 16),
-        top: clamp(targetRect.top + 12, 16, window.innerHeight - estimatedHeight - 16),
-      }
+    const margin = scope === 'mobile' ? 12 : 16
+    const gap = 18
+    const width = Math.min(cardSize.width, window.innerWidth - margin * 2)
+    const height = Math.min(cardSize.height, window.innerHeight - margin * 2)
+    const target = {
+      left: Math.max(0, targetRect.left - 8),
+      top: Math.max(0, targetRect.top - 8),
+      right: Math.min(window.innerWidth, targetRect.right + 8),
+      bottom: Math.min(window.innerHeight, targetRect.bottom + 8),
     }
-    if (step.placement === 'above') {
-      return {
-        left: clamp(targetRect.left, 16, window.innerWidth - width - 16),
-        top: clamp(targetRect.top - estimatedHeight - 16, 16, window.innerHeight - estimatedHeight - 16),
-      }
+    const centreTop = targetRect.top + targetRect.height / 2 - height / 2
+    const centreLeft = targetRect.left + targetRect.width / 2 - width / 2
+    const raw = {
+      right: { left: targetRect.right + gap, top: centreTop },
+      left: { left: targetRect.left - width - gap, top: centreTop },
+      below: { left: centreLeft, top: targetRect.bottom + gap },
+      above: { left: centreLeft, top: targetRect.top - height - gap },
     }
-    if (step.placement === 'right') {
-      return {
-        left: clamp(targetRect.right + 16, 16, window.innerWidth - width - 16),
-        top: clamp(targetRect.top + 12, 16, window.innerHeight - estimatedHeight - 16),
-      }
-    }
-    return {
-      left: clamp(targetRect.left, 16, window.innerWidth - width - 16),
-      top: clamp(targetRect.bottom + 14, 16, window.innerHeight - estimatedHeight - 16),
-    }
-  }, [step, targetRect])
+    const order = [step.placement, ...(['right', 'left', 'below', 'above'] as const).filter((item) => item !== step.placement)]
+    const candidates = order.map((placement, preference) => {
+      const left = clamp(raw[placement].left, margin, window.innerWidth - width - margin)
+      const top = clamp(raw[placement].top, margin, window.innerHeight - height - margin)
+      const card = { left, top, right: left + width, bottom: top + height }
+      return { left, top, score: overlapArea(card, target) * 10000 + preference }
+    })
+    const best = candidates.sort((a, b) => a.score - b.score)[0]
+    return { left: best.left, top: best.top }
+  }, [cardSize, scope, step, targetRect])
+
+  const highlightRect = useMemo(() => {
+    if (!targetRect) return null
+    const left = clamp(targetRect.left - 6, 0, window.innerWidth)
+    const top = clamp(targetRect.top - 6, 0, window.innerHeight)
+    const right = clamp(targetRect.right + 6, 0, window.innerWidth)
+    const bottom = clamp(targetRect.bottom + 6, 0, window.innerHeight)
+    return { left, top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) }
+  }, [targetRect])
 
   if (!open) return null
 
@@ -146,16 +201,11 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
   return (
     <div className={`onboarding-tour onboarding-${scope}`} aria-live="polite">
       <div className="onboarding-shade" aria-hidden="true" />
-      {targetRect && <div className="onboarding-highlight" aria-hidden="true" style={{
-        left: targetRect.left - 6,
-        top: targetRect.top - 6,
-        width: targetRect.width + 12,
-        height: targetRect.height + 12,
-      }} />}
+      {highlightRect && <div className="onboarding-highlight" aria-hidden="true" style={highlightRect} />}
       <article ref={cardRef} className="onboarding-card" role="dialog" aria-modal="false" aria-label={t('tour.aria')} style={cardStyle}>
         {media.kind === 'image'
-          ? <div className="onboarding-media"><img src={media.src} alt={t(step.title)} /></div>
-          : <div className={`onboarding-media onboarding-compare${showAfter ? ' is-after' : ''}`}>
+          ? <div className={`onboarding-media onboarding-media--${step.aspect}`}><img src={media.src} alt={t(step.title)} /></div>
+          : <div className={`onboarding-media onboarding-media--${step.aspect} onboarding-compare${showAfter ? ' is-after' : ''}`}>
               <img className="before" src={media.before} alt={t('tour.beforeAlt', { title: t(step.title) })} />
               <img className="after" src={media.after} alt={t('tour.afterAlt', { title: t(step.title) })} />
               <div className="onboarding-compare-switch" role="group" aria-label={t('tour.compare')}>

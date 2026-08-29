@@ -155,19 +155,20 @@ export function AssetDrawer() {
 export function DecisionConsole() {
   const copy = useCopy()
   const state = useStudio()
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const light = state.lights.find((item) => item.id === state.selected)
   const object = state.studioObjects.find((item) => item.id === state.selected)
   const distance = light ? Math.hypot(light.position[0] - state.modelPosition[0], light.position[1] - state.modelPosition[1], light.position[2] - state.modelPosition[2]) : 0
   const selection = light ? light.name : state.selected === 'camera' ? copy.camera : state.selected === 'model' ? copy.mainSubject : object?.name ?? String(state.selected)
 
-  return <aside className="decision-console">
+  return <aside className={advancedOpen ? 'decision-console advanced-open' : 'decision-console'}>
     <section className="decision-summary">
       <header><span>{copy.selected}</span><strong>{selection}</strong></header>
       <div><h2>{copy.desired}</h2><div className="decision-actions">{light ? <><button onClick={() => state.updateLight(light.id, { modifierWidth: Math.min(2.4, light.modifierWidth + 0.2), modifierHeight: Math.min(2.4, light.modifierHeight + 0.2), feather: Math.min(100, light.feather + 6) })}>{copy.soften}</button><button onClick={() => { const fill = state.lights[1]; if (fill) state.updateLight(fill.id, { powerPercent: Math.max(1, fill.powerPercent - 2) }) }}>{copy.deepen}</button><button className={light.targetSubjectId === 'model' ? 'active' : ''} onClick={() => state.bindLightToSubject(light.id, 'model', 'face')}>{copy.trackFace}</button></> : state.selected === 'camera' ? <><button onClick={() => state.frameCameraSubject('model', 'headshot')}>{copy.headshot}</button><button onClick={() => state.frameCameraSubject('model', 'half')}>{copy.half}</button><button onClick={() => state.frameCameraSubject('model', 'full')}>{copy.full}</button></> : null}</div></div>
       <div className="impact-readout"><h2>{copy.impact}</h2>{light ? <p><b>{light.powerPercent}%</b><span>{distance.toFixed(2)} m<br />{light.targetSubjectId ? copy.tracked : copy.manual}</span></p> : state.selected === 'camera' ? <p><b>{state.focalLength} mm</b><span>ƒ/{state.aperture} · ISO {state.iso}<br />1/{state.shutter} s</span></p> : <p><b>{state.modelHeight.toFixed(2)} m</b><span>{state.posePreset.replaceAll('-', ' ')}</span></p>}</div>
     </section>
-    <div className="advanced-heading">{copy.advanced}</div>
-    <Inspector />
+    <button type="button" className="advanced-heading" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((open) => !open)}><span>{copy.advanced}</span><i aria-hidden="true">{advancedOpen ? '−' : '＋'}</i></button>
+    {advancedOpen && <Inspector />}
   </aside>
 }
 
@@ -257,7 +258,6 @@ export function ContinuityGuardPanel() {
   return <div className="workspace-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false) }}><section className="continuity-panel" role="dialog" aria-modal="true" aria-label={copy.continuityTitle}>
     <header><div><span>CONTINUITY / HERO BASELINE</span><h2>{copy.continuityTitle}</h2><p>{copy.continuityIntro}</p></div><button onClick={() => setOpen(false)}>×</button></header>
     <div className="continuity-score"><strong>{report?.score ?? '—'}</strong><span>{report ? (report.score === 100 ? copy.match : copy.drift) : 'BASELINE'}</span><i style={{ '--score': `${report?.score ?? 0}%` } as React.CSSProperties} /></div>
-    <div className="continuity-findings">{!report ? <p>{copy.noBaseline}</p> : report.issues.length === 0 ? <p className="stable">● {copy.stable}</p> : report.issues.map((issue, index) => <article key={`${issue.label}-${index}`} className={issue.level}><i /> <div><strong>{issue.label}</strong><small>{issue.detail}</small></div></article>)}</div>
     <footer><button onClick={() => setBaseline(captureContinuityBaseline(state))}>{copy.setBaseline}</button><button onClick={track}>{copy.enableGuard}</button><button disabled={!baseline} onClick={restore}>{copy.restore}</button></footer>
   </section></div>
 }
