@@ -157,10 +157,44 @@ export function skinRoughnessMap() {
         const v = y / size
         const patch = fbm(u * 9, v * 9, 3, 29)
         const fine = fbm(u * 120, v * 120, 2, 5)
-        values[y * size + x] = 0.42 + patch * 0.46 + fine * 0.12
+        values[y * size + x] = 0.64 + patch * 0.28 + fine * 0.08
       }
     }
     return grayscale(values, size, 5)
+  })
+}
+
+/**
+ * Subtle colour variation below the pore scale.
+ *
+ * The material's user-selected skin colour multiplies this neutral map. The
+ * broad warm/cool drift keeps cheeks, forehead and limbs from reading as one
+ * perfectly uniform piece of plastic, while sparse low-contrast freckles give
+ * a close portrait something for a soft key to reveal.
+ */
+export function skinColorMap() {
+  return cached('skin-color', () => {
+    const size = SKIN_SIZE
+    const canvas = makeCanvas(size)
+    const context = canvas.getContext('2d')!
+    const image = context.createImageData(size, size)
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const u = x / size
+        const v = y / size
+        const dermal = fbm(u * 7, v * 7, 4, 109) - 0.5
+        const capillary = fbm(u * 19, v * 19, 3, 113) - 0.5
+        const freckleNoise = hash2(x, y, 127)
+        const freckle = freckleNoise > 0.994 ? (freckleNoise - 0.994) / 0.006 : 0
+        const index = (y * size + x) * 4
+        image.data[index] = clamp01(0.975 + dermal * 0.055 + capillary * 0.035 - freckle * 0.12) * 255
+        image.data[index + 1] = clamp01(0.955 + dermal * 0.025 - capillary * 0.018 - freckle * 0.16) * 255
+        image.data[index + 2] = clamp01(0.935 - dermal * 0.018 - capillary * 0.028 - freckle * 0.20) * 255
+        image.data[index + 3] = 255
+      }
+    }
+    context.putImageData(image, 0, 0)
+    return finish(canvas, 4, true)
   })
 }
 
