@@ -637,10 +637,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .about-dialog h2 { margin: 7px 0 0; color: #edf0e9; font-size: 20px; font-weight: 500; letter-spacing: .18em; }
 .about-dialog > header button { width: 38px; height: 38px; border: 1px solid #3a4038; background: #191c19; color: #a8afa4; font: 24px/1 var(--mono); cursor: pointer; }
 .about-dialog > header button:hover { border-color: var(--signal); color: var(--signal); }
-.about-owner { min-height: 132px; padding: 24px 20px; display: grid; grid-template-columns: 112px 1fr; align-items: end; border-bottom: 1px solid var(--line); background: linear-gradient(115deg, rgba(255,180,84,.065), transparent 55%); }
-.about-owner > span { align-self: start; color: var(--signal); font: 9.5px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
-.about-owner strong { font: 400 36px/1 var(--mono); letter-spacing: -.05em; }
-.about-owner small { grid-column: 2; margin-top: 8px; color: #858d82; font-size: 11px; }
+.about-owner { min-height: 172px; padding: 22px 20px; display: grid; grid-template-columns: 112px 1fr; grid-template-rows: auto 1fr auto; column-gap: 24px; align-items: end; border-bottom: 1px solid var(--line); background: linear-gradient(115deg, rgba(255,180,84,.065), transparent 55%); }
+.about-owner > span { grid-column: 1 / -1; align-self: start; color: var(--signal); font: 9.5px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+.creator-avatar { grid-column: 1; grid-row: 2 / 4; width: 104px; height: 104px; align-self: end; display: block; object-fit: cover; object-position: left center; border: 1px solid #455664; border-radius: 8px; background: #fff; box-shadow: 0 14px 34px rgba(0,0,0,.3), inset 0 0 0 1px rgba(255,255,255,.16); }
+.about-owner strong { grid-column: 2; grid-row: 2; align-self: end; font: 400 36px/1 var(--mono); letter-spacing: -.05em; }
+.about-owner small { grid-column: 2; grid-row: 3; margin-top: 8px; color: #858d82; font-size: 11px; }
 .about-copy { display: grid; grid-template-columns: repeat(3, 1fr); }
 .about-copy section { min-height: 205px; padding: 20px; border-right: 1px solid var(--line); }
 .about-copy section:last-child { border-right: 0; }
@@ -650,7 +651,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 @media (max-width: 620px) {
   .about-backdrop { padding: 10px; }
   .about-dialog { max-height: 94vh; }
-  .about-owner { grid-template-columns: 82px 1fr; }
+  .about-owner { min-height: 146px; grid-template-columns: 88px 1fr; column-gap: 16px; padding: 18px 16px; }
+  .creator-avatar { width: 84px; height: 84px; border-radius: 7px; }
+  .about-owner strong { font-size: 30px; }
   .about-copy { grid-template-columns: 1fr; }
   .about-copy section { min-height: 0; border-right: 0; border-bottom: 1px solid var(--line); }
   .about-copy section:last-child { border-bottom: 0; }
