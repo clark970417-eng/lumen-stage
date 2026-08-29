@@ -28,13 +28,20 @@ function fromBase64Url(text: string) {
   return bytes
 }
 
-async function collect(stream: ReadableStream<Uint8Array>) {
+const MAX_ENCODED_SCENE_LENGTH = 256_000
+const MAX_SCENE_BYTES = 5 * 1024 * 1024
+
+async function collect(stream: ReadableStream<Uint8Array>, maxBytes = MAX_SCENE_BYTES) {
   const reader = stream.getReader()
   const chunks: Uint8Array[] = []
   let total = 0
   for (;;) {
     const { done, value } = await reader.read()
     if (done) break
+    if (total + value.length > maxBytes) {
+      await reader.cancel('Scene exceeds the safety limit')
+      throw new Error('Scene exceeds the safety limit')
+    }
     chunks.push(value)
     total += value.length
   }
@@ -56,6 +63,7 @@ const DEFLATE = 0x01
 
 export async function encodeScene(json: string): Promise<string> {
   const bytes = new TextEncoder().encode(json)
+  if (bytes.length > MAX_SCENE_BYTES) throw new Error('Scene exceeds the sharing limit')
   if (typeof CompressionStream === 'undefined') {
     return toBase64Url(new Uint8Array([RAW, ...bytes]))
   }
@@ -68,9 +76,15 @@ export async function encodeScene(json: string): Promise<string> {
 }
 
 export async function decodeScene(encoded: string): Promise<string> {
+  if (!encoded || encoded.length > MAX_ENCODED_SCENE_LENGTH) throw new Error('Invalid scene link')
   const payload = fromBase64Url(encoded)
+  if (payload.length < 2) throw new Error('Invalid scene link')
   const body = payload.subarray(1)
-  if (payload[0] === RAW) return new TextDecoder().decode(body)
+  if (payload[0] === RAW) {
+    if (body.length > MAX_SCENE_BYTES) throw new Error('Scene exceeds the safety limit')
+    return new TextDecoder().decode(body)
+  }
+  if (payload[0] !== DEFLATE) throw new Error('Invalid scene link')
   if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot read compressed scene links')
   const stream = new Blob([body as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate-raw'))
   return new TextDecoder().decode(await collect(stream))

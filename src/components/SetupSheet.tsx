@@ -317,8 +317,13 @@ export function SetupSheet() {
     const doc = frame.contentDocument
     if (!doc) { frame.remove(); return }
     doc.open()
-    doc.write(`<!doctype html><title>${state.projectName} · Setup Sheet</title><style>@page{size:A3 landscape;margin:8mm}body{margin:0}svg{width:100%;height:auto}</style>${new XMLSerializer().serializeToString(svg)}`)
     doc.close()
+    const title = doc.createElement('title')
+    title.textContent = `${state.projectName} · Setup Sheet`
+    const style = doc.createElement('style')
+    style.textContent = '@page{size:A3 landscape;margin:8mm}body{margin:0}svg{width:100%;height:auto}'
+    doc.head.append(title, style)
+    doc.body.appendChild(doc.importNode(svg, true))
     const run = () => {
       frame.contentWindow?.focus()
       frame.contentWindow?.print()

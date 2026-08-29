@@ -18,6 +18,7 @@ import { useStudio } from './store'
 import { buildShareLink, copyToClipboard, readSceneFromLocation } from './share'
 import { COLOR_PROFILES } from './colorScience'
 import { CAMERA_BODIES } from './cameraProfiles'
+import { MAX_PROJECT_FILE_BYTES, readTextFileWithinLimit } from './security'
 
 let hintSequence = 0
 
@@ -264,7 +265,14 @@ function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
         <button className="setup-sheet-button" onClick={() => setValue('setupSheetOpen', true)} title={t('topbar.setupSheet.title')}>{t('topbar.setupSheet')}</button>
         <button className={professionalPanelOpen ? 'pro-console-button active' : 'pro-console-button'} onClick={() => setValue('professionalPanelOpen', !professionalPanelOpen)} title={t('topbar.pro.title')} aria-pressed={professionalPanelOpen}>PRO</button>
         <button className="guide-button" onClick={onOpenGuide} title={t('topbar.guide.title')}>{t('topbar.guide')}</button>
-        <input ref={projectInput} className="asset-input" type="file" accept=".json,.lumen.json,application/json" onChange={async (event) => { const file = event.target.files?.[0]; if (file) importProject(await file.text()); event.target.value = '' }} />
+        <input ref={projectInput} className="asset-input" type="file" accept=".json,.lumen.json,application/json" onChange={async (event) => {
+          const file = event.target.files?.[0]
+          if (file) {
+            try { importProject(await readTextFileWithinLimit(file, MAX_PROJECT_FILE_BYTES)) }
+            catch { useStudio.setState({ saveStatus: 'error' }) }
+          }
+          event.target.value = ''
+        }} />
         <FileMenu onImport={() => projectInput.current?.click()} onExport={exportProject} onLoad={loadProject} />
         <button className="save-button" onClick={saveProject} title={t('topbar.save.title')}>{t('topbar.save')} <span>⌘S</span></button>
       </div>
