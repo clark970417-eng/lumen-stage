@@ -1493,7 +1493,7 @@ button, input, select { transition: border-color .16s ease, background-color .16
 .language-switch button { border-right-color: #303c46; }
 .language-switch button.active { background: #26323d; color: #f4f7f8; }
 
-.view-switch { padding: 4px; border-color: #303c46; border-radius: 8px; background: rgba(7,10,14,.72); }
+.view-switch { margin-left: 14px; padding: 4px; border-color: #303c46; border-radius: 8px; background: rgba(7,10,14,.72); }
 .view-switch button { position: relative; min-height: 34px; padding: 8px 12px; border-radius: 5px; }
 .view-switch button:hover { color: #dbe3e8; background: #18212a; }
 .view-switch button.active { background: #25313b; color: #f4f7f9; box-shadow: inset 0 -2px 0 var(--signal-cool); }
@@ -1574,13 +1574,19 @@ button, input, select { transition: border-color .16s ease, background-color .16
 }
 .status-dot { background: var(--signal-cool); box-shadow: 0 0 9px rgba(103,216,255,.75); }
 .scene-toolbar {
-  top: 13px;
+  top: auto;
+  bottom: 18px;
+  z-index: 4;
+  max-width: calc(100% - 28px);
   height: 36px;
+  overflow-x: auto;
+  scrollbar-width: none;
   border-color: rgba(71,88,101,.82);
   border-radius: 7px;
   background: rgba(9,14,18,.84);
   box-shadow: 0 8px 25px rgba(0,0,0,.24);
 }
+.scene-toolbar::-webkit-scrollbar { display: none; }
 .scene-toolbar button { border-radius: 4px; }
 .scene-toolbar button:hover { color: #e8eef1; background: #202b34; }
 .scene-toolbar button.active { background: #2b3944; color: #fff; }
@@ -1643,7 +1649,7 @@ button, input, select { transition: border-color .16s ease, background-color .16
   .brand { grid-column: 1; grid-row: 1 / 3; }
   .project-title { grid-column: 2; grid-row: 1; padding-left: 16px; }
   .project-name-input { width: min(180px,22vw); }
-  .view-switch { grid-column: 2; grid-row: 2; width: fit-content; margin-left: 12px; }
+  .view-switch { grid-column: 2; grid-row: 2; width: fit-content; margin-left: 14px; }
   .view-switch button { padding: 8px 11px; }
   .project-actions { grid-column: 3; grid-row: 1 / 3; width: 100%; margin-left: 0; grid-template-columns: repeat(5,38px) minmax(74px,1fr); }
   .project-actions button { font-size: 0; }
@@ -1666,6 +1672,7 @@ button, input, select { transition: border-color .16s ease, background-color .16
   .professional-panel { top: 126px; right: 228px; }
   .brand { padding-inline: 14px; }
   .brand-mark { width: 32px; height: 32px; }
+  .viewport .scene-toolbar { bottom: 58px; }
 }
 
 .webgl-notice { position: absolute; inset: 0; z-index: 50; padding: 28px; display: grid; place-content: center; justify-items: center; gap: 10px; background: rgba(8,11,15,.94); text-align: center; }
