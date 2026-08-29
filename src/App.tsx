@@ -492,10 +492,11 @@ export default function App() {
   const t = useT()
   const locale = useLocaleStore((state) => state.locale)
   const panelSideLabel = locale === 'zh'
-    ? { hideLeft: '收起左側面板', showLeft: '顯示左側面板', hideRight: '收起右側面板', showRight: '顯示右側面板' }
+    ? { hideLeft: '收起左側面板', showLeft: '顯示左側面板', hideRight: '收起右側面板', showRight: '顯示右側面板', hideTop: '收起上方功能列', showTop: '顯示上方功能列', hideBottom: '收起下方資訊列', showBottom: '顯示下方資訊列' }
     : locale === 'ja'
-      ? { hideLeft: '左パネルを隠す', showLeft: '左パネルを表示', hideRight: '右パネルを隠す', showRight: '右パネルを表示' }
-      : { hideLeft: 'Hide left panel', showLeft: 'Show left panel', hideRight: 'Hide right panel', showRight: 'Show right panel' }
+      ? { hideLeft: '左パネルを隠す', showLeft: '左パネルを表示', hideRight: '右パネルを隠す', showRight: '右パネルを表示', hideTop: '上部バーを隠す', showTop: '上部バーを表示', hideBottom: '下部バーを隠す', showBottom: '下部バーを表示' }
+      : { hideLeft: 'Hide left panel', showLeft: 'Show left panel', hideRight: 'Hide right panel', showRight: 'Show right panel', hideTop: 'Hide top bar', showTop: 'Show top bar', hideBottom: 'Hide bottom bar', showBottom: 'Show bottom bar' }
+  const panelSideName = locale === 'zh' ? { left: '左欄', right: '右欄', top: '上欄', bottom: '下欄' } : locale === 'ja' ? { left: '左', right: '右', top: '上', bottom: '下' } : { left: 'LEFT', right: 'RIGHT', top: 'TOP', bottom: 'BOTTOM' }
   const [sceneReady, setSceneReady] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [tourOpen, setTourOpen] = useState(false)
@@ -504,19 +505,22 @@ export default function App() {
   const [workspacePanels, setWorkspacePanels] = useState(() => {
     try {
       const saved = window.localStorage.getItem('lumen-stage:workspace-panels:v1')
-      return saved ? JSON.parse(saved) as { left: boolean; right: boolean } : { left: true, right: true }
+      const parsed = saved ? JSON.parse(saved) as Partial<{ left: boolean; right: boolean; top: boolean; bottom: boolean }> : {}
+      return { left: parsed.left ?? true, right: parsed.right ?? true, top: parsed.top ?? true, bottom: parsed.bottom ?? true }
     } catch {
-      return { left: true, right: true }
+      return { left: true, right: true, top: true, bottom: true }
     }
   })
   const onWebglLost = useCallback(() => setWebglLost(true), [])
   const onWebglRestored = useCallback(() => setWebglLost(false), [])
   const [hint, setHint] = useState<{ id: number; text: string } | null>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const bothPanelsHidden = !workspacePanels.left && !workspacePanels.right
+  const allPanelsHidden = !workspacePanels.left && !workspacePanels.right && !workspacePanels.top && !workspacePanels.bottom
 
   const toggleAllPanels = useCallback(() => {
-    setWorkspacePanels((current) => current.left || current.right ? { left: false, right: false } : { left: true, right: true })
+    setWorkspacePanels((current) => current.left || current.right || current.top || current.bottom
+      ? { left: false, right: false, top: false, bottom: false }
+      : { left: true, right: true, top: true, bottom: true })
   }, [])
 
   useEffect(() => {
@@ -553,8 +557,8 @@ export default function App() {
   }, [sceneReady])
 
   return (
-    <main className={`app-shell ${workspacePanels.left ? '' : 'left-panel-hidden'} ${workspacePanels.right ? '' : 'right-panel-hidden'}`}>
-      <TopBar onOpenGuide={() => setGuideOpen(true)} panelsHidden={bothPanelsHidden} onTogglePanels={toggleAllPanels} />
+    <main className={`app-shell ${workspacePanels.left ? '' : 'left-panel-hidden'} ${workspacePanels.right ? '' : 'right-panel-hidden'} ${workspacePanels.top ? '' : 'top-panel-hidden'} ${workspacePanels.bottom ? '' : 'bottom-panel-hidden'}`}>
+      <TopBar onOpenGuide={() => setGuideOpen(true)} panelsHidden={allPanelsHidden} onTogglePanels={toggleAllPanels} />
       <BlueprintPanel />
       <section className={`viewport ${renderMode === 'path' ? 'path-color-science' : ''}`} aria-label={t('viewport.aria')} style={{ '--path-saturation': pathSaturation, '--path-contrast': pathContrast, '--path-sepia': pathSepia } as React.CSSProperties}>
         <Canvas
@@ -588,8 +592,10 @@ export default function App() {
         <ShotLibrary />
         <ShortcutLauncher />
         <ShortcutHint hint={hint} />
-        <button className={`workspace-panel-tab left ${workspacePanels.left ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, left: !current.left }))} aria-label={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft} title={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft}><i aria-hidden="true" /></button>
-        <button className={`workspace-panel-tab right ${workspacePanels.right ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, right: !current.right }))} aria-label={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight} title={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight}><i aria-hidden="true" /></button>
+        <button className={`workspace-panel-tab left ${workspacePanels.left ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, left: !current.left }))} aria-label={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft} title={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft}><span aria-hidden="true">{panelSideName.left}</span><i aria-hidden="true" /></button>
+        <button className={`workspace-panel-tab right ${workspacePanels.right ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, right: !current.right }))} aria-label={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight} title={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight}><span aria-hidden="true">{panelSideName.right}</span><i aria-hidden="true" /></button>
+        <button className={`workspace-panel-tab top ${workspacePanels.top ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, top: !current.top }))} aria-label={workspacePanels.top ? panelSideLabel.hideTop : panelSideLabel.showTop} title={workspacePanels.top ? panelSideLabel.hideTop : panelSideLabel.showTop}><span aria-hidden="true">{panelSideName.top}</span><i aria-hidden="true" /></button>
+        <button className={`workspace-panel-tab bottom ${workspacePanels.bottom ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, bottom: !current.bottom }))} aria-label={workspacePanels.bottom ? panelSideLabel.hideBottom : panelSideLabel.showBottom} title={workspacePanels.bottom ? panelSideLabel.hideBottom : panelSideLabel.showBottom}><span aria-hidden="true">{panelSideName.bottom}</span><i aria-hidden="true" /></button>
       </section>
       <DecisionConsole />
       <ProfessionalPanel />

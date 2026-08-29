@@ -44,10 +44,21 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .app-shell.left-panel-hidden { grid-template-columns: 0 minmax(480px, 1fr) 300px; }
 .app-shell.right-panel-hidden { grid-template-columns: 240px minmax(480px, 1fr) 0; }
 .app-shell.left-panel-hidden.right-panel-hidden { grid-template-columns: 0 minmax(480px, 1fr) 0; }
+.app-shell.top-panel-hidden { grid-template-rows: 0 minmax(0, 1fr) 84px; }
+.app-shell.bottom-panel-hidden { grid-template-rows: 66px minmax(0, 1fr) 0; }
+.app-shell.top-panel-hidden.bottom-panel-hidden { grid-template-rows: 0 minmax(0, 1fr) 0; }
 .library,
-.inspector { min-width: 0; transition: opacity .18s ease, transform .18s ease; }
-.left-panel-hidden > .library { opacity: 0; pointer-events: none; transform: translateX(-18px); }
-.right-panel-hidden > .inspector { opacity: 0; pointer-events: none; transform: translateX(18px); }
+.inspector,
+.blueprint-panel,
+.decision-console { min-width: 0; transition: opacity .18s ease, transform .18s ease; }
+.left-panel-hidden > .library,
+.left-panel-hidden > .blueprint-panel { opacity: 0; pointer-events: none; transform: translateX(-18px); }
+.right-panel-hidden > .inspector,
+.right-panel-hidden > .decision-console { opacity: 0; pointer-events: none; transform: translateX(18px); }
+.app-shell > .topbar,
+.app-shell > .readout { transition: opacity .18s ease, transform .18s ease; }
+.top-panel-hidden > .topbar { opacity: 0; pointer-events: none; transform: translateY(-18px); }
+.bottom-panel-hidden > .readout { opacity: 0; pointer-events: none; transform: translateY(18px); }
 
 .project-actions .workspace-focus-button {
   display: flex; align-items: center; justify-content: center; gap: 7px;
@@ -60,21 +71,41 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .project-actions .workspace-focus-button.active { background: #26343e; color: var(--signal-cool); }
 
 .workspace-panel-tab {
-  position: absolute; top: 50%; z-index: 8; width: 18px; height: 52px; margin-top: -26px; padding: 0;
-  border: 1px solid rgba(90,109,122,.7); background: rgba(8,13,17,.78); color: #9aabb6;
-  cursor: pointer; backdrop-filter: blur(10px); opacity: .72;
+  position: absolute; top: 50%; z-index: 12; width: 30px; height: 76px; margin-top: -38px; padding: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px;
+  border: 1px solid rgba(110,132,147,.92); background: linear-gradient(180deg, rgba(25,35,43,.97), rgba(8,13,17,.97)); color: #c4d0d7;
+  cursor: pointer; backdrop-filter: blur(10px); box-shadow: 0 8px 24px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.05); opacity: .96;
 }
 .workspace-panel-tab:hover,
-.workspace-panel-tab:focus-visible { width: 24px; opacity: 1; color: var(--signal-cool); background: rgba(18,27,34,.96); }
+.workspace-panel-tab:focus-visible { width: 34px; opacity: 1; color: var(--signal-cool); border-color: var(--signal-cool); background: #17232c; }
 .workspace-panel-tab.left { left: 0; border-left: 0; border-radius: 0 6px 6px 0; }
 .workspace-panel-tab.right { right: 0; border-right: 0; border-radius: 6px 0 0 6px; }
+.workspace-panel-tab.top,
+.workspace-panel-tab.bottom {
+  left: 50%; width: 92px; height: 30px; margin: 0; flex-direction: row; transform: translateX(-50%);
+}
+.workspace-panel-tab.top { top: 0; border-top: 0; border-radius: 0 0 6px 6px; }
+.workspace-panel-tab.bottom { top: auto; bottom: 0; border-bottom: 0; border-radius: 6px 6px 0 0; }
+.workspace-panel-tab.top:hover,
+.workspace-panel-tab.top:focus-visible,
+.workspace-panel-tab.bottom:hover,
+.workspace-panel-tab.bottom:focus-visible { width: 102px; }
+.workspace-panel-tab span {
+  color: inherit; font: 500 8px/1 var(--mono); letter-spacing: .08em; writing-mode: vertical-rl;
+}
+.workspace-panel-tab.top span,
+.workspace-panel-tab.bottom span { writing-mode: horizontal-tb; }
 .workspace-panel-tab i {
-  display: block; width: 6px; height: 6px; margin: auto;
+  display: block; width: 8px; height: 8px; margin: 0;
   border-top: 1px solid currentColor; border-right: 1px solid currentColor; transform: rotate(45deg);
 }
 .workspace-panel-tab.left.panel-visible i { transform: rotate(-135deg); }
 .workspace-panel-tab.right i { transform: rotate(-135deg); }
 .workspace-panel-tab.right.panel-visible i { transform: rotate(45deg); }
+.workspace-panel-tab.top i { transform: rotate(135deg); }
+.workspace-panel-tab.top.panel-visible i { transform: rotate(-45deg); }
+.workspace-panel-tab.bottom i { transform: rotate(-45deg); }
+.workspace-panel-tab.bottom.panel-visible i { transform: rotate(135deg); }
 
 .topbar {
   grid-column: 1 / -1; display: grid; grid-template-columns: 222px 1fr auto 320px;
