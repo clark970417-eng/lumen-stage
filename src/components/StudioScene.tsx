@@ -676,35 +676,93 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       const quality = mappingQuality(map)
 
       // The licensed MakeHuman studio model intentionally ships without hair.
-      // Add a close crop with a slightly irregular hairline so the default reads
-      // as a normal young adult rather than a bald character placeholder.
+      // Build a continuous short cut with a softly irregular front hairline.
+      // The group is parented to the actual head bone so it follows every pose.
       if (shippedHuman && map.head) {
         const normalizedBox = new THREE.Box3().setFromObject(model)
         const headPosition = map.head.getWorldPosition(new THREE.Vector3())
-        const hairGeometry = new THREE.SphereGeometry(0.135, 32, 18, 0, Math.PI * 2, 0, Math.PI * 0.43)
+        const hairCanvas = document.createElement('canvas')
+        hairCanvas.width = 512
+        hairCanvas.height = 512
+        const hairContext = hairCanvas.getContext('2d')!
+        hairContext.fillStyle = '#2b1b15'
+        hairContext.fillRect(0, 0, 512, 512)
+        let hairSeed = 117
+        const randomHair = () => {
+          hairSeed = (hairSeed * 16807) % 2147483647
+          return (hairSeed - 1) / 2147483646
+        }
+        hairContext.lineCap = 'round'
+        for (let index = 0; index < 760; index += 1) {
+          const x = randomHair() * 512
+          const y = randomHair() * 512
+          const length = 10 + randomHair() * 34
+          hairContext.strokeStyle = randomHair() > 0.48 ? 'rgba(104,68,49,.24)' : 'rgba(18,10,8,.28)'
+          hairContext.lineWidth = 0.45 + randomHair() * 1.15
+          hairContext.beginPath()
+          hairContext.moveTo(x, y)
+          hairContext.quadraticCurveTo(x + length * 0.22, y - length * 0.55, x + length * 0.06, y - length)
+          hairContext.stroke()
+        }
+        const hairTexture = new THREE.CanvasTexture(hairCanvas)
+        hairTexture.colorSpace = THREE.SRGBColorSpace
+        hairTexture.wrapS = THREE.RepeatWrapping
+        hairTexture.wrapT = THREE.RepeatWrapping
+        hairTexture.repeat.set(2.4, 1.6)
+        const hairMaterial = new THREE.MeshStandardMaterial({
+          color: '#ffffff',
+          map: hairTexture,
+          roughness: 0.64,
+          metalness: 0,
+          envMapIntensity: 0.5,
+        })
+        const hairGeometry = new THREE.SphereGeometry(0.138, 48, 24, 0, Math.PI * 2, 0, Math.PI * 0.44)
         const hairPositions = hairGeometry.getAttribute('position') as THREE.BufferAttribute
         for (let index = 0; index < hairPositions.count; index += 1) {
+          const x = hairPositions.getX(index)
           const y = hairPositions.getY(index)
-          if (y > 0.038) continue
-          const x = hairPositions.getX(index) / 0.135
-          hairPositions.setY(index, y + Math.abs(x) * 0.012 - 0.004 + x * 0.003)
+          const z = hairPositions.getZ(index)
+          const normalizedX = x / 0.138
+          const normalizedZ = z / 0.138
+          const surface = 1 + Math.sin(index * 2.17) * 0.006 + Math.sin(index * 0.71) * 0.004
+          hairPositions.setXYZ(index, x * surface, y * surface, z * surface)
+          if (y < 0.045 && normalizedZ > 0.12) {
+            const templeLift = Math.abs(normalizedX) * 0.021
+            const centreDip = Math.exp(-Math.pow(normalizedX * 3.6, 2)) * -0.012
+            const sidePart = Math.exp(-Math.pow((normalizedX + 0.42) * 9, 2)) * 0.012
+            hairPositions.setY(index, hairPositions.getY(index) + templeLift + centreDip + sidePart)
+          }
         }
         hairPositions.needsUpdate = true
         hairGeometry.computeVertexNormals()
-        const hair = new THREE.Mesh(
-          hairGeometry,
-          new THREE.MeshStandardMaterial({
-            color: '#2a211d',
-            roughness: 0.72,
-            metalness: 0,
-          }),
-        )
-        hair.name = 'studio-short-hair'
-        hair.scale.set(0.9, 1, 1.02)
-        hair.castShadow = true
-        hair.receiveShadow = true
-        hair.position.copy(model.worldToLocal(new THREE.Vector3(headPosition.x, normalizedBox.max.y - 0.085, headPosition.z)))
-        model.add(hair)
+        const hairstyle = new THREE.Group()
+        hairstyle.name = 'studio-layered-short-hair'
+        const cap = new THREE.Mesh(hairGeometry, hairMaterial)
+        cap.scale.set(0.92, 1, 1.03)
+        cap.rotation.z = -0.025
+        cap.castShadow = true
+        cap.receiveShadow = true
+        hairstyle.add(cap)
+
+        hairstyle.position.copy(model.worldToLocal(new THREE.Vector3(headPosition.x, normalizedBox.max.y - 0.09, headPosition.z)))
+        model.add(hairstyle)
+        model.updateMatrixWorld(true)
+        map.head.attach(hairstyle)
+      }
+
+      // This source is authored in a wide A-stance. Lower only its upper arms
+      // before capturing the neutral rest pose, keeping elbows and hands fully
+      // visible beside the body instead of forcing them behind the torso.
+      if (shippedHuman && map.leftUpperArm && map.rightUpperArm) {
+        const lowerArmInWorld = (bone: THREE.Bone, degrees: number) => {
+          const parentWorld = bone.parent?.getWorldQuaternion(new THREE.Quaternion()) ?? new THREE.Quaternion()
+          const desiredWorld = bone.getWorldQuaternion(new THREE.Quaternion())
+          desiredWorld.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(degrees)))
+          bone.quaternion.copy(parentWorld.invert()).multiply(desiredWorld)
+        }
+        lowerArmInWorld(map.leftUpperArm, -28)
+        lowerArmInWorld(map.rightUpperArm, 28)
+        model.updateMatrixWorld(true)
       }
 
       rig.current = quality.usable ? { map, rest: captureRestPose(model, map) } : null
