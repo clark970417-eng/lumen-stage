@@ -14,7 +14,8 @@
  */
 
 import * as THREE from 'three'
-import type { HandPose, ModelPose } from './pose'
+import { NEUTRAL_POSE, type HandPose, type ModelPose } from './pose'
+import { applyWorldPoseDelta } from './retargetDelta'
 
 /** Every joint the rig can drive. Anything else in the skeleton is left alone. */
 export type HumanoidBone =
@@ -305,6 +306,8 @@ function applyFingers(hand: THREE.Bone | undefined, pose: HandPose, rest: RestPo
  */
 export function applyPoseToSkeleton(root: THREE.Object3D, map: BoneMap, rest: RestPose, pose: ModelPose, stanceSplay: number) {
   const targets = accumulate(pose, stanceSplay)
+  const neutralStanceSplay = THREE.MathUtils.radToDeg(Math.atan2(NEUTRAL_POSE.stanceWidth / 2 - 0.083, 0.865))
+  const neutralTargets = accumulate(NEUTRAL_POSE, neutralStanceSplay)
   const bySlot = new Map<THREE.Bone, HumanoidBone>()
   for (const [slot, bone] of Object.entries(map) as [HumanoidBone, THREE.Bone][]) {
     if (bone && !bySlot.has(bone)) bySlot.set(bone, slot)
@@ -321,12 +324,13 @@ export function applyPoseToSkeleton(root: THREE.Object3D, map: BoneMap, rest: Re
       const slot = bySlot.get(bone)
       const restLocal = rest.localQuaternion.get(bone)
       const restWorld = rest.worldQuaternion.get(bone)
-      if (slot && targets[slot] && restWorld && restLocal) {
-        // World orientation asked for: pose rotation ∘ rest normalization ∘ rest.
-        worldTarget.copy(targets[slot]!)
-        const fix = rest.normalize.get(bone)
-        if (fix) worldTarget.multiply(fix)
-        worldTarget.multiply(restWorld)
+      const neutralTarget = slot ? neutralTargets[slot] : undefined
+      if (slot && targets[slot] && neutralTarget && restWorld && restLocal) {
+        // Imported people already have a valid, authored neutral stance. Apply
+        // only the delta from our neutral pose, instead of forcing their bones
+        // into the procedural figure's axes. This preserves the arm roll and
+        // keeps elbows, wrists and hands in front of the torso.
+        applyWorldPoseDelta(worldTarget, targets[slot]!, neutralTarget, restWorld)
         inverse.copy(posedParentWorld).invert()
         bone.quaternion.copy(inverse).multiply(worldTarget)
       } else if (restLocal) {
