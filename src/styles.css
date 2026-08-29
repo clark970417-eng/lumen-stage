@@ -199,8 +199,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .viewport-label b { margin-left: 12px; color: #7f857b; font-weight: 400; }
 .axis-label { right: 14px; }
 .scene-toolbar { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); height: 34px; padding: 3px; display: flex; align-items: center; gap: 3px; border: 1px solid rgba(78,84,76,.84); background: rgba(17,19,17,.88); backdrop-filter: blur(10px); }
-.scene-toolbar > span { padding: 0 10px 0 7px; color: #7e847b; font: 10px var(--mono); letter-spacing: .1em; }
-.scene-toolbar button { height: 26px; padding: 0 8px; display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: #8b9188; font-size: 10.5px; cursor: pointer; }
+.scene-toolbar > span { min-width: 0; padding: 0 10px 0 7px; overflow: hidden; color: #7e847b; font: 10px var(--mono); letter-spacing: .1em; text-overflow: ellipsis; white-space: nowrap; }
+.scene-toolbar button { height: 26px; padding: 0 8px; display: flex; flex: 0 0 auto; align-items: center; gap: 6px; border: 0; background: transparent; color: #8b9188; font-size: 10.5px; white-space: nowrap; word-break: keep-all; cursor: pointer; }
 .scene-toolbar button.active { background: #343931; color: #eef0eb; }
 .scene-toolbar button:disabled { opacity: .3; cursor: not-allowed; }
 .scene-toolbar kbd { color: #7e867a; font: 9.5px var(--mono); }
@@ -383,7 +383,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .light-chip b { padding: 4px; background: rgba(255,180,84,.1); color: var(--signal); font: 10px var(--mono); font-weight: 400; }
 .fixture-profile-card { min-height: 52px; margin: 7px 0 2px; padding: 8px; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; border: 1px solid #40463d; background: linear-gradient(135deg,#171b17,#111311); }
 .fixture-profile-card > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }.fixture-profile-card span { color: var(--signal); font: 9px var(--mono); letter-spacing: .1em; }.fixture-profile-card strong { color: #e0e4dc; font-size: 10px; font-weight: 500; }.fixture-profile-card div small { color: #7d857a; font: 9px var(--mono); }.fixture-profile-card > b { color: #dce1d7; font: 13px var(--mono); font-weight: 400; text-align: right; }.fixture-profile-card > b small { display: block; margin-top: 3px; color: #7c8479; font-size: 9px; }
-.fixture-select { margin-top: 9px; grid-template-columns: 88px minmax(0,1fr); gap: 7px; }.fixture-select select { min-width: 0; width: 100%; }
+.select-row.fixture-select { margin-top: 9px; grid-template-columns: minmax(72px, 88px) minmax(0,1fr); gap: 7px; }.fixture-select select { min-width: 0; width: 100%; }
 .head-type-control { margin-top: 9px; grid-template-columns: 72px 1fr; }
 .operation-mode-control { margin-top: 9px; grid-template-columns: 72px 1fr; }
 .flash-controls { margin-top: 9px; padding: 8px; border: 1px solid #41473e; background: #121512; }
@@ -465,8 +465,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .optics-toggles button.active { border-color: #50564c; color: #cdd1c9; }
 .optics-toggles button.active i { background: var(--signal); box-shadow: 0 0 6px rgba(255,180,84,.5); }
 .select-row { margin-top: 14px; display: grid; grid-template-columns: 1fr auto; align-items: center; }
-.select-row > span { color: #9aa096; font-size: 10px; }
-.select-row select { min-width: 82px; padding: 5px 7px; border: 1px solid #353a34; border-radius: 0; background: #111311; color: var(--paper); font: 10.5px var(--mono); }
+.select-row > span { min-width: 0; overflow: hidden; color: #9aa096; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; word-break: keep-all; }
+.select-row select { min-width: 0; padding: 5px 7px; border: 1px solid #353a34; border-radius: 0; background: #111311; color: var(--paper); font: 10.5px var(--mono); }
 .shutter-speed-control { margin-top: 14px; }
 .shutter-speed-control > div:first-child { min-height: 28px; display: flex; align-items: center; justify-content: space-between; color: #9aa096; font-size: 10px; }
 .shutter-speed-control output { color: var(--signal); font: 10px var(--mono); }
@@ -764,6 +764,59 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 @media (max-width: 1120px) {
   /* 頂欄空間不足時收起按鍵提示，說明面板仍查得到 */
   .view-switch button kbd { display: none; }
+}
+
+/* 窄桌面維持完整功能，但讓文字以群組重排，避免 CJK 單字逐字換行。 */
+@media (max-width: 1120px) {
+  main.app-shell {
+    min-width: 820px;
+    grid-template-columns: 150px minmax(320px, 1fr) 210px;
+    grid-template-rows: 108px minmax(0, 1fr) 82px;
+  }
+  header.topbar {
+    grid-template-columns: 150px minmax(320px, 1fr) 258px;
+    grid-template-rows: 54px 54px;
+  }
+  header.topbar .brand { grid-column: 1; grid-row: 1 / 3; }
+  header.topbar .project-title { grid-column: 2; grid-row: 1; min-width: 0; padding-inline-start: 14px; }
+  header.topbar .project-name-input { width: min(180px, 24vw); }
+  header.topbar .language-switch button,
+  header.topbar .view-switch button { white-space: nowrap; word-break: keep-all; }
+  header.topbar .view-switch { grid-column: 2; grid-row: 2; width: fit-content; max-width: calc(100% - 16px); margin-inline-start: 10px; }
+  header.topbar .view-switch button { min-width: 0; padding-inline: 10px; }
+  header.topbar .project-actions {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    width: 100%;
+    margin-inline-start: 0;
+    overflow: visible;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(2, 54px);
+  }
+  header.topbar .project-actions button,
+  header.topbar .project-actions .setup-sheet-button,
+  header.topbar .project-actions .pro-console-button,
+  header.topbar .project-actions .save-button,
+  header.topbar .project-actions .file-menu > button {
+    min-width: 0;
+    padding-inline: 7px;
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    word-break: keep-all;
+  }
+  header.topbar .project-actions button::after { content: none; }
+  header.topbar .project-actions .file-menu { min-width: 0; overflow: visible; }
+  header.topbar .project-actions .save-button span { display: none; }
+  .library-actions button { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; word-break: keep-all; }
+  .panel-heading, .section-title > span { white-space: nowrap; word-break: keep-all; }
+  .segmented-control button { padding-inline: 4px; font-size: 9.5px; white-space: nowrap; word-break: keep-all; }
+  .viewport .scene-toolbar { max-width: calc(100% - 20px); }
+  .viewport .scene-toolbar button { padding-inline: 7px; }
+  .viewport .scene-toolbar kbd { display: none; }
+  .app-shell > .readout { grid-template-columns: 150px repeat(4, minmax(64px, 1fr)) 210px; }
+  .app-shell > .professional-panel { top: 126px; right: 218px; }
 }
 
 /* ---------------------------------------------------------------------------
