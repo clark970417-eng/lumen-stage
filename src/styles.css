@@ -39,6 +39,43 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
   background: var(--ink);
 }
 
+/* Lightroom-style workspace chrome: either rail can leave the stage, while
+   Tab restores both. Grid columns collapse so the image gains the real space. */
+.app-shell.left-panel-hidden { grid-template-columns: 0 minmax(480px, 1fr) 300px; }
+.app-shell.right-panel-hidden { grid-template-columns: 240px minmax(480px, 1fr) 0; }
+.app-shell.left-panel-hidden.right-panel-hidden { grid-template-columns: 0 minmax(480px, 1fr) 0; }
+.library,
+.inspector { min-width: 0; transition: opacity .18s ease, transform .18s ease; }
+.left-panel-hidden > .library { opacity: 0; pointer-events: none; transform: translateX(-18px); }
+.right-panel-hidden > .inspector { opacity: 0; pointer-events: none; transform: translateX(18px); }
+
+.project-actions .workspace-focus-button {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  color: #c9d4db; font-size: 9.5px; letter-spacing: .02em;
+}
+.workspace-focus-button i {
+  width: 15px; height: 11px; border: 1px solid currentColor;
+  box-shadow: inset 3px 0 0 rgba(103,216,255,.38), inset -3px 0 0 rgba(103,216,255,.38);
+}
+.project-actions .workspace-focus-button.active { background: #26343e; color: var(--signal-cool); }
+
+.workspace-panel-tab {
+  position: absolute; top: 50%; z-index: 8; width: 18px; height: 52px; margin-top: -26px; padding: 0;
+  border: 1px solid rgba(90,109,122,.7); background: rgba(8,13,17,.78); color: #9aabb6;
+  cursor: pointer; backdrop-filter: blur(10px); opacity: .72;
+}
+.workspace-panel-tab:hover,
+.workspace-panel-tab:focus-visible { width: 24px; opacity: 1; color: var(--signal-cool); background: rgba(18,27,34,.96); }
+.workspace-panel-tab.left { left: 0; border-left: 0; border-radius: 0 6px 6px 0; }
+.workspace-panel-tab.right { right: 0; border-right: 0; border-radius: 6px 0 0 6px; }
+.workspace-panel-tab i {
+  display: block; width: 6px; height: 6px; margin: auto;
+  border-top: 1px solid currentColor; border-right: 1px solid currentColor; transform: rotate(45deg);
+}
+.workspace-panel-tab.left.panel-visible i { transform: rotate(-135deg); }
+.workspace-panel-tab.right i { transform: rotate(-135deg); }
+.workspace-panel-tab.right.panel-visible i { transform: rotate(45deg); }
+
 .topbar {
   grid-column: 1 / -1; display: grid; grid-template-columns: 222px 1fr auto 320px;
   align-items: center; border-bottom: 1px solid var(--line); background: #121412; z-index: 10;
@@ -1500,7 +1537,7 @@ button, input, select { transition: border-color .16s ease, background-color .16
 .view-switch button.render-active { background: var(--signal); color: #171108; box-shadow: 0 0 18px rgba(255,180,84,.13); }
 .view-switch button kbd { border-radius: 3px; }
 
-.project-actions { margin-left: 10px; overflow: visible; grid-template-columns: 64px 58px 48px 58px 54px minmax(88px, 1fr); border-left-color: var(--line); border-radius: 0 8px 8px 0; }
+.project-actions { margin-left: 10px; overflow: visible; grid-template-columns: 86px 64px 58px 48px 58px 54px minmax(88px, 1fr); border-left-color: var(--line); border-radius: 0 8px 8px 0; }
 .project-actions button,
 .project-actions .setup-sheet-button,
 .file-menu > button { border-right-color: var(--line); background: rgba(18,24,30,.86); color: #9aa8b2; }
@@ -1636,25 +1673,34 @@ button, input, select { transition: border-color .16s ease, background-color .16
 
 @media (max-width: 1340px) {
   .app-shell { grid-template-columns: 212px minmax(440px, 1fr) 270px; }
+  .app-shell.left-panel-hidden { grid-template-columns: 0 minmax(440px, 1fr) 270px; }
+  .app-shell.right-panel-hidden { grid-template-columns: 212px minmax(440px, 1fr) 0; }
+  .app-shell.left-panel-hidden.right-panel-hidden { grid-template-columns: 0 minmax(440px, 1fr) 0; }
   .topbar { grid-template-columns: 212px minmax(120px, 1fr) auto 330px; }
   .readout { grid-template-columns: 212px repeat(4, minmax(82px, 1fr)) 270px; }
-  .project-actions { grid-template-columns: 48px 50px 42px 48px 48px minmax(84px, 1fr); }
+  .project-actions { grid-template-columns: 36px 44px 44px 40px 44px 44px minmax(70px, 1fr); }
+  .workspace-focus-button span { display: none; }
   .professional-panel { right: 278px; }
   .scene-toolbar > span { display: none; }
 }
 
 @media (max-width: 1120px) {
   .app-shell { min-width: 901px; grid-template-columns: 168px minmax(360px, 1fr) 220px; grid-template-rows: 108px minmax(0, 1fr) 82px; }
+  .app-shell.left-panel-hidden { grid-template-columns: 0 minmax(360px, 1fr) 220px; }
+  .app-shell.right-panel-hidden { grid-template-columns: 168px minmax(360px, 1fr) 0; }
+  .app-shell.left-panel-hidden.right-panel-hidden { grid-template-columns: 0 minmax(360px, 1fr) 0; }
   .topbar { grid-template-columns: 168px minmax(360px, 1fr) 264px; grid-template-rows: 54px 54px; }
   .brand { grid-column: 1; grid-row: 1 / 3; }
   .project-title { grid-column: 2; grid-row: 1; padding-left: 16px; }
   .project-name-input { width: min(180px,22vw); }
   .view-switch { grid-column: 2; grid-row: 2; width: fit-content; margin-left: 14px; }
   .view-switch button { padding: 8px 11px; }
-  .project-actions { grid-column: 3; grid-row: 1 / 3; width: 100%; margin-left: 0; grid-template-columns: repeat(5,38px) minmax(74px,1fr); }
+  .project-actions { grid-column: 3; grid-row: 1 / 3; width: 100%; margin-left: 0; grid-template-columns: repeat(6,32px) minmax(70px,1fr); }
   .project-actions button { font-size: 0; }
   .project-actions button::after { font: 500 9px var(--mono); letter-spacing: .04em; }
   .project-actions .setup-library-button::after { content: 'SET'; }
+  .project-actions .workspace-focus-button::after { content: 'FOCUS'; }
+  .project-actions .workspace-focus-button i { display: none; }
   .project-actions .setup-sheet-button::after { content: 'SHEET'; }
   .project-actions .pro-console-button::after { content: 'PRO'; }
   .project-actions .guide-button::after { content: '?'; font-size: 14px; }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useT, type MessageKey } from '../i18n'
+import desktopViewsPreview from '../../assets/lumen-stage-preview.png'
 import '../onboarding.css'
 
 export type OnboardingScope = 'desktop' | 'mobile'
@@ -16,7 +17,7 @@ const STORAGE_PREFIX = 'lumen-stage:onboarding:v1:'
 
 const STEPS: Record<OnboardingScope, TourStep[]> = {
   desktop: [
-    { target: '.view-switch', title: 'tour.desktop.1.title', body: 'tour.desktop.1.body', media: { kind: 'image', src: '/onboarding/desktop-views.webp' }, placement: 'below' },
+    { target: '.view-switch', title: 'tour.desktop.1.title', body: 'tour.desktop.1.body', media: { kind: 'image', src: desktopViewsPreview }, placement: 'below' },
     { target: '.library', title: 'tour.desktop.2.title', body: 'tour.desktop.2.body', media: { kind: 'compare', before: '/onboarding/library-before.webp', after: '/onboarding/library-after.webp' }, placement: 'right' },
     { target: '.scene-toolbar', title: 'tour.desktop.3.title', body: 'tour.desktop.3.body', media: { kind: 'image', src: '/onboarding/desktop-scene.webp' }, placement: 'below' },
     { target: '.inspector', title: 'tour.desktop.4.title', body: 'tour.desktop.4.body', media: { kind: 'image', src: '/onboarding/desktop-inspector.webp' }, placement: 'left' },

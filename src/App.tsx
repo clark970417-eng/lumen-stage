@@ -233,8 +233,10 @@ function LanguageSwitch() {
   )
 }
 
-function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
+function TopBar({ onOpenGuide, panelsHidden, onTogglePanels }: { onOpenGuide: () => void; panelsHidden: boolean; onTogglePanels: () => void }) {
   const t = useT()
+  const locale = useLocaleStore((state) => state.locale)
+  const panelLabel = locale === 'zh' ? (panelsHidden ? '顯示面板' : '專注檢視') : locale === 'ja' ? (panelsHidden ? 'パネル表示' : '集中表示') : (panelsHidden ? 'Show panels' : 'Focus view')
   const view = useStudio((state) => state.view)
   const renderMode = useStudio((state) => state.renderMode)
   const openStudioView = useStudio((state) => state.openStudioView)
@@ -265,6 +267,7 @@ function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
         <button className={renderMode === 'path' ? 'active render-active' : ''} onClick={startPhotoRender} title={t('view.render.title')}>{t('view.render')} <kbd>4</kbd></button>
       </div>
       <div className="project-actions">
+        <button className={panelsHidden ? 'workspace-focus-button active' : 'workspace-focus-button'} onClick={onTogglePanels} title={`${panelLabel} · Tab`} aria-label={`${panelLabel} · Tab`} aria-pressed={panelsHidden}><i aria-hidden="true" /><span>{panelLabel}</span></button>
         <button className="setup-library-button" onClick={() => setValue('setupLibraryOpen', true)} title={t('setups.launcher.title')}>{t('setups.launcher')}</button>
         <button className="setup-sheet-button" onClick={() => setValue('setupSheetOpen', true)} title={t('topbar.setupSheet.title')}>{t('topbar.setupSheet')}</button>
         <button className={professionalPanelOpen ? 'pro-console-button active' : 'pro-console-button'} onClick={() => setValue('professionalPanelOpen', !professionalPanelOpen)} title={t('topbar.pro.title')} aria-pressed={professionalPanelOpen}>PRO</button>
@@ -499,18 +502,48 @@ export default function App() {
   const pathSepia = Math.max(0, (whiteBalance - 5600) / 3400) * 0.14 * rawMix
 
   const t = useT()
+  const locale = useLocaleStore((state) => state.locale)
+  const panelSideLabel = locale === 'zh'
+    ? { hideLeft: '收起左側面板', showLeft: '顯示左側面板', hideRight: '收起右側面板', showRight: '顯示右側面板' }
+    : locale === 'ja'
+      ? { hideLeft: '左パネルを隠す', showLeft: '左パネルを表示', hideRight: '右パネルを隠す', showRight: '右パネルを表示' }
+      : { hideLeft: 'Hide left panel', showLeft: 'Show left panel', hideRight: 'Hide right panel', showRight: 'Show right panel' }
   const [sceneReady, setSceneReady] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [tourOpen, setTourOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [webglLost, setWebglLost] = useState(false)
+  const [workspacePanels, setWorkspacePanels] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem('lumen-stage:workspace-panels:v1')
+      return saved ? JSON.parse(saved) as { left: boolean; right: boolean } : { left: true, right: true }
+    } catch {
+      return { left: true, right: true }
+    }
+  })
   const onWebglLost = useCallback(() => setWebglLost(true), [])
   const onWebglRestored = useCallback(() => setWebglLost(false), [])
   const [hint, setHint] = useState<{ id: number; text: string } | null>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const bothPanelsHidden = !workspacePanels.left && !workspacePanels.right
+
+  const toggleAllPanels = useCallback(() => {
+    setWorkspacePanels((current) => current.left || current.right ? { left: false, right: false } : { left: true, right: true })
+  }, [])
+
+  useEffect(() => {
+    window.localStorage.setItem('lumen-stage:workspace-panels:v1', JSON.stringify(workspacePanels))
+  }, [workspacePanels])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const isEditing = target?.closest('input, textarea, select, button, a, [contenteditable="true"]')
+      if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey && !isEditing) {
+        event.preventDefault()
+        toggleAllPanels()
+        return
+      }
       const result = runShortcut(event)
       if (!result?.message) return
       const text = result.message
@@ -523,7 +556,7 @@ export default function App() {
       window.removeEventListener('keydown', onKeyDown)
       if (hintTimer.current) clearTimeout(hintTimer.current)
     }
-  }, [])
+  }, [toggleAllPanels])
 
   useEffect(() => {
     if (!sceneReady || !shouldShowOnboarding('desktop')) return
@@ -532,8 +565,8 @@ export default function App() {
   }, [sceneReady])
 
   return (
-    <main className="app-shell">
-      <TopBar onOpenGuide={() => setGuideOpen(true)} />
+    <main className={`app-shell ${workspacePanels.left ? '' : 'left-panel-hidden'} ${workspacePanels.right ? '' : 'right-panel-hidden'}`}>
+      <TopBar onOpenGuide={() => setGuideOpen(true)} panelsHidden={bothPanelsHidden} onTogglePanels={toggleAllPanels} />
       <Library />
       <section className={`viewport ${renderMode === 'path' ? 'path-color-science' : ''}`} aria-label={t('viewport.aria')} style={{ '--path-saturation': pathSaturation, '--path-contrast': pathContrast, '--path-sepia': pathSepia } as React.CSSProperties}>
         <Canvas
@@ -566,6 +599,8 @@ export default function App() {
         <ShotLibrary />
         <ShortcutLauncher />
         <ShortcutHint hint={hint} />
+        <button className={`workspace-panel-tab left ${workspacePanels.left ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, left: !current.left }))} aria-label={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft} title={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft}><i aria-hidden="true" /></button>
+        <button className={`workspace-panel-tab right ${workspacePanels.right ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, right: !current.right }))} aria-label={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight} title={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight}><i aria-hidden="true" /></button>
       </section>
       <Inspector />
       <ProfessionalPanel />
