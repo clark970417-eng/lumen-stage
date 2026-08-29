@@ -259,7 +259,6 @@ const DICT = {
   'guide.chapter.8': { en: 'Shots and setup sheets', zh: '鏡位與工作表', ja: 'ショットとライト図' },
   'guide.chapter.9': { en: 'Render and export', zh: '渲染與輸出', ja: 'レンダーと出力' },
   'guide.chapter.10': { en: 'Save and share', zh: '儲存與分享', ja: '保存と共有' },
-  'guide.chapter.11': { en: 'Portrait practice', zh: '柔光人像練習', ja: 'ポートレート練習' },
 
   // ── 視埠 ────────────────────────────────────────────────
   'viewport.aria': { en: '3D studio', zh: '3D 攝影棚', ja: '3D スタジオ' },

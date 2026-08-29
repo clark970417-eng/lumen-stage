@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+import subprocess
 
 from PIL import Image
 from reportlab.lib.colors import HexColor, white
@@ -239,7 +240,7 @@ def exposure(c):
     card(c, 548, y, 250, 102, "直方圖", "亮度模式看整體明暗；RGB 模式可發現單一色頻道先爆掉。右側貼邊代表高光剪裁，左側貼邊代表暗部失去細節。", LIME, None, 8.7)
     card(c, 548, y - 116, 250, 102, "假色 / 剪裁警示", "假色把曝光區域用顏色分類；剪裁警示直接標出過曝區。調燈或相機後回到原始畫面確認視覺效果。", ORANGE, None, 8.7)
     card(c, 548, y - 232, 250, 102, "入射式測光探針", "可移到主角臉、胸口、其他人物或背景，也能在 3D 場景手動移動。讀值包含 EV，適合比較主燈與背景。", CYAN, None, 8.7)
-    card(c, 36, 127, 762, 62, "單燈貢獻", "在測光面板把某盞燈設為 SOLO，可單獨檢查它對畫面的貢獻；完成後按『全部燈光』恢復。這是排查溢光與陰影最有效的功能之一。", LIME, "推薦", 9)
+    card(c, 36, 140, 762, 90, "單燈貢獻", "在測光面板把某盞燈設為 SOLO，可單獨檢查它對畫面的貢獻；完成後按『全部燈光』恢復。這是排查溢光與陰影最有效的功能之一。", LIME, "推薦", 9)
     c.showPage()
 
 
@@ -336,18 +337,24 @@ def practice(c):
 
 def build():
     register_fonts(); OUT.parent.mkdir(parents=True, exist_ok=True)
-    required = [TMP / "lumen-main.png", TMP / "lumen-camera-analysis.png", TMP / "lumen-pro.png", TMP / "lumen-render.png"]
+    required = [TMP / "lumen-main.png", TMP / "lumen-camera-analysis.png", TMP / "lumen-render.png"]
     missing = [str(p) for p in required if not p.exists()]
     if missing: raise FileNotFoundError("Missing screenshots: " + ", ".join(missing))
     c = canvas.Canvas(str(OUT), pagesize=(W, H), pageCompression=1)
     c.setTitle("LUMEN STAGE 網站使用教學")
     c.setAuthor("OpenAI Codex")
-    for fn in [cover, first_workflow, interface_map, objects, lighting, camera, exposure, shots, render, project_shortcuts, practice]:
+    for fn in [cover, first_workflow, interface_map, objects, lighting, camera, exposure, shots, render, project_shortcuts]:
         fn(c)
     c.save()
     public_pdf = ROOT / "public" / "LUMEN_STAGE_網站使用教學.pdf"
     public_pdf.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(OUT, public_pdf)
+    pages_dir = ROOT / "public" / "guide-pages"
+    pages_dir.mkdir(parents=True, exist_ok=True)
+    for existing_page in pages_dir.glob("page-*.jpg"):
+        existing_page.unlink()
+    pdftoppm = Path("/Users/clark/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/pdftoppm")
+    subprocess.run([str(pdftoppm), "-jpeg", "-r", "130", "-jpegopt", "quality=88", str(OUT), str(pages_dir / "page")], check=True)
     print(OUT)
 
 

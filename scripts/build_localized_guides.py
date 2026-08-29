@@ -203,11 +203,11 @@ SAVE_PAGES = {
     ),
 }
 
-# Put the outcome-driven quick start before the interface tour, omit the
-# advanced PRO chapter from onboarding, and finish with a complete exercise.
+# Put the outcome-driven quick start before the interface tour and keep the
+# advanced PRO chapter out of the concise ten-page guide.
 for language, guide in GUIDES.items():
     pages = guide["pages"]
-    guide["pages"] = [pages[1], pages[0], *pages[2:8], SAVE_PAGES[language], PRACTICE_PAGES[language]]
+    guide["pages"] = [pages[1], pages[0], *pages[2:8], SAVE_PAGES[language]]
 
 
 def register_fonts():
@@ -333,6 +333,8 @@ def build_one(locale, guide):
     shutil.copy2(output_pdf, public_pdf)
     pages_dir = ROOT / "public" / "guide-pages" / locale
     pages_dir.mkdir(parents=True, exist_ok=True)
+    for existing_page in pages_dir.glob("page-*.jpg"):
+        existing_page.unlink()
     prefix = pages_dir / "page"
     pdftoppm = Path("/Users/clark/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/pdftoppm")
     subprocess.run([str(pdftoppm), "-jpeg", "-r", "130", "-jpegopt", "quality=88", str(output_pdf), str(prefix)], check=True)
@@ -346,6 +348,8 @@ def main():
     register_fonts()
     zh_dir = ROOT / "public" / "guide-pages" / "zh"
     zh_dir.mkdir(parents=True, exist_ok=True)
+    for existing_page in zh_dir.glob("page-*.jpg"):
+        existing_page.unlink()
     for source in sorted((ROOT / "public" / "guide-pages").glob("page-*.jpg")):
         shutil.copy2(source, zh_dir / source.name)
     for locale, guide in GUIDES.items(): print(build_one(locale, guide))

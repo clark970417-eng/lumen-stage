@@ -290,7 +290,7 @@ export function GuideModal({ open, onClose, onStartTour }: { open: boolean; onCl
   const stageRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(1)
   const [zoomed, setZoomed] = useState(false)
-  const pageCount = 11
+  const pageCount = 10
   const locale = useLocaleStore((state) => state.locale)
   const t = useT()
   const chapters = Array.from({ length: pageCount }, (_, index) => t(`guide.chapter.${index + 1}` as MessageKey))
