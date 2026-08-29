@@ -10,27 +10,32 @@
 .m-shell {
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
   display: grid;
-  grid-template-rows: 48px minmax(0, 1fr) 46px auto;
+  grid-template-rows: auto minmax(0, 1fr) 52px auto;
   background: var(--ink);
   overscroll-behavior: none;
 }
 
 .m-top {
   display: flex; align-items: center; gap: 10px;
-  padding: 0 12px; border-bottom: 1px solid var(--line); background: #121412;
+  min-height: calc(48px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--line); background: #121412;
 }
-.m-brand { display: flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: .18em; }
+.m-brand { min-width: 0; display: flex; align-items: center; gap: 7px; font-size: 13px; letter-spacing: .16em; white-space: nowrap; }
 .m-brand i { width: 8px; height: 8px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 12px rgba(216,255,62,.5); }
 .m-brand small { color: var(--muted); font: 500 9.5px var(--mono); letter-spacing: .12em; }
 .m-lang { margin-left: auto; display: flex; border: 1px solid var(--line); background: #0e100e; }
-.m-lang button { min-width: 34px; height: 30px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); font: 500 11px var(--mono); cursor: pointer; }
+.m-lang button { min-width: 44px; min-height: 44px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); font: 500 11px var(--mono); cursor: pointer; touch-action: manipulation; }
 .m-lang button:last-child { border-right: 0; }
 .m-lang button.active { background: #31352f; color: var(--paper); }
-.m-top .copyright-mark.compact { position: static; flex: none; }
+.m-top .copyright-mark.compact { position: static; flex: none; min-width: 44px; min-height: 44px; display: grid; place-items: center; }
 .m-top .copyright-mark.compact span { width: 20px; overflow: hidden; white-space: nowrap; color: #8e958a; font-size: 0; }
 .m-top .copyright-mark.compact span::before { content: '©'; font-size: 13px; }
-.m-escape { height: 30px; padding: 0 10px; border: 1px solid var(--line); background: #171a17; color: #9ba097; font-size: 11px; cursor: pointer; }
+.m-escape { min-width: 44px; min-height: 44px; padding: 0 8px; border: 1px solid var(--line); background: #171a17; color: #9ba097; font-size: 11px; cursor: pointer; touch-action: manipulation; }
 
 /* The viewport keeps the desktop rules; only its placement changes — and the
    desktop grid placement has to be beaten on specificity, not import order. */
@@ -40,7 +45,7 @@
   position: absolute; top: 12px; left: 12px; z-index: 2;
   display: flex; padding: 3px; border: 1px solid var(--line); background: rgba(14,16,14,.82); backdrop-filter: blur(8px);
 }
-.m-views button { min-height: 34px; padding: 0 14px; border: 0; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
+.m-views button { min-height: 44px; padding: 0 14px; border: 0; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; touch-action: manipulation; }
 .m-views button.active { background: #31352f; color: var(--paper); }
 
 .m-stage-hint {
@@ -59,15 +64,18 @@
 .m-shutter:active i { transform: scale(.88); }
 .m-shutter:disabled i { background: #6a7052; }
 
-.m-tabs { display: grid; grid-template-columns: 1fr 1fr 1fr 52px; border-top: 1px solid var(--line); background: #121412; }
-.m-tabs button { border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12.5px; cursor: pointer; }
+.m-tabs { display: grid; grid-template-columns: 1fr 1fr 1fr 52px; border-top: 1px solid var(--line); background: #121412; padding-inline: env(safe-area-inset-left) env(safe-area-inset-right); }
+.m-tabs button { min-height: 52px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12.5px; cursor: pointer; touch-action: manipulation; }
 .m-tabs button.active { background: #1d201d; color: var(--paper); box-shadow: inset 0 2px 0 var(--signal); }
 .m-tabs .m-sheet-handle { border-right: 0; color: #7f857b; font-size: 13px; }
 
 .m-sheet {
-  max-height: 38vh; overflow: auto; padding: 12px 12px calc(14px + env(safe-area-inset-bottom));
+  max-height: 38vh; max-height: 38dvh; overflow: auto;
+  padding: 12px max(12px, env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   border-top: 1px solid #23261f; background: var(--panel);
   scrollbar-color: #4d554a transparent; scrollbar-width: thin;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .m-tab { display: grid; gap: 12px; }
 .m-note { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
@@ -77,11 +85,12 @@
 .m-label-row b { color: var(--signal); font: 500 11px var(--mono); letter-spacing: .04em; }
 
 .m-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.m-chips-scroll { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.m-chips-scroll { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; overscroll-behavior-inline: contain; -webkit-overflow-scrolling: touch; }
 .m-chips-scroll::-webkit-scrollbar { display: none; }
 .m-chips button {
-  flex: 0 0 auto; min-height: 38px; padding: 0 13px; display: inline-flex; align-items: center; gap: 7px;
+  flex: 0 0 auto; min-height: 44px; padding: 0 13px; display: inline-flex; align-items: center; gap: 7px;
   border: 1px solid #343934; background: #1b1e1b; color: #9ba097; font-size: 12.5px; white-space: nowrap; cursor: pointer;
+  touch-action: manipulation;
 }
 .m-chips button.active { border-color: var(--signal); background: rgba(216,255,62,.08); color: var(--paper); }
 .m-led { width: 7px; height: 7px; border-radius: 50%; background: #4a4f48; }
@@ -94,7 +103,7 @@
 
 .m-light-name {
   min-height: 46px; width: 100%; padding: 0 13px; border: 1px solid #343934; border-radius: 0;
-  background: #1b1e1b; color: #dfe3da; font-size: 14px;
+  background: #1b1e1b; color: #dfe3da; font-size: 16px;
 }
 .m-light-name:focus { border-color: var(--signal); outline: none; }
 
@@ -185,6 +194,43 @@
 /* The way back to the phone shell when the full interface is forced on a small screen. */
 .m-return {
   position: fixed; right: 14px; bottom: 14px; z-index: 60;
-  min-height: 42px; padding: 0 16px; border: 1px solid var(--signal);
+  min-height: 44px; padding: 0 16px; border: 1px solid var(--signal);
   background: rgba(17,19,17,.92); color: var(--signal); font-size: 12px; cursor: pointer;
+}
+
+/* Keep the home indicator clear when the control sheet is collapsed. */
+.m-shell:not(.sheet-open) .m-tabs { padding-bottom: env(safe-area-inset-bottom); }
+
+.m-shell button,
+.m-shell input,
+.m-shell a { -webkit-tap-highlight-color: transparent; }
+.m-shell { -webkit-text-size-adjust: 100%; }
+
+.m-shell button:focus-visible,
+.m-shell input:focus-visible,
+.m-shell a:focus-visible { outline: 2px solid var(--signal); outline-offset: -2px; }
+
+@media (max-width: 430px) {
+  .m-top { gap: 6px; }
+  .m-brand { letter-spacing: .12em; }
+  .m-brand small { display: none; }
+  .m-lang { margin-left: auto; }
+}
+
+@media (max-width: 350px) {
+  .m-brand { font-size: 12px; }
+  .m-lang button { min-width: 36px; }
+  .m-top .copyright-mark.compact { display: none; }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .m-top { min-height: calc(44px + env(safe-area-inset-top)); }
+  .m-brand small, .m-stage-hint { display: none; }
+  .m-sheet { max-height: 46dvh; }
+  .m-shutter { width: 54px; height: 54px; }
+  .m-shutter i { width: 40px; height: 40px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m-shutter i { transition: none; }
 }

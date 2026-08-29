@@ -10,9 +10,7 @@
  * started on a phone opens in the full interface unchanged.
  */
 
-import { Canvas } from '@react-three/fiber'
-import { Suspense, useState } from 'react'
-import { StudioScene } from './StudioScene'
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { AboutDialog, CopyrightMark } from './AboutDialog'
 import { BACKDROPS } from '../backdrops'
 import { LENS_PROFILES, type LensProfileId } from '../cameraProfiles'
@@ -21,9 +19,12 @@ import { renderExportCanvas, exportFileName } from '../shotCapture'
 import { SETUP_CATEGORIES, SETUP_LIBRARY, type SetupCategory } from '../setups'
 import { useStudio, type LightOptic, type LightShape, type StudioLight } from '../store'
 import { useUiModeStore } from '../uiMode'
+import { lightAimAngles, targetFromLightAim } from '../lightAim'
 import '../mobile.css'
 
 type Tab = 'setups' | 'lights' | 'camera'
+
+const MobileStage = lazy(() => import('./MobileStage'))
 
 /** Lenses worth carrying, in the order a portrait photographer reaches for them. */
 const LENS_CHOICES: LensProfileId[] = ['zoom-24-70', 'prime-35', 'prime-50', 'prime-85', 'zoom-70-200']
@@ -99,12 +100,30 @@ function drawnFrames(count: number) {
   return new Promise<void>((resolve) => {
     let settled = false
     let left = count
-    const finish = () => { if (!settled) { settled = true; resolve() } }
-    const step = () => { if (left-- <= 0) finish(); else requestAnimationFrame(step) }
-    requestAnimationFrame(step)
+    let frame = 0
+    let timeout = 0
+    const finish = () => {
+      if (settled) return
+      settled = true
+      cancelAnimationFrame(frame)
+      window.clearTimeout(timeout)
+      resolve()
+    }
+    const step = () => { if (left-- <= 0) finish(); else frame = requestAnimationFrame(step) }
+    frame = requestAnimationFrame(step)
     // A backgrounded tab freezes rAF entirely; never hang the shutter on it.
-    setTimeout(finish, 2500)
+    timeout = window.setTimeout(finish, 2500)
   })
+}
+
+/** Stop the realtime WebGL loop when the browser is backgrounded. */
+function subscribeToVisibility(onChange: () => void) {
+  document.addEventListener('visibilitychange', onChange)
+  return () => document.removeEventListener('visibilitychange', onChange)
+}
+
+function usePageVisible() {
+  return useSyncExternalStore(subscribeToVisibility, () => !document.hidden, () => true)
 }
 
 function Dial({ label, value, min, max, step = 1, readout, onChange }: {
@@ -178,6 +197,7 @@ function LightsTab() {
   const selectObject = useStudio((state) => state.selectObject)
   const updateLight = useStudio((state) => state.updateLight)
   const setLightPosition = useStudio((state) => state.setLightPosition)
+  const setLightTarget = useStudio((state) => state.setLightTarget)
   const fitModifier = useStudio((state) => state.fitModifier)
   const addLight = useStudio((state) => state.addLight)
   const deleteLight = useStudio((state) => state.deleteLight)
@@ -193,8 +213,11 @@ function LightsTab() {
   }
 
   const { angle, distance } = lightPolar(light, subject)
+  const direction = lightAimAngles(light.position, light.target)
   const move = (nextAngle: number, nextDistance: number, nextHeight: number) =>
     setLightPosition(light.id, placeLight(subject, nextAngle, nextDistance, nextHeight))
+  const aim = (pan: number, tilt: number) =>
+    setLightTarget(light.id, targetFromLightAim(light.position, direction.distance, pan, tilt))
   const side = angle === 0 ? t('mobile.light.angle.front')
     : Math.abs(angle) > 150 ? t('mobile.light.angle.back')
       : angle > 0 ? t('mobile.light.angle.right') : t('mobile.light.angle.left')
@@ -239,6 +262,14 @@ function LightsTab() {
         onChange={(value) => move(angle, value, light.position[1])} />
       <Dial label={t('mobile.light.height')} value={Number(light.position[1].toFixed(2))} min={0.8} max={3.4} step={0.05} readout={`${light.position[1].toFixed(2)} m`}
         onChange={(value) => move(angle, distance, value)} />
+
+      <div className="m-field">
+        <span className="m-label">{t('mobile.light.direction')}</span>
+        <Dial label={t('mobile.light.pan')} value={Number(direction.pan.toFixed(1))} min={-180} max={180} step={5} readout={`${Math.round(direction.pan)}°`}
+          onChange={(value) => aim(value, direction.tilt)} />
+        <Dial label={t('mobile.light.tilt')} value={Number(direction.tilt.toFixed(1))} min={-75} max={75} step={1} readout={`${Math.abs(Math.round(direction.tilt))}° ${t(direction.tilt > 0.5 ? 'mobile.light.tilt.down' : direction.tilt < -0.5 ? 'mobile.light.tilt.up' : 'mobile.light.tilt.level')}`}
+          onChange={(value) => aim(direction.pan, value)} />
+      </div>
 
       <div className="m-field">
         <span className="m-label">{t('optic.title')}</span>
@@ -408,6 +439,17 @@ function CameraTab() {
 
 function PhotoSheet({ photo, onClose }: { photo: string; onClose: () => void }) {
   const t = useT()
+  const closeButton = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    closeButton.current?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
   return (
     <div className="m-photo" role="dialog" aria-modal="true" aria-label={t('mobile.photo.title')}>
       <div className="m-photo-inner">
@@ -415,7 +457,7 @@ function PhotoSheet({ photo, onClose }: { photo: string; onClose: () => void }) 
         <p>{t('mobile.photo.hint')}</p>
         <div className="m-photo-actions">
           <a href={photo} download={exportFileName()}>{t('mobile.photo.download')}</a>
-          <button onClick={onClose}>{t('mobile.photo.close')}</button>
+          <button ref={closeButton} onClick={onClose}>{t('mobile.photo.close')}</button>
         </div>
       </div>
     </div>
@@ -434,11 +476,18 @@ export function MobileApp() {
   const openCameraView = useStudio((state) => state.openCameraView)
   const [tab, setTab] = useState<Tab>('setups')
   const [appliedSetup, setAppliedSetup] = useState<string | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(true)
-  const [sceneReady, setSceneReady] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(() => !window.matchMedia('(orientation: landscape) and (max-height: 520px)').matches)
   const [capturing, setCapturing] = useState(false)
   const [photo, setPhoto] = useState<string | null>(null)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const pageVisible = usePageVisible()
+
+  useEffect(() => {
+    const compactLandscape = window.matchMedia('(orientation: landscape) and (max-height: 520px)')
+    const adaptSheet = (event: MediaQueryListEvent) => { if (event.matches) setSheetOpen(false) }
+    compactLandscape.addEventListener('change', adaptSheet)
+    return () => compactLandscape.removeEventListener('change', adaptSheet)
+  }, [])
 
   const capture = async () => {
     if (capturing) return
@@ -459,7 +508,7 @@ export function MobileApp() {
   }
 
   return (
-    <main className="m-shell" aria-label={t('mobile.aria')}>
+    <main className={sheetOpen ? 'm-shell sheet-open' : 'm-shell'} aria-label={t('mobile.aria')}>
       <header className="m-top">
         <span className="m-brand"><i />LUMEN<small>{t('mobile.badge')}</small></span>
         <div className="m-lang" role="group" aria-label={t('lang.label')}>
@@ -472,42 +521,36 @@ export function MobileApp() {
         <button className="m-escape" onClick={() => setUiMode('full')} title={t('mobile.full.title')}>{t('mobile.full')}</button>
       </header>
 
-      <section className="viewport m-viewport">
-        <Canvas
-          onCreated={() => setSceneReady(true)}
-          shadows="percentage"
-          dpr={[1, 1.5]}
-          gl={{ antialias: true, preserveDrawingBuffer: true }}
-          camera={{ position: [6.8, 4.8, 7.2], fov: 42, near: 0.05, far: 100 }}
-        >
-          <Suspense fallback={null}><StudioScene /></Suspense>
-        </Canvas>
-
-        {!sceneReady && (
+      <Suspense fallback={
+        <section className="viewport m-viewport">
           <div className="viewport-loading" role="status">
             <span className="viewport-loading-mark"><i /></span>
             <strong>{t('viewport.loading')}</strong>
             <small>BUILDING STUDIO · WEBGL</small>
           </div>
-        )}
+        </section>
+      }>
+        <MobileStage
+          pageVisible={pageVisible}
+          view={view}
+          renderMode={renderMode}
+          pathSamples={pathSamples}
+          onOpenStudio={openStudioView}
+          onOpenCamera={openCameraView}
+          onCapture={capture}
+          capturing={capturing}
+          viewsLabel={t('topbar.views')}
+          studioLabel={t('mobile.view.studio')}
+          cameraLabel={t('mobile.view.camera')}
+          hint={t(view === 'camera' ? 'mobile.hint.camera' : 'mobile.hint.orbit')}
+          shutterLabel={t('mobile.shutter')}
+          loadingLabel={t('viewport.loading')}
+        />
+      </Suspense>
 
-        <div className="m-views" role="group" aria-label={t('topbar.views')}>
-          <button className={view === 'studio' ? 'active' : ''} onClick={openStudioView}>{t('mobile.view.studio')}</button>
-          <button className={view === 'camera' ? 'active' : ''} onClick={openCameraView}>{t('mobile.view.camera')}</button>
-        </div>
-
-        <span className="m-stage-hint">
-          {renderMode === 'path' ? `PATH TRACING · ${Math.floor(pathSamples)} SPP` : t(view === 'camera' ? 'mobile.hint.camera' : 'mobile.hint.orbit')}
-        </span>
-
-        <button className="m-shutter" onClick={capture} disabled={capturing} aria-label={t('mobile.shutter')}>
-          <i />
-        </button>
-      </section>
-
-      <nav className="m-tabs" role="tablist">
+      <nav className="m-tabs" role="tablist" aria-label={t('mobile.aria')}>
         {(['setups', 'lights', 'camera'] as const).map((item) => (
-          <button key={item} role="tab" aria-selected={tab === item && sheetOpen}
+          <button key={item} role="tab" id={`m-tab-${item}`} aria-controls="m-tabpanel" aria-selected={tab === item && sheetOpen}
             className={tab === item && sheetOpen ? 'active' : ''}
             onClick={() => { if (tab === item && sheetOpen) setSheetOpen(false); else { setTab(item); setSheetOpen(true) } }}>
             {t(`mobile.tab.${item}` as MessageKey)}
@@ -519,7 +562,7 @@ export function MobileApp() {
       </nav>
 
       {sheetOpen && (
-        <section className="m-sheet">
+        <section className="m-sheet" id="m-tabpanel" role="tabpanel" aria-labelledby={`m-tab-${tab}`}>
           {tab === 'setups' && <SetupsTab applied={appliedSetup} onApply={setAppliedSetup} />}
           {tab === 'lights' && <LightsTab />}
           {tab === 'camera' && <CameraTab />}

@@ -246,9 +246,9 @@ export const SHORTCUTS: Shortcut[] = [
   {
     id: 'transform-rotate', section: 'edit', label: 'sc.transform-rotate', keys: ['R'],
     match: combo({ key: 'r' }),
-    available: (state) => state.selected === 'model' || !!selectedModifier(state) || !!selectedStudioObject(state),
+    available: (state) => state.selected === 'model' || !!selectedLight(state) || !!selectedModifier(state) || !!selectedStudioObject(state),
     run: (state) => {
-      if (state.selected !== 'model' && !selectedModifier(state) && !selectedStudioObject(state)) return t('msg.rotate.unsupported')
+      if (state.selected !== 'model' && !selectedLight(state) && !selectedModifier(state) && !selectedStudioObject(state)) return t('msg.rotate.unsupported')
       state.setValue('lightAimMode', false)
       state.setValue('transformMode', 'rotate')
       return t('sc.transform-rotate')

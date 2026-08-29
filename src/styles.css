@@ -23,6 +23,13 @@ button, input { font: inherit; }
 button { color: inherit; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 
+.shell-loading {
+  position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px;
+  background: var(--ink); color: var(--muted); font: 500 11px var(--mono); letter-spacing: .16em;
+}
+.shell-loading span { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line-bright); transform: rotate(45deg); }
+.shell-loading i { width: 8px; height: 8px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 14px rgba(216,255,62,.5); }
+
 .app-shell {
   width: 100%; height: 100%; min-width: 1024px; min-height: 680px;
   display: grid;

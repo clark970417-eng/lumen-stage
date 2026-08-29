@@ -838,10 +838,12 @@ function Softbox({ light }: { light: StudioLight }) {
   const setLightPosition = useStudio((state) => state.setLightPosition)
   const setLightTarget = useStudio((state) => state.setLightTarget)
   const aimMode = useStudio((state) => state.lightAimMode)
+  const transformMode = useStudio((state) => state.transformMode)
   const shutter = useStudio((state) => state.shutter)
   const syncSpeed = useStudio((state) => state.syncSpeed)
   const iesUrl = useStudio((state) => state.iesUrl)
   const target = useMemo(() => new THREE.Object3D(), [])
+  const aimPivot = useMemo(() => new THREE.Object3D(), [])
   const visual = useRef<THREE.Group>(null)
   const rig = useRef<THREE.Group>(null)
   const spot = useRef<(THREE.SpotLight & { radius?: number; iesMap?: THREE.Texture | null })>(null)
@@ -875,8 +877,10 @@ function Softbox({ light }: { light: StudioLight }) {
 
   useEffect(() => {
     target.position.set(...light.target)
+    aimPivot.position.set(...position)
+    aimPivot.lookAt(...light.target)
     if (spot.current) spot.current.radius = sourceRadius
-  }, [light.target, sourceRadius, target])
+  }, [aimPivot, light.target, position, sourceRadius, target])
 
   useEffect(() => () => goboTexture?.dispose(), [goboTexture])
   useEffect(() => {
@@ -953,6 +957,7 @@ function Softbox({ light }: { light: StudioLight }) {
   return (
     <>
       <primitive object={target} />
+      <primitive object={aimPivot} />
       {softbox}
       {primary && view !== 'camera' && <>
         <Line points={[position, light.target]} color="#d8ff3e" lineWidth={0.75} dashed dashSize={0.12} gapSize={0.08} transparent opacity={0.52} />
@@ -965,13 +970,20 @@ function Softbox({ light }: { light: StudioLight }) {
       </>}
       {primary && view !== 'camera' && (aimMode || !light.locked) && (
         <TransformControls
-          object={aimMode ? target : rig as RefObject<THREE.Object3D>}
-          mode="translate"
+          object={aimMode ? target : transformMode === 'rotate' ? aimPivot : rig as RefObject<THREE.Object3D>}
+          mode={aimMode ? 'translate' : transformMode}
           size={0.7}
           translationSnap={0.05}
+          rotationSnap={THREE.MathUtils.degToRad(5)}
+          showZ={aimMode || transformMode === 'translate'}
           onObjectChange={() => {
             if (aimMode) {
               setLightTarget(lightId, [Number(target.position.x.toFixed(2)), Number(Math.max(0.1, target.position.y).toFixed(2)), Number(target.position.z.toFixed(2))])
+            } else if (transformMode === 'rotate') {
+              const distance = Math.max(0.1, new THREE.Vector3(...position).distanceTo(new THREE.Vector3(...light.target)))
+              const direction = new THREE.Vector3(0, 0, 1).applyQuaternion(aimPivot.quaternion).normalize()
+              const nextTarget = new THREE.Vector3(...position).addScaledVector(direction, distance)
+              setLightTarget(lightId, [Number(nextTarget.x.toFixed(2)), Number(Math.max(0.1, nextTarget.y).toFixed(2)), Number(nextTarget.z.toFixed(2))])
             } else if (rig.current) {
               setLightPosition(lightId, [Number(rig.current.position.x.toFixed(2)), Number(Math.max(0.8, rig.current.position.y).toFixed(2)), Number(rig.current.position.z.toFixed(2))])
             }

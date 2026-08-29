@@ -8,6 +8,7 @@ import { useT, type MessageKey } from '../i18n'
 import { InspectorNav } from './InspectorNav'
 import { GEL_CATEGORIES, GELS, gelStopLoss, geledTemperature, getGel, type GelCategory } from '../gels'
 import { PhysiquePanel, PoseControls, PoseLibraryPanel, WardrobePanel } from './SubjectPanels'
+import { lightAimAngles, targetFromLightAim } from '../lightAim'
 
 type RangeProps = {
   label: string
@@ -123,6 +124,7 @@ export function Inspector() {
   const syncFactor = light ? flashSyncFactor(light, state.shutter, state.syncSpeed) : 1
   const shapeLabel = t(light?.shape === 'square' ? 'shape.square' : light?.shape === 'round' ? 'shape.round' : 'shape.strip')
   const lightDistance = light ? Math.hypot(light.position[0] - light.target[0], light.position[1] - light.target[1], light.position[2] - light.target[2]) : 0
+  const lightDirection = light ? lightAimAngles(light.position, light.target) : { pan: 0, tilt: 0, distance: 0.1 }
   const solidAngle = light ? 2 * Math.PI * (1 - Math.cos((light.beamAngle * Math.PI / 180) / 2)) : 1
   const estimatedLux = light ? Math.round((outputLumens / Math.max(0.08, solidAngle)) / Math.max(0.25, lightDistance * lightDistance) * opticTransmission(light)) : 0
   const cameraBody = CAMERA_BODIES[state.cameraBodyId]
@@ -222,6 +224,8 @@ export function Inspector() {
           </div>
           <div className="beam-meter"><div><span>DISTANCE</span><strong>{lightDistance.toFixed(2)} m</strong></div><div><span>EST. AT TARGET</span><strong>{estimatedLux.toLocaleString()} lx</strong></div></div>
           <button className={state.lightAimMode ? 'aim-mode-button active' : 'aim-mode-button'} onClick={() => setValue('lightAimMode', !state.lightAimMode)}><i />{t(state.lightAimMode ? 'beam.aim.active' : 'beam.aim.idle')}</button>
+          <Range label={t('beam.pan')} value={Number(lightDirection.pan.toFixed(1))} min={-180} max={180} step={1} unit="°" onChange={(value) => state.setLightTarget(light.id, targetFromLightAim(light.position, lightDirection.distance, value, lightDirection.tilt))} />
+          <Range label={t('beam.tilt')} value={Number(lightDirection.tilt.toFixed(1))} min={-75} max={75} step={1} unit="°" onChange={(value) => state.setLightTarget(light.id, targetFromLightAim(light.position, lightDirection.distance, lightDirection.pan, value))} />
           <Range label={t('beam.targetX')} value={light.target[0]} min={-3} max={3} step={0.05} onChange={(value) => state.setLightTarget(light.id, [value, light.target[1], light.target[2]])} />
           <Range label={t('beam.targetY')} value={light.target[1]} min={0.1} max={3} step={0.05} onChange={(value) => state.setLightTarget(light.id, [light.target[0], value, light.target[2]])} />
           <Range label={t('beam.targetZ')} value={light.target[2]} min={-1.5} max={4} step={0.05} onChange={(value) => state.setLightTarget(light.id, [light.target[0], light.target[1], value])} />

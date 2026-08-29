@@ -1,7 +1,18 @@
-import App from './App'
-import { MobileApp } from './components/MobileApp'
+import { lazy, Suspense } from 'react'
 import { useT } from './i18n'
 import { useMobileShell, usePhoneScreen, useUiModeStore } from './uiMode'
+
+const App = lazy(() => import('./App'))
+const MobileApp = lazy(() => import('./components/MobileApp').then((module) => ({ default: module.MobileApp })))
+
+function ShellLoading() {
+  return (
+    <div className="shell-loading" role="status" aria-label="Loading Lumen Stage">
+      <span><i /></span>
+      <strong>LUMEN STAGE</strong>
+    </div>
+  )
+}
 
 /** Escape hatch: the full interface on a phone-sized screen keeps a way back. */
 function ReturnToPhoneShell() {
@@ -14,11 +25,11 @@ function ReturnToPhoneShell() {
 }
 
 export default function Root() {
-  if (useMobileShell()) return <MobileApp />
+  if (useMobileShell()) return <Suspense fallback={<ShellLoading />}><MobileApp /></Suspense>
   return (
-    <>
+    <Suspense fallback={<ShellLoading />}>
       <App />
       <ReturnToPhoneShell />
-    </>
+    </Suspense>
   )
 }
