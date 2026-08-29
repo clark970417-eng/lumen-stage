@@ -73,10 +73,22 @@ const COPY: Record<Locale, Copy> = {
   },
 }
 
-const STUDIO_PREVIEWS: Record<Locale, { src: string; alt: string }> = {
-  zh: { src: '/site-preview/zh.png', alt: 'Lumen Stage 繁體中文完整攝影棚介面' },
-  en: { src: '/site-preview/en.png', alt: 'Complete Lumen Stage studio interface in English' },
-  ja: { src: '/site-preview/ja.png', alt: 'Lumen Stage 日本語版スタジオの全画面' },
+const STUDIO_PREVIEWS: Record<Locale, { desktop: string; mobile: string; alt: string }> = {
+  zh: {
+    desktop: '/site-preview/zh.jpg',
+    mobile: '/site-preview/zh-mobile.jpg',
+    alt: 'Lumen Stage 繁體中文虛擬攝影棚，顯示定調到驗證流程、拍攝藍圖與目前決策',
+  },
+  en: {
+    desktop: '/site-preview/en.jpg',
+    mobile: '/site-preview/en-mobile.jpg',
+    alt: 'Lumen Stage virtual studio showing the five-step workflow, shoot blueprint and selected decision',
+  },
+  ja: {
+    desktop: '/site-preview/ja.jpg',
+    mobile: '/site-preview/ja-mobile.jpg',
+    alt: '5 段階のワークフロー、撮影ブループリント、現在の決定を表示する Lumen Stage 日本語版',
+  },
 }
 
 function LocaleSwitch() {
@@ -139,8 +151,21 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
         <h1><span>{copy.title[0]}</span><em><span>{copy.title[1]}</span><span>{copy.title[2]}</span></em></h1>
         <div className="hero-lower"><p>{copy.intro}</p><div><a className="site-cta" href="/studio"><span>{copy.open}</span><b aria-hidden="true">↗</b></a><ul>{copy.proof.map((item) => <li key={item}>{item}</li>)}</ul></div></div>
       </div>
-      <div className="hero-instrument" aria-label={studioPreview.alt}>
-        <img key={locale} src={studioPreview.src} alt={studioPreview.alt} width="2560" height="1440" fetchPriority="high" style={{ width: '100%', height: 'auto', display: 'block' }} />
+      <div className="hero-instrument">
+        <picture key={locale}>
+          <source media="(max-width: 620px)" srcSet={studioPreview.mobile} type="image/jpeg" width="1240" height="2200" />
+          <img
+            src={studioPreview.desktop}
+            alt={studioPreview.alt}
+            width="1905"
+            height="1152"
+            sizes="(max-width: 620px) 360px, (max-width: 980px) 96vw, 940px"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+            draggable={false}
+          />
+        </picture>
       </div>
       <a className="scroll-cue" href="#capabilities"><span>SCROLL TO FOCUS</span><i /></a>
     </section>
