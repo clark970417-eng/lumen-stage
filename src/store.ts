@@ -12,6 +12,7 @@ import { getSetup, specToLight } from './setups'
 import { clampToRoom, FOOTPRINT, isSittable, resolveCollisions, snapAroundSubject, type Occupant } from './layout'
 import { mirrorProject } from './persistence'
 import { reportError } from './monitoring'
+import { lockPositionToAxis, type TransformAxis } from './transformAxis'
 
 export type ViewMode = 'studio' | 'camera' | 'top'
 export type RenderMode = 'preview' | 'path'
@@ -35,6 +36,7 @@ export type CameraSlot = { id: string; name: string; position: [number, number, 
 export type TimelineKeyframe = { id: string; frame: number; cameraPosition: [number, number, number]; cameraTarget: [number, number, number]; lightPowers: Record<string, number> }
 export type Backdrop = 'paper'
 export type TransformMode = 'translate' | 'rotate'
+export type { TransformAxis } from './transformAxis'
 export type LightShape = 'square' | 'round' | 'strip'
 export type LightColorMode = 'kelvin' | 'rgb'
 export type LightHeadType = 'cob' | 'strobe' | 'panel'
@@ -383,8 +385,8 @@ export type StudioState = {
   fitGel: (id: string, gelId: string) => void
   selectObject: (id: SelectedObject, additive?: boolean) => void
   setLightAxis: (id: string, axis: 0 | 1 | 2, value: number) => void
-  setLightPosition: (id: string, position: [number, number, number]) => void
-  setLightTarget: (id: string, target: [number, number, number]) => void
+  setLightPosition: (id: string, position: [number, number, number], axis?: TransformAxis) => void
+  setLightTarget: (id: string, target: [number, number, number], axis?: TransformAxis) => void
   bindLightToSubject: (id: string, subjectId: string | null, zone?: LightTargetZone) => void
   addLight: (shape?: LightShape) => void
   duplicateLight: (id: string) => void
@@ -395,7 +397,7 @@ export type StudioState = {
   updateModifier: (id: string, patch: Partial<Omit<StudioModifier, 'id'>>) => void
   duplicateModifier: (id: string) => void
   deleteModifier: (id: string) => void
-  setModifierTransform: (id: string, position: [number, number, number], rotationY?: number) => void
+  setModifierTransform: (id: string, position: [number, number, number], rotationY?: number, axis?: TransformAxis) => void
   setMeterPosition: (position: [number, number, number]) => void
   addMeasurePoint: (point: [number, number, number]) => void
   clearMeasure: () => void
@@ -406,10 +408,10 @@ export type StudioState = {
   updateStudioSubjectPose: (id: string, patch: Partial<ModelPose>) => void
   duplicateStudioObject: (id: string) => void
   deleteStudioObject: (id: string) => void
-  setStudioObjectTransform: (id: string, position: [number, number, number], rotationY?: number) => void
+  setStudioObjectTransform: (id: string, position: [number, number, number], rotationY?: number, axis?: TransformAxis) => void
   groupSelectedLights: () => void
   ungroupSelectedLights: () => void
-  setModelTransform: (position: [number, number, number], rotation?: number) => void
+  setModelTransform: (position: [number, number, number], rotation?: number, axis?: TransformAxis) => void
   applyPosePreset: (preset: PosePreset) => void
   updateModelPose: (patch: Partial<ModelPose>) => void
   updatePhysique: (patch: Partial<Physique>) => void
@@ -418,7 +420,7 @@ export type StudioState = {
   applyLightingSetup: (id: string) => void
   updateStudioSubjectPhysique: (id: string, patch: Partial<Physique>) => void
   applyStudioSubjectPhysique: (id: string, presetId: string) => void
-  setCameraPosition: (position: [number, number, number]) => void
+  setCameraPosition: (position: [number, number, number], axis?: TransformAxis) => void
   setCameraTarget: (target: [number, number, number]) => void
   bindCameraToSubject: (subjectId: string | null, zone?: LightTargetZone) => void
   setCameraAutoFocus: (enabled: boolean) => void
@@ -1241,19 +1243,27 @@ export const useStudio = create<StudioState>((set, get) => ({
     position[axis] = value
     get().setLightPosition(id, position)
   },
-  setLightPosition: (id, position) => set((state) => {
+  setLightPosition: (id, position, axis) => set((state) => {
     const source = state.lights.find((light) => light.id === id)
     if (!source || source.locked) return state
+    const axisLocked = lockPositionToAxis(source.position, position, axis)
     const selectedCohort = state.selectedIds.length > 1 && state.selectedIds.includes(id) ? state.selectedIds : null
     const cohort = selectedCohort ?? (source.groupId ? state.lights.filter((light) => light.groupId === source.groupId).map((light) => light.id) : [id])
     // Snapping and collision run on the light that is actually being dragged;
     // the rest of a group follows the same delta so the shape is preserved.
-    const subject = subjectTargetPoint(state, source.targetSubjectId ?? 'model', 'full') ?? state.modelPosition
-    const snapped = state.placementSnap ? snapAroundSubject(position, subject) : position
-    const cleared = clampToRoom(
-      resolveCollisions(snapped, FOOTPRINT.lightStand, floorOccupants(state), id),
-      FOOTPRINT.lightStand, state.roomWidth, state.roomDepth,
-    )
+    const horizontalChanged = Math.abs(axisLocked[0] - source.position[0]) > 1e-6 || Math.abs(axisLocked[2] - source.position[2]) > 1e-6
+    const cleared = axis
+      ? clampToRoom(axisLocked, FOOTPRINT.lightStand, state.roomWidth, state.roomDepth)
+      : horizontalChanged
+      ? (() => {
+          const subject = subjectTargetPoint(state, source.targetSubjectId ?? 'model', 'full') ?? state.modelPosition
+          const snapped = state.placementSnap ? snapAroundSubject(axisLocked, subject) : axisLocked
+          return clampToRoom(
+            resolveCollisions(snapped, FOOTPRINT.lightStand, floorOccupants(state), id),
+            FOOTPRINT.lightStand, state.roomWidth, state.roomDepth,
+          )
+        })()
+      : [source.position[0], axisLocked[1], source.position[2]] as [number, number, number]
     const delta: [number, number, number] = [cleared[0] - source.position[0], cleared[1] - source.position[1], cleared[2] - source.position[2]]
     return {
       lights: state.lights.map((light) => cohort.includes(light.id) && !light.locked ? {
@@ -1263,7 +1273,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       undoStack: withUndo(state), redoStack: [],
     }
   }),
-  setLightTarget: (id, target) => set((state) => ({ lights: state.lights.map((light) => light.id === id ? { ...light, target, targetSubjectId: undefined, targetZone: undefined } : light), undoStack: withUndo(state), redoStack: [] })),
+  setLightTarget: (id, target, axis) => set((state) => ({ lights: state.lights.map((light) => light.id === id ? { ...light, target: lockPositionToAxis(light.target, target, axis), targetSubjectId: undefined, targetZone: undefined } : light), undoStack: withUndo(state), redoStack: [] })),
   bindLightToSubject: (id, subjectId, zone = 'face') => set((state) => {
     const point = subjectId ? subjectTargetPoint(state, subjectId, zone) : null
     return { lights: state.lights.map((light) => light.id === id ? point && subjectId ? { ...light, target: point, targetSubjectId: subjectId, targetZone: zone } : { ...light, targetSubjectId: undefined, targetZone: undefined } : light), undoStack: withUndo(state), redoStack: [] }
@@ -1327,11 +1337,19 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (!state.modifiers.some((modifier) => modifier.id === id)) return state
     return { modifiers: state.modifiers.filter((modifier) => modifier.id !== id), selected: state.lights[0]?.id ?? 'model', selectedIds: state.lights[0] ? [state.lights[0].id] : [], undoStack: withUndo(state), redoStack: [] }
   }),
-  setModifierTransform: (id, position, rotationY) => set((state) => {
-    const cleared = clampToRoom(
-      resolveCollisions(position, FOOTPRINT.gripStand, floorOccupants(state), id),
-      FOOTPRINT.gripStand, state.roomWidth, state.roomDepth,
-    )
+  setModifierTransform: (id, position, rotationY, axis) => set((state) => {
+    const source = state.modifiers.find((modifier) => modifier.id === id)
+    if (!source) return state
+    const axisLocked = lockPositionToAxis(source.position, position, axis)
+    const horizontalChanged = Math.abs(axisLocked[0] - source.position[0]) > 1e-6 || Math.abs(axisLocked[2] - source.position[2]) > 1e-6
+    const cleared = axis
+      ? clampToRoom(axisLocked, FOOTPRINT.gripStand, state.roomWidth, state.roomDepth)
+      : horizontalChanged
+      ? clampToRoom(
+          resolveCollisions(axisLocked, FOOTPRINT.gripStand, floorOccupants(state), id),
+          FOOTPRINT.gripStand, state.roomWidth, state.roomDepth,
+        )
+      : [source.position[0], axisLocked[1], source.position[2]] as [number, number, number]
     return {
       modifiers: state.modifiers.map((modifier) => modifier.id === id && !modifier.locked ? { ...modifier, position: cleared, rotationY: rotationY ?? modifier.rotationY } : modifier),
       undoStack: withUndo(state),
@@ -1391,14 +1409,21 @@ export const useStudio = create<StudioState>((set, get) => ({
     const studioObjects = state.studioObjects.filter((object) => object.id !== id)
     return { studioObjects, lights: syncBoundLightTargets({ ...state, studioObjects }), ...syncCameraTracking({ ...state, studioObjects }), selected: 'model', selectedIds: [], undoStack: withUndo(state), redoStack: [] }
   }),
-  setStudioObjectTransform: (id, position, rotationY) => set((state) => {
+  setStudioObjectTransform: (id, position, rotationY, axis) => set((state) => {
     const source = state.studioObjects.find((object) => object.id === id)
+    if (!source) return state
+    const axisLocked = lockPositionToAxis(source.position, position, axis)
     const radius = source ? (source.type === 'subject' ? FOOTPRINT.subject : FOOTPRINT[source.type] ?? 0.4) : 0.4
     const kind = source ? (source.type === 'subject' ? 'subject' : isSittable(source.type) ? 'furniture' : 'stand') : 'stand'
-    const cleared = clampToRoom(
-      resolveCollisions(position, radius, floorOccupants(state), id, kind),
-      radius, state.roomWidth, state.roomDepth,
-    )
+    const horizontalChanged = Math.abs(axisLocked[0] - source.position[0]) > 1e-6 || Math.abs(axisLocked[2] - source.position[2]) > 1e-6
+    const cleared = axis
+      ? clampToRoom(axisLocked, radius, state.roomWidth, state.roomDepth)
+      : horizontalChanged
+      ? clampToRoom(
+          resolveCollisions(axisLocked, radius, floorOccupants(state), id, kind),
+          radius, state.roomWidth, state.roomDepth,
+        )
+      : [source.position[0], axisLocked[1], source.position[2]] as [number, number, number]
     const studioObjects = state.studioObjects.map((object) => object.id === id && !object.locked ? { ...object, position: cleared, rotationY: rotationY ?? object.rotationY } : object)
     return { studioObjects, lights: syncBoundLightTargets({ ...state, studioObjects }), ...syncCameraTracking({ ...state, studioObjects }), undoStack: withUndo(state), redoStack: [] }
   }),
@@ -1412,12 +1437,15 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (!groupIds.size) return state
     return { lights: state.lights.map((light) => light.groupId && groupIds.has(light.groupId) ? { ...light, groupId: undefined } : light), undoStack: withUndo(state), redoStack: [] }
   }),
-  setModelTransform: (position, rotation) => set((state) => {
+  setModelTransform: (position, rotation, axis) => set((state) => {
+    const axisLocked = lockPositionToAxis(state.modelPosition, position, axis)
     // The subject yields to stands only when it is the thing being dragged.
-    const cleared = clampToRoom(
-      resolveCollisions(position, FOOTPRINT.subject, floorOccupants(state), 'model', 'subject'),
-      FOOTPRINT.subject, state.roomWidth, state.roomDepth,
-    )
+    const cleared = axis
+      ? clampToRoom(axisLocked, FOOTPRINT.subject, state.roomWidth, state.roomDepth)
+      : clampToRoom(
+          resolveCollisions(axisLocked, FOOTPRINT.subject, floorOccupants(state), 'model', 'subject'),
+          FOOTPRINT.subject, state.roomWidth, state.roomDepth,
+        )
     return {
       modelPosition: cleared,
       modelRotation: rotation ?? state.modelRotation,
@@ -1475,7 +1503,10 @@ export const useStudio = create<StudioState>((set, get) => ({
   applyPhysiquePreset: (id) => set((state) => ({ physique: { ...(PHYSIQUE_PRESETS[id] ?? DEFAULT_PHYSIQUE) }, undoStack: withUndo(state), redoStack: [] })),
   updateStudioSubjectPhysique: (id, patch) => set((state) => ({ studioObjects: state.studioObjects.map((object) => object.id === id && object.type === 'subject' ? { ...object, subjectPhysique: { ...object.subjectPhysique, ...patch } } : object), undoStack: withUndo(state), redoStack: [] })),
   applyStudioSubjectPhysique: (id, presetId) => set((state) => ({ studioObjects: state.studioObjects.map((object) => object.id === id && object.type === 'subject' ? { ...object, subjectPhysique: { ...(PHYSIQUE_PRESETS[presetId] ?? DEFAULT_PHYSIQUE) } } : object), undoStack: withUndo(state), redoStack: [] })),
-  setCameraPosition: (position) => set((state) => ({ cameraPosition: position, ...(state.cameraAutoFocus ? { focusDistance: cameraFocusDistance(position, state.cameraTarget) } : {}), undoStack: withUndo(state), redoStack: [] })),
+  setCameraPosition: (position, axis) => set((state) => {
+    const cameraPosition = lockPositionToAxis(state.cameraPosition, position, axis)
+    return { cameraPosition, ...(state.cameraAutoFocus ? { focusDistance: cameraFocusDistance(cameraPosition, state.cameraTarget) } : {}), undoStack: withUndo(state), redoStack: [] }
+  }),
   setCameraTarget: (cameraTarget) => set((state) => ({ cameraTarget, cameraTargetSubjectId: undefined, ...(state.cameraAutoFocus ? { focusDistance: cameraFocusDistance(state.cameraPosition, cameraTarget) } : {}), undoStack: withUndo(state), redoStack: [] })),
   bindCameraToSubject: (subjectId, zone = 'face') => set((state) => {
     const cameraTarget = subjectId ? subjectTargetPoint(state, subjectId, zone) : null

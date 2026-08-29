@@ -8,8 +8,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
 import { IESLoader } from 'three/addons/loaders/IESLoader.js'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
+import type { TransformControls as TransformControlsImpl } from 'three-stdlib'
 import { breathingAdjustedFocalLength, calculateDepthOfField } from '../optics'
-import { useStudio, type OutfitFabric, type StudioLight, type StudioModifier, type StudioObject } from '../store'
+import { useStudio, type OutfitFabric, type StudioLight, type StudioModifier, type StudioObject, type TransformAxis } from '../store'
 import { Figure, type FigureAppearance } from './Figure'
 import type { ModelPose } from '../pose'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
@@ -26,6 +27,14 @@ import { DEFAULT_HUMAN_URL, shippedHumanFor } from '../characterAssets'
 const SENSOR_WIDTH = { 'full-frame': 36, 'aps-c': 23.5, mft: 17.3 } as const
 const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
 const PathTracingRenderer = lazy(() => import('./PathTracingRenderer'))
+
+function singleTransformAxis(axis: string | null | undefined): TransformAxis | undefined {
+  return axis === 'X' || axis === 'Y' || axis === 'Z' ? axis : undefined
+}
+
+function activeTransformAxis(control: TransformControlsImpl | null): TransformAxis | undefined {
+  return singleTransformAxis((control as unknown as { axis?: string | null } | null)?.axis)
+}
 
 function kelvinColor(kelvin: number) {
   const temp = kelvin / 100
@@ -763,6 +772,7 @@ function Mannequin() {
   const seatHeight = useSeatHeight(position)
   const seatedLift = Math.min(modelPose.leftLeg, modelPose.rightLeg) > 60 ? seatHeight ?? 0.46 : 0
   const group = useRef<THREE.Group>(null)
+  const transformControl = useRef<TransformControlsImpl>(null)
   // An imported model with no recognised skeleton cannot be posed, so it gets
   // no handles rather than handles that quietly do nothing.
   const showHandles = poseHandles && selected && view !== 'camera' && modelRigStatus === 'rigged'
@@ -788,6 +798,7 @@ function Mannequin() {
     <>
       {model}
       <TransformControls
+        ref={transformControl}
         object={group as RefObject<THREE.Object3D>}
         mode={transformMode}
         size={0.72}
@@ -796,10 +807,10 @@ function Mannequin() {
         showY={transformMode === 'rotate'}
         showX={transformMode === 'translate'}
         showZ={transformMode === 'translate'}
-        onObjectChange={() => {
+        onMouseUp={() => {
           if (!group.current) return
           const nextPosition: [number, number, number] = [group.current.position.x, 0, group.current.position.z]
-          setModelTransform(nextPosition, group.current.rotation.y)
+          setModelTransform(nextPosition, group.current.rotation.y, transformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined)
         }}
       />
     </>
@@ -898,15 +909,16 @@ function MovableStudioObject({ object }: { object: StudioObject }) {
   const transformMode = useStudio((state) => state.transformMode)
   const setTransform = useStudio((state) => state.setStudioObjectTransform)
   const group = useRef<THREE.Group>(null)
+  const transformControl = useRef<TransformControlsImpl>(null)
   const outlineSize: [number, number, number] = object.type === 'subject' ? [0.95, object.subjectHeight + 0.12, 0.65] : object.type === 'dog' ? [0.85, 1, 1.15] : object.type === 'cat' ? [0.65, 0.95, 0.75] : object.type === 'product' ? [0.55, 0.8, 0.55] : object.type === 'table' ? [1.5, 1, 0.9] : object.type === 'chair' ? [0.85, 1.4, 0.8] : object.type === 'plinth' ? [1, 1.25, 1] : [1, 1, 1]
   const yOffset = object.type === 'subject' ? object.subjectHeight / 2 : object.type === 'dog' ? 0.45 : object.type === 'cat' ? 0.42 : object.type === 'product' ? 0.35 : object.type === 'table' ? 0.45 : object.type === 'chair' ? 0.65 : object.type === 'plinth' ? 0.55 : 0
   const content = <group ref={group} position={object.position} rotation={[0, object.rotationY, 0]} scale={object.type === 'subject' ? 1 : object.scale} onClick={(event) => { event.stopPropagation(); selectObject(object.id) }}>
     <StudioObjectMesh object={object} />
     {selected && view !== 'camera' && <mesh position={[0, yOffset, 0]}><boxGeometry args={outlineSize} /><meshBasicMaterial color={object.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={0.48} /></mesh>}
   </group>
-  return <>{content}{selected && view !== 'camera' && !object.locked && <TransformControls object={group as RefObject<THREE.Object3D>} mode={transformMode} size={0.7} translationSnap={0.05} rotationSnap={THREE.MathUtils.degToRad(5)} showX={transformMode === 'translate'} showY showZ={transformMode === 'translate'} onObjectChange={() => {
+  return <>{content}{selected && view !== 'camera' && !object.locked && <TransformControls ref={transformControl} object={group as RefObject<THREE.Object3D>} mode={transformMode} size={0.7} translationSnap={0.05} rotationSnap={THREE.MathUtils.degToRad(5)} showX={transformMode === 'translate'} showY showZ={transformMode === 'translate'} onMouseUp={() => {
     if (!group.current) return
-    setTransform(object.id, [Number(group.current.position.x.toFixed(2)), Number(Math.max(0, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))], Number(group.current.rotation.y.toFixed(3)))
+    setTransform(object.id, [Number(group.current.position.x.toFixed(2)), Number(Math.max(0, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))], Number(group.current.rotation.y.toFixed(3)), transformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined)
   }} />}</>
 }
 
@@ -936,6 +948,7 @@ function Softbox({ light }: { light: StudioLight }) {
   const aimPivot = useMemo(() => new THREE.Object3D(), [])
   const visual = useRef<THREE.Group>(null)
   const rig = useRef<THREE.Group>(null)
+  const transformControl = useRef<TransformControlsImpl>(null)
   const spot = useRef<(THREE.SpotLight & { radius?: number; iesMap?: THREE.Texture | null })>(null)
   const [iesTexture, setIesTexture] = useState<THREE.Texture | null>(null)
   /** Source colour after the gel: correction gels shift the temperature, effect gels tint what is left. */
@@ -1059,22 +1072,23 @@ function Softbox({ light }: { light: StudioLight }) {
       </>}
       {primary && view !== 'camera' && (aimMode || !light.locked) && (
         <TransformControls
+          ref={transformControl}
           object={aimMode ? target : transformMode === 'rotate' ? aimPivot : rig as RefObject<THREE.Object3D>}
           mode={aimMode ? 'translate' : transformMode}
           size={0.7}
           translationSnap={0.05}
           rotationSnap={THREE.MathUtils.degToRad(5)}
           showZ={aimMode || transformMode === 'translate'}
-          onObjectChange={() => {
+          onMouseUp={() => {
             if (aimMode) {
-              setLightTarget(lightId, [Number(target.position.x.toFixed(2)), Number(Math.max(0.1, target.position.y).toFixed(2)), Number(target.position.z.toFixed(2))])
+              setLightTarget(lightId, [Number(target.position.x.toFixed(2)), Number(Math.max(0.1, target.position.y).toFixed(2)), Number(target.position.z.toFixed(2))], activeTransformAxis(transformControl.current))
             } else if (transformMode === 'rotate') {
               const distance = Math.max(0.1, new THREE.Vector3(...position).distanceTo(new THREE.Vector3(...light.target)))
               const direction = new THREE.Vector3(0, 0, 1).applyQuaternion(aimPivot.quaternion).normalize()
               const nextTarget = new THREE.Vector3(...position).addScaledVector(direction, distance)
               setLightTarget(lightId, [Number(nextTarget.x.toFixed(2)), Number(Math.max(0.1, nextTarget.y).toFixed(2)), Number(nextTarget.z.toFixed(2))])
             } else if (rig.current) {
-              setLightPosition(lightId, [Number(rig.current.position.x.toFixed(2)), Number(Math.max(0.8, rig.current.position.y).toFixed(2)), Number(rig.current.position.z.toFixed(2))])
+              setLightPosition(lightId, [Number(rig.current.position.x.toFixed(2)), Number(Math.max(0.8, rig.current.position.y).toFixed(2)), Number(rig.current.position.z.toFixed(2))], activeTransformAxis(transformControl.current))
             }
           }}
         />
@@ -1104,6 +1118,7 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
   const modelPosition = useStudio((state) => state.modelPosition)
   const modelHeight = useStudio((state) => state.modelHeight)
   const group = useRef<THREE.Group>(null)
+  const transformControl = useRef<TransformControlsImpl>(null)
   const bounceLight = useRef<THREE.RectAreaLight>(null)
   const material = MODIFIER_MATERIALS[modifier.surface]
   const panelWidth = modifier.type === 'vflat' ? modifier.width / 2 : modifier.width
@@ -1184,6 +1199,7 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
     {object}
     {modifier.surface !== 'black' && <rectAreaLight ref={bounceLight} position={modifier.position} color={bounce.color} intensity={renderMode === 'path' ? 0 : bounce.intensity} width={modifier.width} height={modifier.height} />}
     {selected && view !== 'camera' && !modifier.locked && <TransformControls
+      ref={transformControl}
       object={group as RefObject<THREE.Object3D>}
       mode={transformMode}
       size={0.7}
@@ -1192,11 +1208,12 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
       showX={transformMode === 'translate'}
       showY
       showZ={transformMode === 'translate'}
-      onObjectChange={() => {
+      onMouseUp={() => {
         if (!group.current) return
         setModifierTransform(modifier.id,
           [Number(group.current.position.x.toFixed(2)), Number(Math.max(0.3, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))],
           Number(group.current.rotation.y.toFixed(3)),
+          transformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined,
         )
       }}
     />}
@@ -1211,6 +1228,7 @@ function CameraProp() {
   const target = useStudio((state) => state.cameraTarget)
   const setCameraPosition = useStudio((state) => state.setCameraPosition)
   const group = useRef<THREE.Group>(null)
+  const transformControl = useRef<TransformControlsImpl>(null)
 
   useEffect(() => {
     group.current?.lookAt(...target)
@@ -1229,13 +1247,14 @@ function CameraProp() {
     {camera}
     {selected && view !== 'camera' && <>
       <TransformControls
+        ref={transformControl}
         object={group as RefObject<THREE.Object3D>}
         mode="translate"
         size={0.72}
         translationSnap={0.05}
-        onObjectChange={() => {
+        onMouseUp={() => {
           if (!group.current) return
-          setCameraPosition([Number(group.current.position.x.toFixed(2)), Number(Math.max(0.35, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))])
+          setCameraPosition([Number(group.current.position.x.toFixed(2)), Number(Math.max(0.35, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))], activeTransformAxis(transformControl.current))
         }}
       />
       <group position={target}>
