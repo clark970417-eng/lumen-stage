@@ -10,7 +10,7 @@
  * started on a phone opens in the full interface unchanged.
  */
 
-import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from 'react'
 import { AboutDialog, CopyrightMark } from './AboutDialog'
 import { BrandMark } from './BrandMark'
 import { BACKDROPS } from '../backdrops'
@@ -28,9 +28,17 @@ import { MAX_PROJECT_FILE_BYTES, readTextFileWithinLimit } from '../security'
 import { formatStorage, storageUsage } from '../persistence'
 import { useDialogFocus } from './DialogFocus'
 import { OnboardingTour, shouldShowOnboarding } from './OnboardingTour'
+import { analyzeReferencePixels, type ReferenceLightingAnalysis } from '../referenceLighting'
+import { captureContinuityBaseline, evaluateContinuity, type ContinuityBaseline } from '../continuity'
 import '../mobile.css'
 
-type Tab = 'setups' | 'subject' | 'lights' | 'camera' | 'project'
+type Tab = 'intent' | 'blocking' | 'lighting' | 'framing' | 'verify'
+
+const MOBILE_WORKFLOW = {
+  en: { intent: 'Define', blocking: 'Block', lighting: 'Shape', framing: 'Frame', verify: 'Verify', reference: 'Reference → light', choose: 'Choose photo', apply: 'Build starting light', local: 'Local luminance estimate', direction: 'Key direction', ratio: 'Key : fill', confidence: 'Confidence', left: 'Left', right: 'Right', front: 'Front', low: 'Low', medium: 'Medium', high: 'High', continuity: 'Continuity guard', baseline: 'Set baseline', track: 'Track subject', restore: 'Restore values', stable: 'Baseline matched', noBaseline: 'Save the hero shot before changing the scene.' },
+  zh: { intent: '定調', blocking: '走位', lighting: '塑光', framing: '取景', verify: '驗證', reference: '參考照 → 起始燈位', choose: '選擇照片', apply: '建立起始燈位', local: '本機明暗推測', direction: '主光方向', ratio: '主光：補光', confidence: '推測信心', left: '左側', right: '右側', front: '正面', low: '低', medium: '中', high: '高', continuity: '光線連戲', baseline: '建立基準', track: '跟隨人物', restore: '恢復讀值', stable: '目前與基準吻合', noBaseline: '先儲存主鏡位，再調整場景。' },
+  ja: { intent: '方向', blocking: '配置', lighting: '光作り', framing: '構図', verify: '検証', reference: '参照写真 → 初期配光', choose: '写真を選択', apply: '初期配光を作成', local: '端末内の明暗推定', direction: 'キー方向', ratio: 'キー：フィル', confidence: '信頼度', left: '左', right: '右', front: '正面', low: '低', medium: '中', high: '高', continuity: '光の連続性', baseline: '基準を設定', track: '人物を追従', restore: '基準値に戻す', stable: '基準と一致', noBaseline: '変更前に基準ショットを保存します。' },
+}
 
 const MobileStage = lazy(() => import('./MobileStage'))
 
@@ -553,6 +561,89 @@ function ProjectTab({ onOpenAbout, onOpenTour }: { onOpenAbout: () => void; onOp
   </div>
 }
 
+function MobileIntentTab({ applied, onApply }: { applied: string | null; onApply: (id: string) => void }) {
+  const locale = useLocaleStore((state) => state.locale)
+  const copy = MOBILE_WORKFLOW[locale]
+  const input = useRef<HTMLInputElement>(null)
+  const studio = useStudio()
+  const [analysis, setAnalysis] = useState<ReferenceLightingAnalysis | null>(null)
+  const [fileName, setFileName] = useState('')
+
+  const readReference = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    try {
+      const image = new Image()
+      image.src = url
+      await image.decode()
+      const scale = Math.min(1, 180 / Math.max(image.naturalWidth, image.naturalHeight))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(2, Math.round(image.naturalWidth * scale))
+      canvas.height = Math.max(2, Math.round(image.naturalHeight * scale))
+      const context = canvas.getContext('2d', { willReadFrequently: true })
+      if (!context) return
+      context.drawImage(image, 0, 0, canvas.width, canvas.height)
+      setAnalysis(analyzeReferencePixels(context.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height))
+      setFileName(file.name)
+    } finally { URL.revokeObjectURL(url) }
+  }
+
+  const applyReference = () => {
+    if (!analysis) return
+    const key = studio.lights[0]
+    const fill = studio.lights[1]
+    const keyX = analysis.direction === 'right' ? 2.25 : analysis.direction === 'left' ? -2.25 : -0.35
+    if (key) { studio.updateLight(key.id, { powerPercent: analysis.keyPower, position: [keyX, 2.65, 2.1] }); studio.bindLightToSubject(key.id, 'model', 'face') }
+    if (fill) { studio.updateLight(fill.id, { powerPercent: analysis.fillPower, position: [-keyX, 2.05, .8] }); studio.bindLightToSubject(fill.id, 'model', 'chest') }
+    studio.openStudioView()
+  }
+
+  return <div className="m-tab">
+    <section className="m-intent-reference">
+      <header><span>REFERENCE / LOCAL</span><strong>{copy.reference}</strong><small>{copy.local}</small></header>
+      <input ref={input} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void readReference(event)} />
+      {!analysis ? <button onClick={() => input.current?.click()}>＋ {copy.choose}</button> : <>
+        <div className="m-reference-result"><div><span>{copy.direction}</span><b>{copy[analysis.direction]}</b></div><div><span>{copy.ratio}</span><b>{analysis.contrastRatio}:1</b></div><div><span>{copy.confidence}</span><b>{copy[analysis.confidence]}</b></div></div>
+        <small className="m-reference-file">{fileName}</small>
+        <div className="m-reference-actions"><button onClick={() => input.current?.click()}>{copy.choose}</button><button onClick={applyReference}>{copy.apply}</button></div>
+      </>}
+    </section>
+    <SetupsTab applied={applied} onApply={onApply} />
+  </div>
+}
+
+function MobileVerifyTab({ onOpenAbout, onOpenTour }: { onOpenAbout: () => void; onOpenTour: () => void }) {
+  const locale = useLocaleStore((state) => state.locale)
+  const copy = MOBILE_WORKFLOW[locale]
+  const studio = useStudio()
+  const [baseline, setBaseline] = useState<ContinuityBaseline | null>(null)
+  const report = useMemo(() => baseline ? evaluateContinuity(baseline, studio) : null, [baseline, studio])
+
+  const track = () => {
+    studio.lights.filter((light) => light.enabled).forEach((light) => studio.bindLightToSubject(light.id, 'model', light.id === studio.lights[0]?.id ? 'face' : 'chest'))
+    studio.bindCameraToSubject('model', 'face')
+    studio.setCameraAutoFocus(true)
+  }
+  const restore = () => {
+    if (!baseline) return
+    studio.setValue('focalLength', baseline.focalLength)
+    studio.setValue('aperture', baseline.aperture)
+    studio.setValue('iso', baseline.iso)
+    studio.setValue('shutter', baseline.shutter)
+    baseline.lights.forEach((saved) => studio.updateLight(saved.id, { powerPercent: saved.power }))
+  }
+
+  return <div className="m-tab">
+    <section className="m-continuity-card">
+      <header><div><span>CONTINUITY</span><strong>{copy.continuity}</strong></div><b>{report?.score ?? '—'}</b></header>
+      <p className={report?.score === 100 ? 'stable' : ''}>{!report ? copy.noBaseline : report.issues.length ? report.issues[0].detail : `● ${copy.stable}`}</p>
+      <div><button onClick={() => setBaseline(captureContinuityBaseline(studio))}>{copy.baseline}</button><button onClick={track}>{copy.track}</button><button disabled={!baseline} onClick={restore}>{copy.restore}</button></div>
+    </section>
+    <ProjectTab onOpenAbout={onOpenAbout} onOpenTour={onOpenTour} />
+  </div>
+}
+
 export function MobileApp() {
   const t = useT()
   const locale = useLocaleStore((state) => state.locale)
@@ -564,7 +655,7 @@ export function MobileApp() {
   const pathSamples = useStudio((state) => state.pathTracingSamples)
   const openStudioView = useStudio((state) => state.openStudioView)
   const openCameraView = useStudio((state) => state.openCameraView)
-  const [tab, setTab] = useState<Tab>('setups')
+  const [tab, setTab] = useState<Tab>('intent')
   const [appliedSetup, setAppliedSetup] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(() => !window.matchMedia('(orientation: landscape) and (max-height: 520px)').matches)
   const [capturing, setCapturing] = useState(false)
@@ -574,7 +665,7 @@ export function MobileApp() {
   const pageVisible = usePageVisible()
 
   const openTour = () => {
-    setTab('setups')
+    setTab('intent')
     setSheetOpen(true)
     window.requestAnimationFrame(() => setTourOpen(true))
   }
@@ -653,11 +744,11 @@ export function MobileApp() {
 
       <div className="m-console">
         <nav className="m-tabs" role="tablist" aria-label={t(phone ? 'mobile.aria' : 'mobile.desktop.aria')}>
-          {(['setups', 'subject', 'lights', 'camera', 'project'] as const).map((item) => (
+          {(['intent', 'blocking', 'lighting', 'framing', 'verify'] as const).map((item) => (
             <button key={item} role="tab" id={`m-tab-${item}`} aria-controls="m-tabpanel" aria-selected={tab === item && sheetOpen}
               className={tab === item && sheetOpen ? 'active' : ''}
               onClick={() => { if (tab === item && sheetOpen) setSheetOpen(false); else { setTab(item); setSheetOpen(true) } }}>
-              {t(`mobile.tab.${item}` as MessageKey)}
+              {MOBILE_WORKFLOW[locale][item]}
             </button>
           ))}
           <button className="m-sheet-handle" aria-label={t(sheetOpen ? 'mobile.sheet.collapse' : 'mobile.sheet.expand')} onClick={() => setSheetOpen(!sheetOpen)}>
@@ -667,11 +758,11 @@ export function MobileApp() {
 
         {sheetOpen && (
           <section className="m-sheet" id="m-tabpanel" role="tabpanel" aria-labelledby={`m-tab-${tab}`}>
-            {tab === 'setups' && <SetupsTab applied={appliedSetup} onApply={setAppliedSetup} />}
-            {tab === 'subject' && <SubjectTab />}
-            {tab === 'lights' && <LightsTab />}
-            {tab === 'camera' && <CameraTab />}
-            {tab === 'project' && <ProjectTab onOpenAbout={() => setAboutOpen(true)} onOpenTour={openTour} />}
+            {tab === 'intent' && <MobileIntentTab applied={appliedSetup} onApply={setAppliedSetup} />}
+            {tab === 'blocking' && <SubjectTab />}
+            {tab === 'lighting' && <LightsTab />}
+            {tab === 'framing' && <CameraTab />}
+            {tab === 'verify' && <MobileVerifyTab onOpenAbout={() => setAboutOpen(true)} onOpenTour={openTour} />}
           </section>
         )}
       </div>
