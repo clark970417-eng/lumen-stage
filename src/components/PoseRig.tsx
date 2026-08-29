@@ -45,11 +45,19 @@ function Handle({ position, radius, active, onStart, onDrag, onEnd }: {
   const pickRadius = radius * 2.6
   const { camera } = useThree()
   const plane = useRef<THREE.Mesh>(null)
+  const anchor = useRef(new THREE.Vector3())
   const [hovered, setHovered] = useState(false)
 
   useFrame(() => {
     if (plane.current) plane.current.quaternion.copy(camera.quaternion)
   })
+
+  // The plane is pinned where the drag started. Letting it ride the handle
+  // means an out-of-reach target drags the plane along with the pointer, and
+  // the joint stalls while the cursor runs away from it.
+  useEffect(() => {
+    if (active) anchor.current.copy(position)
+  }, [active, position])
 
   // A pointer released outside the plane still has to end the drag, so the
   // release is caught on the window rather than on any mesh.
@@ -90,7 +98,11 @@ function Handle({ position, radius, active, onStart, onDrag, onEnd }: {
         <meshBasicMaterial color={active ? HANDLE_ACTIVE : HANDLE_COLOR} transparent opacity={active ? 0.8 : 0.3} depthTest={false} side={THREE.DoubleSide} toneMapped={false} />
       </mesh>
       {active && (
-        <mesh ref={plane} onPointerMove={(event: ThreeEvent<PointerEvent>) => { event.stopPropagation(); onDrag(event.point) }}>
+        <mesh
+          ref={plane}
+          position={anchor.current.clone().sub(position)}
+          onPointerMove={(event: ThreeEvent<PointerEvent>) => { event.stopPropagation(); onDrag(event.point) }}
+        >
           <planeGeometry args={[40, 40]} />
           <meshBasicMaterial transparent opacity={0} depthTest={false} depthWrite={false} side={THREE.DoubleSide} />
         </mesh>

@@ -242,7 +242,7 @@ export const SEGMENT = {
   /** Femoral head height with the legs straight. */
   pelvisY: 0.94,
   /** How far the seat hangs below the hip joint. */
-  pelvisDrop: 0.15,
+  pelvisDrop: 0.105,
   /** Hip joint to the acromion. */
   torso: 0.56,
   /** Shoulder line to the chin. */
@@ -276,6 +276,27 @@ export type FaceVariation = {
   asymmetry: number
 }
 
+/** Turns the seed into the sculpt's shape sliders. */
+export function faceShapeFor(seed: number): FaceShape {
+  const draw = (index: number) => {
+    const n = Math.sin((seed + 1) * 12.9898 + index * 78.233) * 43758.5453
+    return n - Math.floor(n)
+  }
+  return {
+    browRidge: draw(11),
+    noseLength: draw(12),
+    noseWidth: draw(13),
+    noseBridge: draw(14),
+    lipFullness: draw(15),
+    mouthWidth: draw(16),
+    cheekbone: draw(17),
+    jawWidth: draw(18),
+    chinLength: draw(19),
+    eyeDepth: draw(20),
+    asymmetry: draw(21) * 2 - 1,
+  }
+}
+
 export function faceVariation(seed: number): FaceVariation {
   // A cheap hash chain: each draw is stable for a given seed and uncorrelated
   // with the others, which is all a variation table needs.
@@ -302,21 +323,22 @@ export const HEAD = {
   height: 0.232,
   halfWidth: 0.077,
   halfDepth: 0.101,
-  eyeY: 0.124,
+  /** Pupils sit at half the chin-to-crown height on every real face. */
+  eyeY: 0.118,
   eyeX: 0.032,
-  eyeZ: 0.076,
-  browY: 0.146,
-  noseBridgeY: 0.122,
-  noseTipY: 0.086,
-  noseTipZ: 0.098,
-  mouthY: 0.046,
-  mouthZ: 0.088,
-  chinY: 0.014,
-  chinZ: 0.072,
-  cheekY: 0.098,
-  cheekX: 0.052,
-  cheekZ: 0.060,
-  earY: 0.116,
+  eyeZ: 0.078,
+  browY: 0.140,
+  noseBridgeY: 0.112,
+  noseTipY: 0.070,
+  noseTipZ: 0.100,
+  mouthY: 0.042,
+  mouthZ: 0.086,
+  chinY: 0.012,
+  chinZ: 0.070,
+  cheekY: 0.092,
+  cheekX: 0.050,
+  cheekZ: 0.058,
+  earY: 0.108,
   earX: 0.073,
   crownY: 0.190,
 }
@@ -332,8 +354,8 @@ export function torsoRings(p: Resolved): Ring[] {
   const at = (y: number) => (y + SEGMENT.pelvisDrop) / run
   const ring = (y: number, rx: number, rz: number, cz = 0): Ring => ({ t: at(y) * run, rx, rz, cz })
   return [
-    ring(-SEGMENT.pelvisDrop, p.hipHalf * 0.62, p.hipDepth * 0.70, 0.004),
-    ring(-SEGMENT.pelvisDrop * 0.62, p.hipHalf * 0.90, p.hipDepth * 0.96, -0.006),
+    ring(-SEGMENT.pelvisDrop, p.hipHalf * 0.70, p.hipDepth * 0.78, -0.004),
+    ring(-SEGMENT.pelvisDrop * 0.55, p.hipHalf * 0.93, p.hipDepth * 1.00, -0.010),
     ring(-SEGMENT.pelvisDrop * 0.20, p.hipHalf * 1.00, p.hipDepth * 1.02, -0.008),
     ring(SEGMENT.torso * 0.06, p.hipHalf, p.hipDepth, -0.004),
     ring(SEGMENT.torso * 0.18, lerp(p.hipHalf, p.waistHalf, 0.62), lerp(p.hipDepth, p.waistDepth, 0.60), 0.002),
@@ -342,7 +364,11 @@ export function torsoRings(p: Resolved): Ring[] {
     ring(SEGMENT.torso * 0.64, p.chestHalf, p.chestDepth + p.bust, 0.010),
     ring(SEGMENT.torso * 0.80, p.chestHalf * 1.03, p.chestDepth * 0.98, 0.002),
     ring(SEGMENT.torso * 0.92, p.shoulderHalf * 0.94, p.chestDepth * 0.90, -0.004),
-    ring(SEGMENT.torso, p.shoulderHalf * 0.74, p.chestDepth * 0.74, -0.010),
+    ring(SEGMENT.torso, p.shoulderHalf * 0.72, p.chestDepth * 0.72, -0.010),
+    // Above the acromion the trapezius climbs toward the neck. Without these
+    // rings the neck meets a flat shelf, which reads as a collar.
+    ring(SEGMENT.torso + 0.028, p.shoulderHalf * 0.50, p.chestDepth * 0.58, -0.012),
+    ring(SEGMENT.torso + 0.050, p.neck * 1.42, p.neck * 1.50, -0.012),
   ]
 }
 
@@ -426,16 +452,26 @@ export function headRings(jawSet: number): Ring[] {
   ]
 }
 
-/** A foot: a wedge that rises at the heel and flattens at the toe. */
+/**
+ * A foot, swept heel to toe along the loft's own +Y.
+ *
+ * `cz` carries the vertical profile once the caller lays the loft down: the
+ * ankle end is thick and sits high, the toe end is thin and rests on the floor.
+ * Authoring it this way means the sole is flat by construction rather than by
+ * an offset that only happens to work at one ankle angle.
+ */
 export function footRings(width: number): Ring[] {
   const L = SEGMENT.foot
+  // Vertical half-thickness at each station, measured from the sole plane.
+  const lift = (rz: number) => rz - 0.052
   return [
-    { t: 0, rx: width * 0.70, rz: 0.038 },
-    { t: L * 0.16, rx: width * 0.94, rz: 0.044, cz: 0.004 },
-    { t: L * 0.46, rx: width, rz: 0.036, cz: 0.006 },
-    { t: L * 0.76, rx: width * 0.90, rz: 0.028, cz: 0.004 },
-    { t: L * 0.94, rx: width * 0.60, rz: 0.019 },
-    { t: L, rx: width * 0.32, rz: 0.013 },
+    { t: 0, rx: width * 0.62, rz: 0.046, cz: lift(0.046) },
+    { t: L * 0.10, rx: width * 0.82, rz: 0.052, cz: lift(0.052) },
+    { t: L * 0.30, rx: width * 0.92, rz: 0.044, cz: lift(0.044) },
+    { t: L * 0.55, rx: width, rz: 0.033, cz: lift(0.033) },
+    { t: L * 0.78, rx: width * 0.92, rz: 0.025, cz: lift(0.025) },
+    { t: L * 0.93, rx: width * 0.68, rz: 0.018, cz: lift(0.018) },
+    { t: L, rx: width * 0.36, rz: 0.013, cz: lift(0.013) },
   ]
 }
 
@@ -448,4 +484,362 @@ export function palmRings(scale: number): Ring[] {
     { t: L * 0.72, rx: 0.043 * scale, rz: 0.019 * scale },
     { t: L, rx: 0.041 * scale, rz: 0.016 * scale },
   ]
+}
+
+// ---------------------------------------------------------------------------
+// The face
+// ---------------------------------------------------------------------------
+
+/**
+ * A facial feature, expressed as a displacement of the skull surface.
+ *
+ * Assembling a face out of separate spheres is what makes a generated head read
+ * as a toy: every feature has its own silhouette edge, and light breaks at each
+ * one. A real face is a single surface, so a brow, a nose and a lip are all the
+ * same skin pushed out by different amounts. That is what this models.
+ */
+type Feature = {
+  /** Centre in head-local space: origin at the chin, +Y up, +Z forward. */
+  at: [number, number, number]
+  /** Falloff radii along X, Y, Z. Outside these the feature has no effect. */
+  spread: [number, number, number]
+  /** Displacement in metres. Negative carves in. */
+  amount: number
+  /** Which way the skin moves. Most facial features push forward, not outward. */
+  along: 'z' | 'normal' | 'x'
+  /** Falloff shape: 2 is a soft blend, 4 is a defined edge. */
+  sharpness?: number
+}
+
+export type FaceShape = {
+  /** 0–1 across the range each slider covers. */
+  browRidge: number
+  noseLength: number
+  noseWidth: number
+  noseBridge: number
+  lipFullness: number
+  mouthWidth: number
+  cheekbone: number
+  jawWidth: number
+  chinLength: number
+  eyeDepth: number
+  asymmetry: number
+}
+
+export const DEFAULT_FACE_SHAPE: FaceShape = {
+  browRidge: 0.5, noseLength: 0.5, noseWidth: 0.5, noseBridge: 0.5,
+  lipFullness: 0.5, mouthWidth: 0.5, cheekbone: 0.5, jawWidth: 0.5,
+  chinLength: 0.5, eyeDepth: 0.5, asymmetry: 0,
+}
+
+const span = (value: number, low: number, high: number) => lerp(low, high, clamp(value, 0, 1))
+
+/**
+ * The feature set for a face.
+ *
+ * Positions come from the HEAD landmarks so the sculpted surface and the eyes
+ * placed into it cannot drift apart.
+ */
+function faceFeatures(shape: FaceShape, sex: FigureSex): Feature[] {
+  const feminine = sex === 'feminine' ? 1 : sex === 'neutral' ? 0.5 : 0
+  const H = HEAD
+  const noseTipY = H.noseTipY - span(shape.noseLength, -0.008, 0.010)
+  const asym = shape.asymmetry * 0.004
+  const features: Feature[] = []
+
+  // --- Brow ridge. Heavier on a masculine skull; it shades the eye socket. ---
+  const browOut = span(shape.browRidge, 0.004, 0.013) * lerp(1.15, 0.75, feminine)
+  for (const side of [-1, 1]) {
+    features.push({
+      at: [side * H.eyeX, H.browY + asym * side, H.eyeZ * 0.55],
+      spread: [0.040, 0.017, 0.075],
+      amount: browOut,
+      along: 'z',
+      sharpness: 2.4,
+    })
+  }
+  // Glabella, between the brows — flatter than the ridges either side of it.
+  features.push({ at: [0, H.browY - 0.002, H.eyeZ * 0.5], spread: [0.014, 0.014, 0.07], amount: browOut * 0.5, along: 'z' })
+
+  // --- Eye sockets. Carved in, which is what gives the eye somewhere to sit. ---
+  const socket = -span(shape.eyeDepth, 0.004, 0.011)
+  for (const side of [-1, 1]) {
+    features.push({
+      at: [side * H.eyeX, H.eyeY - 0.002, H.eyeZ],
+      spread: [0.026, 0.017, 0.06],
+      amount: socket,
+      along: 'z',
+      sharpness: 2.2,
+    })
+  }
+
+  // --- Nose. A bridge that starts at the brow, a ball at the tip, wings. ---
+  const bridgeHeight = span(shape.noseBridge, 0.008, 0.020)
+  const bridgeTop = H.browY - 0.006
+  const stations = 5
+  for (let i = 0; i <= stations; i++) {
+    const k = i / stations
+    const y = lerp(bridgeTop, noseTipY, k)
+    // The bridge is narrowest at the root and widens toward the tip.
+    const width = lerp(0.009, 0.014, k) * span(shape.noseWidth, 0.85, 1.25)
+    features.push({
+      at: [0, y, H.eyeZ * 0.85],
+      spread: [width, 0.016, 0.075],
+      amount: lerp(bridgeHeight * 0.55, bridgeHeight, k * k),
+      along: 'z',
+      sharpness: 3,
+    })
+  }
+  // The tip itself: a ball, slightly below the last bridge station.
+  features.push({
+    at: [0, noseTipY - 0.004, H.eyeZ * 0.9],
+    spread: [0.014 * span(shape.noseWidth, 0.85, 1.3), 0.014, 0.07],
+    amount: bridgeHeight * 1.15,
+    along: 'z',
+    sharpness: 2.6,
+  })
+  // Wings.
+  for (const side of [-1, 1]) {
+    features.push({
+      at: [side * 0.0125 * span(shape.noseWidth, 0.85, 1.35), noseTipY - 0.008, H.eyeZ * 0.72],
+      spread: [0.011, 0.010, 0.06],
+      amount: bridgeHeight * 0.72,
+      along: 'z',
+      sharpness: 2.6,
+    })
+  }
+  // The groove where the wing meets the cheek — small, but it reads.
+  for (const side of [-1, 1]) {
+    features.push({
+      at: [side * 0.023, noseTipY - 0.010, H.eyeZ * 0.7],
+      spread: [0.010, 0.012, 0.05],
+      amount: -0.0035,
+      along: 'z',
+      sharpness: 3,
+    })
+  }
+
+  // --- Mouth. Two lips with a seam between them, and a philtrum above. ---
+  const lipOut = span(shape.lipFullness, 0.004, 0.011) * lerp(0.85, 1.15, feminine)
+  const mouthHalf = 0.021 * span(shape.mouthWidth, 0.85, 1.25)
+  for (let i = -2; i <= 2; i++) {
+    const x = (i / 2) * mouthHalf
+    // Lips thin toward the corners, which is what stops them reading as a bar.
+    const taper = 1 - Math.abs(i / 2) ** 2 * 0.55
+    features.push({ at: [x, H.mouthY + 0.006, H.mouthZ * 0.9], spread: [mouthHalf * 0.55, 0.008, 0.05], amount: lipOut * 0.85 * taper, along: 'z', sharpness: 3 })
+    features.push({ at: [x, H.mouthY - 0.006, H.mouthZ * 0.9], spread: [mouthHalf * 0.55, 0.009, 0.05], amount: lipOut * taper, along: 'z', sharpness: 3 })
+  }
+  // The seam.
+  features.push({ at: [0, H.mouthY, H.mouthZ], spread: [mouthHalf * 1.25, 0.0035, 0.05], amount: -0.0045, along: 'z', sharpness: 4 })
+  // Philtrum: a shallow channel from the nose base to the lip.
+  features.push({ at: [0, (noseTipY + H.mouthY) / 2 + 0.004, H.mouthZ * 0.95], spread: [0.006, 0.012, 0.05], amount: -0.0026, along: 'z', sharpness: 3 })
+  // The crease under the lower lip.
+  features.push({ at: [0, H.mouthY - 0.016, H.mouthZ * 0.92], spread: [mouthHalf * 0.9, 0.006, 0.05], amount: -0.0032, along: 'z', sharpness: 3 })
+
+  // --- Cheekbones, jaw and chin. ---
+  const cheek = span(shape.cheekbone, 0.003, 0.012)
+  for (const side of [-1, 1]) {
+    features.push({
+      at: [side * H.cheekX, H.cheekY + 0.012, H.cheekZ],
+      spread: [0.034, 0.024, 0.055],
+      amount: cheek,
+      along: 'normal',
+      sharpness: 2,
+    })
+    // The hollow under it. Without this the cheekbone has nothing to read against.
+    features.push({
+      at: [side * (H.cheekX + 0.004), H.cheekY - 0.024, H.cheekZ * 0.85],
+      spread: [0.026, 0.020, 0.05],
+      amount: -cheek * 0.55,
+      along: 'normal',
+      sharpness: 2,
+    })
+    features.push({
+      at: [side * 0.056, H.chinY + 0.030, 0.006],
+      spread: [0.030, 0.034, 0.055],
+      amount: span(shape.jawWidth, -0.002, 0.008) * lerp(0.8, 1.25, 1 - feminine),
+      along: 'x',
+      sharpness: 2,
+    })
+  }
+  features.push({
+    at: [0, H.chinY + span(shape.chinLength, 0.010, -0.002), H.chinZ],
+    spread: [0.020, 0.020, 0.055],
+    amount: span(shape.chinLength, 0.003, 0.011),
+    along: 'z',
+    sharpness: 2.4,
+  })
+
+  return features
+}
+
+/** Smooth, compact falloff. Zero and flat at the edge, so features blend. */
+function falloff(dx: number, dy: number, dz: number, spread: [number, number, number], sharpness: number) {
+  const q = (dx / spread[0]) ** 2 + (dy / spread[1]) ** 2 + (dz / spread[2]) ** 2
+  if (q >= 1) return 0
+  return (1 - q) ** sharpness
+}
+
+/** Adds intermediate rings so the displacement has vertices to move. */
+function resampleRings(rings: Ring[], count: number): Ring[] {
+  const total = rings[rings.length - 1].t
+  const output: Ring[] = []
+  for (let i = 0; i < count; i++) {
+    const t = (i / (count - 1)) * total
+    let a = rings[0]
+    let b = rings[rings.length - 1]
+    for (let j = 0; j < rings.length - 1; j++) {
+      if (t >= rings[j].t && t <= rings[j + 1].t) { a = rings[j]; b = rings[j + 1]; break }
+    }
+    const k = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t)
+    output.push({
+      t,
+      rx: lerp(a.rx, b.rx, k),
+      rz: lerp(a.rz, b.rz, k),
+      cx: lerp(a.cx ?? 0, b.cx ?? 0, k),
+      cz: lerp(a.cz ?? 0, b.cz ?? 0, k),
+    })
+  }
+  return output
+}
+
+/**
+ * The head as one continuous sculpted surface.
+ *
+ * The skull is lofted, then every vertex is pushed by the features that reach
+ * it. One mesh, one silhouette, one set of normals — which is the whole point:
+ * a key light now rakes across a brow and down a nose instead of hitting six
+ * separate balls.
+ */
+export function sculptedHead(shape: FaceShape, sex: FigureSex, jawSet: number) {
+  const rings = resampleRings(headRings(jawSet), 46)
+  const geometry = loft(rings, { segments: 56, up: true })
+  const features = faceFeatures(shape, sex)
+
+  const position = geometry.getAttribute('position') as THREE.BufferAttribute
+  const vertex = new THREE.Vector3()
+  const normal = new THREE.Vector3()
+
+  // Provisional normals, needed for the features that push along the surface.
+  geometry.computeVertexNormals()
+  const normals = geometry.getAttribute('normal') as THREE.BufferAttribute
+
+  for (let i = 0; i < position.count; i++) {
+    vertex.fromBufferAttribute(position, i)
+    normal.fromBufferAttribute(normals, i)
+    let dz = 0
+    let dn = 0
+    let dx = 0
+    for (const feature of features) {
+      const weight = falloff(
+        vertex.x - feature.at[0],
+        vertex.y - feature.at[1],
+        vertex.z - feature.at[2],
+        feature.spread,
+        feature.sharpness ?? 2,
+      )
+      if (weight === 0) continue
+      if (feature.along === 'z') dz += feature.amount * weight
+      else if (feature.along === 'x') dx += feature.amount * weight * Math.sign(vertex.x || 1)
+      else dn += feature.amount * weight
+    }
+    // Forward-pushed features only apply to the front of the head; without this
+    // the brow ridge would also bulge the back of the skull.
+    const front = clamp((vertex.z + 0.02) / 0.06, 0, 1)
+    position.setXYZ(
+      i,
+      vertex.x + dx + normal.x * dn,
+      vertex.y + normal.y * dn,
+      vertex.z + dz * front + normal.z * dn,
+    )
+  }
+
+  position.needsUpdate = true
+  geometry.computeVertexNormals()
+  return geometry
+}
+
+
+/**
+ * Hair as a shell over the skull, bounded by a real hairline.
+ *
+ * Overlapping capsules give hair a hard silhouette and a seam wherever two of
+ * them cross, so this is one surface. The part that matters is where it stops:
+ * hair meets the forehead high and the nape low, and a shell that starts at the
+ * same height all the way round covers the face like a helmet.
+ *
+ * So the lower edge is a function of angle — high at the front, low at the back
+ * — and the surface is swept between that edge and the crown.
+ */
+export function hairShell(options: { thickness: number; fall: number; spread: number; jawSet?: number }) {
+  const skull = resampleRings(headRings(options.jawSet ?? 0), 40)
+  const crownTop = skull[skull.length - 1].t
+
+  /** Skull half-widths at a height, interpolated from the profile. */
+  const profileAt = (y: number) => {
+    const clamped = clamp(y, skull[0].t, crownTop)
+    for (let i = 0; i < skull.length - 1; i++) {
+      const a = skull[i]
+      const b = skull[i + 1]
+      if (clamped >= a.t && clamped <= b.t) {
+        const k = b.t === a.t ? 0 : (clamped - a.t) / (b.t - a.t)
+        return { rx: lerp(a.rx, b.rx, k), rz: lerp(a.rz, b.rz, k), cz: lerp(a.cz ?? 0, b.cz ?? 0, k) }
+      }
+    }
+    const last = skull[skull.length - 1]
+    return { rx: last.rx, rz: last.rz, cz: last.cz ?? 0 }
+  }
+
+  const hairline = HEAD.browY + 0.026
+  const nape = HEAD.earY - 0.030
+  const segments = 48
+  const stations = 26
+  const positions: number[] = []
+  const uvs: number[] = []
+  const indices: number[] = []
+
+  for (let row = 0; row <= stations; row++) {
+    const v = row / stations
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2
+      const cos = Math.cos(angle)
+      const sin = Math.sin(angle)
+      // +Z is the face. Front-ness drives how high the hair starts.
+      const front = Math.max(0, sin)
+      const startY = lerp(nape, hairline, front ** 1.6)
+      // Long styles hang below the nape at the back and sides only.
+      const hang = options.fall * (1 - front ** 0.7)
+      const y = lerp(startY - hang, crownTop, v)
+
+      const profile = profileAt(y)
+      // Thickness eases in from the hairline so the edge is not a lip.
+      const ease = clamp((y - startY + hang) / 0.06, 0, 1)
+      const grow = options.thickness * ease
+      // Below the skull the shell keeps going and flares onto the shoulders.
+      const below = Math.max(0, startY - hang === y ? 0 : startY - y)
+      const flare = 1 + (below / Math.max(0.01, options.fall)) * options.spread
+
+      positions.push(
+        cos * (profile.rx + grow) * flare,
+        y,
+        profile.cz + sin * (profile.rz + grow) * flare - 0.004,
+      )
+      uvs.push(i / segments, v)
+    }
+  }
+
+  for (let row = 0; row < stations; row++) {
+    for (let i = 0; i < segments; i++) {
+      const a = row * (segments + 1) + i
+      const b = a + segments + 1
+      indices.push(a, b, a + 1, a + 1, b, b + 1)
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+  geometry.setIndex(indices)
+  geometry.computeVertexNormals()
+  return geometry
 }

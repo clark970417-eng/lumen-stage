@@ -136,7 +136,7 @@ export function forwardKinematics(pose: ModelPose, physique: Physique, seatHeigh
   const leftLeg = leg(-1)
   const rightLeg = leg(1)
 
-  const neck = new THREE.Vector3(0, SEGMENT.torso - 0.012, 0).applyQuaternion(frames.spineRotation).add(frames.pelvisPosition)
+  const neck = new THREE.Vector3(0, SEGMENT.torso + 0.040, 0).applyQuaternion(frames.spineRotation).add(frames.pelvisPosition)
   const headRotation = frames.spineRotation.clone().multiply(euler(pose.headTilt, pose.headYaw, -pose.headRoll))
   const head = new THREE.Vector3(0, SEGMENT.neckLength + 0.004 + HEAD.eyeY, pose.neckExtend * 0.0007)
     .applyQuaternion(headRotation).add(neck)
@@ -258,7 +258,7 @@ export function solveLeg(side: Side, target: THREE.Vector3, pose: ModelPose, phy
 /** Aims the head at a point, as yaw and tilt against the current spine. */
 export function solveHeadAim(target: THREE.Vector3, pose: ModelPose, physique: Physique, seatHeight: number | null = null) {
   const frames = rigFrames(pose, physique, seatHeight)
-  const neck = new THREE.Vector3(0, SEGMENT.torso - 0.012, 0).applyQuaternion(frames.spineRotation).add(frames.pelvisPosition)
+  const neck = new THREE.Vector3(0, SEGMENT.torso + 0.040, 0).applyQuaternion(frames.spineRotation).add(frames.pelvisPosition)
   const local = target.clone().sub(neck).applyQuaternion(frames.spineRotation.clone().invert())
   // The head's own +Y runs up the neck; dragging its handle tips that axis.
   const yaw = deg(Math.atan2(local.x, Math.max(0.02, local.y)))

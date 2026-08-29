@@ -14,9 +14,9 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import {
-  DEFAULT_PHYSIQUE, faceVariation, footRings, forearmRings, HEAD, headRings, jointBall, loft, neckRings,
+  DEFAULT_PHYSIQUE, faceShapeFor, faceVariation, footRings, forearmRings, HEAD, headRings, jointBall, loft, neckRings,
   palmRings, resolvePhysique, SEGMENT, shinRings, sliceRings, thighRings, torsoRings,
-  upperArmRings, type FaceVariation, type Physique,
+  hairShell, sculptedHead, upperArmRings, type FaceVariation, type Physique,
 } from '../anatomy'
 import { fabricNormalMap, fabricRoughnessMap, hairNormalMap, skinNormalMap, skinRoughnessMap } from '../textures'
 import type { HandPose, ModelPose } from '../pose'
@@ -116,6 +116,9 @@ function useFigureMaterials(skinColor: string, outfitColor: string, appearance: 
     sheenColor: new THREE.Color(appearance.hairColor).lerp(new THREE.Color('#ffffff'), 0.3),
     sheenRoughness: 0.22,
     clearcoat: (appearance.hairGloss / 100) * 0.35,
+    // The shell is an open surface bounded by the hairline, so the inside of
+    // the far side is visible through the gap around the face.
+    side: THREE.DoubleSide,
   }), [appearance.hairColor, appearance.hairGloss])
 
   useEffect(() => () => { skin.dispose(); outfit.dispose(); hair.dispose() }, [hair, outfit, skin])
@@ -137,7 +140,7 @@ function useFigureGeometry(physique: Physique, jawSet: number, neckline: number,
         ? loft(sliceRings(body, 0.06, 0.94), { segments: 30, up: true, startAngle: Math.PI * 0.61, endAngle: Math.PI * 2.39 })
         : null,
       neck: loft(neckRings(p), { segments: 20, up: true }),
-      head: loft(headRings(jawSet), { segments: 32, up: true }),
+      head: sculptedHead(faceShapeFor(physique.face ?? 0), physique.sex, jawSet),
       upperArm: loft(upperArmRings(p), { segments: 20 }),
       forearm: loft(forearmRings(p), { segments: 20 }),
       thigh: loft(thighRings(p), { segments: 24 }),
@@ -204,14 +207,19 @@ function Face({ pose, skin, hair, appearance, gaze, face }: { pose: ModelPose; s
 
   const eye = (side: -1 | 1) => (
     <group key={`eye-${side}`} position={[side * (HEAD.eyeX + face.eyeSpacing), HEAD.eyeY + face.eyeHeight + (side < 0 ? face.asymmetry : 0), HEAD.eyeZ]}>
-      <mesh scale={[1, 0.86, 0.9]}><sphereGeometry args={[0.0122, 24, 18]} /><meshPhysicalMaterial color="#f2eee6" roughness={0.14} clearcoat={0.85} clearcoatRoughness={0.05} /></mesh>
-      <mesh position={[irisX, irisY, 0.0105]}><circleGeometry args={[0.0057, 24]} /><meshPhysicalMaterial color={appearance.eyeColor} roughness={0.13} clearcoat={0.95} /></mesh>
-      <mesh position={[irisX, irisY, 0.0111]}><circleGeometry args={[0.0025, 20]} /><meshBasicMaterial color="#07090a" /></mesh>
+      <mesh scale={[1, 0.94, 0.92]}><sphereGeometry args={[0.0118, 24, 18]} /><meshPhysicalMaterial color="#f0ece3" roughness={0.12} clearcoat={0.9} clearcoatRoughness={0.04} /></mesh>
+      <mesh position={[irisX, irisY, 0.0102]}><circleGeometry args={[0.0058, 24]} /><meshPhysicalMaterial color={appearance.eyeColor} roughness={0.12} clearcoat={0.95} /></mesh>
+      <mesh position={[irisX, irisY, 0.0107]}><circleGeometry args={[0.0026, 20]} /><meshBasicMaterial color="#07090a" /></mesh>
+      {/* Lash line. A dark edge is what separates an eye from a bead. */}
+      <mesh position={[0, 0.0088 - (1 - open) * 0.0088, 0.0060]} rotation={[rad(-14), 0, 0]} scale={[1.16, 0.10, 0.5]}>
+        <sphereGeometry args={[0.0126, 18, 10]} />
+        <meshStandardMaterial color={appearance.makeup === 'none' ? '#3a2c26' : '#241a18'} roughness={0.5} />
+      </mesh>
       {/* Lids. Dropping the upper one is the only honest way to show a squint. */}
-      <mesh castShadow position={[0, 0.0092 - (1 - open) * 0.0092, -0.0010]} rotation={[rad(-10), 0, 0]} scale={[1.14, 0.34 + (1 - open) * 0.60, 1.02]} material={skin}>
+      <mesh castShadow position={[0, 0.0122 - (1 - open) * 0.0112, -0.0016]} rotation={[rad(-12), 0, 0]} scale={[1.24, 0.40 + (1 - open) * 0.58, 1.10]} material={skin}>
         <sphereGeometry args={[0.0126, 20, 14]} />
       </mesh>
-      <mesh castShadow position={[0, -0.0098 + (1 - open) * 0.0022, -0.0012]} scale={[1.12, 0.24, 1.00]} material={skin}>
+      <mesh castShadow position={[0, -0.0112 + (1 - open) * 0.0024, -0.0018]} scale={[1.20, 0.26, 1.06]} material={skin}>
         <sphereGeometry args={[0.0124, 18, 12]} />
       </mesh>
     </group>
@@ -219,57 +227,40 @@ function Face({ pose, skin, hair, appearance, gaze, face }: { pose: ModelPose; s
 
   return (
     <>
-      {/* Brow ridge — the surface that makes or breaks a top-heavy key. */}
+      {/* The brow itself: thin, and sitting on the ridge rather than floating. */}
       {([-1, 1] as const).map((side) => (
-        <mesh key={`brow-${side}`} position={[side * (HEAD.eyeX + face.eyeSpacing), HEAD.browY + face.browHeight + brow * 0.006 + (side < 0 ? face.asymmetry * 1.4 : 0), HEAD.eyeZ + 0.008]}
-          rotation={[0, 0, rad(side * (-8 + brow * -7))]} scale={[1.6, 0.20, 0.30]} material={hair}>
-          <sphereGeometry args={[0.0148, 18, 12]} />
-        </mesh>
-      ))}
-      {/* Cheekbones — what a portrait key is really aimed at. */}
-      {([-1, 1] as const).map((side) => (
-        <mesh key={`cheek-${side}`} castShadow position={[side * (HEAD.cheekX + face.jawWidth * 0.04), HEAD.cheekY + face.cheekHeight, HEAD.cheekZ]} scale={[0.9 + face.jawWidth, 0.72, 0.6]} material={skin}>
-          <sphereGeometry args={[0.032, 20, 16]} />
+        <mesh key={`brow-${side}`} position={[side * (HEAD.eyeX + face.eyeSpacing), HEAD.browY + face.browHeight + brow * 0.005 + (side < 0 ? face.asymmetry * 1.4 : 0), HEAD.eyeZ + 0.016]}
+          rotation={[0, 0, rad(side * (-9 + brow * -6))]} scale={[1.75, 0.115, 0.16]} material={hair}>
+          <sphereGeometry args={[0.0142, 18, 12]} />
         </mesh>
       ))}
       {([-1, 1] as const).map((side) => (
-        <mesh key={`ear-${side}`} castShadow position={[side * HEAD.earX, HEAD.earY, -0.006]} rotation={[0, rad(side * -16), 0]} scale={[0.22, 0.64, 0.36]} material={skin}>
-          <sphereGeometry args={[0.032, 18, 14]} />
+        <mesh key={`ear-${side}`} castShadow position={[side * (HEAD.earX - 0.004), HEAD.earY, -0.020]} rotation={[rad(-6), rad(side * -22), 0]} scale={[0.16, 0.54, 0.30]} material={skin}>
+          <sphereGeometry args={[0.030, 18, 14]} />
         </mesh>
       ))}
       {([-1, 1] as const).map((side) => eye(side))}
 
-      {/* Nose: bridge, tip, nostril wings. */}
-      <mesh castShadow position={[0, HEAD.noseBridgeY + face.noseLength * 0.5, HEAD.eyeZ + 0.020]} rotation={[rad(14), 0, 0]} scale={[0.30 + face.noseWidth * 0.12, 1.7, 0.55]} material={skin}><sphereGeometry args={[0.020, 18, 14]} /></mesh>
-      <mesh castShadow position={[0, HEAD.noseTipY + face.noseLength, HEAD.noseTipZ]} scale={[0.62 + face.noseWidth * 0.3, 0.58, 0.68]} material={skin}><sphereGeometry args={[0.022, 20, 16]} /></mesh>
-      {([-1, 1] as const).map((side) => (
-        <mesh key={`nostril-${side}`} castShadow position={[side * 0.0115, HEAD.noseTipY - 0.004, HEAD.noseTipZ - 0.008]} scale={[0.52, 0.48, 0.5]} material={skin}><sphereGeometry args={[0.018, 14, 10]} /></mesh>
-      ))}
-
-      {/* Mouth. The dark interior only shows once the jaw actually opens. */}
+      {/*
+        Lips. The shape is sculpted into the skull; this is only the colour,
+        laid on as a thin shell that follows it.
+      */}
       <group position={[face.asymmetry * 0.6, HEAD.mouthY - mouthOpen * 0.013, HEAD.mouthZ]} scale={[1 + face.mouthWidth, 1, 1]}>
         {(mouthOpen > 0.04 || lipPart > 0.1) && (
-          <mesh position={[0, 0, -0.006]} scale={[1, 0.4 + mouthOpen * 1.7 + lipPart * 0.3, 0.8]}>
+          <mesh position={[0, 0, -0.008]} scale={[1, 0.4 + mouthOpen * 1.7 + lipPart * 0.3, 0.8]}>
             <sphereGeometry args={[0.019, 18, 12]} />
             <meshStandardMaterial color="#2a1113" roughness={0.5} />
           </mesh>
         )}
-        <mesh castShadow position={[0, 0.0064 + smile * 0.0018, 0]} scale={[1, 0.30, 0.36]}>
-          <sphereGeometry args={[0.0235, 22, 14]} />
-          <meshPhysicalMaterial color={lipColor} roughness={appearance.makeup === 'editorial' ? 0.24 : 0.52} clearcoat={appearance.makeup === 'editorial' ? 0.6 : 0.18} />
+        <mesh position={[0, 0.0058 + smile * 0.0018, 0.0008]} scale={[1.02, 0.20, 0.16]}>
+          <sphereGeometry args={[0.0235, 24, 14]} />
+          <meshPhysicalMaterial color={lipColor} roughness={appearance.makeup === 'editorial' ? 0.24 : 0.55} clearcoat={appearance.makeup === 'editorial' ? 0.6 : 0.16} />
         </mesh>
-        <mesh castShadow position={[0, -0.0064 - mouthOpen * 0.011, 0.0004]} scale={[0.94, 0.38, 0.40]}>
-          <sphereGeometry args={[0.0235, 22, 14]} />
-          <meshPhysicalMaterial color={lipColor} roughness={appearance.makeup === 'editorial' ? 0.24 : 0.52} clearcoat={appearance.makeup === 'editorial' ? 0.6 : 0.18} />
+        <mesh position={[0, -0.0064 - mouthOpen * 0.011, 0.0010]} scale={[0.96, 0.24, 0.18]}>
+          <sphereGeometry args={[0.0235, 24, 14]} />
+          <meshPhysicalMaterial color={lipColor} roughness={appearance.makeup === 'editorial' ? 0.24 : 0.55} clearcoat={appearance.makeup === 'editorial' ? 0.6 : 0.16} />
         </mesh>
-        {([-1, 1] as const).map((side) => (
-          <mesh key={`corner-${side}`} position={[side * 0.0222, smile * 0.0062, -0.0022]} scale={[0.3, 0.3, 0.3]} material={skin}>
-            <sphereGeometry args={[0.012, 12, 10]} />
-          </mesh>
-        ))}
       </group>
-
-      <mesh castShadow position={[0, HEAD.chinY + 0.010, HEAD.chinZ]} scale={[0.68 + face.jawWidth * 0.5, 0.60, 0.62]} material={skin}><sphereGeometry args={[0.032, 20, 16]} /></mesh>
 
       {appearance.makeup !== 'none' && ([-1, 1] as const).map((side) => (
         <mesh key={`blush-${side}`} position={[side * (HEAD.cheekX + 0.004), HEAD.cheekY - 0.004, HEAD.cheekZ + 0.028]} rotation={[0, rad(side * 26), 0]}>
@@ -287,66 +278,72 @@ function Face({ pose, skin, hair, appearance, gaze, face }: { pose: ModelPose; s
   )
 }
 
-function Hair({ style, material, physique }: { style: HairStyle; material: THREE.Material; physique: Physique }) {
-  if (style === 'bald') return null
+/** Style parameters for the hair shell, plus whatever each style adds on top. */
+const HAIR_SHELL: Record<HairStyle, { thickness: number; fall: number; spread: number }> = {
+  bald: { thickness: 0, fall: 0, spread: 0 },
+  buzz: { thickness: 0.003, fall: 0, spread: 0 },
+  short: { thickness: 0.011, fall: 0.02, spread: 0.05 },
+  bob: { thickness: 0.013, fall: 0.10, spread: 0.16 },
+  long: { thickness: 0.013, fall: 0.30, spread: 0.30 },
+  ponytail: { thickness: 0.010, fall: 0.015, spread: 0.04 },
+  bun: { thickness: 0.010, fall: 0.012, spread: 0.03 },
+  curly: { thickness: 0.020, fall: 0.06, spread: 0.20 },
+  afro: { thickness: 0.038, fall: 0.02, spread: 0.10 },
+}
+
+function Hair({ style, material, physique, jawSet }: { style: HairStyle; material: THREE.Material; physique: Physique; jawSet: number }) {
+  const spec = HAIR_SHELL[style] ?? HAIR_SHELL.short
+  const shell = useMemo(
+    () => style === 'bald' ? null : hairShell({ ...spec, jawSet }),
+    [jawSet, spec, style],
+  )
+  useEffect(() => () => { shell?.dispose() }, [shell])
+  if (!shell) return null
+
   const R = HEAD.halfDepth
   const crown = HEAD.eyeY + 0.030
   const feminine = physique.sex === 'feminine'
-  const cap = (scale: [number, number, number], y: number, z: number, radius: number, sweep = 0.52) => (
-    <mesh castShadow position={[0, y, z]} scale={scale} material={material}>
-      <sphereGeometry args={[radius, 40, 28, 0, Math.PI * 2, 0, Math.PI * sweep]} />
-    </mesh>
-  )
+
   return (
     <group>
-      {style === 'buzz' && cap([0.78, 0.98, 1.0], crown - 0.002, -0.006, R * 1.005, 0.50)}
-      {style !== 'buzz' && cap([0.82, 1.02, 1.04], crown + 0.002, -0.012, R * 1.02, 0.54)}
-      {/* Occiput: hair has volume behind the skull, and it catches the rim. */}
-      {style !== 'buzz' && (
-        <mesh castShadow position={[0, crown - 0.030, -R * 0.44]} scale={[0.74, 0.86, 0.58]} material={material}><sphereGeometry args={[R * 1.0, 28, 20]} /></mesh>
-      )}
-      {style === 'bob' && (
-        <>
-          {([-1, 1] as const).map((side) => (
-            <mesh key={side} castShadow position={[side * HEAD.halfWidth * 1.02, crown - 0.082, -0.016]} scale={[0.30, 1.15, 0.90]} material={material}><sphereGeometry args={[R * 0.72, 24, 18]} /></mesh>
-          ))}
-          <mesh castShadow position={[0, crown - 0.108, -R * 0.36]} scale={[0.80, 0.5, 0.72]} material={material}><sphereGeometry args={[R * 0.98, 28, 18]} /></mesh>
-        </>
-      )}
-      {style === 'long' && (
-        <>
-          <mesh castShadow position={[0, crown - 0.20, -R * 0.42]} scale={[0.78, 1, 0.52]} material={material}><capsuleGeometry args={[R * 0.86, 0.26, 8, 24]} /></mesh>
-          {([-1, 1] as const).map((side) => (
-            <mesh key={side} castShadow position={[side * HEAD.halfWidth * 1.04, crown - 0.125, -0.014]} scale={[0.30, 1, 0.58]} material={material}><capsuleGeometry args={[R * 0.6, 0.17, 6, 16]} /></mesh>
-          ))}
-        </>
-      )}
+      <mesh castShadow receiveShadow geometry={shell} material={material} />
       {style === 'ponytail' && (
-        <mesh castShadow position={[0, crown - 0.055, -R * 1.02]} rotation={[rad(26), 0, 0]} scale={[0.55, 1, 0.55]} material={material}><capsuleGeometry args={[R * 0.42, 0.22, 6, 18]} /></mesh>
+        <mesh castShadow position={[0, crown - 0.045, -R * 1.05]} rotation={[rad(28), 0, 0]} scale={[0.55, 1, 0.55]} material={material}>
+          <capsuleGeometry args={[R * 0.40, 0.22, 8, 20]} />
+        </mesh>
       )}
       {style === 'bun' && (
-        <mesh castShadow position={[0, crown + 0.020, -R * 0.86]} scale={[1, 0.9, 0.9]} material={material}><sphereGeometry args={[R * 0.52, 24, 18]} /></mesh>
+        <mesh castShadow position={[0, crown + 0.022, -R * 0.88]} scale={[1, 0.92, 0.92]} material={material}>
+          <sphereGeometry args={[R * 0.50, 26, 20]} />
+        </mesh>
       )}
       {(style === 'curly' || style === 'afro') && (
+        // Curl clusters over the shell: a fixed lattice, so the same head
+        // renders identically every frame.
         <group>
-          {Array.from({ length: style === 'afro' ? 26 : 18 }, (_, index) => {
-            // A fixed lattice, not random, so the same hair renders every frame.
-            const count = style === 'afro' ? 26 : 18
+          {Array.from({ length: style === 'afro' ? 30 : 20 }, (_, index) => {
+            const count = style === 'afro' ? 30 : 20
             const phi = (index / count) * Math.PI * 2 * 1.618
-            const theta = Math.acos(1 - 1.3 * ((index + 0.5) / count))
-            const radius = style === 'afro' ? R * 1.24 : R * 1.06
+            const theta = Math.acos(1 - 1.25 * ((index + 0.5) / count))
+            const radius = style === 'afro' ? R * 1.30 : R * 1.12
             return (
               <mesh key={index} castShadow material={material}
-                position={[Math.sin(theta) * Math.cos(phi) * radius * 0.82, crown - 0.010 + Math.cos(theta) * radius * 0.9, Math.sin(theta) * Math.sin(phi) * radius - 0.008]}>
-                <sphereGeometry args={[style === 'afro' ? R * 0.42 : R * 0.34, 14, 10]} />
+                position={[
+                  Math.sin(theta) * Math.cos(phi) * radius * 0.80,
+                  crown - 0.012 + Math.cos(theta) * radius * 0.92,
+                  Math.sin(theta) * Math.sin(phi) * radius - 0.010,
+                ]}>
+                <sphereGeometry args={[style === 'afro' ? R * 0.38 : R * 0.30, 14, 10]} />
               </mesh>
             )
           })}
         </group>
       )}
-      {/* A hairline. Without one the forehead runs straight into the cap. */}
+      {/* A soft fringe, sitting on the forehead rather than across the brow. */}
       {style !== 'buzz' && style !== 'afro' && style !== 'curly' && (
-        <mesh castShadow position={[0, crown + (feminine ? 0.026 : 0.032), R * 0.26]} rotation={[rad(-8), 0, 0]} scale={[0.82, 0.16, 0.34]} material={material}><sphereGeometry args={[R * 0.92, 28, 18]} /></mesh>
+        <mesh castShadow position={[0, crown + (feminine ? 0.028 : 0.034), R * 0.30]} rotation={[rad(-10), 0, 0]} scale={[0.86, 0.14, 0.36]} material={material}>
+          <sphereGeometry args={[R * 0.94, 30, 18]} />
+        </mesh>
       )}
     </group>
   )
@@ -415,7 +412,7 @@ export function Figure({ pose, skinColor, outfitColor, appearance, gaze, seatHei
           <mesh castShadow geometry={geo.kneeBall} material={legMaterial} scale={legScale} />
           <mesh castShadow geometry={geo.shin} material={legMaterial} scale={legScale} />
           <group position={[0, -SEGMENT.shin, 0]} rotation={[rad(ankle), rad(side * turn), rad(-splay)]}>
-            <mesh castShadow geometry={geo.foot} material={skin} rotation={[rad(-90), 0, 0]} position={[0, -SEGMENT.ankleY, 0.012]} />
+            <mesh castShadow geometry={geo.foot} material={skin} rotation={[rad(90), 0, 0]} position={[0, -SEGMENT.ankleY, -0.058]} />
           </group>
         </group>
       </group>
@@ -466,7 +463,7 @@ export function Figure({ pose, skinColor, outfitColor, appearance, gaze, seatHei
             {geo.jacket && <mesh castShadow receiveShadow geometry={geo.jacket} material={outfit} scale={[CLOTH_OFFSET * 1.10, 1, CLOTH_OFFSET * 1.14]} />}
           </group>
 
-          <group position={[0, SEGMENT.torso - 0.012, 0]}>
+          <group position={[0, SEGMENT.torso + 0.040, 0]}>
             <mesh castShadow geometry={geo.neck} material={skin} />
             <group
               position={[0, SEGMENT.neckLength + 0.004, pose.neckExtend * 0.0007]}
@@ -474,7 +471,7 @@ export function Figure({ pose, skinColor, outfitColor, appearance, gaze, seatHei
             >
               <mesh castShadow geometry={geo.head} material={skin} />
               <Face pose={pose} skin={skin} hair={hair} appearance={appearance} gaze={gazeResolved} face={face} />
-              <Hair style={appearance.hairStyle} material={hair} physique={physique} />
+              <Hair style={appearance.hairStyle} material={hair} physique={physique} jawSet={pose.jawSet} />
             </group>
           </group>
 
