@@ -20,6 +20,23 @@ function isMode(value: unknown): value is UiMode {
   return value === 'auto' || value === 'mobile' || value === 'full'
 }
 
+/** Keep a forced shell choice durable without discarding other query params. */
+export function searchForUiMode(search: string, mode: UiMode) {
+  const params = new URLSearchParams(search)
+  if (mode === 'auto') params.delete('ui')
+  else params.set('ui', mode)
+  const next = params.toString()
+  return next ? `?${next}` : ''
+}
+
+function syncModeToLocation(mode: UiMode) {
+  try {
+    const nextSearch = searchForUiMode(window.location.search, mode)
+    const nextUrl = `${window.location.pathname}${nextSearch}${window.location.hash}`
+    window.history.replaceState(window.history.state, '', nextUrl)
+  } catch { /* no history API in a non-browser environment */ }
+}
+
 function detectMode(): UiMode {
   try {
     const forced = new URLSearchParams(window.location.search).get('ui')
@@ -41,6 +58,7 @@ export const useUiModeStore = create<UiModeStore>((set) => ({
   mode: detectMode(),
   setMode: (mode) => {
     try { localStorage.setItem(STORAGE_KEY, mode) } catch { /* private mode can reject storage */ }
+    syncModeToLocation(mode)
     set({ mode })
   },
 }))
