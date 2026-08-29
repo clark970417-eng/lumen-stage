@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react'
-import preview from '../../assets/lumen-stage-preview.png'
 import { LOCALES, useLocaleStore, type Locale } from '../i18n'
 import type { PublicRoute } from '../routing'
 import { BrandMark } from './BrandMark'
@@ -74,6 +73,12 @@ const COPY: Record<Locale, Copy> = {
   },
 }
 
+const STUDIO_PREVIEWS: Record<Locale, { src: string; alt: string }> = {
+  zh: { src: '/site-preview/zh.png', alt: 'Lumen Stage 繁體中文完整攝影棚介面' },
+  en: { src: '/site-preview/en.png', alt: 'Complete Lumen Stage studio interface in English' },
+  ja: { src: '/site-preview/ja.png', alt: 'Lumen Stage 日本語版スタジオの全画面' },
+}
+
 function LocaleSwitch() {
   const locale = useLocaleStore((state) => state.locale)
   const setLocale = useLocaleStore((state) => state.setLocale)
@@ -97,6 +102,7 @@ function LegalPage({ route, copy }: { route: Exclude<PublicRoute, 'home' | 'stud
 export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> }) {
   const locale = useLocaleStore((state) => state.locale)
   const copy = COPY[locale]
+  const studioPreview = STUDIO_PREVIEWS[locale]
   const heroStage = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const titles = { home: 'Lumen Stage — Virtual Photography Studio', privacy: `${copy.privacyTitle} — Lumen Stage`, terms: `${copy.termsTitle} — Lumen Stage`, support: `${copy.supportTitle} — Lumen Stage` }
@@ -133,10 +139,8 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
         <h1><span>{copy.title[0]}</span><em><span>{copy.title[1]}</span><span>{copy.title[2]}</span></em></h1>
         <div className="hero-lower"><p>{copy.intro}</p><div><a className="site-cta" href="/studio"><span>{copy.open}</span><b aria-hidden="true">↗</b></a><ul>{copy.proof.map((item) => <li key={item}>{item}</li>)}</ul></div></div>
       </div>
-      <div className="hero-instrument" aria-label="Lumen Stage product preview">
-        <div className="instrument-chrome"><span className="instrument-status"><i /> LIVE STUDIO</span><span>SCENE / 001</span><span>60 FPS</span></div>
-        <div className="instrument-picture"><img src={preview} alt="Lumen Stage desktop studio showing a portrait lighting setup" width="1280" height="720" fetchPriority="high" /><div className="focus-mark" aria-hidden="true"><i /><i /><i /><i /></div><span className="light-scan" aria-hidden="true" /></div>
-        <div className="instrument-readout"><span>LENS <b>50<small>mm</small></b></span><span>APERTURE <b>ƒ/4</b></span><span>SHUTTER <b>1/125<small>s</small></b></span><span>KEY TEMP <b>5600<small>K</small></b></span></div>
+      <div className="hero-instrument" aria-label={studioPreview.alt}>
+        <img key={locale} src={studioPreview.src} alt={studioPreview.alt} width="2560" height="1440" fetchPriority="high" style={{ width: '100%', height: 'auto', display: 'block' }} />
       </div>
       <a className="scroll-cue" href="#capabilities"><span>SCROLL TO FOCUS</span><i /></a>
     </section>
