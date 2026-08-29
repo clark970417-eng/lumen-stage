@@ -9,6 +9,7 @@ import { InspectorNav } from './InspectorNav'
 import { GEL_CATEGORIES, GELS, gelStopLoss, geledTemperature, getGel, type GelCategory } from '../gels'
 import { PhysiquePanel, PoseControls, PoseLibraryPanel, WardrobePanel } from './SubjectPanels'
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
+import { DEFAULT_HUMAN_NAME } from '../characterAssets'
 
 type RangeProps = {
   label: string
@@ -306,24 +307,24 @@ export function Inspector() {
 
       {state.selected === 'model' && <section className="inspector-section model-inspector">
         <div className="section-title"><span>{t('model.section')}</span><small>METERS</small></div>
-        <div className="selection-chip"><span className="model-silhouette" /><div><strong>{state.modelAssetName || 'Model'}</strong><small>{state.modelImportStatus === 'ready' ? 'Imported · 1.82 m normalized' : state.modelImportStatus === 'error' ? 'Import failed · using proxy' : 'Standing / neutral'}</small></div><b>SELECTED</b></div>
+        <div className="selection-chip"><span className="model-silhouette" /><div><strong>{state.modelAssetName || DEFAULT_HUMAN_NAME}</strong><small>{state.modelImportStatus === 'ready' ? 'Rigged human · 1.82 m normalized' : state.modelImportStatus === 'error' ? 'Model failed · procedural fallback' : 'Loading realistic human…'}</small></div><b>SELECTED</b></div>
         <Range label={t('axis.x')} value={state.modelPosition[0]} min={-3} max={3} step={0.05} onChange={(value) => state.setModelTransform([value, 0, state.modelPosition[2]])} />
         <Range label={t('axis.z')} value={state.modelPosition[2]} min={-1} max={4} step={0.05} onChange={(value) => state.setModelTransform([state.modelPosition[0], 0, value])} />
         <Range label={t('model.facing')} value={Math.round(THREE_RAD_TO_DEG * state.modelRotation)} min={-180} max={180} step={5} unit="°" onChange={(value) => state.setModelTransform(state.modelPosition, value / THREE_RAD_TO_DEG)} />
         <Range label={t('subject.height')} value={state.modelHeight} min={1.45} max={2.2} step={0.01} unit=" m" onChange={(value) => setValue('modelHeight', Number(value.toFixed(2)))} />
         <div className="pose-heading">
           <span>{t('pose.section')}</span>
-          <small>{!state.modelAssetUrl ? 'PROCEDURAL RIG' : state.modelRigStatus === 'rigged' ? t('pose.retargeted') : t('pose.unrigged')}</small>
+          <small>{state.modelRigStatus === 'rigged' ? t('pose.retargeted') : state.modelRigStatus === 'unrigged' ? t('pose.unrigged') : 'LOADING SKELETON'}</small>
         </div>
         <PoseLibraryPanel current={state.posePreset} onApply={state.applyPosePreset} />
-        {state.modelAssetUrl && state.modelRigStatus === 'rigged' && (
+        {state.modelRigStatus === 'rigged' && (
           <>
             <p className="pose-note">{t('pose.retargetNote')}</p>
             <PoseControls pose={state.modelPose} onChange={state.updateModelPose} />
           </>
         )}
-        {state.modelAssetUrl && state.modelRigStatus === 'unrigged' && <p className="pose-note">{t('pose.unriggedNote')}</p>}
-        {!state.modelAssetUrl && <>
+        {state.modelRigStatus === 'unrigged' && <p className="pose-note">{t('pose.unriggedNote')}</p>}
+        {state.modelImportStatus === 'error' && <>
           <div className="appearance-controls">
             <label><span>{t('appearance.skin')}</span><input aria-label={t('appearance.skinAria')} type="color" value={state.skinColor} onChange={(event) => setValue('skinColor', event.target.value)} /></label>
             <label><span>{t('appearance.outfit')}</span><input aria-label={t('appearance.outfitAria')} type="color" value={state.outfitColor} onChange={(event) => setValue('outfitColor', event.target.value)} /></label>

@@ -4,6 +4,7 @@ import { useStudio } from '../store'
 import { LIGHT_PROFILES } from '../lightProfiles'
 import { BACKDROP_FAMILIES, BACKDROPS, getBackdrop, type BackdropFamily } from '../backdrops'
 import { useCatalogT, type MessageKey } from '../i18n'
+import { DEFAULT_HUMAN_NAME } from '../characterAssets'
 
 /**
  * Backdrop picker.
@@ -132,7 +133,7 @@ export function Library() {
           <span className="object-icon camera-icon" /><span><strong>Camera 01</strong><small>{sensorFormat === 'full-frame' ? 'Full frame' : sensorFormat === 'aps-c' ? 'APS-C' : 'Micro Four Thirds'} · {frameAspect}</small></span><i>C</i>
         </button>
         <button className={selected === 'model' ? 'selected' : ''} onClick={() => selectObject('model')}>
-          <span className="object-icon model-icon" /><span><strong>{modelAssetName || 'Model'}</strong><small>{modelImportStatus === 'ready' ? `Imported GLB · ${modelHeight.toFixed(2)} m` : modelImportStatus === 'loading' ? 'Loading model…' : modelImportStatus === 'error' ? 'Import failed' : `${posePreset.replaceAll('-', ' ')} · ${modelHeight.toFixed(2)} m`}</small></span><i>M</i>
+          <span className="object-icon model-icon" /><span><strong>{modelAssetName || DEFAULT_HUMAN_NAME}</strong><small>{modelImportStatus === 'ready' ? `Rigged GLB · ${modelHeight.toFixed(2)} m` : modelImportStatus === 'error' ? 'Model failed · proxy active' : `Loading human · ${posePreset.replaceAll('-', ' ')}`}</small></span><i>M</i>
         </button>
         {lights.map((light, index) => matches(light.id, light.name, LIGHT_PROFILES[light.profileId].model, light.optic) && (
           <button key={light.id} className={`${selectedIds.includes(light.id) ? 'selected' : ''} ${selected === light.id ? 'primary-object' : ''} ${light.enabled ? '' : 'object-disabled'}`} onClick={(event) => selectObject(light.id, event.shiftKey)} onDoubleClick={() => toggleFavorite(light.id)}>

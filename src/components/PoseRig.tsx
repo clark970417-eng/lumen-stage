@@ -48,7 +48,7 @@ function Handle({ position, radius, active, onStart, onDrag, onEnd }: {
 }) {
   // The visible sphere is sized for the body; the pick sphere is sized for a
   // fingertip. Separating them is what makes this usable on a phone.
-  const pickRadius = radius * 3.8
+  const pickRadius = radius * 5.2
   const { camera } = useThree()
   const plane = useRef<THREE.Mesh>(null)
   const anchor = useRef(new THREE.Vector3())
@@ -197,21 +197,21 @@ export function PoseRig({ pose, physique, seatHeight, groupRef, onChange }: {
   }, [onChange, physique, points, pose, seatHeight, toLocal])
 
   const handles: { id: HandleId; point: THREE.Vector3; radius: number }[] = [
-    { id: 'head', point: points.head, radius: 0.024 },
-    { id: 'chest', point: points.chest, radius: 0.020 },
-    { id: 'hips', point: points.hips, radius: 0.020 },
-    { id: 'leftShoulder', point: points.leftShoulder, radius: 0.016 },
-    { id: 'rightShoulder', point: points.rightShoulder, radius: 0.016 },
-    { id: 'leftElbow', point: points.leftElbow, radius: 0.018 },
-    { id: 'rightElbow', point: points.rightElbow, radius: 0.018 },
-    { id: 'leftWrist', point: points.leftWrist, radius: 0.017 },
-    { id: 'rightWrist', point: points.rightWrist, radius: 0.017 },
-    { id: 'leftHip', point: points.leftHip, radius: 0.016 },
-    { id: 'rightHip', point: points.rightHip, radius: 0.016 },
-    { id: 'leftKnee', point: points.leftKnee, radius: 0.018 },
-    { id: 'rightKnee', point: points.rightKnee, radius: 0.018 },
-    { id: 'leftAnkle', point: points.leftAnkle, radius: 0.017 },
-    { id: 'rightAnkle', point: points.rightAnkle, radius: 0.017 },
+    { id: 'head', point: points.head, radius: 0.016 },
+    { id: 'chest', point: points.chest, radius: 0.014 },
+    { id: 'hips', point: points.hips, radius: 0.014 },
+    { id: 'leftShoulder', point: points.leftShoulder, radius: 0.011 },
+    { id: 'rightShoulder', point: points.rightShoulder, radius: 0.011 },
+    { id: 'leftElbow', point: points.leftElbow, radius: 0.012 },
+    { id: 'rightElbow', point: points.rightElbow, radius: 0.012 },
+    { id: 'leftWrist', point: points.leftWrist, radius: 0.011 },
+    { id: 'rightWrist', point: points.rightWrist, radius: 0.011 },
+    { id: 'leftHip', point: points.leftHip, radius: 0.011 },
+    { id: 'rightHip', point: points.rightHip, radius: 0.011 },
+    { id: 'leftKnee', point: points.leftKnee, radius: 0.012 },
+    { id: 'rightKnee', point: points.rightKnee, radius: 0.012 },
+    { id: 'leftAnkle', point: points.leftAnkle, radius: 0.011 },
+    { id: 'rightAnkle', point: points.rightAnkle, radius: 0.011 },
   ]
 
   return (

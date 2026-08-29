@@ -21,6 +21,7 @@ import { FOOTPRINT, seatHeightOf } from '../layout'
 import { PoseRig } from './PoseRig'
 import { applyGelTint, geledTemperature, getGel } from '../gels'
 import { brickNormalMap, canvasNormalMap, concreteNormalMap, mottleMap, paperNormalMap, plasterNormalMap, woodNormalMap } from '../textures'
+import { DEFAULT_HUMAN_URL, shippedHumanFor } from '../characterAssets'
 
 const SENSOR_WIDTH = { 'full-frame': 36, 'aps-c': 23.5, mft: 17.3 } as const
 const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
@@ -592,25 +593,35 @@ function DefaultMannequin({ pose: poseOverride, skinColor: skinOverride, outfitC
  * onto the bones. If the file has no recognisable humanoid skeleton the model
  * still renders — it just stands in its rest pose, and the inspector says so.
  */
-function ImportedModel({ url }: { url: string }) {
+function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOverride, reportStatus = true }: {
+  url: string
+  pose?: ModelPose
+  lookAtCamera?: boolean
+  reportStatus?: boolean
+}) {
   const [object, setObject] = useState<THREE.Group | null>(null)
+  const [loadError, setLoadError] = useState(false)
   const setStatus = useStudio((state) => state.setModelImportStatus)
   const setRigStatus = useStudio((state) => state.setModelRigStatus)
-  const pose = useStudio((state) => state.modelPose)
-  const lookAtCamera = useStudio((state) => state.modelLookAtCamera)
+  const mainPose = useStudio((state) => state.modelPose)
+  const mainLookAtCamera = useStudio((state) => state.modelLookAtCamera)
   const cameraPosition = useStudio((state) => state.cameraPosition)
   const modelPosition = useStudio((state) => state.modelPosition)
   const modelRotation = useStudio((state) => state.modelRotation)
   const rig = useRef<{ map: BoneMap; rest: RestPose } | null>(null)
+  const pose = poseOverride ?? mainPose
+  const lookAtCamera = lookAtCameraOverride ?? mainLookAtCamera
 
   useEffect(() => {
     let active = true
     let loadedObject: THREE.Group | null = null
-    setStatus('loading')
+    setLoadError(false)
+    if (reportStatus) setStatus('loading')
     const loader = new GLTFLoader()
     loader.load(url, (gltf) => {
       if (!active) return
       const model = clone(gltf.scene) as THREE.Group
+      const shippedHuman = url.startsWith('/models/lumen-human/')
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.castShadow = true
@@ -618,12 +629,30 @@ function ImportedModel({ url }: { url: string }) {
           // Skinned meshes are usually authored with a bounding box for the rest
           // pose only; without this they vanish the moment a limb moves out of it.
           if ((child as THREE.SkinnedMesh).isSkinnedMesh) child.frustumCulled = false
+          if (shippedHuman) {
+            const materials = Array.isArray(child.material) ? child.material : [child.material]
+            materials.forEach((material) => {
+              if (!(material instanceof THREE.MeshStandardMaterial)) return
+              material.metalness = 0
+              material.roughness = Math.max(0.48, material.roughness)
+              material.envMapIntensity = 0.72
+              // The source marks every surface as alpha-blended even though the
+              // baked textures are opaque. Opaque depth writing prevents hair,
+              // eyes, mouth and jacket layers from sorting into black cut-outs.
+              material.transparent = false
+              material.opacity = 1
+              material.alphaTest = 0
+              material.depthWrite = true
+              material.needsUpdate = true
+            })
+          }
         }
       })
       const initialBox = new THREE.Box3().setFromObject(model)
       const size = initialBox.getSize(new THREE.Vector3())
       if (!Number.isFinite(size.y) || size.y <= 0) {
-        setStatus('error')
+        setLoadError(true)
+        if (reportStatus) setStatus('error')
         return
       }
       const scale = 1.82 / size.y
@@ -636,20 +665,56 @@ function ImportedModel({ url }: { url: string }) {
 
       const map = mapSkeleton(model)
       const quality = mappingQuality(map)
+
+      // The licensed MakeHuman studio model intentionally ships without hair.
+      // Add a close crop with a slightly irregular hairline so the default reads
+      // as a normal young adult rather than a bald character placeholder.
+      if (shippedHuman && map.head) {
+        const normalizedBox = new THREE.Box3().setFromObject(model)
+        const headPosition = map.head.getWorldPosition(new THREE.Vector3())
+        const hairGeometry = new THREE.SphereGeometry(0.135, 32, 18, 0, Math.PI * 2, 0, Math.PI * 0.43)
+        const hairPositions = hairGeometry.getAttribute('position') as THREE.BufferAttribute
+        for (let index = 0; index < hairPositions.count; index += 1) {
+          const y = hairPositions.getY(index)
+          if (y > 0.038) continue
+          const x = hairPositions.getX(index) / 0.135
+          hairPositions.setY(index, y + Math.abs(x) * 0.012 - 0.004 + x * 0.003)
+        }
+        hairPositions.needsUpdate = true
+        hairGeometry.computeVertexNormals()
+        const hair = new THREE.Mesh(
+          hairGeometry,
+          new THREE.MeshStandardMaterial({
+            color: '#2a211d',
+            roughness: 0.72,
+            metalness: 0,
+          }),
+        )
+        hair.name = 'studio-short-hair'
+        hair.scale.set(0.9, 1, 1.02)
+        hair.castShadow = true
+        hair.receiveShadow = true
+        hair.position.copy(model.worldToLocal(new THREE.Vector3(headPosition.x, normalizedBox.max.y - 0.085, headPosition.z)))
+        model.add(hair)
+      }
+
       rig.current = quality.usable ? { map, rest: captureRestPose(model, map) } : null
-      setRigStatus(quality.usable ? 'rigged' : 'unrigged')
+      if (reportStatus) setRigStatus(quality.usable ? 'rigged' : 'unrigged')
 
       loadedObject = model
       setObject(model)
-      setStatus('ready')
+      if (reportStatus) setStatus('ready')
     }, undefined, () => {
-      if (active) { setStatus('error'); setRigStatus('none') }
+      if (active) {
+        setLoadError(true)
+        if (reportStatus) { setStatus('error'); setRigStatus('none') }
+      }
     })
 
     return () => {
       active = false
       rig.current = null
-      setRigStatus('none')
+      if (reportStatus) setRigStatus('none')
       if (loadedObject) {
         loadedObject.traverse((child) => {
           if (!(child instanceof THREE.Mesh)) return
@@ -659,7 +724,7 @@ function ImportedModel({ url }: { url: string }) {
         })
       }
     }
-  }, [url, setRigStatus, setStatus])
+  }, [reportStatus, setRigStatus, setStatus, url])
 
   // The imported figure gets the same head-tracking behaviour as the built-in one.
   const cameraYaw = THREE.MathUtils.radToDeg(Math.atan2(cameraPosition[0] - modelPosition[0], cameraPosition[2] - modelPosition[2]) - modelRotation)
@@ -675,7 +740,8 @@ function ImportedModel({ url }: { url: string }) {
     applyExpressionToMorphs(object, effectivePose)
   }, [effectivePose, object])
 
-  return object ? <primitive object={object} /> : <DefaultMannequin />
+  if (object) return <primitive object={object} rotation={url.startsWith('/models/lumen-human/') ? [0, 0, 0] : undefined} />
+  return loadError ? <DefaultMannequin pose={poseOverride} /> : null
 }
 
 function Mannequin() {
@@ -693,16 +759,17 @@ function Mannequin() {
   const updateModelPose = useStudio((state) => state.updateModelPose)
   const poseHandles = useStudio((state) => state.poseHandles)
   const modelRigStatus = useStudio((state) => state.modelRigStatus)
+  const activeModelUrl = modelAssetUrl ?? DEFAULT_HUMAN_URL
   const seatHeight = useSeatHeight(position)
+  const seatedLift = Math.min(modelPose.leftLeg, modelPose.rightLeg) > 60 ? seatHeight ?? 0.46 : 0
   const group = useRef<THREE.Group>(null)
   // An imported model with no recognised skeleton cannot be posed, so it gets
   // no handles rather than handles that quietly do nothing.
-  const showHandles = poseHandles && selected && view !== 'camera'
-    && (!modelAssetUrl || modelRigStatus === 'rigged')
+  const showHandles = poseHandles && selected && view !== 'camera' && modelRigStatus === 'rigged'
 
   const model = (
-    <group ref={group} position={position} rotation={[0, rotation, 0]} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); selectObject('model') }}>
-      {modelAssetUrl ? <ImportedModel url={modelAssetUrl} /> : <DefaultMannequin />}
+    <group ref={group} position={[position[0], seatedLift, position[2]]} rotation={[0, rotation, 0]} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); selectObject('model') }}>
+      <ImportedModel url={activeModelUrl} />
       {showHandles && (
         <PoseRig
           pose={modelPose}
@@ -742,13 +809,14 @@ function Mannequin() {
 /** A standalone person, seated on whatever furniture it happens to be over. */
 function StandaloneFigure({ object }: { object: StudioObject }) {
   const seatHeight = useSeatHeight(object.position)
+  const seatedLift = Math.min(object.subjectPose.leftLeg, object.subjectPose.rightLeg) > 60 ? seatHeight ?? 0.46 : 0
   const poseHandles = useStudio((state) => state.poseHandles)
   const selected = useStudio((state) => state.selected === object.id)
   const view = useStudio((state) => state.view)
   const updateStudioSubjectPose = useStudio((state) => state.updateStudioSubjectPose)
   const group = useRef<THREE.Group>(null)
   return (
-    <group ref={group} scale={object.subjectHeight / 1.82}>
+    <group ref={group} position={[0, seatedLift, 0]} scale={object.subjectHeight / 1.82}>
       {poseHandles && selected && view !== 'camera' && (
         <PoseRig
           pose={object.subjectPose}
@@ -758,24 +826,11 @@ function StandaloneFigure({ object }: { object: StudioObject }) {
           onChange={(patch) => updateStudioSubjectPose(object.id, patch)}
         />
       )}
-      <DefaultMannequin
+      <ImportedModel
+        url={shippedHumanFor(object.subjectPhysique, object.subjectOutfitStyle)}
         pose={object.subjectPose}
-        skinColor={object.subjectSkinColor}
-        outfitColor={object.subjectOutfitColor}
-        seatHeight={seatHeight}
-        appearance={{
-          skinRoughness: object.subjectSkinRoughness,
-          skinOil: object.subjectSkinOil,
-          subsurface: object.subjectSubsurface,
-          makeup: object.subjectMakeup,
-          eyeColor: object.subjectEyeColor,
-          hairColor: object.subjectHairColor,
-          hairGloss: object.subjectHairGloss,
-          outfitFabric: object.subjectOutfitFabric,
-          physique: object.subjectPhysique,
-          hairStyle: object.subjectHairStyle,
-          outfit: object.subjectOutfitStyle,
-        }}
+        lookAtCamera={false}
+        reportStatus={false}
       />
     </group>
   )
