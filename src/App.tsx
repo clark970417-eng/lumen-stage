@@ -5,28 +5,24 @@ import { Inspector } from './components/Inspector'
 import { Library } from './components/Library'
 import { ExposureAnalysis } from './components/ExposureAnalysis'
 import { ShotLibrary } from './components/ShotLibrary'
+import { SetupLibrary } from './components/SetupLibrary'
 import { ProfessionalPanel } from './components/ProfessionalPanel'
+import { AboutDialog, CopyrightMark } from './components/AboutDialog'
 import { SetupSheet } from './components/SetupSheet'
 import { ShortcutHelp, ShortcutHint, ShortcutLauncher } from './components/ShortcutHelp'
 import { runShortcut } from './shortcuts'
-import { applyLensOpticsToCanvas, calculateDepthOfField } from './optics'
+import { downloadFramePng } from './shotCapture'
+import { calculateDepthOfField } from './optics'
 import { LOCALES, useLocaleStore, useT, type Locale } from './i18n'
 import { useStudio } from './store'
-import { applyColorScienceToCanvas, COLOR_PROFILES } from './colorScience'
-import { applySensorProcessingToCanvas } from './sensorProcessing'
+import { buildShareLink, copyToClipboard, readSceneFromLocation } from './share'
+import { COLOR_PROFILES } from './colorScience'
 import { CAMERA_BODIES } from './cameraProfiles'
 
 let hintSequence = 0
 
-const FRAME_RATIOS = { '3:2': 3 / 2, '4:5': 4 / 5, '1:1': 1, '16:9': 16 / 9 } as const
 const SENSOR_LABELS = { 'full-frame': 'FULL FRAME', 'aps-c': 'APS-C', mft: 'MFT' } as const
 const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
-
-function getFrameRatio(aspect: keyof typeof FRAME_RATIOS, orientation: 'landscape' | 'portrait') {
-  const ratio = FRAME_RATIOS[aspect]
-  const landscape = Math.max(ratio, 1 / ratio)
-  return orientation === 'landscape' ? landscape : 1 / landscape
-}
 
 function ViewfinderOverlay() {
   const view = useStudio((state) => state.view)
@@ -68,6 +64,64 @@ function ViewfinderOverlay() {
       {syncError && <div className="sync-curtain-warning" style={{ '--curtain-height': `${Math.round((1 - syncSpeed / shutter) * 100)}%` } as React.CSSProperties}><i /><span>FLASH SYNC LIMIT · 1/{syncSpeed}s</span></div>}
     </div>
   )
+}
+
+/** Drag-to-pose handles on the selected figure. */
+function PoseHandleButton() {
+  const t = useT()
+  const on = useStudio((state) => state.poseHandles)
+  const setValue = useStudio((state) => state.setValue)
+  const selected = useStudio((state) => state.selected)
+  const isFigure = useStudio((state) => state.selected === 'model' || state.studioObjects.some((object) => object.id === state.selected && object.type === 'subject'))
+  return (
+    <button
+      disabled={!isFigure}
+      className={on && isFigure ? 'active pose-active' : ''}
+      onClick={() => setValue('poseHandles', !on)}
+      title={t(selected === 'model' || isFigure ? 'scene.pose.title' : 'scene.pose.disabled')}
+    >
+      <i className="pose-glyph" />{t('scene.pose')} <kbd>H</kbd>
+    </button>
+  )
+}
+
+/** Placement snapping: 15° and 25 cm steps around the subject a light is aimed at. */
+function SnapButton() {
+  const t = useT()
+  const snap = useStudio((state) => state.placementSnap)
+  const setValue = useStudio((state) => state.setValue)
+  return (
+    <button className={snap ? 'active' : ''} onClick={() => setValue('placementSnap', !snap)} title={t('scene.snap.title')}>
+      <i className="snap-glyph" />{t('scene.snap')} <kbd>⇧S</kbd>
+    </button>
+  )
+}
+
+/** Measure-mode toggle. Shows the live reading so the tool is worth keeping on. */
+function MeasureButton() {
+  const t = useT()
+  const measureMode = useStudio((state) => state.measureMode)
+  const points = useStudio((state) => state.measurePoints)
+  const setValue = useStudio((state) => state.setValue)
+  const clearMeasure = useStudio((state) => state.clearMeasure)
+  const complete = points.length === 2
+  const distance = complete ? Math.hypot(points[1][0] - points[0][0], points[1][1] - points[0][1], points[1][2] - points[0][2]) : 0
+
+  return (
+    <button
+      className={measureMode ? 'active measure-active' : ''}
+      onClick={() => { if (measureMode) clearMeasure(); else { setValue('lightAimMode', false); setValue('measureMode', true) } }}
+      title={t('scene.measure.title')}
+    >
+      <i className="measure-glyph" />
+      {complete ? `${distance.toFixed(2)} m` : t('scene.measure')} <kbd>N</kbd>
+    </button>
+  )
+}
+
+function SetupLibraryHost() {
+  const open = useStudio((state) => state.setupLibraryOpen)
+  return open ? <SetupLibrary /> : null
 }
 
 function SetupSheetHost() {
@@ -114,9 +168,41 @@ function FileMenu({ onImport, onExport, onLoad }: { onImport: () => void; onExpo
           <button role="menuitem" onClick={pick(onImport)}>{t('file.import')}<small>.json</small></button>
           <button role="menuitem" onClick={pick(onExport)}>{t('file.export')}<small>⌘E</small></button>
           <button role="menuitem" onClick={pick(onLoad)}>{t('file.load')}<small>{t('file.load.sub')}</small></button>
+          <ShareLinkItem onDone={() => setOpen(false)} />
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * "Copy share link".
+ *
+ * The whole scene goes into the URL, so the link is the scene — nothing is
+ * uploaded anywhere and it keeps working with no service behind it.
+ */
+function ShareLinkItem({ onDone }: { onDone: () => void }) {
+  const t = useT()
+  const shareableJson = useStudio((state) => state.shareableJson)
+  const [status, setStatus] = useState<'idle' | 'copied' | 'error'>('idle')
+
+  const share = async () => {
+    try {
+      const link = await buildShareLink(shareableJson())
+      const copied = await copyToClipboard(link)
+      setStatus(copied ? 'copied' : 'error')
+      // Long enough to read, short enough that the menu is not stuck open.
+      window.setTimeout(() => { setStatus('idle'); onDone() }, 1400)
+    } catch {
+      setStatus('error')
+    }
+  }
+
+  return (
+    <button role="menuitem" onClick={share}>
+      {t('file.share')}
+      <small>{status === 'copied' ? t('file.share.copied') : status === 'error' ? t('file.share.error') : t('file.share.sub')}</small>
+    </button>
   )
 }
 
@@ -174,6 +260,7 @@ function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
         <button className={renderMode === 'path' ? 'active render-active' : ''} onClick={startPhotoRender} title={t('view.render.title')}>{t('view.render')} <kbd>4</kbd></button>
       </div>
       <div className="project-actions">
+        <button className="setup-library-button" onClick={() => setValue('setupLibraryOpen', true)} title={t('setups.launcher.title')}>{t('setups.launcher')}</button>
         <button className="setup-sheet-button" onClick={() => setValue('setupSheetOpen', true)} title={t('topbar.setupSheet.title')}>{t('topbar.setupSheet')}</button>
         <button className={professionalPanelOpen ? 'pro-console-button active' : 'pro-console-button'} onClick={() => setValue('professionalPanelOpen', !professionalPanelOpen)} title={t('topbar.pro.title')} aria-pressed={professionalPanelOpen}>PRO</button>
         <button className="guide-button" onClick={onOpenGuide} title={t('topbar.guide.title')}>{t('topbar.guide')}</button>
@@ -250,66 +337,9 @@ function RenderToolbar() {
   const status = useStudio((state) => state.pathTracingStatus)
   const setValue = useStudio((state) => state.setValue)
   const restart = useStudio((state) => state.restartPhotoRender)
-  const frameAspect = useStudio((state) => state.frameAspect)
-  const frameOrientation = useStudio((state) => state.frameOrientation)
-  const lensOpticsEnabled = useStudio((state) => state.lensOpticsEnabled)
-  const lensVignette = useStudio((state) => state.lensVignette)
-  const lensDistortion = useStudio((state) => state.lensDistortion)
-  const lensChromaticAberration = useStudio((state) => state.lensChromaticAberration)
-  const lensBreathing = useStudio((state) => state.lensBreathing)
-  const imageFormat = useStudio((state) => state.imageFormat)
-  const whiteBalance = useStudio((state) => state.whiteBalance)
-  const whiteBalanceTint = useStudio((state) => state.whiteBalanceTint)
-  const colorProfileId = useStudio((state) => state.colorProfileId)
-  const highlightRolloff = useStudio((state) => state.highlightRolloff)
-  const toneCurve = useStudio((state) => state.toneCurve)
-  const lutIntensity = useStudio((state) => state.lutIntensity)
-  const cameraBodyId = useStudio((state) => state.cameraBodyId)
-  const sensorSimulationEnabled = useStudio((state) => state.sensorSimulationEnabled)
-  const shutterMode = useStudio((state) => state.shutterMode)
-  const sensorDynamicRange = useStudio((state) => state.sensorDynamicRange)
-  const noiseReduction = useStudio((state) => state.noiseReduction)
-  const colorNoise = useStudio((state) => state.colorNoise)
-  const motionBlur = useStudio((state) => state.motionBlur)
-  const rollingShutter = useStudio((state) => state.rollingShutter)
-  const iso = useStudio((state) => state.iso)
-  const shutter = useStudio((state) => state.shutter)
-  const outputResolution = useStudio((state) => state.outputResolution)
-  const denoiseEnabled = useStudio((state) => state.denoiseEnabled)
   const t = useT()
 
   if (renderMode !== 'path') return null
-
-  const download = () => {
-    const canvas = document.querySelector<HTMLCanvasElement>('.viewport canvas:not(.exposure-overlay)')
-    if (!canvas) return
-    const targetRatio = getFrameRatio(frameAspect, frameOrientation)
-    const sourceRatio = canvas.width / canvas.height
-    let sourceX = 0
-    let sourceY = 0
-    let sourceWidth = canvas.width
-    let sourceHeight = canvas.height
-    if (sourceRatio > targetRatio) {
-      sourceWidth = Math.round(canvas.height * targetRatio)
-      sourceX = Math.round((canvas.width - sourceWidth) / 2)
-    } else {
-      sourceHeight = Math.round(canvas.width / targetRatio)
-      sourceY = Math.round((canvas.height - sourceHeight) / 2)
-    }
-    const output = document.createElement('canvas')
-    const longEdge = outputResolution === '4k' ? 3840 : outputResolution === '2k' ? 2560 : 1920
-    if (targetRatio >= 1) { output.width = longEdge; output.height = Math.round(longEdge / targetRatio) } else { output.height = longEdge; output.width = Math.round(longEdge * targetRatio) }
-    const outputContext = output.getContext('2d')
-    if (outputContext) { if (denoiseEnabled) outputContext.filter = 'blur(0.35px)'; outputContext.drawImage(canvas, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, output.width, output.height); outputContext.filter = 'none' }
-    applyLensOpticsToCanvas(output, { enabled: lensOpticsEnabled, vignette: lensVignette, distortion: lensDistortion, chromaticAberration: lensChromaticAberration, breathing: lensBreathing })
-    applyColorScienceToCanvas(output, { imageFormat, whiteBalance, whiteBalanceTint, colorProfileId, highlightRolloff, toneCurve, lutIntensity })
-    const body = CAMERA_BODIES[cameraBodyId]
-    applySensorProcessingToCanvas(output, { enabled: sensorSimulationEnabled, iso, nativeIso: body.nativeIso, noiseFactor: body.noiseFactor, dynamicRange: sensorDynamicRange, noiseReduction, colorNoise, shutter, shutterMode, motionBlur, rollingShutter, readoutMs: body.readoutMs, raw: imageFormat === 'raw' })
-    const link = document.createElement('a')
-    link.download = `lumen-stage-${new Date().toISOString().replace(/[:.]/g, '-')}.png`
-    link.href = output.toDataURL('image/png')
-    link.click()
-  }
 
   const label = t(status === 'building' ? 'render.status.building' : status === 'error' ? 'render.status.error' : paused ? 'render.status.paused' : 'render.status.sampling')
 
@@ -322,7 +352,7 @@ function RenderToolbar() {
       </div>
       <button onClick={() => setValue('pathTracingPaused', !paused)} disabled={status === 'building' || status === 'error'} title={t('render.pause.title')}>{t(paused ? 'render.resume' : 'render.pause')} <kbd>Space</kbd></button>
       <button onClick={restart} title={t('render.restart.title')}>{t('render.restart')} <kbd>⇧R</kbd></button>
-      <button className="export-button" onClick={download} disabled={samples < 1}>{t('render.exportPng')}</button>
+      <button className="export-button" onClick={downloadFramePng} disabled={samples < 1}>{t('render.exportPng')}</button>
     </div>
   )
 }
@@ -381,11 +411,14 @@ function SceneToolbar() {
       <button className={mode === 'translate' && !aimMode ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'translate') }} title={t('scene.move.title')}><i className="move-glyph" />{t('scene.move')} <kbd>G</kbd></button>
       {selectedLight && <button className={aimMode ? 'active aim-active' : ''} onClick={() => setValue('lightAimMode', !aimMode)} title={t('scene.aim.title')}><i className="target-glyph" />{t('scene.aim')} <kbd>T</kbd></button>}
       <button disabled={selected !== 'model' && !selectedModifier && !selectedStudioObject} className={mode === 'rotate' ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'rotate') }} title={t('scene.rotate.title')}><i className="rotate-glyph" />{t('scene.rotate')} <kbd>R</kbd></button>
+      <PoseHandleButton />
+      <SnapButton />
+      <MeasureButton />
     </div>
   )
 }
 
-function BottomReadout() {
+function BottomReadout({ onOpenAbout }: { onOpenAbout: () => void }) {
   const { focalLength, aperture, iso, shutter, lights, cameraMode, frameRate, shutterAngle, tStop } = useStudio()
   const keyLight = lights[0]
   const ev = Math.log2((aperture * aperture * 100) / (1 / shutter * iso)).toFixed(1)
@@ -396,7 +429,7 @@ function BottomReadout() {
       <div><span>{cameraMode === 'cinema' ? 'FPS / ANGLE' : 'SHUTTER'}</span><strong>{cameraMode === 'cinema' ? `${frameRate} / ${shutterAngle}°` : `1/${shutter}`}<small>{cameraMode === 'photo' ? 's' : ''}</small></strong></div>
       <div><span>ISO</span><strong>{iso}</strong></div>
       <div><span>{keyLight?.colorMode === 'rgb' ? 'KEY RGB' : 'KEY TEMP'}</span><strong>{keyLight?.colorMode === 'rgb' ? keyLight.rgb.toUpperCase() : keyLight?.temperature ?? '—'}{keyLight?.colorMode === 'kelvin' && <small>K</small>}</strong></div>
-      <div className="ev"><span>SCENE EV</span><strong>{ev}</strong><i style={{ '--meter': `${Math.min(100, Number(ev) * 7)}%` } as React.CSSProperties} /></div>
+      <div className="ev"><span>SCENE EV</span><strong>{ev}</strong><i style={{ '--meter': `${Math.min(100, Number(ev) * 7)}%` } as React.CSSProperties} /><CopyrightMark onOpen={onOpenAbout} /></div>
     </footer>
   )
 }
@@ -428,8 +461,21 @@ export default function App() {
   const t = useT()
   const [sceneReady, setSceneReady] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
   const [hint, setHint] = useState<{ id: number; text: string } | null>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // A shared link carries the whole scene; opening one loads it before anything
+  // else touches the store, so it wins over the autosaved local scene.
+  useEffect(() => {
+    let active = true
+    readSceneFromLocation().then((json) => {
+      if (!active || !json) return
+      useStudio.getState().importProject(json)
+      setHint({ id: hintSequence++, text: t('msg.share.loaded') })
+    })
+    return () => { active = false }
+  }, [t])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -483,10 +529,12 @@ export default function App() {
       </section>
       <Inspector />
       <ProfessionalPanel />
-      <BottomReadout />
+      <BottomReadout onOpenAbout={() => setAboutOpen(true)} />
       <ShortcutHelp />
+      <SetupLibraryHost />
       <SetupSheetHost />
       <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </main>
   )
 }

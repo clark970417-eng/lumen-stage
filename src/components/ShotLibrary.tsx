@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useStudio, type FrameAspect, type FrameOrientation, type MakeupStyle, type OutfitFabric, type StudioLight, type StudioModifier, type StudioObject, type StudioShot } from '../store'
 import { CAMERA_BODIES, LENS_PROFILES, type CameraBodyId, type LensProfileId } from '../cameraProfiles'
 import { COLOR_PROFILES, type ColorProfileId, type ImageFormat } from '../colorScience'
@@ -5,6 +6,7 @@ import { type ShutterMode } from '../sensorProcessing'
 import { useT } from '../i18n'
 import { captureCurrentShot, captureThumbnail } from '../shotCapture'
 import { openSetupSheetForShot } from './SetupSheet'
+import { getBackdrop } from '../backdrops'
 
 type ShotScene = {
   projectName: string
@@ -50,6 +52,7 @@ type ShotScene = {
   makeupStyle?: MakeupStyle
   hairGloss?: number
   outfitFabric?: OutfitFabric
+  backdropId?: string
 }
 
 function sceneFromShot(shot: StudioShot): ShotScene | null {
@@ -64,6 +67,67 @@ function lensLabel(scene: ShotScene) {
   return LENS_PROFILES[scene.lensProfileId ?? 'zoom-24-70'].model
 }
 
+/**
+ * A/B comparison.
+ *
+ * Two lighting setups are only meaningfully different at the same framing, so
+ * the wipe is the default: a vertical seam you drag across both frames. Side by
+ * side is there for when the difference is in the background, which a wipe
+ * hides at exactly the moment you want to see it.
+ */
+function ShotCompare({ a, b, onClose }: { a: StudioShot; b: StudioShot; onClose: () => void }) {
+  const t = useT()
+  const [mode, setMode] = useState<'slider' | 'side'>('slider')
+  const [split, setSplit] = useState(50)
+  const sceneA = sceneFromShot(a)
+  const sceneB = sceneFromShot(b)
+
+  const caption = (shot: StudioShot, scene: ShotScene | null, tag: string) => (
+    <div className="compare-caption">
+      <b>{tag}</b>
+      <span>{shot.name}</span>
+      {scene && <small>{scene.focalLength}mm · f/{scene.aperture} · ISO {scene.iso} · {t('compare.diffLights', { value: scene.lights.length })}</small>}
+    </div>
+  )
+
+  return (
+    <div className="shot-compare" role="dialog" aria-label={t('compare.title')}>
+      <header>
+        <strong>{t('compare.title')}</strong>
+        <div className="pose-category-tabs compare-modes" role="tablist">
+          <button role="tab" aria-selected={mode === 'slider'} className={mode === 'slider' ? 'active' : ''} onClick={() => setMode('slider')}>{t('compare.mode.slider')}</button>
+          <button role="tab" aria-selected={mode === 'side'} className={mode === 'side' ? 'active' : ''} onClick={() => setMode('side')}>{t('compare.mode.side')}</button>
+        </div>
+        <button className="compare-close" aria-label={t('compare.close')} onClick={onClose}>✕</button>
+      </header>
+
+      {mode === 'slider' ? (
+        <div className="compare-stage">
+          <div className="compare-wipe">
+            <img src={a.thumbnail} alt={t('shots.preview', { name: a.name })} />
+            <div className="compare-wipe-top" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}>
+              <img src={b.thumbnail} alt={t('shots.preview', { name: b.name })} />
+            </div>
+            <span className="compare-seam" style={{ left: `${split}%` }} />
+          </div>
+          <input className="compare-slider" aria-label={t('compare.title')} type="range" min={0} max={100} value={split}
+            style={{ '--progress': `${split}%` } as React.CSSProperties}
+            onChange={(event) => setSplit(Number(event.target.value))} />
+          <div className="compare-captions">
+            {caption(b, sceneB, t('compare.a'))}
+            {caption(a, sceneA, t('compare.b'))}
+          </div>
+        </div>
+      ) : (
+        <div className="compare-stage compare-side">
+          <figure><img src={a.thumbnail} alt={t('shots.preview', { name: a.name })} />{caption(a, sceneA, t('compare.a'))}</figure>
+          <figure><img src={b.thumbnail} alt={t('shots.preview', { name: b.name })} />{caption(b, sceneB, t('compare.b'))}</figure>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ShotLibrary() {
   const shots = useStudio((state) => state.shots)
   const open = useStudio((state) => state.shotPanelOpen)
@@ -72,7 +136,13 @@ export function ShotLibrary() {
   const frameOrientation = useStudio((state) => state.frameOrientation)
   const state = useStudio()
   const t = useT()
+  const [compareIds, setCompareIds] = useState<string[]>([])
   const thumbnail = () => captureThumbnail(frameAspect, frameOrientation)
+  const toggleCompare = (id: string) => setCompareIds((current) =>
+    current.includes(id) ? current.filter((item) => item !== id) : [...current, id].slice(-2))
+  const comparePair = compareIds.length === 2
+    ? compareIds.map((id) => shots.find((shot) => shot.id === id)).filter(Boolean) as StudioShot[]
+    : []
   const captureCurrent = captureCurrentShot
 
   return <>
@@ -83,6 +153,8 @@ export function ShotLibrary() {
     {open && <aside className="shot-panel" aria-label={t('shots.launcher')}>
       <header><span>SHOT LIBRARY</span><button aria-label={t('shots.close')} onClick={() => state.setValue('shotPanelOpen', false)}>×</button></header>
       <div className="shot-panel-actions"><span>{t('shots.count', { count: shots.length })}</span><button onClick={captureCurrent}>{t('shots.capture')}</button></div>
+      {compareIds.length === 1 && <p className="compare-hint">{t('compare.hint')}</p>}
+      {comparePair.length === 2 && <ShotCompare a={comparePair[0]} b={comparePair[1]} onClose={() => setCompareIds([])} />}
       <div className="shot-list">
         {!shots.length && <div className="empty-shots"><b>NO SHOTS</b><span>{t('shots.emptyHint')}</span></div>}
         {shots.map((shot, index) => {
@@ -92,9 +164,10 @@ export function ShotLibrary() {
             <div className="shot-card-body">
               <span>SHOT {String(index + 1).padStart(2, '0')}{activeShotId === shot.id ? ' · ACTIVE' : ''}</span>
               <input aria-label={t('shots.nameAria', { name: shot.name })} defaultValue={shot.name} onBlur={(event) => state.updateShot(shot.id, event.target.value)} />
-              <small>{scene ? `${cameraLabel(scene)} · ${lensLabel(scene)} @ ${scene.focalLength}mm · ${scene.imageFormat?.toUpperCase() ?? 'JPEG'} / ${COLOR_PROFILES[scene.colorProfileId ?? 'neutral'].code} · LOOK ${(scene.makeupStyle ?? 'natural').toUpperCase()} / ${(scene.outfitFabric ?? 'cotton').toUpperCase()} · ISO ${scene.iso} · ${scene.lights.length} LIGHTS · ${(scene.modifiers ?? []).length} GRIP · ${(scene.studioObjects ?? []).length} SET` : 'SCENE DATA ERROR'}</small>
+              <small>{scene ? `${cameraLabel(scene)} · ${lensLabel(scene)} @ ${scene.focalLength}mm · ${scene.imageFormat?.toUpperCase() ?? 'JPEG'} / ${COLOR_PROFILES[scene.colorProfileId ?? 'neutral'].code} · LOOK ${(scene.makeupStyle ?? 'natural').toUpperCase()} / ${(scene.outfitFabric ?? 'cotton').toUpperCase()} · ISO ${scene.iso} · ${scene.lights.length} LIGHTS · ${(scene.modifiers ?? []).length} GRIP · ${(scene.studioObjects ?? []).length} SET · ${getBackdrop(scene.backdropId ?? 'studio-grey').label.toUpperCase()}` : 'SCENE DATA ERROR'}</small>
             </div>
             <div className="shot-card-actions">
+              <button className={compareIds.includes(shot.id) ? 'active' : ''} onClick={() => toggleCompare(shot.id)}>{t('compare.pick')}</button>
               <button onClick={() => state.loadShot(shot.id)}>{t('common.load')}</button>
               <button onClick={() => state.overwriteShot(shot.id, thumbnail())}>{t('shots.overwrite')}</button>
               <button onClick={() => openSetupSheetForShot(shot)}>{t('topbar.setupSheet')}</button>

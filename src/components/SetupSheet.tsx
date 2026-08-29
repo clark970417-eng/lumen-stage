@@ -6,6 +6,7 @@ import { getHead, getModifier } from '../gear'
 import { calculateMetering, resolveLight, type LightMeterReading } from '../metering'
 import { calculateDepthOfField } from '../optics'
 import { effectiveFreezeSpeed, gelForShift } from '../photometry'
+import { getGel } from '../gels'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES } from '../colorScience'
 
@@ -265,6 +266,9 @@ export function SetupSheet() {
       light, index, reading, head, modifier, resolved, distance,
       azimuth: azimuthFromCameraAxis(light.position, subject, camera),
       elevationDeg: elevationAngle(light.position, subject),
+      // What is actually on the head, and — if nothing is — what the white
+       // balance says should be. Both belong on a sheet you shoot from.
+      fittedGel: getGel(light.gelId),
       gel: gelForShift(light.temperature, state.whiteBalance),
     }
   })
@@ -592,7 +596,9 @@ export function SetupSheet() {
                     {row.modifier.maker} {row.modifier.model}
                     {row.light.gridDegrees ? ` + ${row.light.gridDegrees}° GRID` : ''}
                     {' · '}{row.light.operationMode === 'flash' ? (row.light.hssEnabled ? 'HSS' : `FLASH t.5 1/${Math.round(effectiveFreezeSpeed(row.head.flashDurationT05 ?? 1 / 800))}`) : 'CONT'}
-                    {row.gel.gel !== 'none' ? ` · ${row.gel.strength} ${row.gel.gel}` : ''}
+                    {row.fittedGel.id !== 'none'
+                      ? ` · GEL ${row.fittedGel.code} ${row.fittedGel.name.toUpperCase()}`
+                      : row.gel.gel !== 'none' ? ` · SUGGEST ${row.gel.strength} ${row.gel.gel}` : ''}
                   </text>
                   <text x={1196} y={y + 2} textAnchor="end" fontSize={12} fill={C.ink} fontFamily="ui-monospace, monospace">{row.light.powerPercent}%</text>
                   <text x={1256} y={y + 2} textAnchor="end" fontSize={12} fill={C.ink} fontFamily="ui-monospace, monospace">{row.distance.toFixed(2)}</text>

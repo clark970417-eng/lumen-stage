@@ -1,5 +1,6 @@
 import type { StudioLight, StudioModifier } from './store'
 import { fittedOptics, getHead, getModifier, headFlux, powerFraction } from './gear'
+import { geledTemperature, getGel } from './gels'
 import {
   apertureForFlash, apparentSourceAngle, emitterSize, falloffExponent, illuminanceAt,
   INCIDENT_CONSTANT_CONTINUOUS, INCIDENT_CONSTANT_FLASH, nearestAperture, penumbraWidth,
@@ -67,13 +68,19 @@ export function resolveLight(light: StudioLight) {
   const modifier = getModifier(light.modifierId)
   const optics = fittedOptics(modifier, light.gridDegrees, light.modifierWidth, light.modifierHeight)
   const flash = light.operationMode === 'flash' && head.guideNumber !== undefined
+  // A gel is a filter in the path: it costs transmission and, if it is a
+  // correction gel, moves the source temperature by a fixed mired shift.
+  const gel = getGel(light.gelId)
   return {
     head,
     modifier,
     optics,
     flash,
+    gel,
+    /** Source temperature after the gel, in kelvin. */
+    temperature: geledTemperature(light.temperature, gel),
     /** lumens, or lumen-seconds for flash. */
-    flux: headFlux(head) * powerFraction(light) * optics.transmission,
+    flux: headFlux(head) * powerFraction(light) * optics.transmission * gel.transmission,
     sourceSize: emitterSize(optics),
   }
 }

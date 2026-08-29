@@ -2,6 +2,71 @@ import { useRef, useState } from 'react'
 import { useT } from '../i18n'
 import { useStudio } from '../store'
 import { LIGHT_PROFILES } from '../lightProfiles'
+import { BACKDROP_FAMILIES, BACKDROPS, getBackdrop, type BackdropFamily } from '../backdrops'
+import { useCatalogT, type MessageKey } from '../i18n'
+
+/**
+ * Backdrop picker.
+ *
+ * Swatches rather than a dropdown, because the choice is a colour decision —
+ * and the reflectance readout underneath is the part a dropdown could never
+ * carry: it says how far under the face the background will land before you
+ * have lit anything.
+ */
+function BackdropPicker() {
+  const t = useT()
+  const ct = useCatalogT()
+  const backdropId = useStudio((state) => state.backdropId)
+  const backdropWidth = useStudio((state) => state.backdropWidth)
+  const backdropDistance = useStudio((state) => state.backdropDistance)
+  const selectBackdrop = useStudio((state) => state.selectBackdrop)
+  const setValue = useStudio((state) => state.setValue)
+  const active = getBackdrop(backdropId)
+  const [family, setFamily] = useState<BackdropFamily>(active.family === 'none' ? 'paper' : active.family)
+  const entries = BACKDROPS.filter((item) => item.family === family)
+
+  return (
+    <div className="backdrop-picker">
+      <div className="backdrop-family-tabs" role="tablist">
+        {BACKDROP_FAMILIES.map((item) => (
+          <button key={item} role="tab" aria-selected={family === item} className={family === item ? 'active' : ''} onClick={() => setFamily(item)}>
+            {t(`backdrop.family.${item}` as MessageKey)}
+          </button>
+        ))}
+      </div>
+      <div className="backdrop-swatches" role="group" aria-label={t('backdrop.title')}>
+        {entries.map((item) => (
+          <button key={item.id} className={`backdrop-swatch ${backdropId === item.id ? 'active' : ''}`} title={`${item.maker} ${item.label} — ${item.note}`} onClick={() => selectBackdrop(item.id)}>
+            <i style={{ background: item.color }} />
+            <span>{ct(`backdrop.${item.id}`, item.label)}</span>
+          </button>
+        ))}
+      </div>
+      {active.family !== 'none' && (
+        <>
+          <div className="backdrop-readout">
+            <span>{t('backdrop.reflectance')}</span>
+            <strong>{Math.round(active.reflectance * 100)}%</strong>
+          </div>
+          <label className="control-row">
+            <span>{t('backdrop.width')}</span><output>{backdropWidth.toFixed(2)} m</output>
+            <input aria-label={t('backdrop.width')} type="range" min={0} max={active.widths.length - 1} step={1}
+              value={Math.max(0, active.widths.indexOf(backdropWidth))}
+              style={{ '--progress': `${active.widths.length > 1 ? (Math.max(0, active.widths.indexOf(backdropWidth)) / (active.widths.length - 1)) * 100 : 100}%` } as React.CSSProperties}
+              onChange={(event) => setValue('backdropWidth', active.widths[Number(event.target.value)])} />
+          </label>
+          <label className="control-row">
+            <span>{t('backdrop.distance')}</span><output>{backdropDistance.toFixed(2)} m</output>
+            <input aria-label={t('backdrop.distance')} type="range" min={0.6} max={4} step={0.05} value={backdropDistance}
+              style={{ '--progress': `${((backdropDistance - 0.6) / 3.4) * 100}%` } as React.CSSProperties}
+              onChange={(event) => setValue('backdropDistance', Number(event.target.value))} />
+          </label>
+          <p className="pose-note">{active.note}</p>
+        </>
+      )}
+    </div>
+  )
+}
 
 export function Library() {
   const selected = useStudio((state) => state.selected)
@@ -103,12 +168,8 @@ export function Library() {
         <button onClick={() => addModifier('vflat')}><i className="vflat" />V-Flat</button>
       </div>
 
-      <div className="panel-heading backdrop-heading"><span>{t('library.backdrop')}</span><b>01</b></div>
-      <div className="single-backdrop">
-        <span className="backdrop-thumb paper" />
-        <div><strong>{t('library.backdrop.paper')}</strong><small>BG–01 / LOCKED</small></div>
-        <i>✓</i>
-      </div>
+      <div className="panel-heading backdrop-heading"><span>{t('backdrop.title')}</span><b>{BACKDROPS.length - 1}</b></div>
+      <BackdropPicker />
 
       <div className="panel-heading asset-heading"><span>{t('library.asset')}</span><b>GLB</b></div>
       <input ref={fileInput} className="asset-input model-import-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={(event) => importModel(event.target.files?.[0])} />

@@ -192,6 +192,11 @@ export const SHORTCUTS: Shortcut[] = [
     run: (state) => { const open = !state.shotPanelOpen; state.setValue('shotPanelOpen', open); return t('msg.panel.shots', { state: onOff(open) }) },
   },
   {
+    id: 'panel-setups', section: 'panels', label: 'setups.launcher', keys: ['L'],
+    match: combo({ key: 'l' }),
+    run: (state) => { const open = !state.setupLibraryOpen; state.setValue('setupLibraryOpen', open); return t('msg.panel.setups', { state: onOff(open) }) },
+  },
+  {
     id: 'locale-cycle', section: 'panels', label: 'sc.locale', keys: ['⇧', 'L'],
     match: combo({ key: 'l', shift: true }),
     allowInInput: false,
@@ -203,7 +208,9 @@ export const SHORTCUTS: Shortcut[] = [
     run: (state, event) => {
       if (state.shortcutHelpOpen) { state.setValue('shortcutHelpOpen', false); return }
       if (isEditingText(event.target)) { (event.target as HTMLElement).blur(); return }
+      if (state.measureMode) { state.clearMeasure(); return t('msg.measure', { state: onOff(false) }) }
       if (state.lightAimMode) { state.setValue('lightAimMode', false); return t('msg.aim.exit') }
+      if (state.setupLibraryOpen) { state.setValue('setupLibraryOpen', false); return t('msg.setups.closed') }
       if (state.shotPanelOpen) { state.setValue('shotPanelOpen', false); return t('msg.shots.closed') }
       if (state.professionalPanelOpen) { state.setValue('professionalPanelOpen', false); return t('msg.pro.closed') }
       if (state.analysisOpen) { state.setValue('analysisOpen', false); return t('msg.analysis.closed') }
@@ -211,6 +218,26 @@ export const SHORTCUTS: Shortcut[] = [
   },
 
   // ── 選取與編輯 ──────────────────────────────────────────────
+  {
+    id: 'pose-handles', section: 'edit', label: 'sc.pose', keys: ['H'],
+    match: combo({ key: 'h' }),
+    run: (state) => { const on = !state.poseHandles; state.setValue('poseHandles', on); return t('msg.pose', { state: onOff(on) }) },
+  },
+  {
+    id: 'placement-snap', section: 'edit', label: 'sc.snap', keys: ['⇧', 'S'],
+    match: combo({ key: 's', shift: true }),
+    run: (state) => { const on = !state.placementSnap; state.setValue('placementSnap', on); return t('msg.snap', { state: onOff(on) }) },
+  },
+  {
+    id: 'measure', section: 'edit', label: 'sc.measure', keys: ['N'],
+    match: combo({ key: 'n' }),
+    run: (state) => {
+      if (state.measureMode) { state.clearMeasure(); return t('msg.measure', { state: onOff(false) }) }
+      state.setValue('lightAimMode', false)
+      state.setValue('measureMode', true)
+      return t('msg.measure', { state: onOff(true) })
+    },
+  },
   {
     id: 'transform-move', section: 'edit', label: 'sc.transform-move', keys: ['G'],
     match: combo({ key: 'g' }),

@@ -1,9 +1,13 @@
-import { useStudio, type MakeupStyle, type OutfitFabric, type PosePreset } from '../store'
+import { useState } from 'react'
+import { useStudio, type MakeupStyle, type OutfitFabric, type PosePreset, type StudioLight } from '../store'
 import { calculateDepthOfField } from '../optics'
 import { effectiveLightOutput, flashSyncFactor, LIGHT_PROFILES, opticTransmission } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, type ColorProfileId } from '../colorScience'
 import { useT, type MessageKey } from '../i18n'
+import { InspectorNav } from './InspectorNav'
+import { GEL_CATEGORIES, GELS, gelStopLoss, geledTemperature, getGel, type GelCategory } from '../gels'
+import { PhysiquePanel, PoseControls, PoseLibraryPanel, WardrobePanel } from './SubjectPanels'
 
 type RangeProps = {
   label: string
@@ -36,11 +40,10 @@ type AppearancePanelProps = {
   eyeColor: string
   hairColor: string
   hairGloss: number
-  outfitFabric: OutfitFabric
   onChange: (patch: { skinRoughness?: number; skinOil?: number; subsurface?: number; makeup?: MakeupStyle; eyeColor?: string; hairColor?: string; hairGloss?: number; outfitFabric?: OutfitFabric }) => void
 }
 
-function AppearancePanel({ ariaPrefix, skinRoughness, skinOil, subsurface, makeup, eyeColor, hairColor, hairGloss, outfitFabric, onChange }: AppearancePanelProps) {
+function AppearancePanel({ ariaPrefix, skinRoughness, skinOil, subsurface, makeup, eyeColor, hairColor, hairGloss, onChange }: AppearancePanelProps) {
   const t = useT()
   const prefixed = (key: MessageKey) => `${ariaPrefix}${t(key)}`
   return <div className="subject-material-block">
@@ -54,8 +57,53 @@ function AppearancePanel({ ariaPrefix, skinRoughness, skinOil, subsurface, makeu
       <label><span>{t('appearance.hair')}</span><input aria-label={prefixed('appearance.hairColor')} type="color" value={hairColor} onChange={(event) => onChange({ hairColor: event.target.value })} /></label>
     </div>
     <Range label={prefixed('appearance.hairGloss')} value={hairGloss} min={0} max={100} unit="%" onChange={(value) => onChange({ hairGloss: value })} />
-    <div className="subject-look-control"><span>{t('appearance.fabric')}</span><div role="group" aria-label={prefixed('appearance.fabric')}>{([['cotton','fabric.cotton'],['silk','fabric.silk'],['leather','fabric.leather']] as [OutfitFabric,MessageKey][]).map(([value,key]) => <button key={value} className={outfitFabric === value ? 'active' : ''} onClick={() => onChange({ outfitFabric: value })}>{t(key)}</button>)}</div></div>
   </div>
+}
+
+/**
+ * Gel picker.
+ *
+ * Grouped by what the gel is for, and it reports the two numbers that decide
+ * whether you can afford it: the stops it costs and where it leaves the source
+ * temperature.
+ */
+function GelPicker({ light }: { light: StudioLight }) {
+  const t = useT()
+  const fitGel = useStudio((state) => state.fitGel)
+  const gel = getGel(light.gelId)
+  const [category, setCategory] = useState<GelCategory>(gel.id === 'none' ? 'correction' : gel.category)
+  const entries = GELS.filter((item) => item.category === category && item.id !== 'none')
+  const loss = gelStopLoss(gel)
+  const shifted = geledTemperature(light.temperature, gel)
+
+  return (
+    <div className="gel-picker">
+      <div className="optic-heading"><span>{t('gel.title')}</span><small>{t('gel.sub')}</small></div>
+      <div className="pose-category-tabs" role="tablist">
+        {GEL_CATEGORIES.map((item) => (
+          <button key={item} role="tab" aria-selected={category === item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)}>
+            {t(`gel.category.${item}` as MessageKey)}
+          </button>
+        ))}
+      </div>
+      <div className="pose-grid gel-grid" role="group" aria-label={t('gel.title')}>
+        <button className={gel.id === 'none' ? 'active' : ''} onClick={() => fitGel(light.id, 'none')}>
+          <i style={{ background: 'transparent', borderColor: 'rgba(255,255,255,0.3)' }} />{t('gel.none')}
+        </button>
+        {entries.map((item) => (
+          <button key={item.id} className={gel.id === item.id ? 'active' : ''} title={`${item.maker} ${item.code} — ${item.note}`} onClick={() => fitGel(light.id, item.id)}>
+            <i style={{ background: item.tint === '#ffffff' ? (item.miredShift > 0 ? '#ffc98a' : item.miredShift < 0 ? '#9ec8ff' : '#e8e8e4') : item.tint }} />{item.name}
+          </button>
+        ))}
+      </div>
+      {gel.id !== 'none' && (
+        <div className="backdrop-readout gel-readout">
+          <span>{t('gel.loss', { value: loss.toFixed(1) })}</span>
+          <strong>{shifted !== light.temperature ? t('gel.shift', { value: shifted }) : gel.code}</strong>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function Inspector() {
@@ -84,6 +132,7 @@ export function Inspector() {
   return (
     <aside className="inspector panel">
       <div className="panel-heading"><span>{t('inspector.title')}</span><b>{selectionLabel}</b></div>
+      <InspectorNav />
       {isLight && light && <>
         <section className="inspector-section">
           <div className="section-title"><span>{t('light.section')}</span><button onClick={state.resetLighting}>{t('light.resetAll')}</button></div>
@@ -115,6 +164,7 @@ export function Inspector() {
           <div className="optic-grid" role="group" aria-label={t('optic.title')}>
             {([['softbox', 55, 78], ['umbrella-shoot', 82, 92], ['umbrella-reflect', 68, 82], ['beauty-dish', 50, 58], ['deep-parabolic', 38, 46], ['lantern', 110, 96], ['standard', 60, 48], ['fresnel', 35, 42], ['snoot', 16, 22], ['barn-doors', 42, 40], ['projection', 24, 22]] as const).map(([optic, beamAngle, feather]) => <button key={optic} className={light.optic === optic ? `active ${optic}` : optic} onClick={() => state.updateLight(light.id, { optic, softbox: optic === 'softbox', beamAngle, feather, shape: optic === 'softbox' ? light.shape : 'round', ...(optic === 'projection' && light.goboPattern === 'none' ? { goboPattern: 'window' as const } : {}) })}><i />{t(`optic.${optic}`)}</button>)}
           </div>
+          <GelPicker light={light} />
           <div className="modifier-controls">
             <button className={light.optic === 'softbox' ? 'active' : ''} onClick={() => state.updateLight(light.id, { optic: 'softbox', softbox: true, beamAngle: 55, feather: 78 })}><i />{t('light.diffuser')}</button>
             <button className={light.grid ? 'active' : ''} onClick={() => state.updateLight(light.id, { grid: !light.grid })}><i />{t('light.honeycomb')}</button>
@@ -218,14 +268,12 @@ export function Inspector() {
           <Range label={t('object.scale')} disabled={studioObject.locked} value={studioObject.scale} min={0.2} max={3} step={0.05} displayValue={`${studioObject.scale.toFixed(2)}×`} onChange={(value) => state.updateStudioObject(studioObject.id, { scale: value })} />
         </> : <>
           <div className="pose-heading subject-pose-heading"><span>{t('subject.poseSection')}</span><small>PROCEDURAL RIG</small></div>
-          <div className="pose-presets" role="group" aria-label={t('subject.poseAria')}>
-            {([['neutral', 'pose.neutral'], ['contrapposto', 'pose.contrapposto'], ['hands-on-hips', 'pose.hands-on-hips'], ['profile', 'pose.profile'], ['editorial', 'pose.editorial']] as [PosePreset, MessageKey][]).map(([preset, labelKey]) => <button key={preset} className={studioObject.subjectPosePreset === preset ? 'active' : ''} onClick={() => state.applyStudioSubjectPose(studioObject.id, preset)}>{t(labelKey)}</button>)}
-          </div>
+          <PoseLibraryPanel current={studioObject.subjectPosePreset} onApply={(id) => state.applyStudioSubjectPose(studioObject.id, id)} />
           <div className="appearance-controls subject-appearance-controls">
             <label><span>{t('subject.skinColor')}</span><input aria-label={t('subject.skinColorAria')} type="color" value={studioObject.subjectSkinColor} onChange={(event) => state.updateStudioObject(studioObject.id, { subjectSkinColor: event.target.value })} /></label>
             <label><span>{t('subject.outfitColor')}</span><input aria-label={t('subject.outfitColorAria')} type="color" value={studioObject.subjectOutfitColor} onChange={(event) => state.updateStudioObject(studioObject.id, { subjectOutfitColor: event.target.value })} /></label>
           </div>
-          <AppearancePanel ariaPrefix={t('subject.prefixSecond')} skinRoughness={studioObject.subjectSkinRoughness} skinOil={studioObject.subjectSkinOil} subsurface={studioObject.subjectSubsurface} makeup={studioObject.subjectMakeup} eyeColor={studioObject.subjectEyeColor} hairColor={studioObject.subjectHairColor} hairGloss={studioObject.subjectHairGloss} outfitFabric={studioObject.subjectOutfitFabric} onChange={(patch) => state.updateStudioObject(studioObject.id, {
+          <AppearancePanel ariaPrefix={t('subject.prefixSecond')} skinRoughness={studioObject.subjectSkinRoughness} skinOil={studioObject.subjectSkinOil} subsurface={studioObject.subjectSubsurface} makeup={studioObject.subjectMakeup} eyeColor={studioObject.subjectEyeColor} hairColor={studioObject.subjectHairColor} hairGloss={studioObject.subjectHairGloss} onChange={(patch) => state.updateStudioObject(studioObject.id, {
             ...(patch.skinRoughness !== undefined ? { subjectSkinRoughness: patch.skinRoughness } : {}),
             ...(patch.skinOil !== undefined ? { subjectSkinOil: patch.skinOil } : {}),
             ...(patch.subsurface !== undefined ? { subjectSubsurface: patch.subsurface } : {}),
@@ -233,17 +281,17 @@ export function Inspector() {
             ...(patch.eyeColor ? { subjectEyeColor: patch.eyeColor } : {}),
             ...(patch.hairColor ? { subjectHairColor: patch.hairColor } : {}),
             ...(patch.hairGloss !== undefined ? { subjectHairGloss: patch.hairGloss } : {}),
-            ...(patch.outfitFabric ? { subjectOutfitFabric: patch.outfitFabric } : {}),
           })} />
           <Range label={t('subject.height')} value={studioObject.subjectHeight} min={1.45} max={2.2} step={0.01} unit=" m" onChange={(value) => state.updateStudioObject(studioObject.id, { subjectHeight: Number(value.toFixed(2)) })} />
-          <Range label={t('pose.headYaw')} value={studioObject.subjectPose.headYaw} min={-75} max={75} step={1} unit="°" onChange={(value) => state.updateStudioSubjectPose(studioObject.id, { headYaw: value })} />
-          <Range label={t('pose.headTilt')} value={studioObject.subjectPose.headTilt} min={-30} max={30} step={1} unit="°" onChange={(value) => state.updateStudioSubjectPose(studioObject.id, { headTilt: value })} />
-          <Range label={t('pose.torsoYaw')} value={studioObject.subjectPose.torsoYaw} min={-70} max={70} step={1} unit="°" onChange={(value) => state.updateStudioSubjectPose(studioObject.id, { torsoYaw: value })} />
-          <Range label={t('pose.leftArm')} value={studioObject.subjectPose.leftArm} min={-120} max={60} step={1} unit="°" onChange={(value) => state.updateStudioSubjectPose(studioObject.id, { leftArm: value })} />
-          <Range label={t('pose.leftElbow')} value={studioObject.subjectPose.leftElbow} min={-10} max={125} step={1} unit="°" onChange={(value) => state.updateStudioSubjectPose(studioObject.id, { leftElbow: value })} />
-          <Range label={t('pose.rightArm')} value={studioObject.subjectPose.rightArm} min={-60} max={120} step={1} unit="°" onChange={(value) => state.updateStudioSubjectPose(studioObject.id, { rightArm: value })} />
-          <Range label={t('pose.rightElbow')} value={studioObject.subjectPose.rightElbow} min={-125} max={10} step={1} unit="°" onChange={(value) => state.updateStudioSubjectPose(studioObject.id, { rightElbow: value })} />
-          <Range label={t('pose.hipShift')} value={studioObject.subjectPose.hipShift} min={-0.16} max={0.16} step={0.01} unit=" m" onChange={(value) => state.updateStudioSubjectPose(studioObject.id, { hipShift: value })} />
+          <PhysiquePanel physique={studioObject.subjectPhysique}
+            onChange={(patch) => state.updateStudioSubjectPhysique(studioObject.id, patch)}
+            onPreset={(id) => state.applyStudioSubjectPhysique(studioObject.id, id)} />
+          <WardrobePanel hairStyle={studioObject.subjectHairStyle} outfit={studioObject.subjectOutfitStyle} fabric={studioObject.subjectOutfitFabric} onChange={(patch) => state.updateStudioObject(studioObject.id, {
+            ...(patch.hairStyle ? { subjectHairStyle: patch.hairStyle } : {}),
+            ...(patch.outfit ? { subjectOutfitStyle: patch.outfit } : {}),
+            ...(patch.fabric ? { subjectOutfitFabric: patch.fabric } : {}),
+          })} />
+          <PoseControls pose={studioObject.subjectPose} onChange={(patch) => state.updateStudioSubjectPose(studioObject.id, patch)} />
         </>}
         <div className="coordinate-label"><span>{t('axis.posAndFacing')}</span><small>METERS / DEG</small></div>
         <Range label={t('axis.x')} disabled={studioObject.locked} value={studioObject.position[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setStudioObjectTransform(studioObject.id, [value, studioObject.position[1], studioObject.position[2]])} />
@@ -259,16 +307,24 @@ export function Inspector() {
         <Range label={t('axis.z')} value={state.modelPosition[2]} min={-1} max={4} step={0.05} onChange={(value) => state.setModelTransform([state.modelPosition[0], 0, value])} />
         <Range label={t('model.facing')} value={Math.round(THREE_RAD_TO_DEG * state.modelRotation)} min={-180} max={180} step={5} unit="°" onChange={(value) => state.setModelTransform(state.modelPosition, value / THREE_RAD_TO_DEG)} />
         <Range label={t('subject.height')} value={state.modelHeight} min={1.45} max={2.2} step={0.01} unit=" m" onChange={(value) => setValue('modelHeight', Number(value.toFixed(2)))} />
-        <div className="pose-heading"><span>{t('pose.section')}</span><small>{state.modelAssetUrl ? t('pose.externalNote') : 'PROCEDURAL RIG'}</small></div>
-        <div className="pose-presets" role="group" aria-label={t('pose.aria')}>
-          {([['neutral', 'pose.neutral'], ['contrapposto', 'pose.contrapposto'], ['hands-on-hips', 'pose.hands-on-hips'], ['profile', 'pose.profile'], ['editorial', 'pose.editorial']] as [PosePreset, MessageKey][]).map(([preset, labelKey]) => <button key={preset} className={state.posePreset === preset ? 'active' : ''} disabled={Boolean(state.modelAssetUrl)} onClick={() => state.applyPosePreset(preset)}>{t(labelKey)}</button>)}
+        <div className="pose-heading">
+          <span>{t('pose.section')}</span>
+          <small>{!state.modelAssetUrl ? 'PROCEDURAL RIG' : state.modelRigStatus === 'rigged' ? t('pose.retargeted') : t('pose.unrigged')}</small>
         </div>
+        <PoseLibraryPanel current={state.posePreset} onApply={state.applyPosePreset} />
+        {state.modelAssetUrl && state.modelRigStatus === 'rigged' && (
+          <>
+            <p className="pose-note">{t('pose.retargetNote')}</p>
+            <PoseControls pose={state.modelPose} onChange={state.updateModelPose} />
+          </>
+        )}
+        {state.modelAssetUrl && state.modelRigStatus === 'unrigged' && <p className="pose-note">{t('pose.unriggedNote')}</p>}
         {!state.modelAssetUrl && <>
           <div className="appearance-controls">
             <label><span>{t('appearance.skin')}</span><input aria-label={t('appearance.skinAria')} type="color" value={state.skinColor} onChange={(event) => setValue('skinColor', event.target.value)} /></label>
             <label><span>{t('appearance.outfit')}</span><input aria-label={t('appearance.outfitAria')} type="color" value={state.outfitColor} onChange={(event) => setValue('outfitColor', event.target.value)} /></label>
           </div>
-          <AppearancePanel ariaPrefix={t('subject.prefixMain')} skinRoughness={state.skinRoughness} skinOil={state.skinOil} subsurface={state.skinSubsurface} makeup={state.makeupStyle} eyeColor={state.eyeColor} hairColor={state.hairColor} hairGloss={state.hairGloss} outfitFabric={state.outfitFabric} onChange={(patch) => {
+          <AppearancePanel ariaPrefix={t('subject.prefixMain')} skinRoughness={state.skinRoughness} skinOil={state.skinOil} subsurface={state.skinSubsurface} makeup={state.makeupStyle} eyeColor={state.eyeColor} hairColor={state.hairColor} hairGloss={state.hairGloss} onChange={(patch) => {
             if (patch.skinRoughness !== undefined) setValue('skinRoughness', patch.skinRoughness)
             if (patch.skinOil !== undefined) setValue('skinOil', patch.skinOil)
             if (patch.subsurface !== undefined) setValue('skinSubsurface', patch.subsurface)
@@ -276,16 +332,14 @@ export function Inspector() {
             if (patch.eyeColor) setValue('eyeColor', patch.eyeColor)
             if (patch.hairColor) setValue('hairColor', patch.hairColor)
             if (patch.hairGloss !== undefined) setValue('hairGloss', patch.hairGloss)
-            if (patch.outfitFabric) setValue('outfitFabric', patch.outfitFabric)
           }} />
-          <Range label={t('pose.headYaw')} value={state.modelPose.headYaw} min={-75} max={75} step={1} unit="°" onChange={(value) => state.updateModelPose({ headYaw: value })} />
-          <Range label={t('pose.headTilt')} value={state.modelPose.headTilt} min={-30} max={30} step={1} unit="°" onChange={(value) => state.updateModelPose({ headTilt: value })} />
-          <Range label={t('pose.torsoYaw')} value={state.modelPose.torsoYaw} min={-70} max={70} step={1} unit="°" onChange={(value) => state.updateModelPose({ torsoYaw: value })} />
-          <Range label={t('pose.leftArm')} value={state.modelPose.leftArm} min={-120} max={60} step={1} unit="°" onChange={(value) => state.updateModelPose({ leftArm: value })} />
-          <Range label={t('pose.leftElbow')} value={state.modelPose.leftElbow} min={-10} max={125} step={1} unit="°" onChange={(value) => state.updateModelPose({ leftElbow: value })} />
-          <Range label={t('pose.rightArm')} value={state.modelPose.rightArm} min={-60} max={120} step={1} unit="°" onChange={(value) => state.updateModelPose({ rightArm: value })} />
-          <Range label={t('pose.rightElbow')} value={state.modelPose.rightElbow} min={-125} max={10} step={1} unit="°" onChange={(value) => state.updateModelPose({ rightElbow: value })} />
-          <Range label={t('pose.hipShift')} value={state.modelPose.hipShift} min={-0.16} max={0.16} step={0.01} unit=" m" onChange={(value) => state.updateModelPose({ hipShift: value })} />
+          <PhysiquePanel physique={state.physique} onChange={state.updatePhysique} onPreset={state.applyPhysiquePreset} />
+          <WardrobePanel hairStyle={state.hairStyle} outfit={state.outfitStyle} fabric={state.outfitFabric} onChange={(patch) => {
+            if (patch.hairStyle) setValue('hairStyle', patch.hairStyle)
+            if (patch.outfit) setValue('outfitStyle', patch.outfit)
+            if (patch.fabric) setValue('outfitFabric', patch.fabric)
+          }} />
+          <PoseControls pose={state.modelPose} onChange={state.updateModelPose} />
         </>}
       </section>}
 

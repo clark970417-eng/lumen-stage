@@ -7,6 +7,7 @@
  */
 
 import type { LightProfileId, StudioLight } from './store'
+import { getGel } from './gels'
 import { fittedOptics, getHead, getModifier, headFlux, LIGHT_HEADS, powerFraction } from './gear'
 import { coneSolidAngle, syncTransmission } from './photometry'
 
@@ -47,6 +48,11 @@ export function profileLookup(profileId: LightProfileId): LightProfile {
 
 export { powerFraction }
 
+/** Fraction of light surviving the fitted gel. */
+export function gelTransmission(light: Pick<StudioLight, 'gelId'>) {
+  return getGel(light.gelId).transmission
+}
+
 /** Flux leaving the head before the modifier: lumens, or lumen-seconds for flash. */
 export function effectiveLightOutput(light: Pick<StudioLight, 'profileId' | 'powerPercent'>) {
   return headFlux(getHead(light.profileId)) * powerFraction(light)
@@ -72,7 +78,7 @@ export function captureLightOutput(light: StudioLight, shutter: number, syncSpee
   const head = getHead(light.profileId)
   const modifier = getModifier(light.modifierId)
   const optics = fittedOptics(modifier, light.gridDegrees ?? null, light.modifierWidth, light.modifierHeight)
-  let flux = headFlux(head) * powerFraction(light) * optics.transmission
+  let flux = headFlux(head) * powerFraction(light) * optics.transmission * getGel(light.gelId).transmission
 
   if (light.operationMode === 'flash' && head.guideNumber !== undefined) {
     flux *= flashSyncFactor(light, shutter, syncSpeed)

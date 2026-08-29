@@ -3,6 +3,13 @@ import { CAMERA_BODIES, LENS_PROFILES, type CameraBodyId, type LensProfileId } f
 import type { ColorProfileId, HistogramMode, ImageFormat } from './colorScience'
 import type { ShutterMode } from './sensorProcessing'
 import { DEFAULT_HEAD_ID, getModifier, LIGHT_HEADS, MODIFIERS } from './gear'
+import { getPoseEntry, NEUTRAL_POSE, normalizePose, type ModelPose } from './pose'
+import { DEFAULT_PHYSIQUE, PHYSIQUE_PRESETS, type Physique } from './anatomy'
+import { asFabric, asHairStyle, asOutfit, DEFAULT_HAIR_STYLE, DEFAULT_OUTFIT, type FabricKind, type HairStyle, type OutfitStyle } from './wardrobe'
+import { BACKDROPS, DEFAULT_BACKDROP_ID, getBackdrop } from './backdrops'
+import { GELS } from './gels'
+import { getSetup, specToLight } from './setups'
+import { clampToRoom, FOOTPRINT, isSittable, resolveCollisions, snapAroundSubject, type Occupant } from './layout'
 
 export type ViewMode = 'studio' | 'camera' | 'top'
 export type RenderMode = 'preview' | 'path'
@@ -12,10 +19,13 @@ export type SensorFormat = 'full-frame' | 'aps-c' | 'mft'
 export type FrameAspect = '3:2' | '4:5' | '1:1' | '16:9'
 export type FrameOrientation = 'landscape' | 'portrait'
 export type StudioShot = { id: string; name: string; createdAt: number; thumbnail: string; sceneJson: string }
-export type PosePreset = 'neutral' | 'contrapposto' | 'hands-on-hips' | 'profile' | 'editorial'
-export type ModelPose = { headYaw: number; headTilt: number; torsoYaw: number; leftArm: number; rightArm: number; leftElbow: number; rightElbow: number; hipShift: number }
+/** Id of an entry in the pose library, or 'custom' once a joint is hand-tuned. */
+export type PosePreset = string
+export type { ModelPose, HandPose } from './pose'
 export type MakeupStyle = 'none' | 'natural' | 'editorial'
-export type OutfitFabric = 'cotton' | 'silk' | 'leather'
+export type OutfitFabric = FabricKind
+export type { Physique } from './anatomy'
+export type { HairStyle, OutfitStyle } from './wardrobe'
 export type CameraMode = 'photo' | 'cinema'
 export type QualityPreset = 'performance' | 'balanced' | 'ultra'
 export type OutputResolution = '1080p' | '2k' | '4k'
@@ -67,6 +77,8 @@ export type StudioLight = {
   optic: LightOptic
   /** Catalogue modifier fitted to this head. */
   modifierId: ModifierProfileId
+  /** Fitted gel from the catalogue in gels.ts, or 'none'. */
+  gelId: string
   /** Egg-crate grid cut angle in degrees, or null for none. */
   gridDegrees: number | null
   barnDoorAngle: number
@@ -115,12 +127,18 @@ export type StudioObject = {
   subjectOutfitFabric: OutfitFabric
   subjectPosePreset: PosePreset
   subjectPose: ModelPose
+  subjectPhysique: Physique
+  subjectHairStyle: HairStyle
+  subjectOutfitStyle: OutfitStyle
 }
 
 type SceneSnapshot = {
   schemaVersion: 23
   projectName: string
   backdrop: Backdrop
+  backdropId: string
+  backdropWidth: number
+  backdropDistance: number
   focalLength: number
   aperture: number
   iso: number
@@ -209,6 +227,9 @@ type SceneSnapshot = {
   timelineKeyframes: TimelineKeyframe[]
   posePreset: PosePreset
   modelPose: ModelPose
+  physique: Physique
+  hairStyle: HairStyle
+  outfitStyle: OutfitStyle
   shots?: StudioShot[]
 }
 
@@ -227,7 +248,16 @@ export type StudioState = {
   soloLightId: string | null
   exposureSample: ExposureSample | null
   lightAimMode: boolean
+  /** Snap a dragged light to 15° / 25 cm around its subject. */
+  placementSnap: boolean
+  /** Show drag-to-pose joint handles on the selected figure. */
+  poseHandles: boolean
+  measureMode: boolean
+  measurePoints: [number, number, number][]
   backdrop: Backdrop
+  backdropId: string
+  backdropWidth: number
+  backdropDistance: number
   focalLength: number
   aperture: number
   iso: number
@@ -292,6 +322,7 @@ export type StudioState = {
   outfitFabric: OutfitFabric
   professionalPanelOpen: boolean
   setupSheetOpen: boolean
+  setupLibraryOpen: boolean
   shortcutHelpOpen: boolean
   cameraMode: CameraMode
   frameRate: number
@@ -327,9 +358,14 @@ export type StudioState = {
   timelineKeyframes: TimelineKeyframe[]
   posePreset: PosePreset
   modelPose: ModelPose
+  physique: Physique
+  hairStyle: HairStyle
+  outfitStyle: OutfitStyle
   modelAssetUrl: string | null
   modelAssetName: string | null
   modelImportStatus: 'idle' | 'loading' | 'ready' | 'error'
+  /** Whether the imported skeleton can be posed by the rig. */
+  modelRigStatus: 'none' | 'rigged' | 'unrigged'
   selected: SelectedObject
   selectedIds: string[]
   transformMode: TransformMode
@@ -342,6 +378,7 @@ export type StudioState = {
   fitHead: (id: string, headId: string) => void
   fitModifier: (id: string, modifierId: string) => void
   fitGrid: (id: string, gridDegrees: number | null) => void
+  fitGel: (id: string, gelId: string) => void
   selectObject: (id: SelectedObject, additive?: boolean) => void
   setLightAxis: (id: string, axis: 0 | 1 | 2, value: number) => void
   setLightPosition: (id: string, position: [number, number, number]) => void
@@ -358,6 +395,8 @@ export type StudioState = {
   deleteModifier: (id: string) => void
   setModifierTransform: (id: string, position: [number, number, number], rotationY?: number) => void
   setMeterPosition: (position: [number, number, number]) => void
+  addMeasurePoint: (point: [number, number, number]) => void
+  clearMeasure: () => void
   moveMeterToSubject: (subjectId: string, zone?: LightTargetZone) => void
   addStudioObject: (type: SceneObjectType) => void
   updateStudioObject: (id: string, patch: Partial<Omit<StudioObject, 'id'>>) => void
@@ -371,6 +410,12 @@ export type StudioState = {
   setModelTransform: (position: [number, number, number], rotation?: number) => void
   applyPosePreset: (preset: PosePreset) => void
   updateModelPose: (patch: Partial<ModelPose>) => void
+  updatePhysique: (patch: Partial<Physique>) => void
+  applyPhysiquePreset: (id: string) => void
+  selectBackdrop: (id: string) => void
+  applyLightingSetup: (id: string) => void
+  updateStudioSubjectPhysique: (id: string, patch: Partial<Physique>) => void
+  applyStudioSubjectPhysique: (id: string, presetId: string) => void
   setCameraPosition: (position: [number, number, number]) => void
   setCameraTarget: (target: [number, number, number]) => void
   bindCameraToSubject: (subjectId: string | null, zone?: LightTargetZone) => void
@@ -392,11 +437,14 @@ export type StudioState = {
   deleteShot: (id: string) => void
   setModelAsset: (url: string | null, name: string | null) => void
   setModelImportStatus: (status: StudioState['modelImportStatus']) => void
+  setModelRigStatus: (status: StudioState['modelRigStatus']) => void
   undo: () => void
   redo: () => void
   saveProject: () => void
   loadProject: () => void
   exportProject: () => void
+  /** Scene JSON for a share link — shots excluded, they bloat the URL. */
+  shareableJson: () => string
   importProject: (raw: string) => void
   mergeProject: (raw: string) => void
   resetLighting: () => void
@@ -432,22 +480,14 @@ const LEGACY_STORAGE_KEY = 'lumen-stage-scene-v1'
 const SHOT_STORAGE_KEY = 'lumen-stage-shots-v1'
 
 const initialLights: StudioLight[] = [
-  { id: 'key', name: 'Key light', enabled: true, intensity: 1450, powerPercent: 13, profileId: 'godox-ad600pro', headType: 'strobe', temperature: 5600, shape: 'square', softbox: true, grid: false, colorMode: 'kelvin', rgb: '#ff3d8d', position: [-2.25, 2.65, 2.15], target: [0, 1.32, 0], beamAngle: 75, feather: 78, modifierWidth: 0.9, modifierHeight: 0.9, optic: 'softbox', modifierId: 'rfi-3x3', gridDegrees: null, barnDoorAngle: 45, goboPattern: 'none', goboRotation: 0, goboScale: 1, operationMode: 'flash', hssEnabled: false, flashDuration: 220, locked: false },
-  { id: 'fill', name: 'Fill light', enabled: true, intensity: 520, powerPercent: 4, profileId: 'godox-ad600pro', headType: 'strobe', temperature: 5600, shape: 'round', softbox: true, grid: false, colorMode: 'kelvin', rgb: '#3b82ff', position: [2.7, 2.2, 0.4], target: [0, 1.32, 0], beamAngle: 76, feather: 84, modifierWidth: 0.9, modifierHeight: 0.9, optic: 'softbox', modifierId: 'rfi-octa-3', gridDegrees: null, barnDoorAngle: 45, goboPattern: 'none', goboRotation: 0, goboScale: 1, operationMode: 'flash', hssEnabled: false, flashDuration: 220, locked: false },
+  { id: 'key', name: 'Key light', enabled: true, intensity: 1450, powerPercent: 13, profileId: 'godox-ad600pro', headType: 'strobe', temperature: 5600, shape: 'square', softbox: true, grid: false, colorMode: 'kelvin', rgb: '#ff3d8d', position: [-2.25, 2.65, 2.15], target: [0, 1.32, 0], beamAngle: 75, feather: 78, modifierWidth: 0.9, modifierHeight: 0.9, optic: 'softbox', modifierId: 'rfi-3x3', gelId: 'none', gridDegrees: null, barnDoorAngle: 45, goboPattern: 'none', goboRotation: 0, goboScale: 1, operationMode: 'flash', hssEnabled: false, flashDuration: 220, locked: false },
+  { id: 'fill', name: 'Fill light', enabled: true, intensity: 520, powerPercent: 4, profileId: 'godox-ad600pro', headType: 'strobe', temperature: 5600, shape: 'round', softbox: true, grid: false, colorMode: 'kelvin', rgb: '#3b82ff', position: [2.7, 2.2, 0.4], target: [0, 1.32, 0], beamAngle: 76, feather: 84, modifierWidth: 0.9, modifierHeight: 0.9, optic: 'softbox', modifierId: 'rfi-octa-3', gelId: 'none', gridDegrees: null, barnDoorAngle: 45, goboPattern: 'none', goboRotation: 0, goboScale: 1, operationMode: 'flash', hssEnabled: false, flashDuration: 220, locked: false },
 ]
 
 const cloneLights = (lights: StudioLight[]) => lights.map((light) => ({ ...light, position: [...light.position] as [number, number, number], target: [...light.target] as [number, number, number] }))
 const cloneModifiers = (modifiers: StudioModifier[]) => modifiers.map((modifier) => ({ ...modifier, position: [...modifier.position] as [number, number, number] }))
-const cloneStudioObjects = (objects: StudioObject[]) => objects.map((object) => ({ ...object, position: [...object.position] as [number, number, number], subjectPose: { ...object.subjectPose } }))
+const cloneStudioObjects = (objects: StudioObject[]) => objects.map((object) => ({ ...object, position: [...object.position] as [number, number, number], subjectPose: { ...object.subjectPose }, subjectPhysique: { ...object.subjectPhysique } }))
 
-const NEUTRAL_POSE: ModelPose = { headYaw: 0, headTilt: 0, torsoYaw: 0, leftArm: -7, rightArm: 7, leftElbow: 4, rightElbow: -4, hipShift: 0 }
-const POSE_PRESETS: Record<PosePreset, ModelPose> = {
-  neutral: NEUTRAL_POSE,
-  contrapposto: { headYaw: 14, headTilt: -4, torsoYaw: -9, leftArm: -12, rightArm: 18, leftElbow: 10, rightElbow: -18, hipShift: 0.09 },
-  'hands-on-hips': { headYaw: 0, headTilt: 0, torsoYaw: 0, leftArm: -48, rightArm: 48, leftElbow: 92, rightElbow: -92, hipShift: 0 },
-  profile: { headYaw: 18, headTilt: 0, torsoYaw: 62, leftArm: -5, rightArm: 11, leftElbow: 8, rightElbow: -12, hipShift: 0.03 },
-  editorial: { headYaw: -28, headTilt: 9, torsoYaw: 16, leftArm: -72, rightArm: 24, leftElbow: 68, rightElbow: -34, hipShift: -0.07 },
-}
 
 type TargetableState = Pick<StudioState, 'modelPosition' | 'modelHeight' | 'studioObjects'>
 
@@ -465,6 +505,25 @@ const syncBoundLightTargets = (state: TargetableState & { lights: StudioLight[] 
   return point ? { ...light, target: point } : { ...light, targetSubjectId: undefined, targetZone: undefined }
 })
 
+/**
+ * Everything with a footprint on the floor.
+ *
+ * People are immovable so a dragged stand goes round them rather than shoving
+ * the subject out of the shot.
+ */
+const floorOccupants = (state: Pick<StudioState, 'lights' | 'modifiers' | 'studioObjects' | 'modelPosition'>): Occupant[] => [
+  { id: 'model', position: state.modelPosition, radius: FOOTPRINT.subject, movable: false, kind: 'subject' as const },
+  ...state.studioObjects.map((object) => ({
+    id: object.id,
+    position: object.position,
+    radius: object.type === 'subject' ? FOOTPRINT.subject : FOOTPRINT[object.type] ?? 0.4,
+    movable: object.type !== 'subject',
+    kind: object.type === 'subject' ? ('subject' as const) : isSittable(object.type) ? ('furniture' as const) : ('stand' as const),
+  })),
+  ...state.lights.map((light) => ({ id: light.id, position: light.position, radius: FOOTPRINT.lightStand, movable: true, kind: 'stand' as const })),
+  ...state.modifiers.map((modifier) => ({ id: modifier.id, position: modifier.position, radius: FOOTPRINT.gripStand, movable: true, kind: 'stand' as const })),
+]
+
 const cameraFocusDistance = (position: [number, number, number], target: [number, number, number]) => Number(Math.hypot(position[0] - target[0], position[1] - target[1], position[2] - target[2]).toFixed(2))
 
 const syncCameraTracking = (state: TargetableState & { cameraPosition: [number, number, number]; cameraTarget: [number, number, number]; cameraTargetSubjectId?: string; cameraTargetZone: LightTargetZone; cameraAutoFocus: boolean }) => {
@@ -478,6 +537,9 @@ const snapshotFrom = (state: StudioState, includeShots = false): SceneSnapshot =
   schemaVersion: 23,
   projectName: state.projectName,
   backdrop: state.backdrop,
+  backdropId: state.backdropId,
+  backdropWidth: state.backdropWidth,
+  backdropDistance: state.backdropDistance,
   focalLength: state.focalLength,
   aperture: state.aperture,
   iso: state.iso,
@@ -565,6 +627,9 @@ const snapshotFrom = (state: StudioState, includeShots = false): SceneSnapshot =
   timelineDuration: state.timelineDuration,
   timelineKeyframes: state.timelineKeyframes.map((keyframe) => ({ ...keyframe, cameraPosition: [...keyframe.cameraPosition] as [number, number, number], cameraTarget: [...keyframe.cameraTarget] as [number, number, number], lightPowers: { ...keyframe.lightPowers } })),
   posePreset: state.posePreset,
+  physique: { ...state.physique },
+  hairStyle: state.hairStyle,
+  outfitStyle: state.outfitStyle,
   modelPose: { ...state.modelPose },
   ...(includeShots ? { shots: state.shots } : {}),
 })
@@ -574,6 +639,9 @@ const historyFrom = (state: StudioState): HistorySnapshot => ({ ...snapshotFrom(
 const snapshotState = (snapshot: SceneSnapshot) => ({
   projectName: snapshot.projectName,
   backdrop: snapshot.backdrop,
+  backdropId: snapshot.backdropId,
+  backdropWidth: snapshot.backdropWidth,
+  backdropDistance: snapshot.backdropDistance,
   focalLength: snapshot.focalLength,
   aperture: snapshot.aperture,
   iso: snapshot.iso,
@@ -661,10 +729,14 @@ const snapshotState = (snapshot: SceneSnapshot) => ({
   timelineDuration: snapshot.timelineDuration,
   timelineKeyframes: snapshot.timelineKeyframes.map((keyframe) => ({ ...keyframe, cameraPosition: [...keyframe.cameraPosition] as [number, number, number], cameraTarget: [...keyframe.cameraTarget] as [number, number, number], lightPowers: { ...keyframe.lightPowers } })),
   posePreset: snapshot.posePreset,
+  physique: { ...snapshot.physique },
+  hairStyle: snapshot.hairStyle,
+  outfitStyle: snapshot.outfitStyle,
   modelPose: { ...snapshot.modelPose },
 })
 
 const normalizeLight = (light: Partial<StudioLight>, index: number): StudioLight => ({
+  gelId: GELS.some((gel) => gel.id === light.gelId) ? String(light.gelId) : 'none',
   id: typeof light.id === 'string' && light.id ? light.id : `light-${index + 1}`,
   name: typeof light.name === 'string' && light.name ? light.name : `Light ${index + 1}`,
   enabled: light.enabled ?? true,
@@ -749,6 +821,24 @@ const normalizeModifier = (modifier: Partial<StudioModifier>, index: number): St
   locked: modifier.locked ?? false,
 })
 
+/** Old saves have no physique at all; new ones may have been hand-edited. */
+const normalizePhysique = (value: unknown): Physique => {
+  if (!value || typeof value !== 'object') return { ...DEFAULT_PHYSIQUE }
+  const raw = value as Partial<Physique>
+  const span = (input: unknown, fallback: number, min: number, max: number) =>
+    Number.isFinite(Number(input)) ? Math.min(max, Math.max(min, Number(input))) : fallback
+  return {
+    sex: raw.sex === 'masculine' || raw.sex === 'neutral' ? raw.sex : 'feminine',
+    face: span(raw.face, DEFAULT_PHYSIQUE.face, 0, 100),
+    build: span(raw.build, DEFAULT_PHYSIQUE.build, 0, 100),
+    muscle: span(raw.muscle, DEFAULT_PHYSIQUE.muscle, 0, 100),
+    shoulders: span(raw.shoulders, 0, -50, 50),
+    waist: span(raw.waist, 0, -50, 50),
+    hips: span(raw.hips, 0, -50, 50),
+    bust: span(raw.bust, 0, -50, 50),
+  }
+}
+
 const normalizeStudioObject = (object: Partial<StudioObject>, index: number): StudioObject => ({
   id: typeof object.id === 'string' && object.id ? object.id : `object-${index + 1}`,
   name: typeof object.name === 'string' && object.name ? object.name : `Object ${index + 1}`,
@@ -769,9 +859,12 @@ const normalizeStudioObject = (object: Partial<StudioObject>, index: number): St
   subjectEyeColor: typeof object.subjectEyeColor === 'string' && /^#[0-9a-f]{6}$/i.test(object.subjectEyeColor) ? object.subjectEyeColor : '#4b372b',
   subjectHairColor: typeof object.subjectHairColor === 'string' && /^#[0-9a-f]{6}$/i.test(object.subjectHairColor) ? object.subjectHairColor : '#211815',
   subjectHairGloss: Number.isFinite(Number(object.subjectHairGloss)) ? Math.min(100, Math.max(0, Number(object.subjectHairGloss))) : 35,
-  subjectOutfitFabric: object.subjectOutfitFabric === 'silk' || object.subjectOutfitFabric === 'leather' ? object.subjectOutfitFabric : 'cotton',
-  subjectPosePreset: object.subjectPosePreset === 'contrapposto' || object.subjectPosePreset === 'hands-on-hips' || object.subjectPosePreset === 'profile' || object.subjectPosePreset === 'editorial' ? object.subjectPosePreset : 'neutral',
-  subjectPose: object.subjectPose && typeof object.subjectPose === 'object' ? { ...NEUTRAL_POSE, ...object.subjectPose } : { ...NEUTRAL_POSE },
+  subjectOutfitFabric: asFabric(object.subjectOutfitFabric),
+  subjectPosePreset: typeof object.subjectPosePreset === 'string' ? object.subjectPosePreset : 'neutral',
+  subjectPose: normalizePose(object.subjectPose as Partial<ModelPose> | undefined),
+  subjectPhysique: normalizePhysique(object.subjectPhysique),
+  subjectHairStyle: asHairStyle(object.subjectHairStyle),
+  subjectOutfitStyle: asOutfit(object.subjectOutfitStyle),
 })
 
 const normalizeSnapshot = (value: unknown): SceneSnapshot => {
@@ -789,6 +882,9 @@ const normalizeSnapshot = (value: unknown): SceneSnapshot => {
     schemaVersion: 23,
     projectName: typeof raw.projectName === 'string' ? raw.projectName : 'Portrait study',
     backdrop: 'paper',
+    backdropId: BACKDROPS.some((item) => item.id === raw.backdropId) ? String(raw.backdropId) : DEFAULT_BACKDROP_ID,
+    backdropWidth: Number.isFinite(Number(raw.backdropWidth)) ? Math.min(6, Math.max(1.2, Number(raw.backdropWidth))) : 2.72,
+    backdropDistance: Number.isFinite(Number(raw.backdropDistance)) ? Math.min(4, Math.max(0.6, Number(raw.backdropDistance))) : 1.6,
     focalLength: Number(raw.focalLength) || 50,
     aperture: Number(raw.aperture) || 4,
     iso: Number(raw.iso) || 100,
@@ -857,8 +953,8 @@ const normalizeSnapshot = (value: unknown): SceneSnapshot => {
     roomWidth: Number.isFinite(Number(raw.roomWidth)) ? Math.min(30, Math.max(3, Number(raw.roomWidth))) : 8,
     roomDepth: Number.isFinite(Number(raw.roomDepth)) ? Math.min(40, Math.max(4, Number(raw.roomDepth))) : 10,
     roomHeight: Number.isFinite(Number(raw.roomHeight)) ? Math.min(12, Math.max(2.4, Number(raw.roomHeight))) : 4.5,
-    wallColor: typeof raw.wallColor === 'string' && /^#[0-9a-f]{6}$/i.test(raw.wallColor) ? raw.wallColor : '#77766f',
-    floorColor: typeof raw.floorColor === 'string' && /^#[0-9a-f]{6}$/i.test(raw.floorColor) ? raw.floorColor : '#555750',
+    wallColor: typeof raw.wallColor === 'string' && /^#[0-9a-f]{6}$/i.test(raw.wallColor) ? raw.wallColor : '#8f8d86',
+    floorColor: typeof raw.floorColor === 'string' && /^#[0-9a-f]{6}$/i.test(raw.floorColor) ? raw.floorColor : '#6d6f68',
     windowEnabled: raw.windowEnabled === true,
     sunEnabled: raw.sunEnabled === true,
     sunAzimuth: Number.isFinite(Number(raw.sunAzimuth)) ? Number(raw.sunAzimuth) : 35,
@@ -883,8 +979,11 @@ const normalizeSnapshot = (value: unknown): SceneSnapshot => {
       const keyframe = item as Record<string, unknown>
       return [{ id: typeof keyframe.id === 'string' ? keyframe.id : `keyframe-${index}`, frame: Math.max(0, Number(keyframe.frame) || 0), cameraPosition: vector(keyframe.cameraPosition, [0, 1.56, 5.8]), cameraTarget: vector(keyframe.cameraTarget, [0, 1.45, 0]), lightPowers: keyframe.lightPowers && typeof keyframe.lightPowers === 'object' ? { ...(keyframe.lightPowers as Record<string, number>) } : {} }]
     }) : [],
-    posePreset: raw.posePreset === 'contrapposto' || raw.posePreset === 'hands-on-hips' || raw.posePreset === 'profile' || raw.posePreset === 'editorial' ? raw.posePreset : 'neutral',
-    modelPose: raw.modelPose && typeof raw.modelPose === 'object' ? { ...NEUTRAL_POSE, ...(raw.modelPose as Partial<ModelPose>) } : { ...NEUTRAL_POSE },
+    posePreset: typeof raw.posePreset === 'string' ? raw.posePreset : 'neutral',
+    modelPose: normalizePose(raw.modelPose as Partial<ModelPose> | undefined),
+    physique: normalizePhysique(raw.physique),
+    hairStyle: asHairStyle(raw.hairStyle),
+    outfitStyle: asOutfit(raw.outfitStyle),
     shots: Array.isArray(raw.shots) ? raw.shots.flatMap((shot) => {
       if (!shot || typeof shot !== 'object') return []
       const item = shot as Record<string, unknown>
@@ -905,7 +1004,7 @@ const persistShots = (shots: StudioShot[]) => {
   try { localStorage.setItem(SHOT_STORAGE_KEY, JSON.stringify(shots)) } catch { /* local quota can reject thumbnails */ }
 }
 
-const historyKeys = new Set<keyof StudioState>(['projectName', 'backdrop', 'cameraMode', 'frameRate', 'shutterAngle', 'tStop', 'ndStops', 'anamorphic', 'roomWidth', 'roomDepth', 'roomHeight', 'wallColor', 'floorColor', 'windowEnabled', 'sunEnabled', 'sunAzimuth', 'sunElevation', 'sunIntensity', 'haze', 'qualityPreset', 'outputResolution', 'denoiseEnabled', 'modelLookAtCamera', 'modelEyesAtCamera', 'timelineDuration', 'focalLength', 'aperture', 'iso', 'shutter', 'focusDistance', 'dofEnabled', 'focusGuide', 'cameraPosition', 'cameraTarget', 'sensorFormat', 'frameAspect', 'frameOrientation', 'modelPosition', 'modelRotation', 'modelHeight', 'skinColor', 'outfitColor', 'skinRoughness', 'skinOil', 'skinSubsurface', 'makeupStyle', 'eyeColor', 'hairColor', 'hairGloss', 'outfitFabric', 'syncSpeed', 'ambientLevel', 'ambientTemperature', 'lensOpticsEnabled', 'lensVignette', 'lensDistortion', 'lensChromaticAberration', 'lensBreathing', 'imageFormat', 'whiteBalance', 'whiteBalanceTint', 'colorProfileId', 'highlightRolloff', 'toneCurve', 'lutIntensity', 'sensorSimulationEnabled', 'shutterMode', 'sensorDynamicRange', 'noiseReduction', 'colorNoise', 'motionBlur', 'rollingShutter'])
+const historyKeys = new Set<keyof StudioState>(['projectName', 'backdrop', 'backdropId', 'backdropWidth', 'backdropDistance', 'cameraMode', 'frameRate', 'shutterAngle', 'tStop', 'ndStops', 'anamorphic', 'roomWidth', 'roomDepth', 'roomHeight', 'wallColor', 'floorColor', 'windowEnabled', 'sunEnabled', 'sunAzimuth', 'sunElevation', 'sunIntensity', 'haze', 'qualityPreset', 'outputResolution', 'denoiseEnabled', 'modelLookAtCamera', 'modelEyesAtCamera', 'timelineDuration', 'focalLength', 'aperture', 'iso', 'shutter', 'focusDistance', 'dofEnabled', 'focusGuide', 'cameraPosition', 'cameraTarget', 'sensorFormat', 'frameAspect', 'frameOrientation', 'modelPosition', 'modelRotation', 'modelHeight', 'skinColor', 'outfitColor', 'skinRoughness', 'skinOil', 'skinSubsurface', 'makeupStyle', 'eyeColor', 'hairColor', 'hairGloss', 'outfitFabric', 'syncSpeed', 'ambientLevel', 'ambientTemperature', 'lensOpticsEnabled', 'lensVignette', 'lensDistortion', 'lensChromaticAberration', 'lensBreathing', 'imageFormat', 'whiteBalance', 'whiteBalanceTint', 'colorProfileId', 'highlightRolloff', 'toneCurve', 'lutIntensity', 'sensorSimulationEnabled', 'shutterMode', 'sensorDynamicRange', 'noiseReduction', 'colorNoise', 'motionBlur', 'rollingShutter'])
 const withUndo = (state: StudioState) => [...state.undoStack, historyFrom(state)].slice(-30)
 
 export const useStudio = create<StudioState>((set, get) => ({
@@ -921,7 +1020,14 @@ export const useStudio = create<StudioState>((set, get) => ({
   soloLightId: null,
   exposureSample: null,
   lightAimMode: false,
+  placementSnap: true,
+  poseHandles: true,
+  measureMode: false,
+  measurePoints: [],
   backdrop: 'paper',
+  backdropId: DEFAULT_BACKDROP_ID,
+  backdropWidth: 2.72,
+  backdropDistance: 1.6,
   focalLength: 50,
   aperture: 4,
   iso: 100,
@@ -986,6 +1092,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   outfitFabric: 'cotton',
   professionalPanelOpen: false,
   setupSheetOpen: false,
+  setupLibraryOpen: false,
   shortcutHelpOpen: false,
   cameraMode: 'photo',
   frameRate: 24,
@@ -996,8 +1103,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   roomWidth: 8,
   roomDepth: 10,
   roomHeight: 4.5,
-  wallColor: '#77766f',
-  floorColor: '#555750',
+  wallColor: '#8f8d86',
+  floorColor: '#6d6f68',
   windowEnabled: false,
   sunEnabled: false,
   sunAzimuth: 35,
@@ -1020,10 +1127,14 @@ export const useStudio = create<StudioState>((set, get) => ({
   timelinePlaying: false,
   timelineKeyframes: [],
   posePreset: 'neutral',
+  physique: { ...DEFAULT_PHYSIQUE },
+  hairStyle: DEFAULT_HAIR_STYLE,
+  outfitStyle: DEFAULT_OUTFIT,
   modelPose: { ...NEUTRAL_POSE },
   modelAssetUrl: null,
   modelAssetName: null,
   modelImportStatus: 'idle',
+  modelRigStatus: 'none',
   selected: 'key',
   selectedIds: ['key'],
   transformMode: 'translate',
@@ -1082,6 +1193,11 @@ export const useStudio = create<StudioState>((set, get) => ({
       undoStack: withUndo(state), redoStack: [],
     }
   }),
+  fitGel: (id, gelId) => set((state) => ({
+    lights: state.lights.map((light) => light.id === id ? { ...light, gelId } : light),
+    undoStack: withUndo(state),
+    redoStack: [],
+  })),
   fitGrid: (id, gridDegrees) => set((state) => ({
     lights: state.lights.map((light) => {
       if (light.id !== id) return light
@@ -1120,7 +1236,15 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (!source || source.locked) return state
     const selectedCohort = state.selectedIds.length > 1 && state.selectedIds.includes(id) ? state.selectedIds : null
     const cohort = selectedCohort ?? (source.groupId ? state.lights.filter((light) => light.groupId === source.groupId).map((light) => light.id) : [id])
-    const delta: [number, number, number] = [position[0] - source.position[0], position[1] - source.position[1], position[2] - source.position[2]]
+    // Snapping and collision run on the light that is actually being dragged;
+    // the rest of a group follows the same delta so the shape is preserved.
+    const subject = subjectTargetPoint(state, source.targetSubjectId ?? 'model', 'full') ?? state.modelPosition
+    const snapped = state.placementSnap ? snapAroundSubject(position, subject) : position
+    const cleared = clampToRoom(
+      resolveCollisions(snapped, FOOTPRINT.lightStand, floorOccupants(state), id),
+      FOOTPRINT.lightStand, state.roomWidth, state.roomDepth,
+    )
+    const delta: [number, number, number] = [cleared[0] - source.position[0], cleared[1] - source.position[1], cleared[2] - source.position[2]]
     return {
       lights: state.lights.map((light) => cohort.includes(light.id) && !light.locked ? {
         ...light,
@@ -1138,7 +1262,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     const id = `light-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
     const side = state.lights.length % 2 === 0 ? -1 : 1
     const offset = Math.min(3.6, 2.2 + Math.floor(state.lights.length / 2) * 0.4)
-    const light: StudioLight = { id, name: `Light ${state.lights.length + 1}`, enabled: true, intensity: 800, powerPercent: 27, profileId: 'generic-led', headType: 'cob', temperature: 5600, shape, softbox: true, grid: false, colorMode: 'kelvin', rgb: '#8b5cff', position: [side * offset, 2.4, 0.65], target: [0, 1.32, 0], beamAngle: 50, feather: 78, modifierWidth: shape === 'strip' ? 0.4 : 0.9, modifierHeight: shape === 'strip' ? 1.2 : 0.9, optic: 'softbox', modifierId: 'rfi-3x3', gridDegrees: null, barnDoorAngle: 45, goboPattern: 'none', goboRotation: 0, goboScale: 1, operationMode: 'continuous', hssEnabled: false, flashDuration: 1000, locked: false }
+    const light: StudioLight = { id, name: `Light ${state.lights.length + 1}`, enabled: true, intensity: 800, powerPercent: 27, profileId: 'generic-led', headType: 'cob', temperature: 5600, shape, softbox: true, grid: false, colorMode: 'kelvin', rgb: '#8b5cff', position: [side * offset, 2.4, 0.65], target: [0, 1.32, 0], beamAngle: 50, feather: 78, modifierWidth: shape === 'strip' ? 0.4 : 0.9, modifierHeight: shape === 'strip' ? 1.2 : 0.9, optic: 'softbox', modifierId: 'rfi-3x3', gelId: 'none', gridDegrees: null, barnDoorAngle: 45, goboPattern: 'none', goboRotation: 0, goboScale: 1, operationMode: 'continuous', hssEnabled: false, flashDuration: 1000, locked: false }
     return { lights: [...state.lights, light], selected: id, selectedIds: [id], undoStack: withUndo(state), redoStack: [] }
   }),
   duplicateLight: (id) => set((state) => {
@@ -1193,7 +1317,22 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (!state.modifiers.some((modifier) => modifier.id === id)) return state
     return { modifiers: state.modifiers.filter((modifier) => modifier.id !== id), selected: state.lights[0]?.id ?? 'model', selectedIds: state.lights[0] ? [state.lights[0].id] : [], undoStack: withUndo(state), redoStack: [] }
   }),
-  setModifierTransform: (id, position, rotationY) => set((state) => ({ modifiers: state.modifiers.map((modifier) => modifier.id === id && !modifier.locked ? { ...modifier, position, rotationY: rotationY ?? modifier.rotationY } : modifier), undoStack: withUndo(state), redoStack: [] })),
+  setModifierTransform: (id, position, rotationY) => set((state) => {
+    const cleared = clampToRoom(
+      resolveCollisions(position, FOOTPRINT.gripStand, floorOccupants(state), id),
+      FOOTPRINT.gripStand, state.roomWidth, state.roomDepth,
+    )
+    return {
+      modifiers: state.modifiers.map((modifier) => modifier.id === id && !modifier.locked ? { ...modifier, position: cleared, rotationY: rotationY ?? modifier.rotationY } : modifier),
+      undoStack: withUndo(state),
+      redoStack: [],
+    }
+  }),
+  /** Two clicks make a dimension; a third starts a new one. */
+  addMeasurePoint: (point) => set((state) => ({
+    measurePoints: state.measurePoints.length >= 2 ? [point] : [...state.measurePoints, point],
+  })),
+  clearMeasure: () => set({ measurePoints: [], measureMode: false }),
   setMeterPosition: (position) => set((state) => ({ meterPosition: position, undoStack: withUndo(state), redoStack: [] })),
   moveMeterToSubject: (subjectId, zone = 'face') => set((state) => {
     const point = subjectTargetPoint(state, subjectId, zone)
@@ -1212,12 +1351,12 @@ export const useStudio = create<StudioState>((set, get) => ({
       cube: { position: [0.85, 0.42, 0.2], scale: 0.8, color: '#8c9288', material: 'glossy' },
       sphere: { position: [0.85, 0.5, 0.2], scale: 0.7, color: '#b58b52', material: 'metal' },
     }
-    const appearanceDefaults = { subjectSkinRoughness: 55, subjectSkinOil: 22, subjectSubsurface: 45, subjectMakeup: 'natural' as MakeupStyle, subjectEyeColor: '#4b372b', subjectHairColor: '#211815', subjectHairGloss: 35, subjectOutfitFabric: 'cotton' as OutfitFabric }
+    const appearanceDefaults = { subjectSkinRoughness: 55, subjectSkinOil: 22, subjectSubsurface: 45, subjectMakeup: 'natural' as MakeupStyle, subjectEyeColor: '#4b372b', subjectHairColor: '#211815', subjectHairGloss: 35, subjectOutfitFabric: 'cotton' as OutfitFabric, subjectPhysique: { ...PHYSIQUE_PRESETS.average }, subjectHairStyle: 'long' as HairStyle, subjectOutfitStyle: 'tshirt' as OutfitStyle }
     const subjectDefaults = index % 3 === 1
-      ? { ...appearanceDefaults, subjectHeight: 1.74, subjectSkinColor: '#b9826b', subjectOutfitColor: '#343c48', subjectPosePreset: 'contrapposto' as PosePreset, subjectPose: { ...POSE_PRESETS.contrapposto } }
+      ? { ...appearanceDefaults, subjectHeight: 1.74, subjectSkinColor: '#b9826b', subjectOutfitColor: '#343c48', subjectPosePreset: 'contrapposto' as PosePreset, subjectPose: { ...(getPoseEntry('contrapposto')?.pose ?? NEUTRAL_POSE) }, subjectPhysique: { ...PHYSIQUE_PRESETS.editorial }, subjectHairStyle: 'bob' as HairStyle, subjectOutfitStyle: 'dress' as OutfitStyle }
       : index % 3 === 2
-        ? { ...appearanceDefaults, subjectHeight: 1.86, subjectSkinColor: '#805542', subjectOutfitColor: '#5b4339', subjectHairColor: '#15120f', subjectOutfitFabric: 'leather' as OutfitFabric, subjectPosePreset: 'profile' as PosePreset, subjectPose: { ...POSE_PRESETS.profile } }
-        : { ...appearanceDefaults, subjectHeight: 1.68, subjectSkinColor: '#d0a083', subjectOutfitColor: '#38443b', subjectHairColor: '#3b241b', subjectOutfitFabric: 'silk' as OutfitFabric, subjectPosePreset: 'editorial' as PosePreset, subjectPose: { ...POSE_PRESETS.editorial } }
+        ? { ...appearanceDefaults, subjectHeight: 1.86, subjectSkinColor: '#805542', subjectOutfitColor: '#5b4339', subjectHairColor: '#15120f', subjectOutfitFabric: 'leather' as OutfitFabric, subjectPosePreset: 'profile' as PosePreset, subjectPose: { ...(getPoseEntry('profile')?.pose ?? NEUTRAL_POSE) }, subjectPhysique: { ...PHYSIQUE_PRESETS.athletic }, subjectHairStyle: 'short' as HairStyle, subjectOutfitStyle: 'suit' as OutfitStyle }
+        : { ...appearanceDefaults, subjectHeight: 1.68, subjectSkinColor: '#d0a083', subjectOutfitColor: '#38443b', subjectHairColor: '#3b241b', subjectOutfitFabric: 'silk' as OutfitFabric, subjectPosePreset: 'editorial' as PosePreset, subjectPose: { ...(getPoseEntry('editorial')?.pose ?? NEUTRAL_POSE) }, subjectPhysique: { ...PHYSIQUE_PRESETS.curvy }, subjectHairStyle: 'curly' as HairStyle, subjectOutfitStyle: 'gown' as OutfitStyle }
     const object: StudioObject = { id, name: `${labels[type]} ${type === 'subject' ? subjectCount + 1 : index}`, type, rotationY: 0, locked: false, ...defaults[type], ...subjectDefaults }
     return { studioObjects: [...state.studioObjects, object], selected: id, selectedIds: [], undoStack: withUndo(state), redoStack: [] }
   }),
@@ -1225,8 +1364,8 @@ export const useStudio = create<StudioState>((set, get) => ({
     const studioObjects = state.studioObjects.map((object) => object.id === id ? { ...object, ...patch } : object)
     return { studioObjects, lights: syncBoundLightTargets({ ...state, studioObjects }), ...syncCameraTracking({ ...state, studioObjects }), undoStack: withUndo(state), redoStack: [] }
   }),
-  applyStudioSubjectPose: (id, preset) => set((state) => ({ studioObjects: state.studioObjects.map((object) => object.id === id && object.type === 'subject' ? { ...object, subjectPosePreset: preset, subjectPose: { ...POSE_PRESETS[preset] } } : object), undoStack: withUndo(state), redoStack: [] })),
-  updateStudioSubjectPose: (id, patch) => set((state) => ({ studioObjects: state.studioObjects.map((object) => object.id === id && object.type === 'subject' ? { ...object, subjectPosePreset: 'neutral', subjectPose: { ...object.subjectPose, ...patch } } : object), undoStack: withUndo(state), redoStack: [] })),
+  applyStudioSubjectPose: (id, preset) => set((state) => ({ studioObjects: state.studioObjects.map((object) => object.id === id && object.type === 'subject' ? { ...object, subjectPosePreset: preset, subjectPose: { ...(getPoseEntry(preset)?.pose ?? NEUTRAL_POSE) } } : object), undoStack: withUndo(state), redoStack: [] })),
+  updateStudioSubjectPose: (id, patch) => set((state) => ({ studioObjects: state.studioObjects.map((object) => object.id === id && object.type === 'subject' ? { ...object, subjectPosePreset: 'custom', subjectPose: { ...object.subjectPose, ...patch } } : object), undoStack: withUndo(state), redoStack: [] })),
   duplicateStudioObject: (id) => set((state) => {
     const source = state.studioObjects.find((object) => object.id === id)
     if (!source) return state
@@ -1240,7 +1379,14 @@ export const useStudio = create<StudioState>((set, get) => ({
     return { studioObjects, lights: syncBoundLightTargets({ ...state, studioObjects }), ...syncCameraTracking({ ...state, studioObjects }), selected: 'model', selectedIds: [], undoStack: withUndo(state), redoStack: [] }
   }),
   setStudioObjectTransform: (id, position, rotationY) => set((state) => {
-    const studioObjects = state.studioObjects.map((object) => object.id === id && !object.locked ? { ...object, position, rotationY: rotationY ?? object.rotationY } : object)
+    const source = state.studioObjects.find((object) => object.id === id)
+    const radius = source ? (source.type === 'subject' ? FOOTPRINT.subject : FOOTPRINT[source.type] ?? 0.4) : 0.4
+    const kind = source ? (source.type === 'subject' ? 'subject' : isSittable(source.type) ? 'furniture' : 'stand') : 'stand'
+    const cleared = clampToRoom(
+      resolveCollisions(position, radius, floorOccupants(state), id, kind),
+      radius, state.roomWidth, state.roomDepth,
+    )
+    const studioObjects = state.studioObjects.map((object) => object.id === id && !object.locked ? { ...object, position: cleared, rotationY: rotationY ?? object.rotationY } : object)
     return { studioObjects, lights: syncBoundLightTargets({ ...state, studioObjects }), ...syncCameraTracking({ ...state, studioObjects }), undoStack: withUndo(state), redoStack: [] }
   }),
   groupSelectedLights: () => set((state) => {
@@ -1253,9 +1399,69 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (!groupIds.size) return state
     return { lights: state.lights.map((light) => light.groupId && groupIds.has(light.groupId) ? { ...light, groupId: undefined } : light), undoStack: withUndo(state), redoStack: [] }
   }),
-  setModelTransform: (position, rotation) => set((state) => ({ modelPosition: position, modelRotation: rotation ?? state.modelRotation, lights: syncBoundLightTargets({ ...state, modelPosition: position }), ...syncCameraTracking({ ...state, modelPosition: position }), undoStack: withUndo(state), redoStack: [] })),
-  applyPosePreset: (preset) => set((state) => ({ posePreset: preset, modelPose: { ...POSE_PRESETS[preset] }, undoStack: withUndo(state), redoStack: [] })),
-  updateModelPose: (patch) => set((state) => ({ posePreset: 'neutral', modelPose: { ...state.modelPose, ...patch }, undoStack: withUndo(state), redoStack: [] })),
+  setModelTransform: (position, rotation) => set((state) => {
+    // The subject yields to stands only when it is the thing being dragged.
+    const cleared = clampToRoom(
+      resolveCollisions(position, FOOTPRINT.subject, floorOccupants(state), 'model', 'subject'),
+      FOOTPRINT.subject, state.roomWidth, state.roomDepth,
+    )
+    return {
+      modelPosition: cleared,
+      modelRotation: rotation ?? state.modelRotation,
+      lights: syncBoundLightTargets({ ...state, modelPosition: cleared }),
+      ...syncCameraTracking({ ...state, modelPosition: cleared }),
+      undoStack: withUndo(state),
+      redoStack: [],
+    }
+  }),
+  applyPosePreset: (preset) => set((state) => ({ posePreset: preset, modelPose: { ...(getPoseEntry(preset)?.pose ?? NEUTRAL_POSE) }, undoStack: withUndo(state), redoStack: [] })),
+  updateModelPose: (patch) => set((state) => ({ posePreset: 'custom', modelPose: { ...state.modelPose, ...patch }, undoStack: withUndo(state), redoStack: [] })),
+  updatePhysique: (patch) => set((state) => ({ physique: { ...state.physique, ...patch }, undoStack: withUndo(state), redoStack: [] })),
+  /**
+   * Drops a whole lighting pattern into the scene.
+   *
+   * Lights, camera and background all move together — a setup is a
+   * relationship between them, and applying half of it teaches nothing.
+   */
+  applyLightingSetup: (id) => set((state) => {
+    const setup = getSetup(id)
+    if (!setup) return state
+    const template = state.lights[0] ?? initialLights[0]
+    const lights = setup.lights.map((spec) => specToLight(spec, template))
+    const backdrop = setup.backdropId ? getBackdrop(setup.backdropId) : null
+    const next = {
+      ...state,
+      lights,
+      cameraPosition: [...setup.camera.position] as [number, number, number],
+      cameraTarget: [...setup.camera.target] as [number, number, number],
+      focalLength: setup.camera.focalLength,
+      aperture: setup.camera.aperture,
+      focusDistance: cameraFocusDistance(setup.camera.position, setup.camera.target),
+      ...(backdrop ? { backdropId: backdrop.id, backdropWidth: backdrop.widths[0] } : {}),
+    }
+    return {
+      ...next,
+      // Lights bound to the subject need their aim re-solved for this scene's
+      // actual subject position, which the setup knows nothing about.
+      lights: syncBoundLightTargets(next),
+      selected: lights[0]?.id ?? 'model',
+      selectedIds: [],
+      undoStack: withUndo(state),
+      redoStack: [],
+    }
+  }),
+  selectBackdrop: (id) => set((state) => {
+    const profile = getBackdrop(id)
+    // Roll widths are physical; keep the nearest legal one rather than a width
+    // this paper is never made in.
+    const width = profile.widths.includes(state.backdropWidth)
+      ? state.backdropWidth
+      : profile.widths.reduce((best, option) => Math.abs(option - state.backdropWidth) < Math.abs(best - state.backdropWidth) ? option : best, profile.widths[0])
+    return { backdropId: profile.id, backdropWidth: width, undoStack: withUndo(state), redoStack: [] }
+  }),
+  applyPhysiquePreset: (id) => set((state) => ({ physique: { ...(PHYSIQUE_PRESETS[id] ?? DEFAULT_PHYSIQUE) }, undoStack: withUndo(state), redoStack: [] })),
+  updateStudioSubjectPhysique: (id, patch) => set((state) => ({ studioObjects: state.studioObjects.map((object) => object.id === id && object.type === 'subject' ? { ...object, subjectPhysique: { ...object.subjectPhysique, ...patch } } : object), undoStack: withUndo(state), redoStack: [] })),
+  applyStudioSubjectPhysique: (id, presetId) => set((state) => ({ studioObjects: state.studioObjects.map((object) => object.id === id && object.type === 'subject' ? { ...object, subjectPhysique: { ...(PHYSIQUE_PRESETS[presetId] ?? DEFAULT_PHYSIQUE) } } : object), undoStack: withUndo(state), redoStack: [] })),
   setCameraPosition: (position) => set((state) => ({ cameraPosition: position, ...(state.cameraAutoFocus ? { focusDistance: cameraFocusDistance(position, state.cameraTarget) } : {}), undoStack: withUndo(state), redoStack: [] })),
   setCameraTarget: (cameraTarget) => set((state) => ({ cameraTarget, cameraTargetSubjectId: undefined, ...(state.cameraAutoFocus ? { focusDistance: cameraFocusDistance(state.cameraPosition, cameraTarget) } : {}), undoStack: withUndo(state), redoStack: [] })),
   bindCameraToSubject: (subjectId, zone = 'face') => set((state) => {
@@ -1353,6 +1559,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   }),
   setModelAsset: (url, name) => set((state) => ({ modelAssetUrl: url, modelAssetName: name, modelImportStatus: url ? 'loading' : 'idle', selected: 'model', selectedIds: [], undoStack: withUndo(state), redoStack: [] })),
   setModelImportStatus: (status) => set({ modelImportStatus: status }),
+  setModelRigStatus: (status) => set({ modelRigStatus: status }),
   undo: () => set((state) => {
     const previous = state.undoStack.at(-1)
     if (!previous) return state
@@ -1384,6 +1591,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       set((state) => ({ ...snapshotState(snapshot), shots, selected: firstLight?.id ?? 'model', selectedIds: firstLight ? [firstLight.id] : [], saveStatus: 'loaded', lastSavedAt: Date.now(), undoStack: withUndo(state), redoStack: [] }))
     } catch { set({ saveStatus: 'error' }) }
   },
+  shareableJson: () => JSON.stringify(snapshotFrom(get(), false)),
   exportProject: () => {
     try {
       const snapshot = snapshotFrom(get(), true)

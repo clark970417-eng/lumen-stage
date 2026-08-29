@@ -1,4 +1,4 @@
-import { Grid, Line, OrbitControls, RoundedBox, TransformControls } from '@react-three/drei'
+import { Grid, Html, Line, OrbitControls, RoundedBox, TransformControls } from '@react-three/drei'
 import { BrightnessContrast, DepthOfField, EffectComposer, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Effect, ToneMappingMode } from 'postprocessing'
@@ -10,10 +10,18 @@ import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
 import { IESLoader } from 'three/addons/loaders/IESLoader.js'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import { breathingAdjustedFocalLength, calculateDepthOfField } from '../optics'
-import { useStudio, type MakeupStyle, type OutfitFabric, type StudioLight, type StudioModifier, type StudioObject } from '../store'
+import { useStudio, type OutfitFabric, type StudioLight, type StudioModifier, type StudioObject } from '../store'
+import { Figure, type FigureAppearance } from './Figure'
+import type { ModelPose } from '../pose'
+import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
 import { captureLightOutput, opticTransmission, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
+import { getBackdrop, type BackdropProfile } from '../backdrops'
+import { FOOTPRINT, seatHeightOf } from '../layout'
+import { PoseRig } from './PoseRig'
+import { applyGelTint, geledTemperature, getGel } from '../gels'
+import { brickNormalMap, canvasNormalMap, concreteNormalMap, mottleMap, paperNormalMap, plasterNormalMap, woodNormalMap } from '../textures'
 
 const SENSOR_WIDTH = { 'full-frame': 36, 'aps-c': 23.5, mft: 17.3 } as const
 const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
@@ -238,6 +246,182 @@ function SensorPass({ iso, nativeIso, noiseFactor, dynamicRange, noiseReduction,
   return <primitive object={effect} />
 }
 
+/**
+ * A seamless roll, swept.
+ *
+ * The curve matters: a paper roll does not meet the floor at a corner, it bends
+ * through a radius, and that radius is what kills the shadow line behind the
+ * subject's feet. Drawing it as two flat planes throws away the one thing the
+ * backdrop is for.
+ */
+function sweepGeometry(width: number, height: number, radius: number, floorRun: number, segments = 24) {
+  const half = width / 2
+  const path: [number, number][] = []
+  // Down the vertical face to the top of the bend.
+  const lift = 0.004
+  path.push([-radius, height])
+  path.push([-radius, radius + lift])
+  for (let i = 1; i <= segments; i++) {
+    const angle = (i / segments) * (Math.PI / 2)
+    path.push([-radius + radius * Math.sin(angle), lift + radius - radius * (1 - Math.cos(angle))])
+  }
+  // Out across the floor toward the camera. Held a paper's thickness above the
+  // room floor so the two surfaces never contest the same depth.
+  path.push([floorRun, lift])
+
+  const positions: number[] = []
+  const uvs: number[] = []
+  const indices: number[] = []
+  const runLength = path.length
+  path.forEach(([z, y], row) => {
+    for (let column = 0; column <= 1; column++) {
+      positions.push(column === 0 ? -half : half, y, z)
+      uvs.push(column, row / (runLength - 1))
+    }
+  })
+  for (let row = 0; row < runLength - 1; row++) {
+    const a = row * 2
+    indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3)
+  }
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+  geometry.setIndex(indices)
+  geometry.computeVertexNormals()
+  return geometry
+}
+
+const SURFACE_NORMAL_MAP: Record<BackdropProfile['surface'], () => THREE.Texture> = {
+  paper: paperNormalMap,
+  canvas: canvasNormalMap,
+  vinyl: paperNormalMap,
+  plaster: plasterNormalMap,
+  brick: brickNormalMap,
+  concrete: concreteNormalMap,
+  wood: woodNormalMap,
+}
+
+function BackdropSurface() {
+  const backdropId = useStudio((state) => state.backdropId)
+  const backdropWidth = useStudio((state) => state.backdropWidth)
+  const backdropDistance = useStudio((state) => state.backdropDistance)
+  const roomHeight = useStudio((state) => state.roomHeight)
+  const profile = getBackdrop(backdropId)
+
+  const geometry = useMemo(() => {
+    if (profile.family === 'none') return null
+    const height = Math.min(roomHeight - 0.4, profile.family === 'wall' ? roomHeight - 0.3 : 3.2)
+    return profile.sweep
+      ? sweepGeometry(backdropWidth, height, 0.62, 2.6)
+      : sweepGeometry(backdropWidth, height, 0.02, 0.02)
+  }, [backdropWidth, profile.family, profile.sweep, roomHeight])
+
+  const material = useMemo(() => {
+    if (profile.family === 'none') return null
+    const normalMap = SURFACE_NORMAL_MAP[profile.surface]()
+    return new THREE.MeshStandardMaterial({
+      color: profile.color,
+      roughness: profile.roughness,
+      metalness: profile.surface === 'vinyl' ? 0.06 : 0,
+      normalMap,
+      normalScale: new THREE.Vector2(profile.surface === 'paper' ? 0.3 : 1, profile.surface === 'paper' ? 0.3 : 1),
+      map: profile.mottled ? mottleMap() : null,
+      side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    })
+  }, [profile])
+
+  useEffect(() => () => { geometry?.dispose(); material?.dispose() }, [geometry, material])
+  if (!geometry || !material) return null
+
+  return (
+    <group position={[0, 0, -backdropDistance]}>
+      <mesh receiveShadow geometry={geometry} material={material} />
+      {profile.family === 'paper' && (
+        // The roll and its crossbar. Small, but it tells you the paper's width.
+        <>
+          <mesh position={[0, Math.min(roomHeight - 0.4, 3.2) + 0.06, -0.62]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.055, 0.055, backdropWidth + 0.12, 20]} />
+            <meshStandardMaterial color="#5b564d" roughness={0.8} />
+          </mesh>
+          {([-1, 1] as const).map((side) => (
+            <mesh key={side} position={[side * (backdropWidth / 2 + 0.16), Math.min(roomHeight - 0.4, 3.2) / 2, -0.66]}>
+              <cylinderGeometry args={[0.022, 0.028, Math.min(roomHeight - 0.4, 3.2) + 0.1, 12]} />
+              <meshStandardMaterial color="#2a2d2a" metalness={0.7} roughness={0.3} />
+            </mesh>
+          ))}
+        </>
+      )}
+    </group>
+  )
+}
+
+/**
+ * The measuring tape.
+ *
+ * Click two points and the scene reports the distance between them, plus the
+ * horizontal run and the height difference — because on a light stand those are
+ * the two numbers you actually set, and the hypotenuse is the one that decides
+ * the exposure.
+ */
+function MeasureTool() {
+  const measureMode = useStudio((state) => state.measureMode)
+  const points = useStudio((state) => state.measurePoints)
+  const addMeasurePoint = useStudio((state) => state.addMeasurePoint)
+  const roomWidth = useStudio((state) => state.roomWidth)
+  const roomDepth = useStudio((state) => state.roomDepth)
+  const view = useStudio((state) => state.view)
+  if (view === 'camera') return null
+
+  const [a, b] = points
+  const distance = a && b ? Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) : 0
+  const run = a && b ? Math.hypot(b[0] - a[0], b[2] - a[2]) : 0
+  const rise = a && b ? b[1] - a[1] : 0
+  const midpoint: [number, number, number] = a && b
+    ? [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + 0.12, (a[2] + b[2]) / 2]
+    : [0, 0, 0]
+
+  return (
+    <group>
+      {/* An invisible catcher so a click anywhere in the room lands on the floor. */}
+      {measureMode && (
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0.002, 0]}
+          onClick={(event) => {
+            event.stopPropagation()
+            const { x, y, z } = event.point
+            addMeasurePoint([Number(x.toFixed(3)), Number(y.toFixed(3)), Number(z.toFixed(3))])
+          }}
+        >
+          <planeGeometry args={[roomWidth * 1.5, roomDepth * 1.5]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      )}
+      {points.map((point, index) => (
+        <mesh key={index} position={point}>
+          <sphereGeometry args={[0.045, 16, 12]} />
+          <meshBasicMaterial color="#7ad8ff" toneMapped={false} />
+        </mesh>
+      ))}
+      {a && b && (
+        <>
+          <Line points={[a, b]} color="#7ad8ff" lineWidth={2} />
+          {/* The right-angle legs: the run you pace out and the stand height. */}
+          <Line points={[a, [b[0], a[1], b[2]]]} color="#7ad8ff" lineWidth={1} dashed dashSize={0.08} gapSize={0.06} opacity={0.5} transparent />
+          <Line points={[[b[0], a[1], b[2]], b]} color="#7ad8ff" lineWidth={1} dashed dashSize={0.08} gapSize={0.06} opacity={0.5} transparent />
+          <Html position={midpoint} center distanceFactor={7} className="measure-readout">
+            <b>{distance.toFixed(2)} m</b>
+            <span>{run.toFixed(2)} run · {rise >= 0 ? '+' : ''}{rise.toFixed(2)} rise</span>
+          </Html>
+        </>
+      )}
+    </group>
+  )
+}
+
 function Backdrop() {
   const roomWidth = useStudio((state) => state.roomWidth)
   const roomDepth = useStudio((state) => state.roomDepth)
@@ -245,18 +429,20 @@ function Backdrop() {
   const wallColor = useStudio((state) => state.wallColor)
   const floorColor = useStudio((state) => state.floorColor)
   const halfWidth = roomWidth / 2
+  const plaster = plasterNormalMap()
   return (
     <group>
       <mesh receiveShadow position={[0, roomHeight / 2, -roomDepth * 0.25]}>
         <planeGeometry args={[roomWidth, roomHeight]} />
-        <meshStandardMaterial color={wallColor} roughness={0.96} />
+        <meshStandardMaterial color={wallColor} roughness={0.96} normalMap={plaster} normalScale={new THREE.Vector2(0.4, 0.4)} />
       </mesh>
       <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, roomDepth * 0.25]}>
         <planeGeometry args={[roomWidth, roomDepth]} />
-        <meshStandardMaterial color={floorColor} roughness={0.94} />
+        <meshStandardMaterial color={floorColor} roughness={0.94} normalMap={plaster} normalScale={new THREE.Vector2(0.5, 0.5)} />
       </mesh>
       <mesh receiveShadow rotation={[0, Math.PI / 2, 0]} position={[-halfWidth, roomHeight / 2, roomDepth * 0.25]}><planeGeometry args={[roomDepth, roomHeight]} /><meshStandardMaterial color={wallColor} roughness={0.95} /></mesh>
       <mesh receiveShadow rotation={[0, -Math.PI / 2, 0]} position={[halfWidth, roomHeight / 2, roomDepth * 0.25]}><planeGeometry args={[roomDepth, roomHeight]} /><meshStandardMaterial color={wallColor} roughness={0.95} /></mesh>
+      <BackdropSurface />
     </group>
   )
 }
@@ -318,18 +504,41 @@ function TimelinePlayback() {
   return null
 }
 
-type SubjectAppearance = {
-  skinRoughness: number
-  skinOil: number
-  subsurface: number
-  makeup: MakeupStyle
-  eyeColor: string
-  hairColor: string
-  hairGloss: number
-  outfitFabric: OutfitFabric
+/**
+ * The scene's wrapper around the figure rig.
+ *
+ * Everything the rig needs is either passed in (for a standalone person) or
+ * read from the main subject's slice of the store.
+ */
+/**
+ * Finds what a figure at this spot would be sitting on.
+ *
+ * A seat only counts if the figure is actually over it — standing beside a
+ * chair should not levitate anybody.
+ */
+function useSeatHeight(position: [number, number, number]) {
+  const studioObjects = useStudio((state) => state.studioObjects)
+  return useMemo(() => {
+    let best: number | null = null
+    for (const object of studioObjects) {
+      const seat = seatHeightOf(object.type, object.scale)
+      if (seat === null) continue
+      const reach = FOOTPRINT[object.type as keyof typeof FOOTPRINT] ?? 0.4
+      const gap = Math.hypot(object.position[0] - position[0], object.position[2] - position[2])
+      if (gap > reach) continue
+      if (best === null || seat > best) best = seat
+    }
+    return best
+  }, [position, studioObjects])
 }
 
-function DefaultMannequin({ pose: poseOverride, skinColor: skinOverride, outfitColor: outfitOverride, appearance: appearanceOverride }: { pose?: StudioObject['subjectPose']; skinColor?: string; outfitColor?: string; appearance?: SubjectAppearance } = {}) {
+function DefaultMannequin({ pose: poseOverride, skinColor: skinOverride, outfitColor: outfitOverride, appearance: appearanceOverride, seatHeight }: {
+  pose?: ModelPose
+  skinColor?: string
+  outfitColor?: string
+  appearance?: FigureAppearance
+  seatHeight?: number | null
+} = {}) {
   const mainPose = useStudio((state) => state.modelPose)
   const mainSkinColor = useStudio((state) => state.skinColor)
   const mainOutfitColor = useStudio((state) => state.outfitColor)
@@ -341,98 +550,58 @@ function DefaultMannequin({ pose: poseOverride, skinColor: skinOverride, outfitC
   const mainHairColor = useStudio((state) => state.hairColor)
   const mainHairGloss = useStudio((state) => state.hairGloss)
   const mainOutfitFabric = useStudio((state) => state.outfitFabric)
+  const mainPhysique = useStudio((state) => state.physique)
+  const mainHairStyle = useStudio((state) => state.hairStyle)
+  const mainOutfitStyle = useStudio((state) => state.outfitStyle)
   const lookAtCamera = useStudio((state) => state.modelLookAtCamera)
   const eyesAtCamera = useStudio((state) => state.modelEyesAtCamera)
   const cameraPosition = useStudio((state) => state.cameraPosition)
   const modelPosition = useStudio((state) => state.modelPosition)
   const modelRotation = useStudio((state) => state.modelRotation)
+  const mainSeatHeight = useSeatHeight(modelPosition)
+
   const basePose = poseOverride ?? mainPose
   const cameraYaw = THREE.MathUtils.radToDeg(Math.atan2(cameraPosition[0] - modelPosition[0], cameraPosition[2] - modelPosition[2]) - modelRotation)
   const pose = !poseOverride && lookAtCamera ? { ...basePose, headYaw: THREE.MathUtils.clamp(cameraYaw, -72, 72) } : basePose
-  const eyeAim = !poseOverride && eyesAtCamera ? THREE.MathUtils.clamp(cameraYaw / 72, -1, 1) * 0.0035 : 0
-  const skinColor = skinOverride ?? mainSkinColor
-  const outfitColor = outfitOverride ?? mainOutfitColor
-  const appearance = appearanceOverride ?? { skinRoughness: mainSkinRoughness, skinOil: mainSkinOil, subsurface: mainSubsurface, makeup: mainMakeup, eyeColor: mainEyeColor, hairColor: mainHairColor, hairGloss: mainHairGloss, outfitFabric: mainOutfitFabric }
-  const skin = useMemo(() => {
-    const base = new THREE.Color(skinColor)
-    return new THREE.MeshPhysicalMaterial({
-      color: base,
-      roughness: THREE.MathUtils.lerp(0.24, 0.9, appearance.skinRoughness / 100),
-      metalness: 0,
-      clearcoat: appearance.skinOil / 100 * 0.48,
-      clearcoatRoughness: THREE.MathUtils.lerp(0.12, 0.42, appearance.skinRoughness / 100),
-      sheen: appearance.subsurface / 100 * 0.72,
-      sheenColor: base.clone().lerp(new THREE.Color('#ff8a76'), 0.38),
-      sheenRoughness: 0.78,
-      emissive: base.clone().multiplyScalar(0.12),
-      emissiveIntensity: appearance.subsurface / 100 * 0.08,
-    })
-  }, [appearance.skinOil, appearance.skinRoughness, appearance.subsurface, skinColor])
-  const outfit = useMemo(() => {
-    const fabric = appearance.outfitFabric
-    return new THREE.MeshPhysicalMaterial({
-      color: outfitColor,
-      metalness: 0,
-      roughness: fabric === 'cotton' ? 0.88 : fabric === 'silk' ? 0.38 : 0.42,
-      sheen: fabric === 'silk' ? 0.72 : fabric === 'cotton' ? 0.14 : 0.05,
-      sheenColor: new THREE.Color(outfitColor).lerp(new THREE.Color('#ffffff'), 0.35),
-      sheenRoughness: fabric === 'silk' ? 0.22 : 0.72,
-      clearcoat: fabric === 'leather' ? 0.42 : 0,
-      clearcoatRoughness: 0.34,
-    })
-  }, [appearance.outfitFabric, outfitColor])
-  const hair = useMemo(() => new THREE.MeshPhysicalMaterial({ color: appearance.hairColor, roughness: THREE.MathUtils.lerp(0.72, 0.18, appearance.hairGloss / 100), sheen: appearance.hairGloss / 100, sheenColor: new THREE.Color(appearance.hairColor).lerp(new THREE.Color('#ffffff'), 0.28), sheenRoughness: 0.25 }), [appearance.hairColor, appearance.hairGloss])
-  useEffect(() => () => { skin.dispose(); outfit.dispose(); hair.dispose() }, [hair, outfit, skin])
-  const rad = THREE.MathUtils.degToRad
+  // Eyes track the lens independently of the head: chin down, eyes up.
+  const gaze = !poseOverride && eyesAtCamera
+    ? { yaw: THREE.MathUtils.clamp(cameraYaw - pose.headYaw, -35, 35), pitch: -pose.headTilt }
+    : { yaw: basePose.gazeYaw, pitch: basePose.gazePitch }
 
-  const arm = (side: 'left' | 'right') => {
-    const direction = side === 'left' ? -1 : 1
-    const shoulder = side === 'left' ? pose.leftArm : pose.rightArm
-    const elbow = side === 'left' ? pose.leftElbow : pose.rightElbow
-    return <group position={[direction * 0.37, 1.3, 0]} rotation={[0, 0, rad(shoulder)]}>
-      <mesh castShadow position={[0, -0.19, 0]} material={outfit}><capsuleGeometry args={[0.092, 0.25, 8, 20]} /></mesh>
-      <group position={[0, -0.42, 0]} rotation={[0, 0, rad(elbow)]}>
-        <mesh castShadow position={[0, -0.18, 0]} material={skin}><capsuleGeometry args={[0.067, 0.25, 8, 20]} /></mesh>
-        <mesh castShadow position={[0, -0.39, 0.012]} scale={[0.72, 1.08, 0.56]} material={skin}><sphereGeometry args={[0.085, 24, 20]} /></mesh>
-      </group>
-    </group>
+  const appearance: FigureAppearance = appearanceOverride ?? {
+    skinRoughness: mainSkinRoughness,
+    skinOil: mainSkinOil,
+    subsurface: mainSubsurface,
+    makeup: mainMakeup,
+    eyeColor: mainEyeColor,
+    hairColor: mainHairColor,
+    hairGloss: mainHairGloss,
+    outfitFabric: mainOutfitFabric,
+    physique: mainPhysique,
+    hairStyle: mainHairStyle,
+    outfit: mainOutfitStyle,
   }
 
-  return <>
-    <group position={[pose.hipShift, 0, 0]} rotation={[0, rad(pose.torsoYaw), 0]}>
-      <mesh castShadow position={[0, 1.02, 0]} scale={[1.1, 0.82, 0.68]} material={outfit}><capsuleGeometry args={[0.32, 0.42, 10, 28]} /></mesh>
-      <mesh castShadow position={[0, 1.5, 0]} scale={[0.88, 1, 0.82]} material={skin}><cylinderGeometry args={[0.088, 0.115, 0.24, 32]} /></mesh>
-      <mesh castShadow position={[0, 1.405, 0.035]} rotation={[Math.PI / 2, 0, 0]} material={outfit}><torusGeometry args={[0.13, 0.022, 12, 36, Math.PI]} /></mesh>
-      <group position={[0, 1.73, 0]} rotation={[rad(pose.headTilt), rad(pose.headYaw), 0]}>
-        <mesh castShadow scale={[0.78, 1, 0.84]} material={skin}><sphereGeometry args={[0.225, 56, 48]} /></mesh>
-        <mesh castShadow position={[0, -0.095, 0.008]} scale={[0.7, 0.6, 0.75]} material={skin}><sphereGeometry args={[0.19, 44, 36]} /></mesh>
-        <mesh castShadow position={[0, 0.028, -0.008]} scale={[0.81, 1.025, 0.87]} material={hair}><sphereGeometry args={[0.226, 56, 36, 0, Math.PI * 2, 0, Math.PI * 0.48]} /></mesh>
-        <mesh castShadow position={[0, 0.02, -0.132]} scale={[0.73, 0.92, 0.32]} material={hair}><sphereGeometry args={[0.22, 40, 32]} /></mesh>
-        {([-1, 1] as const).map((side) => <mesh key={`ear-${side}`} castShadow position={[side * 0.177, -0.006, -0.004]} scale={[0.3, 0.56, 0.24]} material={skin}><sphereGeometry args={[0.062, 22, 18]} /></mesh>)}
-        {([-1, 1] as const).map((side) => <group key={side} position={[side * 0.063, 0.025, 0.187]}>
-          <mesh scale={[1, 0.38, 0.24]}><sphereGeometry args={[0.023, 28, 20]} /><meshPhysicalMaterial color="#f5f1e9" roughness={0.22} clearcoat={0.62} /></mesh>
-          <mesh position={[eyeAim, 0, 0.007]}><circleGeometry args={[0.0075, 24]} /><meshPhysicalMaterial color={appearance.eyeColor} roughness={0.18} clearcoat={0.9} /></mesh>
-          <mesh position={[eyeAim + side * -0.002, 0.0025, 0.009]}><circleGeometry args={[0.0022, 16]} /><meshBasicMaterial color="#ffffff" toneMapped={false} /></mesh>
-          <mesh position={[0, 0.034, -0.004]} rotation={[0, 0, side * -0.09]} scale={[1.28, 0.12, 0.12]} material={hair}><sphereGeometry args={[0.025, 18, 12]} /></mesh>
-        </group>)}
-        <mesh position={[0, -0.012, 0.202]} scale={[0.42, 1, 0.42]} material={skin}><sphereGeometry args={[0.031, 24, 20]} /></mesh>
-        <RoundedBox args={[0.052, 0.007, 0.004]} radius={0.003} smoothness={3} position={[0, -0.081, 0.184]}><meshPhysicalMaterial color={appearance.makeup === 'editorial' ? '#7e263c' : '#814e4c'} roughness={0.52} /></RoundedBox>
-        {appearance.makeup !== 'none' && ([-1, 1] as const).map((side) => <mesh key={`cheek-${side}`} position={[side * 0.1, -0.043, 0.167]}><circleGeometry args={[0.018, 24]} /><meshBasicMaterial color={appearance.makeup === 'editorial' ? '#b93f69' : '#c87876'} transparent opacity={appearance.makeup === 'editorial' ? 0.17 : 0.07} depthWrite={false} /></mesh>)}
-        {appearance.makeup === 'editorial' && ([-1, 1] as const).map((side) => <mesh key={`shadow-${side}`} position={[side * 0.063, 0.042, 0.181]} scale={[1.25, 0.25, 1]}><circleGeometry args={[0.021, 24]} /><meshBasicMaterial color="#60305e" transparent opacity={0.2} depthWrite={false} /></mesh>)}
-      </group>
-      {arm('left')}{arm('right')}
-    </group>
-    <mesh castShadow position={[0, 0.76, 0]} scale={[1.05, 0.72, 0.68]} material={outfit}><sphereGeometry args={[0.29, 32, 24]} /></mesh>
-    {([-1, 1] as const).map((side) => <group key={`leg-${side}`}>
-      <mesh castShadow position={[side * 0.145, 0.41, 0]} rotation={[0, 0, rad(side * 1.8)]} material={outfit}><capsuleGeometry args={[0.105, 0.65, 8, 24]} /></mesh>
-      <mesh castShadow position={[side * 0.145, 0.075, 0.055]} scale={[0.92, 0.5, 1.55]}><sphereGeometry args={[0.12, 26, 20]} /><meshStandardMaterial color="#151716" roughness={0.5} /></mesh>
-    </group>)}
-  </>
+  return <Figure pose={pose} skinColor={skinOverride ?? mainSkinColor} outfitColor={outfitOverride ?? mainOutfitColor} appearance={appearance} gaze={gaze} seatHeight={seatHeight ?? mainSeatHeight} />
 }
 
+/**
+ * An imported GLB, driven by the same pose rig as the built-in figure.
+ *
+ * The skeleton is mapped once on load; after that a pose change writes straight
+ * onto the bones. If the file has no recognisable humanoid skeleton the model
+ * still renders — it just stands in its rest pose, and the inspector says so.
+ */
 function ImportedModel({ url }: { url: string }) {
   const [object, setObject] = useState<THREE.Group | null>(null)
   const setStatus = useStudio((state) => state.setModelImportStatus)
+  const setRigStatus = useStudio((state) => state.setModelRigStatus)
+  const pose = useStudio((state) => state.modelPose)
+  const lookAtCamera = useStudio((state) => state.modelLookAtCamera)
+  const cameraPosition = useStudio((state) => state.cameraPosition)
+  const modelPosition = useStudio((state) => state.modelPosition)
+  const modelRotation = useStudio((state) => state.modelRotation)
+  const rig = useRef<{ map: BoneMap; rest: RestPose } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -446,6 +615,9 @@ function ImportedModel({ url }: { url: string }) {
         if (child instanceof THREE.Mesh) {
           child.castShadow = true
           child.receiveShadow = true
+          // Skinned meshes are usually authored with a bounding box for the rest
+          // pose only; without this they vanish the moment a limb moves out of it.
+          if ((child as THREE.SkinnedMesh).isSkinnedMesh) child.frustumCulled = false
         }
       })
       const initialBox = new THREE.Box3().setFromObject(model)
@@ -460,15 +632,24 @@ function ImportedModel({ url }: { url: string }) {
       const box = new THREE.Box3().setFromObject(model)
       const center = box.getCenter(new THREE.Vector3())
       model.position.set(-center.x, -box.min.y, -center.z)
+      model.updateMatrixWorld(true)
+
+      const map = mapSkeleton(model)
+      const quality = mappingQuality(map)
+      rig.current = quality.usable ? { map, rest: captureRestPose(model, map) } : null
+      setRigStatus(quality.usable ? 'rigged' : 'unrigged')
+
       loadedObject = model
       setObject(model)
       setStatus('ready')
     }, undefined, () => {
-      if (active) setStatus('error')
+      if (active) { setStatus('error'); setRigStatus('none') }
     })
 
     return () => {
       active = false
+      rig.current = null
+      setRigStatus('none')
       if (loadedObject) {
         loadedObject.traverse((child) => {
           if (!(child instanceof THREE.Mesh)) return
@@ -478,7 +659,21 @@ function ImportedModel({ url }: { url: string }) {
         })
       }
     }
-  }, [url, setStatus])
+  }, [url, setRigStatus, setStatus])
+
+  // The imported figure gets the same head-tracking behaviour as the built-in one.
+  const cameraYaw = THREE.MathUtils.radToDeg(Math.atan2(cameraPosition[0] - modelPosition[0], cameraPosition[2] - modelPosition[2]) - modelRotation)
+  const effectivePose = useMemo(
+    () => lookAtCamera ? { ...pose, headYaw: THREE.MathUtils.clamp(cameraYaw, -72, 72) } : pose,
+    [cameraYaw, lookAtCamera, pose],
+  )
+
+  useEffect(() => {
+    if (!object || !rig.current) return
+    const stanceSplay = THREE.MathUtils.radToDeg(Math.atan2(effectivePose.stanceWidth / 2 - 0.083, 0.865))
+    applyPoseToSkeleton(object, rig.current.map, rig.current.rest, effectivePose, stanceSplay)
+    applyExpressionToMorphs(object, effectivePose)
+  }, [effectivePose, object])
 
   return object ? <primitive object={object} /> : <DefaultMannequin />
 }
@@ -493,11 +688,30 @@ function Mannequin() {
   const setModelTransform = useStudio((state) => state.setModelTransform)
   const modelAssetUrl = useStudio((state) => state.modelAssetUrl)
   const modelHeight = useStudio((state) => state.modelHeight)
+  const modelPose = useStudio((state) => state.modelPose)
+  const physique = useStudio((state) => state.physique)
+  const updateModelPose = useStudio((state) => state.updateModelPose)
+  const poseHandles = useStudio((state) => state.poseHandles)
+  const modelRigStatus = useStudio((state) => state.modelRigStatus)
+  const seatHeight = useSeatHeight(position)
   const group = useRef<THREE.Group>(null)
+  // An imported model with no recognised skeleton cannot be posed, so it gets
+  // no handles rather than handles that quietly do nothing.
+  const showHandles = poseHandles && selected && view !== 'camera'
+    && (!modelAssetUrl || modelRigStatus === 'rigged')
 
   const model = (
     <group ref={group} position={position} rotation={[0, rotation, 0]} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); selectObject('model') }}>
       {modelAssetUrl ? <ImportedModel url={modelAssetUrl} /> : <DefaultMannequin />}
+      {showHandles && (
+        <PoseRig
+          pose={modelPose}
+          physique={physique}
+          seatHeight={seatHeight}
+          groupRef={group}
+          onChange={updateModelPose}
+        />
+      )}
     </group>
   )
 
@@ -525,12 +739,54 @@ function Mannequin() {
   )
 }
 
+/** A standalone person, seated on whatever furniture it happens to be over. */
+function StandaloneFigure({ object }: { object: StudioObject }) {
+  const seatHeight = useSeatHeight(object.position)
+  const poseHandles = useStudio((state) => state.poseHandles)
+  const selected = useStudio((state) => state.selected === object.id)
+  const view = useStudio((state) => state.view)
+  const updateStudioSubjectPose = useStudio((state) => state.updateStudioSubjectPose)
+  const group = useRef<THREE.Group>(null)
+  return (
+    <group ref={group} scale={object.subjectHeight / 1.82}>
+      {poseHandles && selected && view !== 'camera' && (
+        <PoseRig
+          pose={object.subjectPose}
+          physique={object.subjectPhysique}
+          seatHeight={seatHeight}
+          groupRef={group}
+          onChange={(patch) => updateStudioSubjectPose(object.id, patch)}
+        />
+      )}
+      <DefaultMannequin
+        pose={object.subjectPose}
+        skinColor={object.subjectSkinColor}
+        outfitColor={object.subjectOutfitColor}
+        seatHeight={seatHeight}
+        appearance={{
+          skinRoughness: object.subjectSkinRoughness,
+          skinOil: object.subjectSkinOil,
+          subsurface: object.subjectSubsurface,
+          makeup: object.subjectMakeup,
+          eyeColor: object.subjectEyeColor,
+          hairColor: object.subjectHairColor,
+          hairGloss: object.subjectHairGloss,
+          outfitFabric: object.subjectOutfitFabric,
+          physique: object.subjectPhysique,
+          hairStyle: object.subjectHairStyle,
+          outfit: object.subjectOutfitStyle,
+        }}
+      />
+    </group>
+  )
+}
+
 function StudioObjectMaterial({ object }: { object: StudioObject }) {
   return <meshStandardMaterial color={object.color} roughness={object.material === 'matte' ? 0.82 : object.material === 'glossy' ? 0.22 : 0.28} metalness={object.material === 'metal' ? 0.82 : 0.03} />
 }
 
 function StudioObjectMesh({ object }: { object: StudioObject }) {
-  if (object.type === 'subject') return <group scale={object.subjectHeight / 1.82}><DefaultMannequin pose={object.subjectPose} skinColor={object.subjectSkinColor} outfitColor={object.subjectOutfitColor} appearance={{ skinRoughness: object.subjectSkinRoughness, skinOil: object.subjectSkinOil, subsurface: object.subjectSubsurface, makeup: object.subjectMakeup, eyeColor: object.subjectEyeColor, hairColor: object.subjectHairColor, hairGloss: object.subjectHairGloss, outfitFabric: object.subjectOutfitFabric }} /></group>
+  if (object.type === 'subject') return <StandaloneFigure object={object} />
   if (object.type === 'chair') return <>
     <mesh castShadow receiveShadow position={[0, 0.48, 0]}><boxGeometry args={[0.68, 0.12, 0.66]} /><StudioObjectMaterial object={object} /></mesh>
     <mesh castShadow receiveShadow position={[0, 0.91, 0.28]} rotation={[-0.08, 0, 0]}><boxGeometry args={[0.68, 0.76, 0.1]} /><StudioObjectMaterial object={object} /></mesh>
@@ -566,8 +822,13 @@ function MovableStudioObject({ object }: { object: StudioObject }) {
 
 function Softbox({ light }: { light: StudioLight }) {
   const { id: lightId, position, temperature, shape, grid: gridEnabled, colorMode, rgb, enabled } = light
+  const gel = getGel(light.gelId)
   const softboxEnabled = light.optic === 'softbox'
   const areaModifier = ['softbox', 'umbrella-shoot', 'umbrella-reflect', 'beauty-dish', 'deep-parabolic', 'lantern'].includes(light.optic)
+  // Shadow resolution follows the quality preset. A soft source needs the extra
+  // texels less than a hard one, but a hard one is where acne shows first.
+  const shadowQuality = useStudio((state) => state.qualityPreset)
+  const shadowMapSize = shadowQuality === 'performance' ? 512 : shadowQuality === 'ultra' ? 2048 : 1024
   const selectObject = useStudio((state) => state.selectObject)
   const selected = useStudio((state) => state.selectedIds.includes(lightId))
   const primary = useStudio((state) => state.selected === lightId)
@@ -585,7 +846,12 @@ function Softbox({ light }: { light: StudioLight }) {
   const rig = useRef<THREE.Group>(null)
   const spot = useRef<(THREE.SpotLight & { radius?: number; iesMap?: THREE.Texture | null })>(null)
   const [iesTexture, setIesTexture] = useState<THREE.Texture | null>(null)
-  const color = useMemo(() => colorMode === 'rgb' ? new THREE.Color(rgb) : kelvinColor(temperature), [colorMode, rgb, temperature])
+  /** Source colour after the gel: correction gels shift the temperature, effect gels tint what is left. */
+  const color = useMemo(() => {
+    const base = colorMode === 'rgb' ? new THREE.Color(rgb) : kelvinColor(geledTemperature(temperature, gel))
+    const [r, g, b] = applyGelTint([base.r, base.g, base.b], gel)
+    return new THREE.Color(r, g, b)
+  }, [colorMode, gel, rgb, temperature])
   const goboTexture = useMemo(() => createGoboTexture(light.optic === 'projection' ? light.goboPattern : 'none', light.goboRotation, light.goboScale), [light.goboPattern, light.goboRotation, light.goboScale, light.optic])
   const outputLumens = captureLightOutput(light, shutter, syncSpeed)
   const fixtureScale = useMemo<[number, number, number]>(() => {
@@ -632,9 +898,13 @@ function Softbox({ light }: { light: StudioLight }) {
         ref={spot}
         position={[0, 0, 0]} target={target} color={color} intensity={effectiveEnabled ? outputLumens / (renderMode === 'path' ? PATHTRACE_CANDELA_SCALE : PREVIEW_CANDELA_SCALE) : 0}
         map={goboTexture ?? undefined}
-        angle={beamAngle} penumbra={penumbra} decay={2} distance={10} castShadow
-        shadow-mapSize-width={lightId === 'key' ? 1024 : 512} shadow-mapSize-height={lightId === 'key' ? 1024 : 512} shadow-bias={-0.0004}
-        shadow-radius={areaModifier ? THREE.MathUtils.clamp(Math.max(light.modifierWidth, light.modifierHeight) * 3.2, 1.5, 7) : 0.7}
+        angle={beamAngle} penumbra={penumbra} decay={2} distance={12} castShadow
+        shadow-mapSize-width={shadowMapSize} shadow-mapSize-height={shadowMapSize}
+        shadow-bias={-0.00012}
+        shadow-normalBias={0.035}
+        shadow-camera-near={0.4}
+        shadow-camera-far={12}
+        shadow-radius={areaModifier ? THREE.MathUtils.clamp(Math.max(light.modifierWidth, light.modifierHeight) * 2.4, 1.2, 4) : 0.7}
       />
       <group ref={visual} scale={fixtureScale}>
         {shape === 'round' ? (
@@ -756,7 +1026,14 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
       if (output > dominantOutput) { dominant = light; dominantOutput = output }
     })
     const reflectance = modifier.surface === 'silver' ? 0.78 : modifier.surface === 'gold' ? 0.58 : 0.42
-    const color = dominant ? (dominant.colorMode === 'rgb' ? new THREE.Color(dominant.rgb) : kelvinColor(dominant.temperature)) : new THREE.Color('#fff5df')
+    const dominantGel = dominant ? getGel(dominant.gelId) : null
+    const color = dominant && dominantGel
+      ? (() => {
+          const base = dominant.colorMode === 'rgb' ? new THREE.Color(dominant.rgb) : kelvinColor(geledTemperature(dominant.temperature, dominantGel))
+          const [r, g, b] = applyGelTint([base.r, base.g, base.b], dominantGel)
+          return new THREE.Color(r, g, b)
+        })()
+      : new THREE.Color('#fff5df')
     if (modifier.surface === 'gold') color.lerp(new THREE.Color('#ffc56f'), 0.42)
     if (modifier.surface === 'silver') color.lerp(new THREE.Color('#eaf6ff'), 0.12)
     return { intensity: reflected * outgoing * reflectance / 115, color }
@@ -1165,6 +1442,7 @@ export function StudioScene() {
       {studioObjects.map((object) => <MovableStudioObject key={object.id} object={object} />)}
       {renderMode !== 'path' && <CameraProp />}
       {renderMode !== 'path' && <Grid position={[0, 0.006, 1.5]} args={[10, 10]} cellSize={0.5} cellThickness={0.4} cellColor="#747872" sectionSize={2} sectionThickness={0.75} sectionColor="#9ba197" fadeDistance={12} fadeStrength={1.8} infiniteGrid />}
+      {renderMode !== 'path' && <MeasureTool />}
       <CameraImaging />
       <ExposureProbe />
       {renderMode === 'path' && <PathTracingRenderer />}
