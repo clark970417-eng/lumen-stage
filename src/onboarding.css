@@ -1,0 +1,36 @@
+.onboarding-tour { position: fixed; inset: 0; z-index: 1200; pointer-events: none; }
+.onboarding-shade { position: absolute; inset: 0; background: rgba(4, 9, 13, .56); }
+.onboarding-highlight { position: fixed; z-index: 1; border: 2px solid var(--signal-cool); border-radius: 9px; box-shadow: 0 0 0 4px rgba(103, 216, 255, .13), 0 0 28px rgba(103, 216, 255, .28); transition: inset .2s ease, width .2s ease, height .2s ease; }
+.onboarding-card { position: fixed; z-index: 2; width: min(340px, calc(100vw - 32px)); overflow: hidden; pointer-events: auto; border: 1px solid #4a6475; border-radius: 12px; background: #101a22; box-shadow: 0 24px 80px rgba(0, 0, 0, .62), 0 0 0 1px rgba(103, 216, 255, .08); color: #eef4f7; }
+.onboarding-card > img { display: block; width: 100%; aspect-ratio: 16 / 7; object-fit: cover; object-position: center top; border-bottom: 1px solid #334957; background: #0a1117; }
+.onboarding-copy { padding: 17px 18px 13px; }
+.onboarding-kicker { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.onboarding-kicker span { color: var(--signal-cool); font: 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+.onboarding-kicker button { min-height: 32px; padding-inline: 6px; border: 0; background: transparent; color: #91a5b2; cursor: pointer; }
+.onboarding-kicker button:hover { color: #fff; }
+.onboarding-card h2 { margin: 10px 0 7px; color: #f4f8fa; font-size: 18px; line-height: 1.35; }
+.onboarding-card p { margin: 0; color: #afbdc6; font-size: 13px; line-height: 1.65; }
+.onboarding-card > footer { min-height: 58px; padding: 10px 12px 10px 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #2a3b47; background: #0c151c; }
+.onboarding-card > footer > div:last-child { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
+.onboarding-card footer button { min-height: 36px; padding: 0 12px; border: 1px solid #3d5260; border-radius: 6px; background: #172630; color: #b9c8d1; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.onboarding-card footer button:hover { border-color: #718a9a; color: #fff; }
+.onboarding-card footer button.primary { border-color: var(--signal-cool); background: var(--signal-cool); color: #071117; font-weight: 700; }
+.onboarding-card footer button.secondary { color: var(--signal-cool); }
+.onboarding-dots { display: flex; gap: 5px; }
+.onboarding-dots i { width: 5px; height: 5px; border-radius: 999px; background: #40515c; }
+.onboarding-dots i.active { width: 16px; background: var(--signal-cool); }
+
+@media (max-width: 900px) {
+  .onboarding-shade { background: rgba(4, 9, 13, .48); }
+  .onboarding-card { max-height: min(520px, calc(100dvh - 24px)); }
+  .onboarding-card > img { aspect-ratio: 16 / 6; }
+  .onboarding-copy { padding: 14px 15px 10px; }
+  .onboarding-card h2 { margin-top: 7px; font-size: 17px; }
+  .onboarding-card p { font-size: 12.5px; line-height: 1.55; }
+  .onboarding-card > footer { min-height: 54px; padding: 8px 10px 8px 15px; }
+  .onboarding-card footer button { min-height: 40px; padding-inline: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-highlight { transition: none; }
+}

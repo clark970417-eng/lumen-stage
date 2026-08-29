@@ -860,6 +860,32 @@ const DICT = {
   'mobile.project.guide': { en: 'Open guide', zh: '開啟操作指南', ja: 'ガイドを開く' },
   'mobile.project.about': { en: 'About & data', zh: '關於與資料說明', ja: '情報とデータ' },
   'mobile.project.support': { en: 'Support', zh: '支援', ja: 'サポート' },
+
+  // ── 首次開啟導覽 ────────────────────────────────────────
+  'tour.aria': { en: 'Quick start tour', zh: '快速上手導覽', ja: 'クイックスタートツアー' },
+  'tour.step': { en: 'Step {n} of {total}', zh: '第 {n} 步，共 {total} 步', ja: '{total} ステップ中 {n}' },
+  'tour.skip': { en: 'Skip', zh: '略過', ja: 'スキップ' },
+  'tour.back': { en: 'Back', zh: '上一步', ja: '戻る' },
+  'tour.next': { en: 'Next', zh: '下一步', ja: '次へ' },
+  'tour.finish': { en: 'Start creating', zh: '開始創作', ja: '制作を始める' },
+  'tour.fullGuide': { en: 'Full guide', zh: '完整教學', ja: '詳しいガイド' },
+  'tour.replay': { en: 'Quick tour', zh: '快速導覽', ja: 'クイックツアー' },
+  'tour.desktop.1.title': { en: 'Start from a proven lighting setup', zh: '先套用一組專業燈位', ja: '定番のライティングから始める' },
+  'tour.desktop.1.body': { en: 'Open Setups to preview classic portrait, beauty, dramatic and commercial lighting. One click places the lights, camera and backdrop together.', zh: '從「燈位庫」預覽人像、美妝、戲劇與商業燈法；點一下就會一起放好燈具、相機與背景。', ja: '「ライティング集」ではポートレート、ビューティー、ドラマ、商品撮影の定番を確認できます。1 回の操作でライト、カメラ、背景をまとめて配置します。' },
+  'tour.desktop.2.title': { en: 'Shape the light in the scene', zh: '直接在場景裡塑造光線', ja: 'シーン上で光を整える' },
+  'tour.desktop.2.body': { en: 'Select an object, then use Move, Aim and Rotate. The highlighted tool always describes what your next drag will do.', zh: '先選取物件，再使用「移動、照射、旋轉」。亮起的工具會清楚告訴你下一次拖曳要改變什麼。', ja: 'オブジェクトを選び、「移動・照射・回転」を使います。点灯しているツールが、次のドラッグで何が変わるかを示します。' },
+  'tour.desktop.3.title': { en: 'Fine-tune with real photographic controls', zh: '用真實攝影參數精修', ja: '実際の撮影設定で詰める' },
+  'tour.desktop.3.body': { en: 'The Inspector changes power, modifiers, colour, position, lens and exposure for the selected object. Start with the orange-highlighted control.', zh: '右側檢查器會依選取物件顯示功率、控光附件、色彩、位置、鏡頭與曝光；先從橘色標示的控制開始。', ja: '右のインスペクターで、選択中の対象に応じて出力、モディファイア、色、位置、レンズ、露出を調整します。オレンジで示された項目から始めましょう。' },
+  'tour.desktop.4.title': { en: 'Compare the plan with the final frame', zh: '從佈光一路看到成品', ja: 'ライト図から完成フレームまで確認' },
+  'tour.desktop.4.body': { en: 'Switch between Studio, Top plan, Viewfinder and Photo render. Use the full guide any time you want a deeper walkthrough.', zh: '可隨時切換「攝影棚、俯視圖、觀景窗與照片渲染」比較結果；需要深入操作時，再開啟完整教學。', ja: '「スタジオ・俯瞰図・ファインダー・フォトレンダー」を切り替えて比較できます。詳しい操作はいつでも完全ガイドで確認できます。' },
+  'tour.mobile.1.title': { en: 'Choose a lighting setup', zh: '先選一組燈位', ja: 'ライティングを選ぶ' },
+  'tour.mobile.1.body': { en: 'Tap a card to place its lights, camera and backdrop. It is the fastest route to a useful starting image.', zh: '點一下卡片就會放好燈具、相機與背景，最快得到一張可以繼續調整的起始畫面。', ja: 'カードをタップするとライト、カメラ、背景をまとめて配置します。すぐに調整を始められる最短ルートです。' },
+  'tour.mobile.2.title': { en: 'Adjust only what matters on set', zh: '用分頁調整拍攝重點', ja: '必要な項目だけを調整' },
+  'tour.mobile.2.body': { en: 'Use Subject, Light and Camera tabs for the choices that matter most on a phone. The same project opens unchanged on desktop.', zh: '用「人物、燈光、相機」分頁調整手機上最重要的選項；同一專案之後可原樣在桌面版繼續。', ja: '「人物・ライト・カメラ」タブで、スマホで重要な項目だけを調整します。同じプロジェクトをデスクトップでもそのまま開けます。' },
+  'tour.mobile.3.title': { en: 'Orbit first, then check the frame', zh: '先轉動場景，再確認取景', ja: '視点を回してから構図を確認' },
+  'tour.mobile.3.body': { en: 'Drag the preview to inspect the setup, then switch to Viewfinder to see exactly what the camera captures.', zh: '拖曳預覽檢查燈位，再切換到「取景」查看相機實際拍到的畫面。', ja: 'プレビューをドラッグして配置を確認し、「ファインダー」に切り替えて実際の写りを確認します。' },
+  'tour.mobile.4.title': { en: 'Capture a planning frame', zh: '拍下規劃成果', ja: 'プランニング画像を撮影' },
+  'tour.mobile.4.body': { en: 'Tap the shutter to create a frame you can save or share with the crew before the real shoot.', zh: '點快門產生可儲存的畫面，在正式拍攝前就能和團隊確認構圖與燈光方向。', ja: 'シャッターを押して確認用フレームを作り、本番前に構図と光の方向をチームで共有できます。' },
 } as const satisfies Record<string, Record<Locale, string>>
 
 export type MessageKey = keyof typeof DICT

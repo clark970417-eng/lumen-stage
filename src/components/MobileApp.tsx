@@ -27,6 +27,7 @@ import { buildShareLink, copyToClipboard } from '../share'
 import { MAX_PROJECT_FILE_BYTES, readTextFileWithinLimit } from '../security'
 import { formatStorage, storageUsage } from '../persistence'
 import { useDialogFocus } from './DialogFocus'
+import { OnboardingTour, shouldShowOnboarding } from './OnboardingTour'
 import '../mobile.css'
 
 type Tab = 'setups' | 'subject' | 'lights' | 'camera' | 'project'
@@ -189,7 +190,7 @@ function SetupsTab({ applied, onApply }: { applied: string | null; onApply: (id:
             </span>
             <span className="m-setup-text">
               <strong>{ct(`setup.${setup.id}`, setup.label)}</strong>
-              <small>{setup.summary}</small>
+              <small>{ct(`setup.${setup.id}.summary`, setup.summary)}</small>
               <em>{setup.lights.length} · {setup.ratio}</em>
             </span>
           </button>
@@ -514,7 +515,7 @@ function PhotoSheet({ photo, onClose }: { photo: string; onClose: () => void }) 
   )
 }
 
-function ProjectTab({ onOpenAbout }: { onOpenAbout: () => void }) {
+function ProjectTab({ onOpenAbout, onOpenTour }: { onOpenAbout: () => void; onOpenTour: () => void }) {
   const t = useT()
   const locale = useLocaleStore((state) => state.locale)
   const saveStatus = useStudio((state) => state.saveStatus)
@@ -548,7 +549,7 @@ function ProjectTab({ onOpenAbout }: { onOpenAbout: () => void }) {
       if (file) { try { importProject(await readTextFileWithinLimit(file, MAX_PROJECT_FILE_BYTES)) } catch { useStudio.setState({ saveStatus: 'error' }) } }
       event.target.value = ''
     }} />
-    <div className="m-project-links"><a href={guide} target="_blank" rel="noreferrer">{t('mobile.project.guide')}</a><button onClick={onOpenAbout}>{t('mobile.project.about')}</button><a href="/support">{t('mobile.project.support')}</a></div>
+    <div className="m-project-links"><button onClick={onOpenTour}>{t('tour.replay')}</button><a href={guide} target="_blank" rel="noreferrer">{t('mobile.project.guide')}</a><button onClick={onOpenAbout}>{t('mobile.project.about')}</button><a href="/support">{t('mobile.project.support')}</a></div>
   </div>
 }
 
@@ -568,13 +569,26 @@ export function MobileApp() {
   const [capturing, setCapturing] = useState(false)
   const [photo, setPhoto] = useState<string | null>(null)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [tourOpen, setTourOpen] = useState(false)
   const pageVisible = usePageVisible()
+
+  const openTour = () => {
+    setTab('setups')
+    setSheetOpen(true)
+    window.requestAnimationFrame(() => setTourOpen(true))
+  }
 
   useEffect(() => {
     const compactLandscape = window.matchMedia('(orientation: landscape) and (max-height: 520px)')
     const adaptSheet = (event: MediaQueryListEvent) => { if (event.matches) setSheetOpen(false) }
     compactLandscape.addEventListener('change', adaptSheet)
     return () => compactLandscape.removeEventListener('change', adaptSheet)
+  }, [])
+
+  useEffect(() => {
+    if (!shouldShowOnboarding('mobile')) return
+    const timer = window.setTimeout(openTour, 700)
+    return () => window.clearTimeout(timer)
   }, [])
 
   const capture = async () => {
@@ -655,11 +669,12 @@ export function MobileApp() {
           {tab === 'subject' && <SubjectTab />}
           {tab === 'lights' && <LightsTab />}
           {tab === 'camera' && <CameraTab />}
-          {tab === 'project' && <ProjectTab onOpenAbout={() => setAboutOpen(true)} />}
+          {tab === 'project' && <ProjectTab onOpenAbout={() => setAboutOpen(true)} onOpenTour={openTour} />}
         </section>
       )}
 
       {photo && <PhotoSheet photo={photo} onClose={() => setPhoto(null)} />}
+      <OnboardingTour open={tourOpen} scope="mobile" onClose={() => setTourOpen(false)} />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </main>
   )

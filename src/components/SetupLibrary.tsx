@@ -47,6 +47,8 @@ export function SetupLibrary() {
       <div className="setup-cards">
         {entries.map((setup) => {
           const label = ct(`setup.${setup.id}`, setup.label)
+          const summary = ct(`setup.${setup.id}.summary`, setup.summary)
+          const note = ct(`setup.${setup.id}.note`, setup.note)
           const backdrop = setup.backdropId ? getBackdrop(setup.backdropId) : null
           return (
             <article key={setup.id} className="setup-card">
@@ -65,10 +67,10 @@ export function SetupLibrary() {
                 </div>
                 <div className="setup-card-title">
                   <strong>{label}</strong>
-                  <small>{setup.summary}</small>
+                  <small>{summary}</small>
                 </div>
               </div>
-              <p className="setup-card-note">{setup.note}</p>
+              <p className="setup-card-note">{note}</p>
               <div className="setup-card-meta">
                 <span>{t('setups.lights')} <b>{setup.lights.length}</b></span>
                 <span>{t('setups.ratio')} <b>{setup.ratio}</b></span>

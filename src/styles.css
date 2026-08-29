@@ -923,6 +923,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 }
 .guide-actions a:hover { background: #223441; color: var(--signal-cool); }
 .guide-actions button { min-width: 56px; padding: 0; color: var(--signal-cool); font-size: 23px; }
+.guide-actions .guide-tour-button { min-width: max-content; padding: 0 14px; font: 600 10px var(--mono); letter-spacing: .06em; }
 .guide-actions button:hover { background: var(--signal-cool); color: #071016; }
 .guide-page-stage { min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 22px 22px 34px; background: radial-gradient(circle at 50% 0, rgba(103,216,255,.045), transparent 32%), #17212a; scroll-behavior: smooth; scrollbar-color: #4d7288 #111920; }
 .guide-page-stage > img { display: block; flex: 0 0 auto; width: min(100%, 1040px); height: auto; object-fit: contain; border: 1px solid #354957; border-radius: 3px; box-shadow: 0 18px 46px rgba(0,0,0,.46); }

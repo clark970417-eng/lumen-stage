@@ -22,6 +22,7 @@ import { MAX_PROJECT_FILE_BYTES, readTextFileWithinLimit } from './security'
 import { BrandMark } from './components/BrandMark'
 import { CanvasHealth } from './components/CanvasHealth'
 import { useDialogFocus } from './components/DialogFocus'
+import { OnboardingTour, shouldShowOnboarding } from './components/OnboardingTour'
 
 let hintSequence = 0
 
@@ -283,7 +284,7 @@ function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
   )
 }
 
-export function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function GuideModal({ open, onClose, onStartTour }: { open: boolean; onClose: () => void; onStartTour: () => void }) {
   const closeButton = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -331,6 +332,7 @@ export function GuideModal({ open, onClose }: { open: boolean; onClose: () => vo
         <header>
           <div><strong>{t('guide.title')}</strong><small>{t('guide.languageNote')} · {t('guide.duration')}</small></div>
           <div className="guide-actions">
+            <button className="guide-tour-button" onClick={onStartTour}>{t('tour.replay')}</button>
             <button className="guide-zoom-button" onClick={() => setZoomed((current) => !current)} aria-pressed={zoomed}>{zoomed ? t('guide.fitWidth') : t('guide.zoomIn')}</button>
             <a href={guideUrl} download>{t('guide.download')}</a>
             <button ref={closeButton} onClick={onClose} aria-label={t('guide.close')}>×</button>
@@ -499,6 +501,7 @@ export default function App() {
   const t = useT()
   const [sceneReady, setSceneReady] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
+  const [tourOpen, setTourOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [webglLost, setWebglLost] = useState(false)
   const onWebglLost = useCallback(() => setWebglLost(true), [])
@@ -521,6 +524,12 @@ export default function App() {
       if (hintTimer.current) clearTimeout(hintTimer.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (!sceneReady || !shouldShowOnboarding('desktop')) return
+    const timer = window.setTimeout(() => setTourOpen(true), 700)
+    return () => window.clearTimeout(timer)
+  }, [sceneReady])
 
   return (
     <main className="app-shell">
@@ -564,7 +573,8 @@ export default function App() {
       <ShortcutHelp />
       <SetupLibraryHost />
       <SetupSheetHost />
-      <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} onStartTour={() => { setGuideOpen(false); setTourOpen(true) }} />
+      <OnboardingTour open={tourOpen} scope="desktop" onClose={() => setTourOpen(false)} onOpenGuide={() => setGuideOpen(true)} />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </main>
   )
