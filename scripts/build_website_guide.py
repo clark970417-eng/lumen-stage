@@ -15,15 +15,15 @@ OUT = ROOT / "output" / "pdf" / "LUMEN_STAGE_網站使用教學.pdf"
 TMP = ROOT / "tmp" / "pdfs"
 W, H = landscape(A4)
 
-BG = HexColor("#111411")
-PANEL = HexColor("#1B1F1B")
-PANEL_2 = HexColor("#242924")
-INK = HexColor("#EDF0E9")
-MUTED = HexColor("#9AA297")
-LIME = HexColor("#D8FF3E")
-ORANGE = HexColor("#FF815F")
-CYAN = HexColor("#65D9C7")
-LINE = HexColor("#3B423A")
+BG = HexColor("#080B0F")
+PANEL = HexColor("#111820")
+PANEL_2 = HexColor("#18232C")
+INK = HexColor("#EDF2F5")
+MUTED = HexColor("#82909B")
+LIME = HexColor("#67D8FF")
+ORANGE = HexColor("#FFB454")
+CYAN = HexColor("#9CCEE0")
+LINE = HexColor("#344755")
 
 
 def register_fonts():
@@ -94,7 +94,7 @@ def table(c, x, y, widths, rows, row_h=34, font_size=8.2):
     total = sum(widths)
     for ri, row in enumerate(rows):
         h = row_h
-        c.setFillColor(PANEL_2 if ri == 0 else (PANEL if ri % 2 else HexColor("#202420")))
+        c.setFillColor(PANEL_2 if ri == 0 else (PANEL if ri % 2 else HexColor("#151E26")))
         c.rect(x, y - h, total, h, fill=1, stroke=0)
         xx = x
         for ci, value in enumerate(row):

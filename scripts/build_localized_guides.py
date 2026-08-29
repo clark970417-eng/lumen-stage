@@ -18,15 +18,15 @@ from reportlab.pdfgen import canvas
 
 ROOT = Path(__file__).resolve().parents[1]
 W, H = landscape(A4)
-BG = HexColor("#111411")
-PANEL = HexColor("#1B1F1B")
-PANEL_ALT = HexColor("#222722")
-INK = HexColor("#EDF0E9")
-MUTED = HexColor("#9AA297")
-LIME = HexColor("#D8FF3E")
-CYAN = HexColor("#65D9C7")
-ORANGE = HexColor("#FF815F")
-LINE = HexColor("#3B423A")
+BG = HexColor("#080B0F")
+PANEL = HexColor("#111820")
+PANEL_ALT = HexColor("#18232C")
+INK = HexColor("#EDF2F5")
+MUTED = HexColor("#82909B")
+LIME = HexColor("#67D8FF")
+CYAN = HexColor("#9CCEE0")
+ORANGE = HexColor("#FFB454")
+LINE = HexColor("#344755")
 
 
 GUIDES = {

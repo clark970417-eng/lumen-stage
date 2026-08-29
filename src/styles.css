@@ -843,33 +843,38 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 /* ── 網站使用教學 ─────────────────────────────────────────── */
 .guide-overlay {
   position: fixed; inset: 0; z-index: 120; padding: 28px;
-  display: grid; place-items: center; background: rgba(5, 7, 5, .88); backdrop-filter: blur(8px);
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 12%, rgba(103, 216, 255, .1), transparent 38%), rgba(4, 8, 12, .9);
+  backdrop-filter: blur(10px);
 }
 .guide-dialog {
   width: min(1180px, 96vw); height: min(820px, 92vh); overflow: hidden;
   position: relative; display: grid; grid-template-rows: 58px minmax(0, 1fr);
-  border: 1px solid #4b5447; background: #111411; box-shadow: 0 30px 90px rgba(0, 0, 0, .7);
+  border: 1px solid #405666; border-radius: 10px; background: #0d141b;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .72), 0 0 0 1px rgba(103, 216, 255, .04), 0 0 48px rgba(103, 216, 255, .07);
 }
 .guide-dialog > header {
   display: flex; align-items: center; justify-content: space-between; gap: 24px;
-  padding-left: 18px; border-bottom: 1px solid var(--line); background: #1a1e19;
+  padding-left: 18px; border-bottom: 1px solid #344755;
+  background: linear-gradient(90deg, rgba(103, 216, 255, .09), transparent 46%), #131c24;
 }
 .guide-dialog > header > div:first-child { display: flex; flex-direction: column; gap: 5px; }
-.guide-dialog > header strong { color: #edf0e9; font-size: 13px; font-weight: 600; letter-spacing: .04em; }
-.guide-dialog > header small { color: #8f978b; font: 9px var(--mono); letter-spacing: .12em; }
+.guide-dialog > header strong { color: #f2f7fa; font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+.guide-dialog > header strong::before { content: ''; display: inline-block; width: 3px; height: 13px; margin-right: 10px; border-radius: 2px; vertical-align: -2px; background: var(--signal-cool); box-shadow: 0 0 12px rgba(103,216,255,.55); }
+.guide-dialog > header small { color: #8296a5; font: 9px var(--mono); letter-spacing: .12em; }
 .guide-actions { align-self: stretch; display: flex; align-items: stretch; }
 .guide-actions a, .guide-actions button {
   min-width: 82px; padding: 0 14px; display: grid; place-items: center;
-  border: 0; border-left: 1px solid var(--line); background: #20241f; color: #c9cec4;
+  border: 0; border-left: 1px solid #344755; background: #18232c; color: #c7d5de;
   font-size: 10.5px; text-decoration: none; cursor: pointer;
 }
-.guide-actions a:hover { background: #292f26; color: var(--signal); }
-.guide-actions button { min-width: 56px; padding: 0; color: var(--signal); font-size: 23px; }
-.guide-actions button:hover { background: var(--signal); color: #111411; }
-.guide-page-stage { min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 22px 22px 34px; background: #252825; scroll-behavior: smooth; }
-.guide-page-stage > img { display: block; flex: 0 0 auto; width: min(100%, 1040px); height: auto; object-fit: contain; box-shadow: 0 18px 46px rgba(0,0,0,.42); }
-.guide-page-indicator { position: absolute; z-index: 4; right: 9px; bottom: 9px; min-width: 72px; height: 38px; padding: 0 14px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(112,122,108,.52); border-radius: 999px; background: rgba(14,17,14,.88); box-shadow: 0 8px 28px rgba(0,0,0,.48); backdrop-filter: blur(12px); pointer-events: none; }
-.guide-page-indicator strong { color: #f1f4ed; font: 14px var(--mono); font-weight: 500; }.guide-page-indicator span { color: #7f887c; font: 10px var(--mono); }
+.guide-actions a:hover { background: #223441; color: var(--signal-cool); }
+.guide-actions button { min-width: 56px; padding: 0; color: var(--signal-cool); font-size: 23px; }
+.guide-actions button:hover { background: var(--signal-cool); color: #071016; }
+.guide-page-stage { min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 22px 22px 34px; background: radial-gradient(circle at 50% 0, rgba(103,216,255,.045), transparent 32%), #17212a; scroll-behavior: smooth; scrollbar-color: #4d7288 #111920; }
+.guide-page-stage > img { display: block; flex: 0 0 auto; width: min(100%, 1040px); height: auto; object-fit: contain; border: 1px solid #354957; border-radius: 3px; box-shadow: 0 18px 46px rgba(0,0,0,.46); }
+.guide-page-indicator { position: absolute; z-index: 4; right: 9px; bottom: 9px; min-width: 72px; height: 38px; padding: 0 14px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(103,216,255,.48); border-radius: 999px; background: rgba(9,16,22,.9); box-shadow: 0 8px 28px rgba(0,0,0,.48), 0 0 18px rgba(103,216,255,.08); backdrop-filter: blur(12px); pointer-events: none; }
+.guide-page-indicator strong { color: var(--signal-cool); font: 14px var(--mono); font-weight: 500; }.guide-page-indicator span { color: #7890a0; font: 10px var(--mono); }
 
 /* ── 捲軸與載入狀態 ───────────────────────────────────────── */
 .panel::-webkit-scrollbar, .pro-scroll::-webkit-scrollbar, .shot-list::-webkit-scrollbar, .exposure-panel::-webkit-scrollbar { width: 9px; }
@@ -1441,7 +1446,7 @@ button, input, select { transition: border-color .16s ease, background-color .16
 .view-switch button.render-active { background: var(--signal); color: #171108; box-shadow: 0 0 18px rgba(255,180,84,.13); }
 .view-switch button kbd { border-radius: 3px; }
 
-.project-actions { margin-left: 10px; overflow: hidden; grid-template-columns: 64px 58px 48px 58px 54px minmax(88px, 1fr); border-left-color: var(--line); border-radius: 0 8px 8px 0; }
+.project-actions { margin-left: 10px; overflow: visible; grid-template-columns: 64px 58px 48px 58px 54px minmax(88px, 1fr); border-left-color: var(--line); border-radius: 0 8px 8px 0; }
 .project-actions button,
 .project-actions .setup-sheet-button,
 .file-menu > button { border-right-color: var(--line); background: rgba(18,24,30,.86); color: #9aa8b2; }
