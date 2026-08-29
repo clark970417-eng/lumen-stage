@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useT } from '../i18n'
 import { useStudio } from '../store'
 import { LIGHT_PROFILES } from '../lightProfiles'
 
@@ -26,6 +27,7 @@ export function Library() {
   const frameAspect = useStudio((state) => state.frameAspect)
   const posePreset = useStudio((state) => state.posePreset)
   const modelHeight = useStudio((state) => state.modelHeight)
+  const t = useT()
   const fileInput = useRef<HTMLInputElement>(null)
   const activeUrl = useRef<string | null>(null)
   const [query, setQuery] = useState('')
@@ -45,22 +47,22 @@ export function Library() {
 
   return (
     <aside className="library panel">
-      <div className="panel-heading"><span>場景物件</span><b>{String(lights.length + modifiers.length + studioObjects.length + 2).padStart(2, '0')}</b></div>
-      <div className="library-actions" role="toolbar" aria-label="場景歷史與新增">
-        <button className="add-light-button" onClick={() => addLight('square')}>＋ 新增燈</button>
-        <button onClick={undo} disabled={!canUndo} title="復原（⌘Z）">↶</button>
-        <button onClick={redo} disabled={!canRedo} title="重做（⇧⌘Z）">↷</button>
+      <div className="panel-heading"><span>{t('library.title')}</span><b>{String(lights.length + modifiers.length + studioObjects.length + 2).padStart(2, '0')}</b></div>
+      <div className="library-actions" role="toolbar" aria-label={t('library.history')}>
+        <button className="add-light-button" onClick={() => addLight('square')}>{t('library.addLight')}</button>
+        <button onClick={undo} disabled={!canUndo} title={t('library.undo.title')}>↶</button>
+        <button onClick={redo} disabled={!canRedo} title={t('library.redo.title')}>↷</button>
       </div>
-      <div className="selection-actions" role="toolbar" aria-label="多選與群組">
-        <span>{selectedIds.length ? `已選 ${selectedIds.length}` : 'SHIFT 多選'}</span>
-        <button onClick={groupSelected} disabled={selectedIds.length < 2}>群組</button>
-        <button onClick={ungroupSelected} disabled={!hasSelectedGroup}>解散</button>
+      <div className="selection-actions" role="toolbar" aria-label={t('library.selection')}>
+        <span>{selectedIds.length ? t('library.selected', { count: selectedIds.length }) : t('library.shiftHint')}</span>
+        <button onClick={groupSelected} disabled={selectedIds.length < 2}>{t('library.group')}</button>
+        <button onClick={ungroupSelected} disabled={!hasSelectedGroup}>{t('library.ungroup')}</button>
       </div>
       <div className="library-filter">
-        <input aria-label="搜尋場景器材" type="search" placeholder="搜尋燈具、附件、物件…" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <button className={favoritesOnly ? 'active' : ''} aria-label="只顯示收藏" title="在物件上按兩下可加入收藏" onClick={() => setFavoritesOnly((value) => !value)}>★</button>
+        <input aria-label={t('library.search')} type="search" placeholder={t('library.search.placeholder')} value={query} onChange={(event) => setQuery(event.target.value)} />
+        <button className={favoritesOnly ? 'active' : ''} aria-label={t('library.favorites')} title={t('library.favorites.title')} onClick={() => setFavoritesOnly((value) => !value)}>★</button>
       </div>
-      <nav className="object-list" aria-label="場景物件">
+      <nav className="object-list" aria-label={t('library.title')}>
         <button className={selected === 'camera' ? 'selected' : ''} onClick={() => selectObject('camera')}>
           <span className="object-icon camera-icon" /><span><strong>Camera 01</strong><small>{sensorFormat === 'full-frame' ? 'Full frame' : sensorFormat === 'aps-c' ? 'APS-C' : 'Micro Four Thirds'} · {frameAspect}</small></span><i>C</i>
         </button>
@@ -84,34 +86,34 @@ export function Library() {
         ))}
       </nav>
 
-      <div className="panel-heading prop-heading"><span>人物與棚拍物件</span><b>{String(studioObjects.length).padStart(2, '0')}</b></div>
-      <div className="prop-add-grid" role="toolbar" aria-label="新增人物與棚拍物件">
-        <button onClick={() => addStudioObject('subject')}><i className="subject" />人物</button>
-        <button onClick={() => addStudioObject('chair')}><i className="chair" />椅子</button>
-        <button onClick={() => addStudioObject('table')}><i className="table" />桌子</button>
-        <button onClick={() => addStudioObject('plinth')}><i className="plinth" />商品台</button>
-        <button onClick={() => addStudioObject('cube')}><i className="cube" />方塊</button>
-        <button onClick={() => addStudioObject('sphere')}><i className="sphere" />球體</button>
+      <div className="panel-heading prop-heading"><span>{t('library.props')}</span><b>{String(studioObjects.length).padStart(2, '0')}</b></div>
+      <div className="prop-add-grid" role="toolbar" aria-label={t('library.props.add')}>
+        <button onClick={() => addStudioObject('subject')}><i className="subject" />{t('object.subject')}</button>
+        <button onClick={() => addStudioObject('chair')}><i className="chair" />{t('object.chair')}</button>
+        <button onClick={() => addStudioObject('table')}><i className="table" />{t('object.table')}</button>
+        <button onClick={() => addStudioObject('plinth')}><i className="plinth" />{t('object.plinth')}</button>
+        <button onClick={() => addStudioObject('cube')}><i className="cube" />{t('object.cube')}</button>
+        <button onClick={() => addStudioObject('sphere')}><i className="sphere" />{t('object.sphere')}</button>
       </div>
 
-      <div className="panel-heading grip-heading"><span>控光附件</span><b>{String(modifiers.length).padStart(2, '0')}</b></div>
-      <div className="grip-add-grid" role="toolbar" aria-label="新增控光附件">
-        <button onClick={() => addModifier('reflector')}><i className="reflector" />反光板</button>
-        <button onClick={() => addModifier('flag')}><i className="flag" />黑旗</button>
+      <div className="panel-heading grip-heading"><span>{t('library.grip')}</span><b>{String(modifiers.length).padStart(2, '0')}</b></div>
+      <div className="grip-add-grid" role="toolbar" aria-label={t('library.grip.add')}>
+        <button onClick={() => addModifier('reflector')}><i className="reflector" />{t('grip.reflector')}</button>
+        <button onClick={() => addModifier('flag')}><i className="flag" />{t('grip.flag')}</button>
         <button onClick={() => addModifier('vflat')}><i className="vflat" />V-Flat</button>
       </div>
 
-      <div className="panel-heading backdrop-heading"><span>背景</span><b>01</b></div>
+      <div className="panel-heading backdrop-heading"><span>{t('library.backdrop')}</span><b>01</b></div>
       <div className="single-backdrop">
         <span className="backdrop-thumb paper" />
-        <div><strong>暖灰無縫紙</strong><small>BG–01 / LOCKED</small></div>
+        <div><strong>{t('library.backdrop.paper')}</strong><small>BG–01 / LOCKED</small></div>
         <i>✓</i>
       </div>
 
-      <div className="panel-heading asset-heading"><span>人物資產</span><b>GLB</b></div>
+      <div className="panel-heading asset-heading"><span>{t('library.asset')}</span><b>GLB</b></div>
       <input ref={fileInput} className="asset-input model-import-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={(event) => importModel(event.target.files?.[0])} />
-      <button className="import-model" onClick={() => fileInput.current?.click()}><span>＋</span><p><strong>匯入人物模型</strong><small>GLB / GLTF · 自動校正身高</small></p></button>
-      <div className="library-note"><span>↗</span><p><strong>直接編輯場景</strong><small>選取物件後拖移彩色軸</small></p></div>
+      <button className="import-model" onClick={() => fileInput.current?.click()}><span>＋</span><p><strong>{t('library.import')}</strong><small>{t('library.import.sub')}</small></p></button>
+      <div className="library-note"><span>↗</span><p><strong>{t('library.note')}</strong><small>{t('library.note.sub')}</small></p></div>
     </aside>
   )
 }

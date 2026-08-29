@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useStudio, type ExposureOverlay, type ExposureSample } from '../store'
 import { calculateMetering } from '../metering'
+import { useT } from '../i18n'
 import { effectiveLightOutput } from '../lightProfiles'
 
 type ExposureMetrics = {
@@ -91,6 +92,7 @@ export function ExposureAnalysis() {
   const sample = useStudio((state) => state.exposureSample)
   const setValue = useStudio((state) => state.setValue)
   const histogramMode = useStudio((state) => state.histogramMode)
+  const t = useT()
   const overlayCanvas = useRef<HTMLCanvasElement>(null)
   const metrics = useMemo(() => analyzeFrame(sample), [sample])
   const subjectMeterPoint = useMemo<[number, number, number]>(() => [modelPosition[0], modelPosition[1] + modelHeight * 0.72, modelPosition[2]], [modelHeight, modelPosition])
@@ -130,40 +132,40 @@ export function ExposureAnalysis() {
   return <>
     <canvas ref={overlayCanvas} className={`exposure-overlay ${overlay !== 'none' ? 'visible' : ''}`} aria-hidden="true" />
     <div className="exposure-launcher">
-      <button className={open ? 'active' : ''} onClick={() => setValue('analysisOpen', !open)} aria-expanded={open} aria-controls="exposure-panel"><i />測光分析 <kbd>M</kbd></button>
+      <button className={open ? 'active' : ''} onClick={() => setValue('analysisOpen', !open)} aria-expanded={open} aria-controls="exposure-panel"><i />{t('exposure.launcher')} <kbd>M</kbd></button>
       {overlay !== 'none' && <span>{overlay === 'false-color' ? 'FALSE COLOR' : 'CLIP ALERT'}</span>}
       {soloLightId && <span>SOLO · {lights.find((light) => light.id === soloLightId)?.name.toUpperCase()}</span>}
     </div>
-    {open && <aside id="exposure-panel" className="exposure-panel" aria-label="測光與曝光分析">
-      <header><span>EXPOSURE SCOPE</span><button aria-label="關閉測光分析" onClick={() => setValue('analysisOpen', false)}>×</button></header>
+    {open && <aside id="exposure-panel" className="exposure-panel" aria-label={t('exposure.aria')}>
+      <header><span>EXPOSURE SCOPE</span><button aria-label={t('exposure.close')} onClick={() => setValue('analysisOpen', false)}>×</button></header>
       <div className="exposure-summary">
-        <div><span>平均亮度</span><strong>{Math.round(metrics.mean * 100)}<small>%</small></strong></div>
-        <div><span>曝光偏移</span><strong className={Math.abs(metrics.evOffset) > 1 ? 'warning' : ''}>{evLabel}</strong></div>
+        <div><span>{t('exposure.meanLuma')}</span><strong>{Math.round(metrics.mean * 100)}<small>%</small></strong></div>
+        <div><span>{t('exposure.evOffset')}</span><strong className={Math.abs(metrics.evOffset) > 1 ? 'warning' : ''}>{evLabel}</strong></div>
       </div>
-      <div className="scope-mode-switch" role="group" aria-label="直方圖模式"><button className={histogramMode === 'luma' ? 'active' : ''} onClick={() => setValue('histogramMode', 'luma')}>亮度</button><button className={histogramMode === 'rgb' ? 'active' : ''} onClick={() => setValue('histogramMode', 'rgb')}>RGB</button></div>
-      <div className={`histogram ${histogramMode === 'rgb' ? 'rgb' : ''}`} aria-label={histogramMode === 'rgb' ? 'RGB 直方圖' : '亮度直方圖'}>
+      <div className="scope-mode-switch" role="group" aria-label={t('exposure.histogramMode')}><button className={histogramMode === 'luma' ? 'active' : ''} onClick={() => setValue('histogramMode', 'luma')}>{t('exposure.luma')}</button><button className={histogramMode === 'rgb' ? 'active' : ''} onClick={() => setValue('histogramMode', 'rgb')}>RGB</button></div>
+      <div className={`histogram ${histogramMode === 'rgb' ? 'rgb' : ''}`} aria-label={t(histogramMode === 'rgb' ? 'exposure.histogram.rgb' : 'exposure.histogram.luma')}>
         {histogramMode === 'luma' ? metrics.histogram.map((height, index) => <i key={index} style={{ height: `${Math.max(2, height * 100)}%` }} />) : <>{(['red','green','blue'] as const).map((channel) => <span key={channel} className={`histogram-channel ${channel}`}>{metrics.rgbHistogram[channel].map((height,index) => <i key={index} style={{ height: `${Math.max(1, height * 100)}%` }} />)}</span>)}</>}
         <span className="histogram-mid" />
       </div>
       <div className="exposure-percentages">
-        <span><i className="shadow-dot" />陰影 <b>{Math.round(metrics.shadows * 100)}%</b></span>
-        <span><i className="highlight-dot" />高光 <b>{Math.round(metrics.highlights * 100)}%</b></span>
-        <span><i className="clip-dot" />剪裁 <b>{metrics.clipped < 0.001 ? '<0.1' : (metrics.clipped * 100).toFixed(1)}%</b></span>
+        <span><i className="shadow-dot" />{t('exposure.shadows')} <b>{Math.round(metrics.shadows * 100)}%</b></span>
+        <span><i className="highlight-dot" />{t('exposure.highlights')} <b>{Math.round(metrics.highlights * 100)}%</b></span>
+        <span><i className="clip-dot" />{t('exposure.clipped')} <b>{metrics.clipped < 0.001 ? '<0.1' : (metrics.clipped * 100).toFixed(1)}%</b></span>
       </div>
-      <div className="exposure-modes" role="group" aria-label="曝光輔助顯示">
-        <button className={overlay === 'false-color' ? 'active' : ''} onClick={() => setOverlay('false-color')}>假色</button>
-        <button className={overlay === 'clipping' ? 'active' : ''} onClick={() => setOverlay('clipping')}>剪裁警示</button>
-        <button className={overlay === 'none' ? 'active' : ''} onClick={() => setValue('exposureOverlay', 'none')}>原始畫面</button>
+      <div className="exposure-modes" role="group" aria-label={t('exposure.overlayAria')}>
+        <button className={overlay === 'false-color' ? 'active' : ''} onClick={() => setOverlay('false-color')}>{t('exposure.falseColor')}</button>
+        <button className={overlay === 'clipping' ? 'active' : ''} onClick={() => setOverlay('clipping')}>{t('exposure.clipAlert')}</button>
+        <button className={overlay === 'none' ? 'active' : ''} onClick={() => setValue('exposureOverlay', 'none')}>{t('exposure.original')}</button>
       </div>
       <section className="incident-metering">
-        <div className="meter-heading"><span>人物位置曝光估算</span><small>AUTO · SUBJECT</small></div>
+        <div className="meter-heading"><span>{t('exposure.autoMeter')}</span><small>AUTO · SUBJECT</small></div>
         <div className="meter-primary">
           <div><span>TOTAL INCIDENT</span><strong>{Math.round(metering.totalLux).toLocaleString()}<small> lx</small></strong></div>
           <div><span>EV 100</span><strong>{metering.ev100.toFixed(1)}</strong></div>
           <div><span>KEY : FILL</span><strong>{metering.keyFillRatio >= 99 ? '∞' : `${metering.keyFillRatio.toFixed(1)}:1`}</strong></div>
         </div>
         <div className="meter-balance">
-          <span>相機曝光差</span><b className={Math.abs(metering.exposureDelta) > 1 ? 'warning' : ''}>{metering.exposureDelta >= 0 ? '+' : ''}{metering.exposureDelta.toFixed(1)} EV</b>
+          <span>{t('exposure.cameraDelta')}</span><b className={Math.abs(metering.exposureDelta) > 1 ? 'warning' : ''}>{metering.exposureDelta >= 0 ? '+' : ''}{metering.exposureDelta.toFixed(1)} EV</b>
           <i><em style={{ left: `${Math.max(0, Math.min(100, 50 + metering.exposureDelta * 10))}%` }} /></i>
         </div>
         <div className="light-contributions">
@@ -179,7 +181,7 @@ export function ExposureAnalysis() {
         <footer><span>DIRECT {Math.round(metering.directLux)} lx</span><span>BOUNCE {Math.round(metering.bouncedLux)} lx</span><span>AMBIENT {Math.round(metering.ambientLux)} lx</span></footer>
       </section>
       <section className="solo-metering">
-        <div><span>單燈貢獻</span><button onClick={() => setValue('soloLightId', null)} disabled={!soloLightId}>全部燈光</button></div>
+        <div><span>{t('exposure.soloTitle')}</span><button onClick={() => setValue('soloLightId', null)} disabled={!soloLightId}>{t('exposure.allLights')}</button></div>
         {lights.map((light) => <button key={light.id} className={soloLightId === light.id ? 'active' : ''} disabled={!light.enabled} onClick={() => setValue('soloLightId', soloLightId === light.id ? null : light.id)}><i style={{ background: light.colorMode === 'rgb' ? light.rgb : '#f3e6cd' }} /><span>{light.name}</span><b>{soloLightId === light.id ? 'SOLO' : light.enabled ? `${Math.round(effectiveLightOutput(light))} lm` : 'OFF'}</b></button>)}
       </section>
       <footer><span>0</span><span>18% GRAY</span><span>100 IRE</span></footer>

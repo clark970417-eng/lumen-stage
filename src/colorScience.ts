@@ -13,11 +13,11 @@ export type ColorProfile = {
 }
 
 export const COLOR_PROFILES: Record<ColorProfileId, ColorProfile> = {
-  neutral: { id: 'neutral', name: '自然', code: 'NEUTRAL', saturation: 1, contrast: 1, warmth: 0, tint: 0 },
-  portrait: { id: 'portrait', name: '人像', code: 'PORTRAIT', saturation: 0.94, contrast: 0.96, warmth: 0.035, tint: 0.015 },
-  vivid: { id: 'vivid', name: '鮮豔', code: 'VIVID', saturation: 1.22, contrast: 1.08, warmth: 0.015, tint: 0 },
-  cinema: { id: 'cinema', name: '電影', code: 'CINEMA', saturation: 0.86, contrast: 1.12, warmth: 0.02, tint: -0.025 },
-  monochrome: { id: 'monochrome', name: '黑白', code: 'MONO', saturation: 0, contrast: 1.08, warmth: 0, tint: 0 },
+  neutral: { id: 'neutral', name: 'Natural', code: 'NEUTRAL', saturation: 1, contrast: 1, warmth: 0, tint: 0 },
+  portrait: { id: 'portrait', name: 'Portrait', code: 'PORTRAIT', saturation: 0.94, contrast: 0.96, warmth: 0.035, tint: 0.015 },
+  vivid: { id: 'vivid', name: 'Vivid', code: 'VIVID', saturation: 1.22, contrast: 1.08, warmth: 0.015, tint: 0 },
+  cinema: { id: 'cinema', name: 'Cinema', code: 'CINEMA', saturation: 0.86, contrast: 1.12, warmth: 0.02, tint: -0.025 },
+  monochrome: { id: 'monochrome', name: 'Monochrome', code: 'MONO', saturation: 0, contrast: 1.08, warmth: 0, tint: 0 },
 }
 
 export type ColorScienceSettings = {

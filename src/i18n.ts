@@ -1,0 +1,671 @@
+import { create } from 'zustand'
+
+export type Locale = 'en' | 'zh' | 'ja'
+
+/** 語言選單用的原生名稱＋對應的 html lang，三種語言下都顯示相同字樣 */
+export const LOCALES: { id: Locale; native: string; short: string; htmlLang: string }[] = [
+  { id: 'en', native: 'English', short: 'EN', htmlLang: 'en' },
+  { id: 'zh', native: '中文', short: '中', htmlLang: 'zh-Hant' },
+  { id: 'ja', native: '日本語', short: '日', htmlLang: 'ja' },
+]
+
+/**
+ * 每個字串把三種語言放在一起，翻譯漏掉時 TypeScript 會直接報錯。
+ * 相機圈子共通的英文縮寫（ISO / EV / SPP / FULL FRAME…）刻意不翻譯，
+ * 與真實機身的 HUD 一致。
+ */
+const DICT = {
+  // ── 共用 ────────────────────────────────────────────────
+  'common.on': { en: 'on', zh: '開啟', ja: 'オン' },
+  'common.off': { en: 'off', zh: '關閉', ja: 'オフ' },
+  'common.duplicate': { en: 'Duplicate', zh: '複製', ja: '複製' },
+  'common.delete': { en: 'Delete', zh: '刪除', ja: '削除' },
+  'common.load': { en: 'Load', zh: '載入', ja: '読み込み' },
+  'common.lock': { en: 'Lock position', zh: '鎖定位置', ja: '位置をロック' },
+  'common.unlock': { en: 'Unlock', zh: '解除鎖定', ja: 'ロック解除' },
+  'common.width': { en: 'Width', zh: '寬度', ja: '幅' },
+  'common.height': { en: 'Height', zh: '高度', ja: '高さ' },
+  'common.type': { en: 'Type', zh: '類型', ja: 'タイプ' },
+
+  // ── 語言切換 ────────────────────────────────────────────
+  'lang.label': { en: 'Language', zh: '語言', ja: '言語' },
+  'lang.title': { en: 'Interface language (⇧L)', zh: '介面語言（⇧L）', ja: '表示言語（⇧L）' },
+
+  // ── 頂欄 ────────────────────────────────────────────────
+  'topbar.projectName': { en: 'Project name', zh: '專案名稱', ja: 'プロジェクト名' },
+  'topbar.save.saved': { en: 'Saved', zh: '已儲存', ja: '保存済み' },
+  'topbar.save.autosaved': { en: 'Auto-saved', zh: '自動儲存', ja: '自動保存' },
+  'topbar.save.loaded': { en: 'Loaded', zh: '已載入', ja: '読み込み済み' },
+  'topbar.save.exported': { en: 'Exported', zh: '已匯出', ja: '書き出し済み' },
+  'topbar.save.error': { en: 'No saved file', zh: '沒有存檔', ja: '保存データなし' },
+  'topbar.save.idle': { en: 'Local scene', zh: '本機場景', ja: 'ローカルシーン' },
+  'topbar.views': { en: 'View mode', zh: '檢視模式', ja: '表示モード' },
+  'view.studio': { en: 'Studio', zh: '棚內視角', ja: 'スタジオ' },
+  'view.top': { en: 'Top plan', zh: '俯視燈位', ja: '俯瞰図' },
+  'view.camera': { en: 'Viewfinder', zh: '相機取景', ja: 'ファインダー' },
+  'view.render': { en: 'Photo render', zh: '照片渲染', ja: 'レンダリング' },
+  'view.studio.title': { en: 'Studio view (1)', zh: '棚內視角（1）', ja: 'スタジオ視点（1）' },
+  'view.top.title': { en: 'Top plan (2)', zh: '俯視燈位（2）', ja: '俯瞰ライト配置（2）' },
+  'view.camera.title': { en: 'Viewfinder (3)', zh: '相機取景（3）', ja: 'ファインダー（3）' },
+  'view.render.title': { en: 'Photo render (4)', zh: '照片渲染（4）', ja: 'フォトレンダリング（4）' },
+  'topbar.setupSheet': { en: 'Setup sheet', zh: '燈位工作表', ja: 'ライト図' },
+  'topbar.setupSheet.title': { en: 'Generate a lighting setup sheet', zh: '產生燈位工作表', ja: 'ライティング図を生成' },
+  'topbar.pro.title': { en: 'Production console (P)', zh: '專業控制台（P）', ja: 'プロダクションコンソール（P）' },
+  'topbar.guide': { en: 'Guide', zh: '教學', ja: 'ガイド' },
+  'topbar.guide.title': { en: 'Open the site guide', zh: '開啟網站使用教學', ja: 'サイトの使い方を開く' },
+  'topbar.save': { en: 'Save scene', zh: '儲存場景', ja: 'シーンを保存' },
+  'topbar.save.title': { en: 'Save the scene to this browser (⌘S)', zh: '儲存場景到瀏覽器（⌘S）', ja: 'ブラウザにシーンを保存（⌘S）' },
+
+  // ── 檔案選單 ────────────────────────────────────────────
+  'file.menu': { en: 'File', zh: '檔案', ja: 'ファイル' },
+  'file.menu.title': { en: 'Project files', zh: '專案檔案', ja: 'プロジェクトファイル' },
+  'file.import': { en: 'Import project file', zh: '匯入專案檔', ja: 'プロジェクトを読み込む' },
+  'file.export': { en: 'Export project file', zh: '匯出專案檔', ja: 'プロジェクトを書き出す' },
+  'file.load': { en: 'Load local save', zh: '載入本機存檔', ja: 'ローカル保存を読み込む' },
+  'file.load.sub': { en: 'Last saved', zh: '上次儲存', ja: '前回の保存' },
+
+  // ── 使用教學 ────────────────────────────────────────────
+  'guide.aria': { en: 'LUMEN STAGE site guide', zh: 'LUMEN STAGE 網站使用教學', ja: 'LUMEN STAGE サイトガイド' },
+  'guide.title': { en: 'Site guide', zh: '網站使用教學', ja: 'サイトの使い方' },
+  'guide.download': { en: 'Download PDF', zh: '下載 PDF', ja: 'PDF をダウンロード' },
+  'guide.close': { en: 'Close the site guide', zh: '關閉網站使用教學', ja: 'サイトガイドを閉じる' },
+  'guide.stage': { en: 'Continuously scrolling guide pages', zh: '連續捲動教學頁面', ja: '連続スクロールのガイドページ' },
+  'guide.page': { en: 'LUMEN STAGE site guide, page {n}', zh: 'LUMEN STAGE 網站使用教學第 {n} 頁', ja: 'LUMEN STAGE サイトガイド {n} ページ' },
+  'guide.languageNote': { en: 'LUMEN STAGE · ENGLISH GUIDE', zh: 'LUMEN STAGE · 繁體中文指南', ja: 'LUMEN STAGE · 日本語ガイド' },
+
+  // ── 視埠 ────────────────────────────────────────────────
+  'viewport.aria': { en: '3D studio', zh: '3D 攝影棚', ja: '3D スタジオ' },
+  'viewport.loading': { en: 'Setting up the studio', zh: '正在架設攝影棚', ja: 'スタジオを準備中' },
+
+  // ── 渲染工具列 ──────────────────────────────────────────
+  'render.aria': { en: 'High-quality photo render', zh: '高品質照片渲染', ja: '高品質フォトレンダリング' },
+  'render.status.building': { en: 'Building light scene', zh: '建立光線場景', ja: 'ライトシーンを構築中' },
+  'render.status.error': { en: 'Render failed', zh: '渲染失敗', ja: 'レンダリング失敗' },
+  'render.status.paused': { en: 'Paused', zh: '已暫停', ja: '一時停止中' },
+  'render.status.sampling': { en: 'Progressive sampling', zh: '漸進取樣', ja: 'プログレッシブサンプリング' },
+  'render.pause': { en: 'Pause', zh: '暫停', ja: '一時停止' },
+  'render.resume': { en: 'Resume', zh: '繼續', ja: '再開' },
+  'render.pause.title': { en: 'Pause / resume sampling (Space)', zh: '暫停／繼續取樣（Space）', ja: 'サンプリングの一時停止・再開（Space）' },
+  'render.restart': { en: 'Restart sampling', zh: '重新取樣', ja: '再サンプリング' },
+  'render.restart.title': { en: 'Restart sampling (⇧R)', zh: '重新取樣（⇧R）', ja: '再サンプリング（⇧R）' },
+  'render.exportPng': { en: 'Export PNG', zh: '輸出 PNG', ja: 'PNG を書き出す' },
+
+  // ── 場景工具列 ──────────────────────────────────────────
+  'scene.aria': { en: 'Scene tools', zh: '場景編輯工具', ja: 'シーン編集ツール' },
+  'scene.move': { en: 'Move', zh: '移動', ja: '移動' },
+  'scene.move.title': { en: 'Move (G)', zh: '移動（G）', ja: '移動（G）' },
+  'scene.aim': { en: 'Aim', zh: '瞄準', ja: '照射' },
+  'scene.aim.title': { en: 'Edit light target (T)', zh: '編輯照射目標（T）', ja: '照射ターゲットを編集（T）' },
+  'scene.rotate': { en: 'Rotate', zh: '旋轉', ja: '回転' },
+  'scene.rotate.title': { en: 'Rotate (R)', zh: '旋轉（R）', ja: '回転（R）' },
+
+  // ── 場景清單 ────────────────────────────────────────────
+  'library.title': { en: 'Scene objects', zh: '場景物件', ja: 'シーンオブジェクト' },
+  'library.history': { en: 'Scene history and add', zh: '場景歷史與新增', ja: '履歴と追加' },
+  'library.addLight': { en: '＋ Add light', zh: '＋ 新增燈', ja: '＋ ライト追加' },
+  'library.undo.title': { en: 'Undo (⌘Z)', zh: '復原（⌘Z）', ja: '元に戻す（⌘Z）' },
+  'library.redo.title': { en: 'Redo (⇧⌘Z)', zh: '重做（⇧⌘Z）', ja: 'やり直す（⇧⌘Z）' },
+  'library.selection': { en: 'Multi-select and group', zh: '多選與群組', ja: '複数選択とグループ' },
+  'library.selected': { en: '{count} selected', zh: '已選 {count}', ja: '{count} 件選択' },
+  'library.shiftHint': { en: 'SHIFT to multi-select', zh: 'SHIFT 多選', ja: 'SHIFT で複数選択' },
+  'library.group': { en: 'Group', zh: '群組', ja: 'グループ化' },
+  'library.ungroup': { en: 'Ungroup', zh: '解散', ja: '解除' },
+  'library.search': { en: 'Search scene gear', zh: '搜尋場景器材', ja: '機材を検索' },
+  'library.search.placeholder': { en: 'Search lights, grip, objects…', zh: '搜尋燈具、附件、物件…', ja: 'ライト・グリップ・オブジェクトを検索…' },
+  'library.favorites': { en: 'Show favorites only', zh: '只顯示收藏', ja: 'お気に入りのみ表示' },
+  'library.favorites.title': { en: 'Double-click an object to favorite it', zh: '在物件上按兩下可加入收藏', ja: 'オブジェクトをダブルクリックでお気に入り' },
+  'library.props': { en: 'People and set objects', zh: '人物與棚拍物件', ja: '人物とセットオブジェクト' },
+  'library.props.add': { en: 'Add people and set objects', zh: '新增人物與棚拍物件', ja: '人物・セットを追加' },
+  'library.grip': { en: 'Grip', zh: '控光附件', ja: 'グリップ' },
+  'library.grip.add': { en: 'Add grip', zh: '新增控光附件', ja: 'グリップを追加' },
+  'library.backdrop': { en: 'Backdrop', zh: '背景', ja: '背景' },
+  'library.backdrop.paper': { en: 'Warm grey seamless', zh: '暖灰無縫紙', ja: 'ウォームグレーの背景紙' },
+  'library.asset': { en: 'Talent asset', zh: '人物資產', ja: '人物アセット' },
+  'library.import': { en: 'Import character model', zh: '匯入人物模型', ja: '人物モデルを読み込む' },
+  'library.import.sub': { en: 'GLB / GLTF · height auto-normalized', zh: 'GLB / GLTF · 自動校正身高', ja: 'GLB / GLTF · 身長を自動補正' },
+  'library.note': { en: 'Edit right in the scene', zh: '直接編輯場景', ja: 'シーンを直接編集' },
+  'library.note.sub': { en: 'Select an object, then drag the colored axes', zh: '選取物件後拖移彩色軸', ja: 'オブジェクトを選び、カラー軸をドラッグ' },
+
+  // ── 棚拍物件 / 附件類型 ────────────────────────────────
+  'object.subject': { en: 'Person', zh: '人物', ja: '人物' },
+  'object.chair': { en: 'Chair', zh: '椅子', ja: '椅子' },
+  'object.table': { en: 'Table', zh: '桌子', ja: 'テーブル' },
+  'object.plinth': { en: 'Plinth', zh: '商品台', ja: '展示台' },
+  'object.cube': { en: 'Cube', zh: '方塊', ja: 'キューブ' },
+  'object.sphere': { en: 'Sphere', zh: '球體', ja: '球体' },
+  'grip.reflector': { en: 'Reflector', zh: '反光板', ja: 'レフ板' },
+  'grip.reflector.short': { en: 'Bounce', zh: '反光', ja: 'レフ' },
+  'grip.flag': { en: 'Black flag', zh: '黑旗', ja: 'フラッグ' },
+
+  // ── Inspector：燈光 ────────────────────────────────────
+  'inspector.title': { en: 'Inspector', zh: '控制面板', ja: 'インスペクター' },
+  'light.section': { en: 'Light', zh: '燈光物件', ja: 'ライト' },
+  'light.resetAll': { en: 'Reset all', zh: '重設全部', ja: 'すべてリセット' },
+  'light.multiNote': { en: 'lights selected — moving the key light moves them together', zh: '盞燈已多選；移動主燈會同步位移', ja: '灯を複数選択中。主ライトを動かすと連動します' },
+  'light.name': { en: 'Light name', zh: '燈具名稱', ja: 'ライト名' },
+  'light.group': { en: 'Group {id}', zh: '群組 {id}', ja: 'グループ {id}' },
+  'light.ungrouped': { en: 'Ungrouped', zh: '未群組', ja: 'グループなし' },
+  'light.gridSuffix': { en: 'grid', zh: '網格', ja: 'グリッド' },
+  'light.profile': { en: 'Photometric preset', zh: '燈具光度預設', ja: '光度プリセット' },
+  'light.power': { en: 'Output power', zh: '輸出功率', ja: '出力' },
+  'light.mode': { en: 'Emission mode', zh: '發光模式', ja: '発光モード' },
+  'light.continuous': { en: 'Continuous', zh: '常亮', ja: '定常光' },
+  'light.flash': { en: 'Flash', zh: '閃光', ja: 'フラッシュ' },
+  'light.hss': { en: 'HSS high-speed sync', zh: 'HSS 高速同步', ja: 'HSS ハイスピードシンクロ' },
+  'light.flashDuration': { en: 'Flash duration t0.1', zh: '閃光持續時間 t0.1', ja: '閃光時間 t0.1' },
+  'light.headType': { en: 'Head type', zh: '燈頭類型', ja: 'ヘッドタイプ' },
+  'head.strobe': { en: 'Strobe', zh: '閃燈', ja: 'ストロボ' },
+  'head.panel': { en: 'Panel', zh: '平板', ja: 'パネル' },
+  'light.shape': { en: 'Shape', zh: '燈型', ja: '形状' },
+  'shape.square': { en: 'Square', zh: '方形', ja: '角型' },
+  'shape.round': { en: 'Round', zh: '圓形', ja: '円型' },
+  'shape.strip': { en: 'Strip', zh: '長條', ja: 'ストリップ' },
+  'optic.title': { en: 'Light shaper', zh: '專業塑光附件', ja: 'ライトシェーパー' },
+  'optic.softbox': { en: 'Softbox', zh: '柔光箱', ja: 'ソフトボックス' },
+  'optic.umbrella-shoot': { en: 'Shoot-through umbrella', zh: '柔光傘', ja: '透過アンブレラ' },
+  'optic.umbrella-reflect': { en: 'Reflective umbrella', zh: '反射傘', ja: '反射アンブレラ' },
+  'optic.beauty-dish': { en: 'Beauty dish', zh: '美人碟', ja: 'ビューティーディッシュ' },
+  'optic.deep-parabolic': { en: 'Deep parabolic', zh: '深口拋物罩', ja: 'ディープパラボリック' },
+  'optic.lantern': { en: 'Lantern', zh: '燈籠罩', ja: 'ランタン' },
+  'optic.standard': { en: 'Standard reflector', zh: '標準罩', ja: '標準リフレクター' },
+  'optic.fresnel': { en: 'Fresnel', zh: '菲涅耳', ja: 'フレネル' },
+  'optic.snoot': { en: 'Snoot', zh: '聚光筒', ja: 'スヌート' },
+  'optic.barn-doors': { en: 'Barn doors', zh: '四葉遮扉', ja: 'バーンドア' },
+  'optic.projection': { en: 'Projection', zh: '投影筒', ja: 'プロジェクション' },
+  'light.diffuser': { en: 'Diffuser', zh: '柔光罩', ja: 'ディフューザー' },
+  'light.honeycomb': { en: 'Honeycomb grid', zh: '蜂巢網格', ja: 'ハニカムグリッド' },
+  'light.barnDoorAngle': { en: 'Barn door angle', zh: '遮扉開角', ja: 'バーンドア開角' },
+  'gobo.title': { en: 'GOBO slide', zh: 'GOBO 投影片', ja: 'GOBO スライド' },
+  'gobo.aria': { en: 'Gobo pattern', zh: 'Gobo 圖案', ja: 'Gobo パターン' },
+  'gobo.none': { en: 'None', zh: '無', ja: 'なし' },
+  'gobo.window': { en: 'Window', zh: '窗格', ja: '窓' },
+  'gobo.blinds': { en: 'Blinds', zh: '百葉', ja: 'ブラインド' },
+  'gobo.foliage': { en: 'Foliage', zh: '樹葉', ja: '木漏れ日' },
+  'gobo.breakup': { en: 'Breakup', zh: '碎影', ja: 'ブレイクアップ' },
+  'gobo.rotation': { en: 'Pattern rotation', zh: '圖案旋轉', ja: 'パターン回転' },
+  'gobo.scale': { en: 'Pattern scale', zh: '圖案比例', ja: 'パターンスケール' },
+  'modifier.size': { en: 'Modifier size', zh: '塑光附件實際尺寸', ja: 'モディファイアの実寸' },
+  'modifier.presets': { en: 'Softbox size presets', zh: '柔光附件尺寸預設', ja: 'サイズプリセット' },
+  'modifier.width': { en: 'Modifier width', zh: '附件寬度', ja: 'モディファイアの幅' },
+  'modifier.height': { en: 'Modifier height', zh: '附件高度', ja: 'モディファイアの高さ' },
+  'light.colorMode': { en: 'Color mode', zh: '發色模式', ja: '発色モード' },
+  'light.kelvin': { en: 'Color temperature', zh: '色溫', ja: '色温度' },
+  'light.rgbColor': { en: 'RGB color', zh: 'RGB 顏色', ja: 'RGB カラー' },
+
+  // ── Inspector：座標 ────────────────────────────────────
+  'axis.section': { en: 'Position', zh: '位置', ja: '位置' },
+  'axis.x': { en: 'Horizontal X', zh: '水平 X', ja: '水平 X' },
+  'axis.y': { en: 'Height Y', zh: '高度 Y', ja: '高さ Y' },
+  'axis.z': { en: 'Depth Z', zh: '深度 Z', ja: '奥行き Z' },
+  'axis.rotY': { en: 'Rotation Y', zh: '旋轉 Y', ja: '回転 Y' },
+  'axis.posAndAngle': { en: 'Position and angle', zh: '位置與角度', ja: '位置と角度' },
+  'axis.posAndFacing': { en: 'Position and facing', zh: '位置與方向', ja: '位置と向き' },
+
+  // ── Inspector：照射目標 ────────────────────────────────
+  'beam.title': { en: 'Light target', zh: '照射目標', ja: '照射ターゲット' },
+  'beam.follow': { en: 'Follow subject', zh: '跟隨人物', ja: '人物に追従' },
+  'beam.follow.aria': { en: 'Light follows subject', zh: '燈光跟隨人物', ja: 'ライトの追従対象' },
+  'beam.manual': { en: 'Manual aim', zh: '手動瞄準', ja: '手動照射' },
+  'subject.main': { en: 'Main subject', zh: '主角 Model', ja: 'メイン被写体' },
+  'subject.numbered': { en: 'Person {n} · {name}', zh: '人物 {n} · {name}', ja: '人物 {n} · {name}' },
+  'beam.zone.aria': { en: 'Subject light zone', zh: '人物照射區域', ja: '照射エリア' },
+  'zone.face': { en: 'Face', zh: '臉部', ja: '顔' },
+  'zone.chest': { en: 'Chest', zh: '胸口', ja: '胸元' },
+  'zone.full': { en: 'Full body', zh: '全身', ja: '全身' },
+  'beam.tracking.note': { en: 'The light keeps tracking as the subject moves or changes height. Dragging a target slider returns to manual.', zh: '人物移動或改變身高時，燈光會持續跟隨。拖動目標滑桿將切回手動模式。', ja: '人物が動いたり身長が変わってもライトが追従します。ターゲットのスライダーを動かすと手動に戻ります。' },
+  'beam.tracking.hint': { en: 'Pick a subject to lock onto a body zone.', zh: '選擇人物後即可鎖定身體區域。', ja: '人物を選ぶと身体エリアを指定できます。' },
+  'beam.aim.active': { en: 'Dragging the aim point · T', zh: '正在拖曳瞄準點 · T', ja: '照射点をドラッグ中 · T' },
+  'beam.aim.idle': { en: 'Drag the aim point in 3D · T', zh: '在 3D 場景拖曳瞄準點 · T', ja: '3D シーンで照射点をドラッグ · T' },
+  'beam.targetX': { en: 'Target X', zh: '目標 X', ja: 'ターゲット X' },
+  'beam.targetY': { en: 'Target Y', zh: '目標 Y', ja: 'ターゲット Y' },
+  'beam.targetZ': { en: 'Target Z', zh: '目標 Z', ja: 'ターゲット Z' },
+  'beam.angle': { en: 'Beam angle', zh: '光束角', ja: '照射角' },
+  'beam.feather': { en: 'Edge feather', zh: '邊緣柔度', ja: 'エッジのフェザー' },
+
+  // ── Inspector：控光附件 ────────────────────────────────
+  'grip.name': { en: 'Grip name', zh: '附件名稱', ja: 'グリップ名' },
+  'grip.type.aria': { en: 'Grip type', zh: '附件類型', ja: 'グリップの種類' },
+  'grip.surface': { en: 'Surface', zh: '表面材質', ja: '表面素材' },
+  'surface.white': { en: 'White', zh: '白', ja: 'ホワイト' },
+  'surface.silver': { en: 'Silver', zh: '銀', ja: 'シルバー' },
+  'surface.gold': { en: 'Gold', zh: '金', ja: 'ゴールド' },
+  'surface.black': { en: 'Black', zh: '黑', ja: 'ブラック' },
+  'surface.aria': { en: '{label} surface', zh: '{label}色表面', ja: '{label}の面' },
+  'grip.note': { en: 'Physical materials feed both realtime shadows and the path tracer’s bounce and absorption.', zh: '物理材質會參與即時陰影與 Path Tracing 的反射／吸光計算。', ja: '物理マテリアルはリアルタイム影とパストレースの反射・吸収計算に反映されます。' },
+
+  // ── Inspector：棚拍物件 ────────────────────────────────
+  'object.section': { en: 'Set object', zh: '棚拍物件', ja: 'セットオブジェクト' },
+  'object.name': { en: 'Set object name', zh: '棚拍物件名稱', ja: 'オブジェクト名' },
+  'object.subjectRig': { en: 'Standalone figure rig', zh: '獨立人物骨架', ja: '独立した人物リグ' },
+  'object.setPiece': { en: 'Standalone set object', zh: '獨立棚拍物件', ja: '独立したセットオブジェクト' },
+  'object.typeAria': { en: 'Set object type', zh: '棚拍物件類型', ja: 'オブジェクトの種類' },
+  'object.materialAria': { en: 'Set object material', zh: '棚拍物件材質', ja: 'オブジェクトの素材' },
+  'material.matte': { en: 'Matte', zh: '霧面', ja: 'マット' },
+  'material.glossy': { en: 'Glossy', zh: '亮面', ja: 'グロス' },
+  'material.metal': { en: 'Metal', zh: '金屬', ja: 'メタル' },
+  'object.color': { en: 'Object color', zh: '物件顏色', ja: 'オブジェクトの色' },
+  'object.colorAria': { en: 'Set object color', zh: '棚拍物件顏色', ja: 'オブジェクトの色' },
+  'object.scale': { en: 'Overall scale', zh: '整體尺寸', ja: '全体サイズ' },
+
+  // ── 人物與姿勢 ──────────────────────────────────────────
+  'subject.prefixMain': { en: 'Subject ', zh: '人物', ja: '人物の' },
+  'subject.prefixSecond': { en: 'Second subject ', zh: '第二人物', ja: 'サブ人物の' },
+  'subject.poseSection': { en: 'Standalone pose', zh: '獨立姿勢控制', ja: '独立ポーズ' },
+  'subject.poseAria': { en: 'Second subject pose presets', zh: '第二人物姿勢預設', ja: 'サブ人物のポーズプリセット' },
+  'subject.skinColor': { en: 'Standalone skin tone', zh: '獨立膚色', ja: '個別の肌の色' },
+  'subject.skinColorAria': { en: 'Second subject skin tone', zh: '第二人物膚色', ja: 'サブ人物の肌の色' },
+  'subject.outfitColor': { en: 'Standalone outfit', zh: '獨立服裝', ja: '個別の衣装' },
+  'subject.outfitColorAria': { en: 'Second subject outfit color', zh: '第二人物服裝顏色', ja: 'サブ人物の衣装の色' },
+  'subject.height': { en: 'Subject height', zh: '人物身高', ja: '身長' },
+  'pose.section': { en: 'Pose', zh: '姿勢控制', ja: 'ポーズ' },
+  'pose.aria': { en: 'Pose presets', zh: '姿勢預設', ja: 'ポーズプリセット' },
+  'pose.externalNote': { en: 'External models support height and overall rotation only', zh: '外部模型僅支援高度與整體旋轉', ja: '外部モデルは身長と全体回転のみ対応' },
+  'pose.neutral': { en: 'Neutral', zh: '中性', ja: 'ニュートラル' },
+  'pose.contrapposto': { en: 'Contrapposto', zh: '重心偏移', ja: 'コントラポスト' },
+  'pose.hands-on-hips': { en: 'Hands on hips', zh: '叉腰', ja: '腰に手' },
+  'pose.profile': { en: 'Profile', zh: '側身', ja: '横向き' },
+  'pose.editorial': { en: 'Editorial', zh: '時尚', ja: 'エディトリアル' },
+  'pose.headYaw': { en: 'Head yaw', zh: '頭部左右', ja: '頭の左右' },
+  'pose.headTilt': { en: 'Head tilt', zh: '頭部俯仰', ja: '頭の上下' },
+  'pose.torsoYaw': { en: 'Torso rotation', zh: '軀幹轉向', ja: '体の向き' },
+  'pose.leftArm': { en: 'Left upper arm', zh: '左上臂', ja: '左上腕' },
+  'pose.leftElbow': { en: 'Left elbow', zh: '左手肘', ja: '左ひじ' },
+  'pose.rightArm': { en: 'Right upper arm', zh: '右上臂', ja: '右上腕' },
+  'pose.rightElbow': { en: 'Right elbow', zh: '右手肘', ja: '右ひじ' },
+  'pose.hipShift': { en: 'Hip shift', zh: '髖部偏移', ja: '腰のシフト' },
+
+  // ── 人物材質 ────────────────────────────────────────────
+  'appearance.title': { en: 'Subject materials', zh: '人物材質', ja: '人物マテリアル' },
+  'appearance.skinRoughness': { en: 'skin roughness', zh: '皮膚粗糙度', ja: '肌のラフネス' },
+  'appearance.skinOil': { en: 'skin sheen', zh: '皮膚油光', ja: '肌のテカリ' },
+  'appearance.subsurface': { en: 'subsurface', zh: '皮下散射', ja: 'サブサーフェス' },
+  'appearance.makeup': { en: 'makeup', zh: '妝容', ja: 'メイク' },
+  'makeup.none': { en: 'Bare', zh: '裸妝', ja: 'ノーメイク' },
+  'makeup.natural': { en: 'Natural', zh: '自然', ja: 'ナチュラル' },
+  'makeup.editorial': { en: 'Editorial', zh: '時尚', ja: 'エディトリアル' },
+  'appearance.eyes': { en: 'Eyes', zh: '眼睛', ja: '瞳' },
+  'appearance.eyeColor': { en: 'eye color', zh: '眼睛顏色', ja: '瞳の色' },
+  'appearance.hair': { en: 'Hair', zh: '頭髮', ja: '髪' },
+  'appearance.hairColor': { en: 'hair color', zh: '頭髮顏色', ja: '髪の色' },
+  'appearance.hairGloss': { en: 'hair gloss', zh: '髮絲光澤', ja: '髪のツヤ' },
+  'appearance.fabric': { en: 'outfit fabric', zh: '服裝材質', ja: '衣装の素材' },
+  'fabric.cotton': { en: 'Cotton', zh: '棉布', ja: 'コットン' },
+  'fabric.silk': { en: 'Silk', zh: '絲綢', ja: 'シルク' },
+  'fabric.leather': { en: 'Leather', zh: '皮革', ja: 'レザー' },
+  'appearance.skin': { en: 'Skin', zh: '膚色', ja: '肌の色' },
+  'appearance.skinAria': { en: 'Subject skin tone', zh: '人物膚色', ja: '人物の肌の色' },
+  'appearance.outfit': { en: 'Outfit', zh: '服裝', ja: '衣装' },
+  'appearance.outfitAria': { en: 'Outfit color', zh: '服裝顏色', ja: '衣装の色' },
+
+  // ── 測光探針 ────────────────────────────────────────────
+  'meter.title': { en: 'Incident meter probe', zh: '入射式測光探針', ja: '入射光メータープローブ' },
+  'meter.desc': { en: 'The white dome gathers all incident light', zh: '白色半球接收所有入射光', ja: '白色ドームがすべての入射光を受光' },
+  'meter.modelFace': { en: 'Subject face', zh: '主角臉部', ja: 'メイン人物の顔' },
+  'meter.modelChest': { en: 'Subject chest', zh: '主角胸口', ja: 'メイン人物の胸元' },
+  'meter.personFace': { en: 'Person {n} face', zh: '人物 {n} 臉部', ja: '人物 {n} の顔' },
+  'meter.backdrop': { en: 'Backdrop center', zh: '背景中央', ja: '背景中央' },
+  'meter.modelFaceShort': { en: 'Face', zh: '主角臉', ja: 'メインの顔' },
+  'meter.modelChestShort': { en: 'Chest', zh: '主角胸', ja: 'メインの胸' },
+  'meter.personFaceShort': { en: 'Person {n}', zh: '人物 {n} 臉', ja: '人物 {n} の顔' },
+  'meter.backdropShort': { en: 'Backdrop', zh: '背景', ja: '背景' },
+  'meter.openAnalysis': { en: 'Open ratio and per-light analysis', zh: '開啟光比與逐燈分析', ja: '光比・ライト別分析を開く' },
+
+  // ── Inspector：人物位置 ────────────────────────────────
+  'model.section': { en: 'Subject position', zh: '人物位置', ja: '人物の位置' },
+  'model.facing': { en: 'Facing', zh: '面向', ja: '向き' },
+
+  // ── Inspector：相機機位 ────────────────────────────────
+  'camera.section': { en: 'Camera position', zh: '相機機位', ja: 'カメラ位置' },
+  'camera.followAria': { en: 'Camera follows subject', zh: '相機跟隨人物', ja: 'カメラの追従対象' },
+  'camera.manual': { en: 'Manual framing', zh: '手動構圖', ja: '手動フレーミング' },
+  'camera.zoneAria': { en: 'Camera subject zone', zh: '相機人物區域', ja: 'カメラの対象エリア' },
+  'camera.afEnable': { en: 'Enable tracking AF', zh: '啟用追蹤對焦', ja: '追従 AF を有効化' },
+  'camera.trackNote': { en: 'Framing follows the subject; AF TRACK keeps the focal plane in sync.', zh: '人物移動時同步更新構圖；AF TRACK 會同步更新焦平面。', ja: '人物の移動に合わせて構図を更新します。AF TRACK は焦点面も同期します。' },
+  'camera.framingAria': { en: 'Quick subject framing', zh: '快速人物構圖', ja: 'クイックフレーミング' },
+  'framing.headshot': { en: 'Headshot', zh: '頭像', ja: 'ヘッドショット' },
+  'framing.half': { en: 'Half body', zh: '半身', ja: '半身' },
+  'framing.full': { en: 'Full body', zh: '全身', ja: '全身' },
+  'camera.bodyPos': { en: 'Body position', zh: '機身位置', ja: 'カメラ本体位置' },
+  'camera.x': { en: 'Camera X', zh: '相機 X', ja: 'カメラ X' },
+  'camera.y': { en: 'Camera Y', zh: '相機 Y', ja: 'カメラ Y' },
+  'camera.z': { en: 'Camera Z', zh: '相機 Z', ja: 'カメラ Z' },
+  'camera.aimPoint': { en: 'Aim point', zh: '瞄準點', ja: '注視点' },
+  'camera.aimX': { en: 'Aim X', zh: '瞄準 X', ja: '注視点 X' },
+  'camera.aimY': { en: 'Aim Y', zh: '瞄準 Y', ja: '注視点 Y' },
+  'camera.aimZ': { en: 'Aim Z', zh: '瞄準 Z', ja: '注視点 Z' },
+
+  // ── Inspector：相機參數 ────────────────────────────────
+  'cam.section': { en: 'Camera', zh: '相機', ja: 'カメラ' },
+  'cam.enterView': { en: 'Enter viewfinder', zh: '進入取景', ja: 'ファインダーへ' },
+  'cam.body': { en: 'Camera body', zh: '相機機身', ja: 'カメラボディ' },
+  'cam.lens': { en: 'Lens', zh: '鏡頭', ja: 'レンズ' },
+  'cam.lensAria': { en: 'Lens model', zh: '鏡頭型號', ja: 'レンズ型番' },
+  'lens.character': { en: 'Lens character', zh: '鏡頭光學特性', ja: 'レンズの光学特性' },
+  'lens.opticsOn': { en: 'Optical sim ON', zh: '光學模擬 ON', ja: '光学シミュ ON' },
+  'lens.opticsOff': { en: 'Optical sim OFF', zh: '光學模擬 OFF', ja: '光学シミュ OFF' },
+  'lens.preset': { en: 'Lens defaults', zh: '鏡頭預設', ja: 'レンズ既定値' },
+  'lens.vignette': { en: 'Vignetting', zh: '周邊暗角', ja: '周辺光量落ち' },
+  'lens.distortion': { en: 'Distortion', zh: '鏡頭變形', ja: 'ディストーション' },
+  'lens.barrel': { en: 'Barrel', zh: '桶狀', ja: '樽型' },
+  'lens.pincushion': { en: 'Pincushion', zh: '枕狀', ja: '糸巻き型' },
+  'lens.ca': { en: 'Chromatic aberration', zh: '色差', ja: '色収差' },
+  'lens.breathing': { en: 'Focus breathing', zh: '對焦呼吸', ja: 'フォーカスブリージング' },
+  'lens.blades': { en: 'Bokeh aperture blades', zh: '散景光圈葉片', ja: '絞り羽根枚数' },
+  'color.title': { en: 'Color science', zh: '色彩科學', ja: 'カラーサイエンス' },
+  'color.formatAria': { en: 'Image format', zh: '影像格式', ja: '画像フォーマット' },
+  'color.raw.sub': { en: 'Latitude preview', zh: '寬容度預覽', ja: 'ラチチュードプレビュー' },
+  'color.jpeg.sub': { en: 'Camera rendering', zh: '相機成像', ja: 'カメラ内現像' },
+  'color.profile': { en: 'Camera color profile', zh: '相機色彩 Profile', ja: 'カメラカラープロファイル' },
+  'colorProfile.neutral': { en: 'Natural', zh: '自然', ja: 'ナチュラル' },
+  'colorProfile.portrait': { en: 'Portrait', zh: '人像', ja: 'ポートレート' },
+  'colorProfile.vivid': { en: 'Vivid', zh: '鮮豔', ja: 'ビビッド' },
+  'colorProfile.cinema': { en: 'Cinema', zh: '電影', ja: 'シネマ' },
+  'colorProfile.monochrome': { en: 'Monochrome', zh: '黑白', ja: 'モノクロ' },
+  'wb.aria': { en: 'White balance presets', zh: '白平衡預設', ja: 'ホワイトバランスプリセット' },
+  'wb.tungsten': { en: 'Tungsten', zh: '鎢絲', ja: 'タングステン' },
+  'wb.strobe': { en: 'Studio strobe', zh: '棚燈', ja: 'スタジオストロボ' },
+  'wb.daylight': { en: 'Daylight', zh: '日光', ja: 'デイライト' },
+  'wb.cloudy': { en: 'Cloudy', zh: '陰天', ja: '曇天' },
+  'wb.label': { en: 'White balance', zh: '白平衡', ja: 'ホワイトバランス' },
+  'color.highlightRolloff': { en: 'Highlight roll-off', zh: '高光 Roll-off', ja: 'ハイライトのロールオフ' },
+  'color.toneCurve': { en: 'Tone curve', zh: '對比曲線', ja: 'トーンカーブ' },
+  'color.lut': { en: 'LUT intensity', zh: 'LUT 強度', ja: 'LUT 強度' },
+  'color.note.raw': { en: 'RAW: low contrast and full highlight latitude are preserved; the LUT is metadata only.', zh: 'RAW：保留低對比與高光寬容度，LUT 僅作 metadata。', ja: 'RAW：低コントラストとハイライトのラチチュードを保持し、LUT はメタデータのみ。' },
+  'color.note.baked': { en: '{code}: color, curve and LUT fully applied.', zh: '{code}：完整套用色彩、曲線與 LUT。', ja: '{code}：カラー・カーブ・LUT をすべて適用。' },
+  'sensor.title': { en: 'Sensor and shutter', zh: '感光元件與快門', ja: 'センサーとシャッター' },
+  'sensor.simOn': { en: 'Sensor sim ON', zh: '感光元件模擬 ON', ja: 'センサーシミュ ON' },
+  'sensor.simOff': { en: 'Sensor sim OFF', zh: '感光元件模擬 OFF', ja: 'センサーシミュ OFF' },
+  'sensor.shutterTypeAria': { en: 'Shutter type', zh: '快門類型', ja: 'シャッター方式' },
+  'sensor.mechanical': { en: 'Mechanical', zh: '機械快門', ja: 'メカシャッター' },
+  'sensor.electronic': { en: 'Electronic', zh: '電子快門', ja: '電子シャッター' },
+  'sensor.dynamicRange': { en: 'Dynamic range', zh: '動態範圍', ja: 'ダイナミックレンジ' },
+  'sensor.noiseReduction': { en: 'Noise reduction', zh: '降噪強度', ja: 'ノイズリダクション' },
+  'sensor.colorNoise': { en: 'Color noise', zh: '彩色噪點', ja: 'カラーノイズ' },
+  'sensor.motionBlur': { en: 'Motion blur', zh: '動態模糊', ja: 'モーションブラー' },
+  'sensor.rollingWarn': { en: 'Line-by-line readout {ms} ms · fast motion may skew', zh: '逐行讀出 {ms} ms · 快速移動可能傾斜', ja: 'ライン読み出し {ms} ms · 速い動きで歪む可能性' },
+  'sensor.mechNote': { en: 'Mechanical shutter · no rolling distortion', zh: '機械快門 · 無逐行掃描變形', ja: 'メカシャッター · ローリング歪みなし' },
+  'guide.composition': { en: 'Composition guide', zh: '構圖輔助', ja: '構図ガイド' },
+  'guide.compositionAria': { en: 'Composition guide lines', zh: '構圖輔助線', ja: '構図ガイドライン' },
+  'guide.none': { en: 'Off', zh: '關閉', ja: 'オフ' },
+  'guide.thirds': { en: 'Thirds', zh: '三分', ja: '三分割' },
+  'guide.golden': { en: 'Golden', zh: '黃金', ja: '黄金比' },
+  'guide.safe': { en: 'Safe area', zh: '安全框', ja: 'セーフエリア' },
+  'optics.dofPreview': { en: 'DOF preview', zh: '景深預覽', ja: '被写界深度プレビュー' },
+  'optics.focusGuide': { en: 'Focus guide', zh: '焦點提示', ja: 'フォーカスガイド' },
+  'ambient.title': { en: 'Studio ambient', zh: '棚內環境光', ja: 'スタジオ環境光' },
+  'ambient.level': { en: 'Ambient level', zh: '環境光強度', ja: '環境光の強さ' },
+  'ambient.temperature': { en: 'Ambient temperature', zh: '環境光色溫', ja: '環境光の色温度' },
+  'sync.max': { en: 'Max sync speed', zh: '最高同步速度', ja: '最高同調速度' },
+  'sync.over': { en: 'Shutter above sync speed', zh: '快門超過同步速度', ja: 'シャッターが同調速度を超過' },
+  'sync.ok': { en: 'Within flash sync', zh: '閃光同步範圍內', ja: 'フラッシュ同調範囲内' },
+  'sensor.override': { en: 'Sensor override', zh: '感光元件覆寫', ja: 'センサー上書き' },
+  'sensor.formatAria': { en: 'Sensor format', zh: '感光元件', ja: 'センサーフォーマット' },
+  'frame.ratio': { en: 'Frame ratio', zh: '畫面比例', ja: '画面比率' },
+  'frame.orientation': { en: 'Frame orientation', zh: '畫面方向', ja: '画面の向き' },
+  'frame.landscape': { en: 'Landscape', zh: '橫幅', ja: '横位置' },
+  'frame.portrait': { en: 'Portrait', zh: '直幅', ja: '縦位置' },
+  'cam.focusAtTarget': { en: 'Focus at the aim point · {distance} m', zh: '對焦距離設為瞄準點 · {distance} m', ja: '注視点にピントを合わせる · {distance} m' },
+  'cam.focal': { en: 'Focal length', zh: '焦段', ja: '焦点距離' },
+  'cam.aperture': { en: 'Aperture', zh: '光圈', ja: '絞り' },
+  'cam.focusDistance': { en: 'Focus distance', zh: '對焦距離', ja: 'ピント距離' },
+  'cam.shutter': { en: 'Shutter', zh: '快門', ja: 'シャッター' },
+  'cam.shutterAria': { en: 'Shutter speed', zh: '快門速度', ja: 'シャッター速度' },
+  'cam.shutterValue': { en: 'Shutter 1/{value} s', zh: '快門 1/{value} 秒', ja: 'シャッター 1/{value} 秒' },
+
+  // ── 專業控制台 ──────────────────────────────────────────
+  'pro.aria': { en: 'Production console', zh: '專業製作控制台', ja: 'プロダクションコンソール' },
+  'pro.close': { en: 'Close the production console', zh: '關閉專業控制台', ja: 'コンソールを閉じる' },
+  'pro.capture': { en: 'Capture mode', zh: '拍攝模式', ja: '撮影モード' },
+  'pro.frameRate': { en: 'Frame rate', zh: '影格率', ja: 'フレームレート' },
+  'pro.shutterAngle': { en: 'Shutter angle', zh: '快門角度', ja: 'シャッター角度' },
+  'pro.multicam': { en: 'Multi camera', zh: '多相機', ja: 'マルチカメラ' },
+  'pro.deleteCamera': { en: 'Delete {name}', zh: '刪除 {name}', ja: '{name} を削除' },
+  'pro.addCamera': { en: '＋ Add camera', zh: '＋ 新增相機', ja: '＋ カメラ追加' },
+  'pro.updateCamera': { en: 'Update current slot', zh: '更新目前機位', ja: '現在のスロットを更新' },
+  'pro.room': { en: 'Studio', zh: '攝影棚', ja: 'スタジオ' },
+  'pro.roomWidth': { en: 'Room width', zh: '棚寬', ja: 'スタジオ幅' },
+  'pro.roomDepth': { en: 'Room depth', zh: '棚深', ja: 'スタジオ奥行き' },
+  'pro.roomHeight': { en: 'Room height', zh: '棚高', ja: 'スタジオ高さ' },
+  'pro.wall': { en: 'Walls', zh: '牆面', ja: '壁' },
+  'pro.wallAria': { en: 'Wall color', zh: '牆面顏色', ja: '壁の色' },
+  'pro.floor': { en: 'Floor', zh: '地板', ja: '床' },
+  'pro.floorAria': { en: 'Floor color', zh: '地板顏色', ja: '床の色' },
+  'pro.window': { en: 'Window', zh: '窗戶', ja: '窓' },
+  'pro.sun': { en: 'Sun', zh: '太陽', ja: '太陽' },
+  'pro.sunAzimuth': { en: 'Sun azimuth', zh: '太陽方位', ja: '太陽の方位' },
+  'pro.sunElevation': { en: 'Sun elevation', zh: '太陽高度', ja: '太陽高度' },
+  'pro.sunIntensity': { en: 'Sunlight intensity', zh: '陽光強度', ja: '日射の強さ' },
+  'pro.haze': { en: 'Atmospheric haze', zh: '空氣霧化', ja: '空気のヘイズ' },
+  'pro.tracking': { en: 'Talent tracking', zh: '人物追蹤', ja: '人物トラッキング' },
+  'pro.timeline': { en: 'Keyframe timeline', zh: '動畫時間軸', ja: 'キーフレームタイムライン' },
+  'pro.timelineAria': { en: 'Timeline frame', zh: '時間軸影格', ja: 'タイムラインのフレーム' },
+  'pro.play': { en: '▶ Play', zh: '▶ 播放', ja: '▶ 再生' },
+  'pro.addKeyframe': { en: '＋ Keyframe', zh: '＋ 關鍵影格', ja: '＋ キーフレーム' },
+  'pro.assets': { en: 'Pro assets', zh: '專業資產', ja: 'プロアセット' },
+  'pro.hdriImport': { en: 'Import .HDR environment', zh: '匯入 .HDR 環境', ja: '.HDR 環境を読み込む' },
+  'pro.iesImport': { en: 'Import photometric data', zh: '匯入配光資料', ja: '配光データを読み込む' },
+  'pro.glbImport': { en: 'Import photoreal talent', zh: '匯入寫實人物', ja: 'リアルな人物を読み込む' },
+  'pro.delivery': { en: 'Output and performance', zh: '輸出與效能', ja: '出力とパフォーマンス' },
+  'pro.qualityAria': { en: 'Performance quality', zh: '效能品質', ja: '品質プリセット' },
+  'quality.performance': { en: 'Fast', zh: '快速', ja: '高速' },
+  'quality.balanced': { en: 'Balanced', zh: '平衡', ja: 'バランス' },
+  'quality.ultra': { en: 'Ultra', zh: 'Ultra', ja: 'Ultra' },
+  'pro.resolutionAria': { en: 'Output resolution', zh: '輸出解析度', ja: '出力解像度' },
+  'pro.storyboard': { en: 'Export storyboard', zh: '輸出 Storyboard', ja: 'ストーリーボードを書き出す' },
+  'pro.merge': { en: 'Merge project', zh: '合併專案', ja: 'プロジェクトを統合' },
+
+  // ── 測光與曝光分析 ──────────────────────────────────────
+  'exposure.launcher': { en: 'Metering', zh: '測光分析', ja: '測光分析' },
+  'exposure.aria': { en: 'Metering and exposure analysis', zh: '測光與曝光分析', ja: '測光と露出の分析' },
+  'exposure.close': { en: 'Close metering analysis', zh: '關閉測光分析', ja: '測光分析を閉じる' },
+  'exposure.meanLuma': { en: 'Mean luma', zh: '平均亮度', ja: '平均輝度' },
+  'exposure.evOffset': { en: 'Exposure offset', zh: '曝光偏移', ja: '露出のずれ' },
+  'exposure.histogramMode': { en: 'Histogram mode', zh: '直方圖模式', ja: 'ヒストグラムモード' },
+  'exposure.luma': { en: 'Luma', zh: '亮度', ja: '輝度' },
+  'exposure.histogram.rgb': { en: 'RGB histogram', zh: 'RGB 直方圖', ja: 'RGB ヒストグラム' },
+  'exposure.histogram.luma': { en: 'Luma histogram', zh: '亮度直方圖', ja: '輝度ヒストグラム' },
+  'exposure.shadows': { en: 'Shadows', zh: '陰影', ja: 'シャドウ' },
+  'exposure.highlights': { en: 'Highlights', zh: '高光', ja: 'ハイライト' },
+  'exposure.clipped': { en: 'Clipped', zh: '剪裁', ja: 'クリップ' },
+  'exposure.overlayAria': { en: 'Exposure aids', zh: '曝光輔助顯示', ja: '露出アシスト表示' },
+  'exposure.falseColor': { en: 'False color', zh: '假色', ja: 'フォルスカラー' },
+  'exposure.clipAlert': { en: 'Clip alert', zh: '剪裁警示', ja: 'クリップ警告' },
+  'exposure.original': { en: 'Original', zh: '原始畫面', ja: '元画像' },
+  'exposure.move3d': { en: 'Move in 3D', zh: '3D 移動', ja: '3D で移動' },
+  'exposure.targetsAria': { en: 'Meter position presets', zh: '測光位置預設', ja: '測光位置プリセット' },
+  'exposure.cameraDelta': { en: 'Camera exposure delta', zh: '相機曝光差', ja: 'カメラ露出差' },
+  'exposure.autoMeter': { en: 'Exposure estimate at the subject', zh: '人物位置曝光估算', ja: '被写体位置の露出推定' },
+  'exposure.soloTitle': { en: 'Per-light contribution', zh: '單燈貢獻', ja: 'ライト別の寄与' },
+  'exposure.allLights': { en: 'All lights', zh: '全部燈光', ja: 'すべてのライト' },
+
+  // ── 鏡位庫 ──────────────────────────────────────────────
+  'shots.launcher': { en: 'Shot library', zh: '鏡位庫', ja: 'ショットライブラリ' },
+  'shots.close': { en: 'Close the shot library', zh: '關閉鏡位庫', ja: 'ショットライブラリを閉じる' },
+  'shots.count': { en: '{count} shot setups', zh: '{count} 個拍攝方案', ja: '{count} 件のセットアップ' },
+  'shots.capture': { en: 'Capture current shot', zh: '擷取目前鏡位', ja: '現在のショットを取り込む' },
+  'shots.emptyHint': { en: 'Capture the current frame with its full lighting and camera setup', zh: '擷取目前畫面，保存完整燈光與相機設定', ja: '現在の画面を、ライトとカメラの設定ごと保存します' },
+  'shots.preview': { en: '{name} preview', zh: '{name} 預覽', ja: '{name} のプレビュー' },
+  'shots.nameAria': { en: '{name} name', zh: '{name} 名稱', ja: '{name} の名前' },
+  'shots.overwrite': { en: 'Overwrite', zh: '覆寫', ja: '上書き' },
+
+  // ── 燈位工作表 ──────────────────────────────────────────
+  'sheet.dark': { en: 'Dark', zh: '深色', ja: 'ダーク' },
+  'sheet.paper': { en: 'Paper', zh: '紙本', ja: 'ペーパー' },
+  'sheet.print': { en: 'Print / PDF', zh: '列印 / PDF', ja: '印刷 / PDF' },
+
+  // ── 快捷鍵面板 ──────────────────────────────────────────
+  'shortcuts.launcher': { en: 'Shortcuts', zh: '快捷鍵', ja: 'ショートカット' },
+  'shortcuts.launcher.title': { en: 'Keyboard shortcuts (?)', zh: '快捷鍵說明（?）', ja: 'ショートカット一覧（?）' },
+  'shortcuts.title': { en: 'Keyboard shortcuts', zh: '鍵盤快捷鍵', ja: 'キーボードショートカット' },
+  'shortcuts.close': { en: 'Close the shortcut list', zh: '關閉快捷鍵說明', ja: 'ショートカット一覧を閉じる' },
+  'shortcuts.unavailable': { en: 'Greyed-out items are unavailable for the current selection', zh: '灰色項目代表目前選取狀態下無法使用', ja: 'グレーの項目は現在の選択では使用できません' },
+  'shortcuts.closePre': { en: 'Press', zh: '按', ja: '' },
+  'shortcuts.closeSep': { en: 'or', zh: '或', ja: 'または' },
+  'shortcuts.closePost': { en: 'to close', zh: '關閉', ja: 'で閉じます' },
+  'shortcuts.section.view': { en: 'View and render', zh: '檢視與渲染', ja: '表示とレンダリング' },
+  'shortcuts.section.panels': { en: 'Panels', zh: '面板', ja: 'パネル' },
+  'shortcuts.section.edit': { en: 'Select and edit', zh: '選取與編輯', ja: '選択と編集' },
+  'shortcuts.section.camera': { en: 'Camera settings', zh: '相機參數', ja: 'カメラ設定' },
+  'shortcuts.section.move': { en: 'Move objects', zh: '移動物件', ja: 'オブジェクト移動' },
+
+  // ── 快捷鍵項目 ──────────────────────────────────────────
+  'sc.render-pause': { en: 'Pause / resume sampling', zh: '暫停／繼續取樣', ja: 'サンプリングの一時停止・再開' },
+  'sc.panel-help': { en: 'Shortcut list', zh: '快捷鍵說明', ja: 'ショートカット一覧' },
+  'sc.panel-analysis': { en: 'Exposure analysis', zh: '曝光分析', ja: '露出分析' },
+  'sc.panel-pro': { en: 'PRO console', zh: 'PRO 控制台', ja: 'PRO コンソール' },
+  'sc.panel-escape': { en: 'Close panel / cancel aim', zh: '關閉面板／取消瞄準', ja: 'パネルを閉じる・照射を解除' },
+  'sc.transform-move': { en: 'Move mode', zh: '移動模式', ja: '移動モード' },
+  'sc.transform-rotate': { en: 'Rotate mode', zh: '旋轉模式', ja: '回転モード' },
+  'sc.transform-aim': { en: 'Edit the light target', zh: '編輯燈光照射目標', ja: 'ライトの照射先を編集' },
+  'sc.light-add': { en: 'Add a light', zh: '新增燈具', ja: 'ライトを追加' },
+  'sc.light-toggle': { en: 'Toggle the selected light', zh: '開關選取的燈', ja: '選択ライトのオン・オフ' },
+  'sc.light-solo': { en: 'Solo the selected light', zh: '單燈檢視 SOLO', ja: 'ソロ表示' },
+  'sc.edit-duplicate': { en: 'Duplicate the selection', zh: '複製選取物件', ja: '選択を複製' },
+  'sc.edit-delete': { en: 'Delete the selection', zh: '刪除選取物件', ja: '選択を削除' },
+  'sc.edit-group': { en: 'Group the selected lights', zh: '群組選取的燈', ja: '選択ライトをグループ化' },
+  'sc.edit-ungroup': { en: 'Ungroup', zh: '解散群組', ja: 'グループを解除' },
+  'sc.edit-undo': { en: 'Undo', zh: '復原', ja: '元に戻す' },
+  'sc.edit-redo': { en: 'Redo', zh: '重做', ja: 'やり直す' },
+  'sc.aperture-open': { en: 'Open the aperture one stop', zh: '光圈開大一級', ja: '絞りを 1 段開く' },
+  'sc.aperture-close': { en: 'Close the aperture one stop', zh: '光圈縮小一級', ja: '絞りを 1 段絞る' },
+  'sc.iso-down': { en: 'ISO down one stop', zh: 'ISO 降一級', ja: 'ISO を 1 段下げる' },
+  'sc.iso-up': { en: 'ISO up one stop', zh: 'ISO 升一級', ja: 'ISO を 1 段上げる' },
+  'sc.shutter-slow': { en: 'Shutter one stop slower', zh: '快門變慢一級', ja: 'シャッターを 1 段遅く' },
+  'sc.shutter-fast': { en: 'Shutter one stop faster', zh: '快門變快一級', ja: 'シャッターを 1 段速く' },
+  'sc.composition-guide': { en: 'Cycle the composition guide', zh: '切換構圖參考線', ja: '構図ガイドを切り替え' },
+  'sc.exposure-overlay': { en: 'Cycle the exposure overlay', zh: '切換曝光疊圖', ja: '露出オーバーレイを切り替え' },
+  'sc.focus-guide': { en: 'Focus guide box', zh: '對焦輔助框', ja: 'フォーカスガイド枠' },
+  'sc.locale': { en: 'Switch language', zh: '切換語言', ja: '言語を切り替え' },
+  'sc.nudge': { en: 'Nudge the selection', zh: '微調選取物件位置', ja: '選択を微調整' },
+  'sc.nudge.hint': { en: '0.1 m per press', zh: '每次 0.1 M', ja: '1 回 0.1 M' },
+  'sc.nudge-large': { en: 'Move the selection further', zh: '大幅移動選取物件', ja: '選択を大きく移動' },
+  'sc.nudge-large.hint': { en: '0.5 m per press', zh: '每次 0.5 M', ja: '1 回 0.5 M' },
+  'sc.nudge-height': { en: 'Adjust the selection height', zh: '調整選取物件高度', ja: '選択の高さを調整' },
+  'sc.nudge-height.hint': { en: 'Stand height', zh: '燈架高度', ja: 'スタンドの高さ' },
+
+  // ── 快捷鍵浮動提示 ──────────────────────────────────────
+  'msg.render.start': { en: 'Photo render started', zh: '開始照片渲染', ja: 'フォトレンダリングを開始' },
+  'msg.sampling.paused': { en: 'Sampling paused', zh: '取樣已暫停', ja: 'サンプリングを一時停止' },
+  'msg.sampling.resumed': { en: 'Sampling resumed', zh: '取樣繼續', ja: 'サンプリングを再開' },
+  'msg.panel.analysis': { en: 'Exposure analysis {state}', zh: '曝光分析 {state}', ja: '露出分析 {state}' },
+  'msg.panel.pro': { en: 'PRO console {state}', zh: 'PRO 控制台 {state}', ja: 'PRO コンソール {state}' },
+  'msg.panel.shots': { en: 'Shot library {state}', zh: '鏡位庫 {state}', ja: 'ショットライブラリ {state}' },
+  'msg.aim.enter': { en: 'Aim mode', zh: '瞄準模式', ja: '照射モード' },
+  'msg.aim.exit': { en: 'Left aim mode', zh: '離開瞄準模式', ja: '照射モードを終了' },
+  'msg.shots.closed': { en: 'Shot library closed', zh: '關閉鏡位庫', ja: 'ショットライブラリを閉じました' },
+  'msg.pro.closed': { en: 'PRO console closed', zh: '關閉 PRO 控制台', ja: 'PRO コンソールを閉じました' },
+  'msg.analysis.closed': { en: 'Exposure analysis closed', zh: '關閉曝光分析', ja: '露出分析を閉じました' },
+  'msg.rotate.unsupported': { en: 'This object cannot be rotated', zh: '此物件無法旋轉', ja: 'このオブジェクトは回転できません' },
+  'msg.selectLight': { en: 'Select a light first', zh: '請先選取燈具', ja: '先にライトを選択してください' },
+  'msg.light.added': { en: 'Light added', zh: '已新增燈具', ja: 'ライトを追加しました' },
+  'msg.light.toggled': { en: '{name} {state}', zh: '{name} {state}', ja: '{name} {state}' },
+  'msg.solo.cleared': { en: 'All lights restored', zh: '恢復全部燈光', ja: 'すべてのライトに戻しました' },
+  'msg.duplicated.lights': { en: 'Duplicated {count} lights', zh: '已複製 {count} 盞燈', ja: '{count} 灯を複製しました' },
+  'msg.duplicated.lights_one': { en: 'Duplicated 1 light', zh: '已複製 1 盞燈', ja: '1 灯を複製しました' },
+  'msg.duplicated.item': { en: 'Duplicated {name}', zh: '已複製 {name}', ja: '{name} を複製しました' },
+  'msg.duplicate.none': { en: 'Nothing to duplicate', zh: '沒有可複製的物件', ja: '複製できるオブジェクトがありません' },
+  'msg.deleted.lights': { en: 'Deleted {count} lights', zh: '已刪除 {count} 盞燈', ja: '{count} 灯を削除しました' },
+  'msg.deleted.lights_one': { en: 'Deleted 1 light', zh: '已刪除 1 盞燈', ja: '1 灯を削除しました' },
+  'msg.deleted.item': { en: 'Deleted {name}', zh: '已刪除 {name}', ja: '{name} を削除しました' },
+  'msg.delete.none': { en: 'Nothing to delete', zh: '沒有可刪除的物件', ja: '削除できるオブジェクトがありません' },
+  'msg.group.needTwo': { en: 'Select at least two lights first', zh: '請先選取兩盞以上的燈', ja: '先に 2 灯以上を選択してください' },
+  'msg.grouped': { en: 'Grouped {count} lights', zh: '已群組 {count} 盞燈', ja: '{count} 灯をグループ化しました' },
+  'msg.ungrouped': { en: 'Group dissolved', zh: '已解散群組', ja: 'グループを解除しました' },
+  'msg.undo.none': { en: 'Nothing to undo', zh: '沒有可復原的步驟', ja: '元に戻す操作がありません' },
+  'msg.redo.none': { en: 'Nothing to redo', zh: '沒有可重做的步驟', ja: 'やり直す操作がありません' },
+  'msg.saved': { en: 'Scene saved', zh: '場景已儲存', ja: 'シーンを保存しました' },
+  'msg.exported': { en: 'Project exported', zh: '已匯出專案', ja: 'プロジェクトを書き出しました' },
+  'msg.aperture': { en: 'Aperture ƒ/{value}', zh: '光圈 ƒ/{value}', ja: '絞り ƒ/{value}' },
+  'msg.shutter': { en: 'Shutter 1/{value}s', zh: '快門 1/{value}s', ja: 'シャッター 1/{value}s' },
+  'msg.guide': { en: 'Composition guide · {name}', zh: '構圖參考線 · {name}', ja: '構図ガイド · {name}' },
+  'msg.overlay': { en: 'Exposure overlay · {name}', zh: '曝光疊圖 · {name}', ja: '露出オーバーレイ · {name}' },
+  'overlay.clipping': { en: 'Zebra clipping', zh: '過曝斑馬紋', ja: 'ゼブラ（白飛び）' },
+  'msg.focusGuide': { en: 'Focus guide {state}', zh: '對焦輔助 {state}', ja: 'フォーカスガイド {state}' },
+  'msg.shot.captured': { en: 'Shot captured', zh: '已擷取鏡位', ja: 'ショットを取り込みました' },
+  'msg.locked': { en: '{name} is locked', zh: '{name} 已鎖定', ja: '{name} はロック中です' },
+  'msg.lightCount': { en: '{count} lights', zh: '{count} 盞燈', ja: '{count} 灯' },
+  'msg.locale': { en: 'Language · {name}', zh: '語言 · {name}', ja: '言語 · {name}' },
+  'sel.camera': { en: 'Camera', zh: '相機', ja: 'カメラ' },
+  'sel.meter': { en: 'Meter', zh: '測光表', ja: '露出計' },
+  'sel.model': { en: 'Model', zh: '模特兒', ja: 'モデル' },
+} as const satisfies Record<string, Record<Locale, string>>
+
+export type MessageKey = keyof typeof DICT
+
+type Vars = Record<string, string | number>
+
+const ENTRIES = DICT as Record<string, Record<Locale, string>>
+
+/** `{name}` 佔位符；`count === 1` 時優先找 `<key>_one`，讓英文單複數正確 */
+export function translate(locale: Locale, key: MessageKey, vars?: Vars): string {
+  const entry = (vars?.count === 1 ? ENTRIES[`${key}_one`] : undefined) ?? ENTRIES[key]
+  if (!entry) return key
+  const text = entry[locale] ?? entry.en
+  if (!vars) return text
+  return text.replace(/\{(\w+)\}/g, (match, name: string) => (name in vars ? String(vars[name]) : match))
+}
+
+const STORAGE_KEY = 'lumen-stage:locale'
+
+function isLocale(value: unknown): value is Locale {
+  return value === 'en' || value === 'zh' || value === 'ja'
+}
+
+/** 先看使用者上次的選擇，其次跟隨瀏覽器語言，最後退回英文 */
+function detectLocale(): Locale {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (isLocale(stored)) return stored
+  } catch { /* private mode can reject storage */ }
+  const languages = typeof navigator !== 'undefined' ? [navigator.language, ...(navigator.languages ?? [])] : []
+  for (const language of languages) {
+    const tag = (language ?? '').toLowerCase()
+    if (tag.startsWith('zh')) return 'zh'
+    if (tag.startsWith('ja')) return 'ja'
+    if (tag.startsWith('en')) return 'en'
+  }
+  return 'en'
+}
+
+function applyHtmlLang(locale: Locale) {
+  if (typeof document === 'undefined') return
+  document.documentElement.lang = LOCALES.find((item) => item.id === locale)?.htmlLang ?? 'en'
+}
+
+type LocaleStore = {
+  locale: Locale
+  setLocale: (locale: Locale) => void
+  cycleLocale: () => Locale
+}
+
+export const useLocaleStore = create<LocaleStore>((set, get) => ({
+  locale: detectLocale(),
+  setLocale: (locale) => {
+    applyHtmlLang(locale)
+    try { localStorage.setItem(STORAGE_KEY, locale) } catch { /* private mode can reject storage */ }
+    set({ locale })
+  },
+  cycleLocale: () => {
+    const index = LOCALES.findIndex((item) => item.id === get().locale)
+    const next = LOCALES[(index + 1) % LOCALES.length].id
+    get().setLocale(next)
+    return next
+  },
+}))
+
+applyHtmlLang(useLocaleStore.getState().locale)
+
+/** 元件外（例如快捷鍵）要翻譯時用這個，讀的是當下的語言 */
+export function t(key: MessageKey, vars?: Vars): string {
+  return translate(useLocaleStore.getState().locale, key, vars)
+}
+
+/** 元件內用這個，換語言時會重新渲染 */
+export function useT() {
+  const locale = useLocaleStore((state) => state.locale)
+  return (key: MessageKey, vars?: Vars) => translate(locale, key, vars)
+}
+
+export function localeNative(locale: Locale) {
+  return LOCALES.find((item) => item.id === locale)?.native ?? locale
+}

@@ -10,6 +10,7 @@ import { SetupSheet } from './components/SetupSheet'
 import { ShortcutHelp, ShortcutHint, ShortcutLauncher } from './components/ShortcutHelp'
 import { runShortcut } from './shortcuts'
 import { applyLensOpticsToCanvas, calculateDepthOfField } from './optics'
+import { LOCALES, useLocaleStore, useT, type Locale } from './i18n'
 import { useStudio } from './store'
 import { applyColorScienceToCanvas, COLOR_PROFILES } from './colorScience'
 import { applySensorProcessingToCanvas } from './sensorProcessing'
@@ -79,6 +80,7 @@ function FileMenu({ onImport, onExport, onLoad }: { onImport: () => void; onExpo
   const [open, setOpen] = useState(false)
   const wrapper = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
+  const t = useT()
 
   useEffect(() => {
     if (!open) return
@@ -104,21 +106,44 @@ function FileMenu({ onImport, onExport, onLoad }: { onImport: () => void; onExpo
 
   return (
     <div className="file-menu" ref={wrapper}>
-      <button ref={trigger} className={open ? 'active' : ''} onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} title="專案檔案">
-        檔案 <i aria-hidden="true" />
+      <button ref={trigger} className={open ? 'active' : ''} onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} title={t('file.menu.title')}>
+        {t('file.menu')} <i aria-hidden="true" />
       </button>
       {open && (
         <div className="file-menu-list" role="menu">
-          <button role="menuitem" onClick={pick(onImport)}>匯入專案檔<small>.json</small></button>
-          <button role="menuitem" onClick={pick(onExport)}>匯出專案檔<small>⌘E</small></button>
-          <button role="menuitem" onClick={pick(onLoad)}>載入本機存檔<small>上次儲存</small></button>
+          <button role="menuitem" onClick={pick(onImport)}>{t('file.import')}<small>.json</small></button>
+          <button role="menuitem" onClick={pick(onExport)}>{t('file.export')}<small>⌘E</small></button>
+          <button role="menuitem" onClick={pick(onLoad)}>{t('file.load')}<small>{t('file.load.sub')}</small></button>
         </div>
       )}
     </div>
   )
 }
 
+/** 語言切換：三種語言下都顯示原生名稱，不必先看懂目前的介面語言 */
+function LanguageSwitch() {
+  const locale = useLocaleStore((state) => state.locale)
+  const setLocale = useLocaleStore((state) => state.setLocale)
+  const t = useT()
+  return (
+    <div className="language-switch" role="group" aria-label={t('lang.label')} title={t('lang.title')}>
+      {LOCALES.map((item) => (
+        <button
+          key={item.id}
+          lang={item.htmlLang}
+          title={item.native}
+          aria-label={item.native}
+          className={locale === item.id ? 'active' : ''}
+          aria-pressed={locale === item.id}
+          onClick={() => setLocale(item.id as Locale)}
+        >{item.short}</button>
+      ))}
+    </div>
+  )
+}
+
 function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
+  const t = useT()
   const view = useStudio((state) => state.view)
   const renderMode = useStudio((state) => state.renderMode)
   const openStudioView = useStudio((state) => state.openStudioView)
@@ -141,20 +166,20 @@ function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
         <span className="brand-mark"><i /></span>
         <div><strong>LUMEN</strong><small>STAGE / 001</small></div>
       </div>
-      <div className="project-title"><span>PROJECT</span><input className="project-name-input" aria-label="專案名稱" value={projectName} onChange={(event) => setValue('projectName', event.target.value)} /><small className={`save-state ${saveStatus}`}>{saveStatus === 'saved' ? '已儲存' : saveStatus === 'autosaved' ? '自動儲存' : saveStatus === 'loaded' ? '已載入' : saveStatus === 'exported' ? '已匯出' : saveStatus === 'error' ? '沒有存檔' : '本機場景'}</small></div>
-      <div className="view-switch" role="group" aria-label="檢視模式">
-        <button className={view === 'studio' ? 'active' : ''} onClick={openStudioView} title="棚內視角（1）">棚內視角 <kbd>1</kbd></button>
-        <button className={view === 'top' ? 'active' : ''} onClick={openTopView} title="俯視燈位（2）">俯視燈位 <kbd>2</kbd></button>
-        <button className={view === 'camera' && renderMode === 'preview' ? 'active' : ''} onClick={openCameraView} title="相機取景（3）">相機取景 <kbd>3</kbd></button>
-        <button className={renderMode === 'path' ? 'active render-active' : ''} onClick={startPhotoRender} title="照片渲染（4）">照片渲染 <kbd>4</kbd></button>
+      <div className="project-title"><span>PROJECT</span><input className="project-name-input" aria-label={t('topbar.projectName')} value={projectName} onChange={(event) => setValue('projectName', event.target.value)} /><small className={`save-state ${saveStatus}`}>{saveStatus === 'saved' ? t('topbar.save.saved') : saveStatus === 'autosaved' ? t('topbar.save.autosaved') : saveStatus === 'loaded' ? t('topbar.save.loaded') : saveStatus === 'exported' ? t('topbar.save.exported') : saveStatus === 'error' ? t('topbar.save.error') : t('topbar.save.idle')}</small><LanguageSwitch /></div>
+      <div className="view-switch" role="group" aria-label={t('topbar.views')}>
+        <button className={view === 'studio' ? 'active' : ''} onClick={openStudioView} title={t('view.studio.title')}>{t('view.studio')} <kbd>1</kbd></button>
+        <button className={view === 'top' ? 'active' : ''} onClick={openTopView} title={t('view.top.title')}>{t('view.top')} <kbd>2</kbd></button>
+        <button className={view === 'camera' && renderMode === 'preview' ? 'active' : ''} onClick={openCameraView} title={t('view.camera.title')}>{t('view.camera')} <kbd>3</kbd></button>
+        <button className={renderMode === 'path' ? 'active render-active' : ''} onClick={startPhotoRender} title={t('view.render.title')}>{t('view.render')} <kbd>4</kbd></button>
       </div>
       <div className="project-actions">
-        <button className="setup-sheet-button" onClick={() => setValue('setupSheetOpen', true)} title="產生燈位工作表">燈位工作表</button>
-        <button className={professionalPanelOpen ? 'pro-console-button active' : 'pro-console-button'} onClick={() => setValue('professionalPanelOpen', !professionalPanelOpen)} title="專業控制台（P）" aria-pressed={professionalPanelOpen}>PRO</button>
-        <button className="guide-button" onClick={onOpenGuide} title="開啟網站使用教學">教學</button>
+        <button className="setup-sheet-button" onClick={() => setValue('setupSheetOpen', true)} title={t('topbar.setupSheet.title')}>{t('topbar.setupSheet')}</button>
+        <button className={professionalPanelOpen ? 'pro-console-button active' : 'pro-console-button'} onClick={() => setValue('professionalPanelOpen', !professionalPanelOpen)} title={t('topbar.pro.title')} aria-pressed={professionalPanelOpen}>PRO</button>
+        <button className="guide-button" onClick={onOpenGuide} title={t('topbar.guide.title')}>{t('topbar.guide')}</button>
         <input ref={projectInput} className="asset-input" type="file" accept=".json,.lumen.json,application/json" onChange={async (event) => { const file = event.target.files?.[0]; if (file) importProject(await file.text()); event.target.value = '' }} />
         <FileMenu onImport={() => projectInput.current?.click()} onExport={exportProject} onLoad={loadProject} />
-        <button className="save-button" onClick={saveProject} title="儲存場景到瀏覽器（⌘S）">儲存場景 <span>⌘S</span></button>
+        <button className="save-button" onClick={saveProject} title={t('topbar.save.title')}>{t('topbar.save')} <span>⌘S</span></button>
       </div>
     </header>
   )
@@ -165,6 +190,8 @@ function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const stageRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(1)
   const pageCount = 11
+  const locale = useLocaleStore((state) => state.locale)
+  const t = useT()
 
   useEffect(() => {
     if (!open) return
@@ -176,22 +203,26 @@ function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [open, onClose])
+  }, [open, onClose, locale])
 
   if (!open) return null
-  const guideUrl = '/LUMEN_STAGE_網站使用教學.pdf'
+  const guideUrl = locale === 'en'
+    ? '/LUMEN_STAGE_Site_Guide_EN.pdf'
+    : locale === 'ja'
+      ? '/LUMEN_STAGE_サイトガイド_JA.pdf'
+      : '/LUMEN_STAGE_網站使用教學.pdf'
 
   return (
-    <div className="guide-overlay" role="dialog" aria-modal="true" aria-label="LUMEN STAGE 網站使用教學" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+    <div className="guide-overlay" role="dialog" aria-modal="true" aria-label={t('guide.aria')} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <section className="guide-dialog">
         <header>
-          <div><strong>網站使用教學</strong><small>LUMEN STAGE · QUICK GUIDE</small></div>
+          <div><strong>{t('guide.title')}</strong><small>{t('guide.languageNote')}</small></div>
           <div className="guide-actions">
-            <a href={guideUrl} download>下載 PDF</a>
-            <button ref={closeButton} onClick={onClose} aria-label="關閉網站使用教學">×</button>
+            <a href={guideUrl} download>{t('guide.download')}</a>
+            <button ref={closeButton} onClick={onClose} aria-label={t('guide.close')}>×</button>
           </div>
         </header>
-        <div ref={stageRef} className="guide-page-stage" role="document" aria-label="連續捲動教學頁面" tabIndex={0} onScroll={(event) => {
+        <div ref={stageRef} className="guide-page-stage" role="document" aria-label={t('guide.stage')} tabIndex={0} onScroll={(event) => {
           const viewport = event.currentTarget.getBoundingClientRect()
           const center = viewport.top + viewport.height / 2
           const pages = Array.from(event.currentTarget.querySelectorAll<HTMLImageElement>('[data-guide-page]'))
@@ -204,7 +235,7 @@ function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
           })
           setPage((current) => current === nearest ? current : nearest)
         }}>
-          {Array.from({ length: pageCount }, (_, index) => <img key={index + 1} data-guide-page={index + 1} loading={index < 2 ? 'eager' : 'lazy'} src={`/guide-pages/page-${String(index + 1).padStart(2, '0')}.jpg`} alt={`LUMEN STAGE 網站使用教學第 ${index + 1} 頁`} />)}
+          {Array.from({ length: pageCount }, (_, index) => <img key={`${locale}-${index + 1}`} data-guide-page={index + 1} loading={index < 2 ? 'eager' : 'lazy'} src={`/guide-pages/${locale}/page-${String(index + 1).padStart(2, '0')}.jpg`} alt={t('guide.page', { n: index + 1 })} />)}
         </div>
         <div className="guide-page-indicator" aria-live="polite"><strong>{page}</strong><span>/ {pageCount}</span></div>
       </section>
@@ -245,6 +276,7 @@ function RenderToolbar() {
   const shutter = useStudio((state) => state.shutter)
   const outputResolution = useStudio((state) => state.outputResolution)
   const denoiseEnabled = useStudio((state) => state.denoiseEnabled)
+  const t = useT()
 
   if (renderMode !== 'path') return null
 
@@ -279,18 +311,18 @@ function RenderToolbar() {
     link.click()
   }
 
-  const label = status === 'building' ? '建立光線場景' : status === 'error' ? '渲染失敗' : paused ? '已暫停' : '漸進取樣'
+  const label = t(status === 'building' ? 'render.status.building' : status === 'error' ? 'render.status.error' : paused ? 'render.status.paused' : 'render.status.sampling')
 
   return (
-    <div className="render-toolbar" role="toolbar" aria-label="高品質照片渲染">
+    <div className="render-toolbar" role="toolbar" aria-label={t('render.aria')}>
       <div className="render-progress">
         <span>{label}</span>
         <strong>{Math.floor(samples)} <small>SPP</small></strong>
         <i style={{ '--render-progress': `${Math.min(100, samples / 2.56)}%` } as React.CSSProperties} />
       </div>
-      <button onClick={() => setValue('pathTracingPaused', !paused)} disabled={status === 'building' || status === 'error'} title="暫停／繼續取樣（Space）">{paused ? '繼續' : '暫停'} <kbd>Space</kbd></button>
-      <button onClick={restart} title="重新取樣（⇧R）">重新取樣 <kbd>⇧R</kbd></button>
-      <button className="export-button" onClick={download} disabled={samples < 1}>輸出 PNG</button>
+      <button onClick={() => setValue('pathTracingPaused', !paused)} disabled={status === 'building' || status === 'error'} title={t('render.pause.title')}>{t(paused ? 'render.resume' : 'render.pause')} <kbd>Space</kbd></button>
+      <button onClick={restart} title={t('render.restart.title')}>{t('render.restart')} <kbd>⇧R</kbd></button>
+      <button className="export-button" onClick={download} disabled={samples < 1}>{t('render.exportPng')}</button>
     </div>
   )
 }
@@ -340,14 +372,15 @@ function SceneToolbar() {
   const selectedStudioObject = useStudio((state) => state.studioObjects.find((object) => object.id === state.selected))
   const selectedCount = useStudio((state) => state.selectedIds.length)
   const aimMode = useStudio((state) => state.lightAimMode)
+  const t = useT()
   if (view === 'camera') return null
 
   return (
-    <div className="scene-toolbar" role="toolbar" aria-label="場景編輯工具">
+    <div className="scene-toolbar" role="toolbar" aria-label={t('scene.aria')}>
       <span>{selectedLight ? `${selectedLight.name.toUpperCase()}${selectedCount > 1 ? ` · ${selectedCount} SELECTED` : ''}` : selectedModifier ? `${selectedModifier.name.toUpperCase()} · GRIP` : selectedStudioObject ? `${selectedStudioObject.name.toUpperCase()} · SET` : selected === 'camera' ? 'CAMERA 01' : 'MODEL'}</span>
-      <button className={mode === 'translate' && !aimMode ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'translate') }} title="移動（G）"><i className="move-glyph" />移動 <kbd>G</kbd></button>
-      {selectedLight && <button className={aimMode ? 'active aim-active' : ''} onClick={() => setValue('lightAimMode', !aimMode)} title="編輯照射目標（T）"><i className="target-glyph" />瞄準 <kbd>T</kbd></button>}
-      <button disabled={selected !== 'model' && !selectedModifier && !selectedStudioObject} className={mode === 'rotate' ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'rotate') }} title="旋轉（R）"><i className="rotate-glyph" />旋轉 <kbd>R</kbd></button>
+      <button className={mode === 'translate' && !aimMode ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'translate') }} title={t('scene.move.title')}><i className="move-glyph" />{t('scene.move')} <kbd>G</kbd></button>
+      {selectedLight && <button className={aimMode ? 'active aim-active' : ''} onClick={() => setValue('lightAimMode', !aimMode)} title={t('scene.aim.title')}><i className="target-glyph" />{t('scene.aim')} <kbd>T</kbd></button>}
+      <button disabled={selected !== 'model' && !selectedModifier && !selectedStudioObject} className={mode === 'rotate' ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'rotate') }} title={t('scene.rotate.title')}><i className="rotate-glyph" />{t('scene.rotate')} <kbd>R</kbd></button>
     </div>
   )
 }
@@ -392,6 +425,7 @@ export default function App() {
   const pathContrast = 1 + (profile.contrast - 1) * colorStrength
   const pathSepia = Math.max(0, (whiteBalance - 5600) / 3400) * 0.14 * rawMix
 
+  const t = useT()
   const [sceneReady, setSceneReady] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [hint, setHint] = useState<{ id: number; text: string } | null>(null)
@@ -417,7 +451,7 @@ export default function App() {
     <main className="app-shell">
       <TopBar onOpenGuide={() => setGuideOpen(true)} />
       <Library />
-      <section className={`viewport ${renderMode === 'path' ? 'path-color-science' : ''}`} aria-label="3D 攝影棚" style={{ '--path-saturation': pathSaturation, '--path-contrast': pathContrast, '--path-sepia': pathSepia } as React.CSSProperties}>
+      <section className={`viewport ${renderMode === 'path' ? 'path-color-science' : ''}`} aria-label={t('viewport.aria')} style={{ '--path-saturation': pathSaturation, '--path-contrast': pathContrast, '--path-sepia': pathSepia } as React.CSSProperties}>
         <Canvas
           onCreated={() => setSceneReady(true)}
           shadows="percentage"
@@ -430,7 +464,7 @@ export default function App() {
         {!sceneReady && (
           <div className="viewport-loading" role="status">
             <span className="viewport-loading-mark"><i /></span>
-            <strong>正在架設攝影棚</strong>
+            <strong>{t('viewport.loading')}</strong>
             <small>BUILDING STUDIO · WEBGL</small>
           </div>
         )}

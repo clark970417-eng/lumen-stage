@@ -41,20 +41,26 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .brand > div { display: flex; flex-direction: column; line-height: 1; }
 .brand strong { font-size: 13px; letter-spacing: .2em; }
 .brand small { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 6px; letter-spacing: .1em; }
-.project-title { padding-left: 22px; display: flex; align-items: baseline; gap: 12px; }
+.project-title { min-width: 0; padding-left: 22px; display: flex; align-items: baseline; gap: 12px; }
 .project-title span, .panel-heading, .viewport-label, .axis-label { font: 500 10.5px/1 var(--mono); letter-spacing: .13em; color: var(--muted); }
 .project-title strong { font-size: 13px; font-weight: 500; }
-.project-name-input { width: min(220px, 34vw); padding: 4px 6px; border: 1px solid transparent; background: transparent; color: #e6e9e2; font-size: 13px; font-weight: 500; }
+.project-name-input { flex: 0 1 auto; min-width: 88px; width: min(220px, 34vw); padding: 4px 6px; border: 1px solid transparent; background: transparent; color: #e6e9e2; font-size: 13px; font-weight: 500; }
 .project-name-input:hover, .project-name-input:focus { border-color: #3b403a; background: #171a17; }
-.project-title .save-state { margin-left: 2px; padding-left: 12px; border-left: 1px solid var(--line); color: #7d847a; font: 10px var(--mono); letter-spacing: .08em; }
+.project-title .save-state { flex: none; white-space: nowrap; margin-left: 2px; padding-left: 12px; border-left: 1px solid var(--line); color: #7d847a; font: 10px var(--mono); letter-spacing: .08em; }
 .project-title .save-state.saved, .project-title .save-state.autosaved, .project-title .save-state.loaded { color: #9da676; }
 .project-title .save-state.error { color: #c89079; }
+.language-switch { flex: none; align-self: center; margin-left: 4px; display: flex; border: 1px solid var(--line); background: #0e100e; }
+.language-switch button { min-width: 28px; padding: 5px 7px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); font: 500 10.5px var(--mono); letter-spacing: .06em; cursor: pointer; }
+.language-switch button:last-child { border-right: 0; }
+.language-switch button:hover { color: var(--paper); }
+.language-switch button.active { background: #31352f; color: var(--paper); }
+
 .view-switch { display: flex; padding: 3px; border: 1px solid var(--line); background: #0e100e; }
-.view-switch button { padding: 8px 13px; border: 0; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
+.view-switch button { padding: 8px 13px; border: 0; background: transparent; color: var(--muted); font-size: 11px; white-space: nowrap; cursor: pointer; }
 .view-switch button.active { background: #31352f; color: var(--paper); }
 .view-switch button.render-active { background: var(--signal); color: #141711; }
 .project-actions { align-self: stretch; margin-left: 12px; display: grid; grid-template-columns: 60px 44px 46px 58px minmax(88px, 1fr); border-left: 1px solid var(--line); }
-.project-actions button { border: 0; border-right: 1px solid var(--line); background: #171a17; color: #9ba097; font-size: 10px; cursor: pointer; }
+.project-actions button { border: 0; border-right: 1px solid var(--line); background: #171a17; color: #9ba097; font-size: 10px; white-space: nowrap; cursor: pointer; }
 .project-actions .pro-console-button { color: var(--signal); font: 500 10.5px var(--mono); letter-spacing: .08em; }
 .project-actions .pro-console-button.active { background: var(--signal); color: #11140f; }
 .project-actions .guide-button { color: #d8ddd4; font-weight: 500; }
@@ -90,6 +96,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .object-list button > span:nth-child(2) { display: flex; min-width: 0; flex-direction: column; }
 .object-list strong, .backdrop-grid strong { font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .object-list small, .backdrop-grid small, .library-note small { margin-top: 4px; color: var(--muted); font: 10px/1.2 var(--mono); }
+.object-list small, .backdrop-grid small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .object-list i { color: #7d847a; font: 10.5px var(--mono); font-style: normal; }
 .object-icon { position: relative; width: 32px; height: 32px; border: 1px solid #3b3f3a; background: #111311; }
 .camera-icon::after { content: ''; position: absolute; width: 14px; height: 9px; left: 8px; top: 10px; border: 1px solid #a7aca3; }
@@ -441,7 +448,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .shutter-speed-control > div:first-child { min-height: 28px; display: flex; align-items: center; justify-content: space-between; color: #9aa096; font-size: 10px; }
 .shutter-speed-control output { color: var(--signal); font: 10px var(--mono); }
 .shutter-speed-control > div:last-child { display: grid; grid-template-columns: repeat(3,1fr); gap: 4px; }
-.shutter-speed-control button { height: 30px; padding: 0 2px; border: 1px solid #353a34; background: #111311; color: #81887e; font: 8px var(--mono); cursor: pointer; }
+.shutter-speed-control button { height: 30px; padding: 0 2px; border: 1px solid #353a34; background: #111311; color: #81887e; font: 10px var(--mono); cursor: pointer; }
 .shutter-speed-control button:hover { border-color: #687064; color: #dfe3da; }
 .shutter-speed-control button.active { border-color: var(--signal); background: rgba(216,255,62,.07); color: var(--signal); }
 .camera-position-status { height: 39px; margin-bottom: 14px; padding: 0 9px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #3b4139; background: #111311; }
@@ -595,6 +602,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .readout .ev { border-right: 0; position: relative; }
 .readout .ev strong { color: var(--signal); }
 .readout .ev i { position: absolute; left: 65px; right: 18px; bottom: 20px; height: 2px; background: linear-gradient(to right, var(--signal) var(--meter), #333731 var(--meter)); }
+
+/* CJK 介面比英文寬，頂欄變擠時先讓 PROJECT 標籤讓位 */
+@media (max-width: 1340px) {
+  .project-title span { display: none; }
+}
 
 @media (max-width: 1120px) {
   .app-shell { grid-template-columns: 190px minmax(430px, 1fr) 250px; }

@@ -2,6 +2,7 @@ import { useStudio, type FrameAspect, type FrameOrientation, type MakeupStyle, t
 import { CAMERA_BODIES, LENS_PROFILES, type CameraBodyId, type LensProfileId } from '../cameraProfiles'
 import { COLOR_PROFILES, type ColorProfileId, type ImageFormat } from '../colorScience'
 import { type ShutterMode } from '../sensorProcessing'
+import { useT } from '../i18n'
 import { captureCurrentShot, captureThumbnail } from '../shotCapture'
 import { openSetupSheetForShot } from './SetupSheet'
 
@@ -70,33 +71,34 @@ export function ShotLibrary() {
   const frameAspect = useStudio((state) => state.frameAspect)
   const frameOrientation = useStudio((state) => state.frameOrientation)
   const state = useStudio()
+  const t = useT()
   const thumbnail = () => captureThumbnail(frameAspect, frameOrientation)
   const captureCurrent = captureCurrentShot
 
   return <>
     <div className="shot-launcher">
-      <button className={open ? 'active' : ''} onClick={() => state.setValue('shotPanelOpen', !open)}>鏡位庫 <b>{String(shots.length).padStart(2, '0')}</b></button>
+      <button className={open ? 'active' : ''} onClick={() => state.setValue('shotPanelOpen', !open)}>{t('shots.launcher')} <b>{String(shots.length).padStart(2, '0')}</b></button>
       <button className="capture-shot-button" onClick={captureCurrent}>＋ SHOT</button>
     </div>
-    {open && <aside className="shot-panel" aria-label="鏡位庫">
-      <header><span>SHOT LIBRARY</span><button aria-label="關閉鏡位庫" onClick={() => state.setValue('shotPanelOpen', false)}>×</button></header>
-      <div className="shot-panel-actions"><span>{shots.length} 個拍攝方案</span><button onClick={captureCurrent}>擷取目前鏡位</button></div>
+    {open && <aside className="shot-panel" aria-label={t('shots.launcher')}>
+      <header><span>SHOT LIBRARY</span><button aria-label={t('shots.close')} onClick={() => state.setValue('shotPanelOpen', false)}>×</button></header>
+      <div className="shot-panel-actions"><span>{t('shots.count', { count: shots.length })}</span><button onClick={captureCurrent}>{t('shots.capture')}</button></div>
       <div className="shot-list">
-        {!shots.length && <div className="empty-shots"><b>NO SHOTS</b><span>擷取目前畫面，保存完整燈光與相機設定</span></div>}
+        {!shots.length && <div className="empty-shots"><b>NO SHOTS</b><span>{t('shots.emptyHint')}</span></div>}
         {shots.map((shot, index) => {
           const scene = sceneFromShot(shot)
           return <article key={shot.id} className={activeShotId === shot.id ? 'active' : ''}>
-            <img src={shot.thumbnail} alt={`${shot.name} 預覽`} />
+            <img src={shot.thumbnail} alt={t('shots.preview', { name: shot.name })} />
             <div className="shot-card-body">
               <span>SHOT {String(index + 1).padStart(2, '0')}{activeShotId === shot.id ? ' · ACTIVE' : ''}</span>
-              <input aria-label={`${shot.name} 名稱`} defaultValue={shot.name} onBlur={(event) => state.updateShot(shot.id, event.target.value)} />
+              <input aria-label={t('shots.nameAria', { name: shot.name })} defaultValue={shot.name} onBlur={(event) => state.updateShot(shot.id, event.target.value)} />
               <small>{scene ? `${cameraLabel(scene)} · ${lensLabel(scene)} @ ${scene.focalLength}mm · ${scene.imageFormat?.toUpperCase() ?? 'JPEG'} / ${COLOR_PROFILES[scene.colorProfileId ?? 'neutral'].code} · LOOK ${(scene.makeupStyle ?? 'natural').toUpperCase()} / ${(scene.outfitFabric ?? 'cotton').toUpperCase()} · ISO ${scene.iso} · ${scene.lights.length} LIGHTS · ${(scene.modifiers ?? []).length} GRIP · ${(scene.studioObjects ?? []).length} SET` : 'SCENE DATA ERROR'}</small>
             </div>
             <div className="shot-card-actions">
-              <button onClick={() => state.loadShot(shot.id)}>載入</button>
-              <button onClick={() => state.overwriteShot(shot.id, thumbnail())}>覆寫</button>
-              <button onClick={() => openSetupSheetForShot(shot)}>燈位工作表</button>
-              <button className="danger" onClick={() => state.deleteShot(shot.id)}>刪除</button>
+              <button onClick={() => state.loadShot(shot.id)}>{t('common.load')}</button>
+              <button onClick={() => state.overwriteShot(shot.id, thumbnail())}>{t('shots.overwrite')}</button>
+              <button onClick={() => openSetupSheetForShot(shot)}>{t('topbar.setupSheet')}</button>
+              <button className="danger" onClick={() => state.deleteShot(shot.id)}>{t('common.delete')}</button>
             </div>
           </article>
         })}

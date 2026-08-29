@@ -1391,7 +1391,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `${snapshot.projectName.trim().replace(/[^\w\u4e00-\u9fff-]+/g, '-') || 'lumen-stage'}.lumen.json`
+      link.download = `${snapshot.projectName.trim().replace(/[^\w\u3040-\u30ff\u4e00-\u9fff-]+/g, '-') || 'lumen-stage'}.lumen.json`
       document.body.appendChild(link)
       link.click()
       link.remove()

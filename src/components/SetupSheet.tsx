@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useStudio, type StudioLight, type StudioModifier, type StudioShot } from '../store'
+import { useT } from '../i18n'
 import { getHead, getModifier } from '../gear'
 import { calculateMetering, resolveLight, type LightMeterReading } from '../metering'
 import { calculateDepthOfField } from '../optics'
@@ -183,6 +184,7 @@ export function SetupSheet() {
   const live = useStudio()
   const shot = useSheetSource((source) => source.shot)
   const [theme, setTheme] = useState<SheetTheme>('paper')
+  const t = useT()
   const C = SHEET_THEMES[theme]
   const svgRef = useRef<SVGSVGElement>(null)
 
@@ -289,7 +291,7 @@ export function SetupSheet() {
         context.fillRect(0, 0, canvas.width, canvas.height)
         context.drawImage(image, 0, 0, canvas.width, canvas.height)
         const link = document.createElement('a')
-        link.download = `${state.projectName.replace(/[^\w一-鿿-]+/g, '-')}-setup-sheet.png`
+        link.download = `${state.projectName.replace(/[^\w\u3040-\u30ff\u4e00-\u9fff-]+/g, '-')}-setup-sheet.png`
         link.href = canvas.toDataURL('image/png')
         link.click()
       }
@@ -341,13 +343,13 @@ export function SetupSheet() {
   )
 
   return (
-    <div className="setup-sheet-overlay" role="dialog" aria-label="燈位工作表">
+    <div className="setup-sheet-overlay" role="dialog" aria-label={t('topbar.setupSheet')}>
       <div className="setup-sheet-bar">
         <div><strong>SETUP SHEET</strong><small>{shot ? `${state.projectName} · ${shot.name}` : state.projectName}</small></div>
         <div className="setup-sheet-actions">
-          <button onClick={() => setTheme(theme === 'paper' ? 'dark' : 'paper')}>{theme === 'paper' ? '深色' : '紙本'}</button>
-          <button onClick={exportPng}>輸出 PNG</button>
-          <button onClick={printSheet}>列印 / PDF</button>
+          <button onClick={() => setTheme(theme === 'paper' ? 'dark' : 'paper')}>{t(theme === 'paper' ? 'sheet.dark' : 'sheet.paper')}</button>
+          <button onClick={exportPng}>{t('render.exportPng')}</button>
+          <button onClick={printSheet}>{t('sheet.print')}</button>
           <button className="setup-sheet-close" onClick={() => state.setValue('setupSheetOpen', false)}>×</button>
         </div>
       </div>
