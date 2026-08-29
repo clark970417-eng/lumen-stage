@@ -148,13 +148,13 @@ def cover(c):
     pill(c, "繁體中文 · 介面操作手冊", 42, H - 76, LIME, BG, 158)
     txt(c, "LUMEN\nSTAGE", 42, H - 132, 37, INK, "CJK-B", None, 42)
     txt(c, "網站使用教學", 42, H - 238, 25, LIME, "CJK-B")
-    txt(c, "從建立場景、調燈、相機取景、\n測光分析到照片渲染與輸出。", 44, H - 286, 12, MUTED, "CJK", 245, 20)
+    txt(c, "用 10 分鐘完成第一張作品：\n建立場景、塑光、測光、渲染與保存。", 44, H - 286, 12, MUTED, "CJK", 245, 20)
     txt(c, "適用版本：LUMEN STAGE / 001", 42, 44, 8, MUTED)
     c.showPage()
 
 
 def interface_map(c):
-    y = base(c, 1, "先認識主畫面", "INTERFACE MAP")
+    y = base(c, 2, "先認識主畫面", "INTERFACE MAP")
     screenshot_frame(c, TMP / "lumen-main.png", 36, 73, 770, 433)
     callout(c, 1, 88, 344, "場景物件")
     callout(c, 2, 388, 307, "3D 攝影棚")
@@ -166,7 +166,7 @@ def interface_map(c):
 
 
 def first_workflow(c):
-    y = base(c, 2, "第一次使用：照這個順序完成一張作品", "10-MINUTE WORKFLOW")
+    y = base(c, 1, "第一次使用：照這個順序完成一張作品", "10-MINUTE WORKFLOW")
     steps = [
         ("01", "選人物與道具", "左側新增人物、椅子、桌子或商品台；點物件即可選取。"),
         ("02", "放置燈光", "按『新增燈』，在棚內或俯視視角移動燈，瞄準主體。"),
@@ -291,16 +291,16 @@ def pro(c):
 
 
 def project_shortcuts(c):
-    y = base(c, 10, "專案存檔與常用快捷鍵", "SAVE & SHORTCUTS")
-    card(c, 36, y, 242, 135, "儲存場景", "按右上『儲存場景』或 ⌘S，寫入目前瀏覽器。本機存檔適合持續編輯，但不等於可攜式備份。", LIME, "瀏覽器本機", 9)
-    card(c, 296, y, 242, 135, "匯出專案檔", "『檔案 → 匯出專案檔』或 ⌘E，下載 JSON。換電腦、交接、版本備份時應使用此方式。", CYAN, "可攜備份", 9)
-    card(c, 556, y, 242, 135, "匯入 / 合併", "匯入專案檔會開啟保存場景；PRO 中的『合併專案』可把另一份專案內容併入目前工作。", ORANGE, "協作", 9)
+    y = base(c, 9, "專案儲存、備份與分享", "SAVE, BACK UP & SHARE")
+    card(c, 36, y, 242, 135, "儲存場景", "按右上『儲存場景』或 ⌘S，寫入目前瀏覽器。適合繼續編輯，但清除網站資料或更換裝置時可能消失。", LIME, "這台裝置", 9)
+    card(c, 296, y, 242, 135, "建立可攜備份", "桌面用『檔案 → 匯出專案檔』；手機在『專案』分頁匯出備份。換電腦、交接或定稿時都應下載一份。", CYAN, "JSON 備份", 9)
+    card(c, 556, y, 242, 135, "分享目前場景", "手機『專案』分頁可複製分享連結。連結內含場景設定，收到的人可開啟同一場景；請只傳給信任的對象。", ORANGE, "分享連結", 9)
     y -= 160
     rows = [
         ["按鍵", "功能", "按鍵", "功能"],
         ["1 / 2 / 3 / 4", "棚內 / 俯視 / 取景 / 渲染", "G / R / T", "移動 / 旋轉 / 燈光瞄準"],
         ["M", "測光分析", "P", "PRO 控制台"],
-        ["B", "鏡位庫", "?", "完整快捷鍵說明"],
+        ["B", "鏡位庫", "?", "開啟這份使用教學"],
         ["Space", "暫停／繼續渲染", "Shift + R", "重新取樣"],
         ["⌘S / ⌘E", "儲存 / 匯出專案", "⌘Z / ⇧⌘Z", "復原 / 重做"],
         ["方向鍵", "微移 0.1m", "Shift + 方向鍵", "微移 0.5m"],
@@ -311,7 +311,7 @@ def project_shortcuts(c):
 
 
 def practice(c):
-    y = base(c, 11, "練習任務：做出一張柔光人像", "GUIDED PRACTICE")
+    y = base(c, 10, "練習任務：做出一張柔光人像", "GUIDED PRACTICE")
     tasks = [
         ("1", "建立", "保留 Model，新增一盞燈，選柔光箱；刪除或關閉其他燈。"),
         ("2", "定位", "切到俯視燈位（2），把主燈放在人物前方 45°；棚內視角（1）把燈抬高。"),
@@ -342,7 +342,7 @@ def build():
     c = canvas.Canvas(str(OUT), pagesize=(W, H), pageCompression=1)
     c.setTitle("LUMEN STAGE 網站使用教學")
     c.setAuthor("OpenAI Codex")
-    for fn in [cover, interface_map, first_workflow, objects, lighting, camera, exposure, shots, render, pro, project_shortcuts]:
+    for fn in [cover, first_workflow, interface_map, objects, lighting, camera, exposure, shots, render, project_shortcuts, practice]:
         fn(c)
     c.save()
     public_pdf = ROOT / "public" / "LUMEN_STAGE_網站使用教學.pdf"

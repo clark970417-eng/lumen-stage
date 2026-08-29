@@ -13,7 +13,7 @@ import { ShortcutHelp, ShortcutHint, ShortcutLauncher } from './components/Short
 import { runShortcut } from './shortcuts'
 import { downloadFramePng } from './shotCapture'
 import { calculateDepthOfField } from './optics'
-import { LOCALES, useLocaleStore, useT, type Locale } from './i18n'
+import { LOCALES, useLocaleStore, useT, type Locale, type MessageKey } from './i18n'
 import { useStudio } from './store'
 import { buildShareLink, copyToClipboard } from './share'
 import { COLOR_PROFILES } from './colorScience'
@@ -283,18 +283,32 @@ function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
   )
 }
 
-function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const closeButton = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(1)
+  const [zoomed, setZoomed] = useState(false)
   const pageCount = 11
   const locale = useLocaleStore((state) => state.locale)
   const t = useT()
+  const chapters = Array.from({ length: pageCount }, (_, index) => t(`guide.chapter.${index + 1}` as MessageKey))
+
+  const goToPage = useCallback((nextPage: number, behavior: ScrollBehavior = 'smooth') => {
+    const targetPage = Math.max(1, Math.min(pageCount, nextPage))
+    const stage = stageRef.current
+    const target = stage?.querySelector<HTMLElement>(`[data-guide-page="${targetPage}"]`)
+    const previousScrollBehavior = stage?.style.scrollBehavior
+    if (stage && behavior === 'auto') stage.style.scrollBehavior = 'auto'
+    target?.scrollIntoView({ behavior, block: 'start' })
+    if (stage && behavior === 'auto') window.requestAnimationFrame(() => { stage.style.scrollBehavior = previousScrollBehavior ?? '' })
+    setPage(targetPage)
+  }, [])
 
   useEffect(() => {
     if (!open) return
     setPage(1)
+    setZoomed(false)
     window.requestAnimationFrame(() => stageRef.current?.scrollTo({ top: 0 }))
   }, [open, onClose, locale])
   useDialogFocus(dialogRef, open, onClose)
@@ -308,30 +322,47 @@ function GuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
 
   return (
     <div className="guide-overlay" role="dialog" aria-modal="true" aria-label={t('guide.aria')} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <section ref={dialogRef} className="guide-dialog">
+      <section ref={dialogRef} className="guide-dialog" onKeyDown={(event) => {
+        if (event.key === 'ArrowRight' || event.key === 'PageDown') { event.preventDefault(); goToPage(page + 1) }
+        if (event.key === 'ArrowLeft' || event.key === 'PageUp') { event.preventDefault(); goToPage(page - 1) }
+        if (event.key === 'Home') { event.preventDefault(); goToPage(1) }
+        if (event.key === 'End') { event.preventDefault(); goToPage(pageCount) }
+      }}>
         <header>
-          <div><strong>{t('guide.title')}</strong><small>{t('guide.languageNote')}</small></div>
+          <div><strong>{t('guide.title')}</strong><small>{t('guide.languageNote')} · {t('guide.duration')}</small></div>
           <div className="guide-actions">
+            <button className="guide-zoom-button" onClick={() => setZoomed((current) => !current)} aria-pressed={zoomed}>{zoomed ? t('guide.fitWidth') : t('guide.zoomIn')}</button>
             <a href={guideUrl} download>{t('guide.download')}</a>
             <button ref={closeButton} onClick={onClose} aria-label={t('guide.close')}>×</button>
           </div>
         </header>
-        <div ref={stageRef} className="guide-page-stage" role="document" aria-label={t('guide.stage')} tabIndex={0} onScroll={(event) => {
-          const viewport = event.currentTarget.getBoundingClientRect()
-          const center = viewport.top + viewport.height / 2
-          const pages = Array.from(event.currentTarget.querySelectorAll<HTMLImageElement>('[data-guide-page]'))
-          let nearest = 1
-          let distance = Number.POSITIVE_INFINITY
-          pages.forEach((image, index) => {
-            const rect = image.getBoundingClientRect()
-            const nextDistance = Math.abs(rect.top + rect.height / 2 - center)
-            if (nextDistance < distance) { distance = nextDistance; nearest = index + 1 }
-          })
-          setPage((current) => current === nearest ? current : nearest)
-        }}>
-          {Array.from({ length: pageCount }, (_, index) => <img key={`${locale}-${index + 1}`} data-guide-page={index + 1} loading={index < 2 ? 'eager' : 'lazy'} src={`/guide-pages/${locale}/page-${String(index + 1).padStart(2, '0')}.jpg`} alt={t('guide.page', { n: index + 1 })} />)}
+        <div className="guide-workspace">
+          <aside className="guide-chapters" aria-label={t('guide.contents')}>
+            <div className="guide-progress"><span>{t('guide.progress', { n: page, total: pageCount })}</span><i style={{ '--guide-progress': `${page / pageCount * 100}%` } as React.CSSProperties} /></div>
+            <ol>
+              {chapters.map((chapter, index) => <li key={chapter}><button className={page === index + 1 ? 'active' : ''} aria-current={page === index + 1 ? 'page' : undefined} onClick={() => goToPage(index + 1, 'auto')}><span>{String(index + 1).padStart(2, '0')}</span>{chapter}</button></li>)}
+            </ol>
+          </aside>
+          <div ref={stageRef} className={`guide-page-stage${zoomed ? ' is-zoomed' : ''}`} role="document" aria-label={t('guide.stage')} tabIndex={0} onScroll={(event) => {
+            const viewport = event.currentTarget.getBoundingClientRect()
+            const center = viewport.top + viewport.height / 2
+            const pages = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[data-guide-page]'))
+            let nearest = 1
+            let distance = Number.POSITIVE_INFINITY
+            pages.forEach((item, index) => {
+              const rect = item.getBoundingClientRect()
+              const nextDistance = Math.abs(rect.top + rect.height / 2 - center)
+              if (nextDistance < distance) { distance = nextDistance; nearest = index + 1 }
+            })
+            setPage((current) => current === nearest ? current : nearest)
+          }}>
+            {chapters.map((chapter, index) => <figure key={`${locale}-${index + 1}`} data-guide-page={index + 1}><img loading={index < 2 ? 'eager' : 'lazy'} src={`/guide-pages/${locale}/page-${String(index + 1).padStart(2, '0')}.jpg`} alt={t('guide.pageNamed', { n: index + 1, title: chapter })} /><figcaption><span>{String(index + 1).padStart(2, '0')}</span>{chapter}</figcaption></figure>)}
+          </div>
         </div>
-        <div className="guide-page-indicator" aria-live="polite"><strong>{page}</strong><span>/ {pageCount}</span></div>
+        <footer className="guide-footer">
+          <span>{t('guide.keyboardHint')}</span>
+          <div><button onClick={() => goToPage(page - 1)} disabled={page === 1}>{t('guide.previous')}</button><strong aria-live="polite">{page} / {pageCount}</strong><button onClick={() => goToPage(page + 1)} disabled={page === pageCount}>{page === pageCount ? t('guide.done') : t('guide.next')}</button></div>
+        </footer>
       </section>
     </div>
   )

@@ -159,6 +159,57 @@ GUIDES = {
 }
 
 
+PRACTICE_PAGES = {
+    "en": (
+        "GUIDED PRACTICE", "Build a soft-light portrait", "Finish this exercise once and the full LUMEN STAGE workflow will make sense.", [
+            ("01 · Build", "Keep one subject, add one light and choose a softbox. Turn off any other lights."),
+            ("02 · Position", "In Top Plan (2), place the key around 45° in front. In Studio (1), raise it above eye level."),
+            ("03 · Aim", "Select the key and press T. Aim at the chest, then return to Move mode."),
+            ("04 · Shape", "Start at 5600 K with a 90 × 90 cm softbox. Increase power from low to high."),
+            ("05 · Camera", "Use Camera (3), 50–85 mm, f/4, 1/125 s and ISO 100. Focus on the eyes."),
+            ("06 · Measure", "Press M, place the probe on the face and check the histogram and clipping warning."),
+            ("07 · Save", "Capture + SHOT as Portrait_Key45, save the scene and export a project backup."),
+            ("08 · Export", "Press 4, wait for clean edges and shadows, then export the final PNG."),
+        ], ["Success: sharp eyes, no facial clipping, clear light direction, shadow detail and backdrop separation", "Leave with a Shot, project backup and final PNG"]
+    ),
+    "ja": (
+        "GUIDED PRACTICE", "柔らかなポートレートを作る", "この練習を一度完了すると、LUMEN STAGE の基本ワークフローを理解できます。", [
+            ("01 · 構築", "人物を一人残し、ライトを一灯追加してソフトボックスを選択。他のライトはオフにします。"),
+            ("02 · 配置", "俯瞰図（2）で人物の前方 45°、スタジオ（1）で目線より高く配置します。"),
+            ("03 · 照射", "キーライトを選び T。胸元へ向けてから移動モードへ戻します。"),
+            ("04 · 成形", "5600 K、90 × 90 cm のソフトボックスから開始し、出力を低い値から上げます。"),
+            ("05 · カメラ", "カメラ（3）で 50〜85 mm、f/4、1/125 秒、ISO 100。目にピントを合わせます。"),
+            ("06 · 測光", "M を押し、顔へプローブを置いてヒストグラムと白飛び警告を確認します。"),
+            ("07 · 保存", "+ SHOT を Portrait_Key45 として保存し、シーン保存とバックアップ書き出しを行います。"),
+            ("08 · 出力", "4 を押し、輪郭と影が安定したら最終 PNG を書き出します。"),
+        ], ["完成基準：目が鮮明、顔に白飛びがなく、光の方向が明確で、影と背景の分離が残っている", "Shot、プロジェクトバックアップ、最終 PNG を保存"]
+    ),
+}
+
+SAVE_PAGES = {
+    "en": (
+        "SAVE, BACK UP & SHARE", "Keep the project safe", "A browser save is convenient, a project file is portable, and a share link is for review.", [
+            ("Save on this device", "Save Scene or ⌘S keeps the project in this browser. Clearing site data or changing devices can remove it."),
+            ("Export a backup", "Use File → Export Project on desktop, or Export Backup in the mobile Project tab. Download one before handoff or major changes."),
+            ("Share the scene", "The mobile Project tab can copy a link containing the scene settings. Send it only to people you trust."),
+        ], ["1 / 2 / 3 / 4 · studio / top / camera / render", "G / R / T · move / rotate / aim", "M · exposure   B · shots   P · PRO", "⌘S / ⌘E · save / export   ? · open this guide"]
+    ),
+    "ja": (
+        "SAVE, BACK UP & SHARE", "プロジェクトを安全に残す", "ブラウザ保存は手軽、プロジェクトファイルは持ち運び用、共有リンクは確認用です。", [
+            ("この端末に保存", "「シーンを保存」または ⌘S でこのブラウザに保存。サイトデータの消去や端末変更で失われる場合があります。"),
+            ("バックアップを書き出す", "デスクトップはファイル → 書き出し、モバイルはプロジェクトタブ。引き継ぎや大きな変更前に保存します。"),
+            ("シーンを共有", "モバイルのプロジェクトタブでシーン設定を含むリンクをコピー。信頼できる相手とのみ共有します。"),
+        ], ["1 / 2 / 3 / 4 · スタジオ / 俯瞰 / カメラ / レンダー", "G / R / T · 移動 / 回転 / 照射", "M · 露出   B · ショット   P · PRO", "⌘S / ⌘E · 保存 / 書き出し   ? · このガイド"]
+    ),
+}
+
+# Put the outcome-driven quick start before the interface tour, omit the
+# advanced PRO chapter from onboarding, and finish with a complete exercise.
+for language, guide in GUIDES.items():
+    pages = guide["pages"]
+    guide["pages"] = [pages[1], pages[0], *pages[2:8], SAVE_PAGES[language], PRACTICE_PAGES[language]]
+
+
 def register_fonts():
     pdfmetrics.registerFont(TTFont("UI", "/System/Library/Fonts/STHeiti Light.ttc", subfontIndex=0))
     pdfmetrics.registerFont(TTFont("UI-B", "/System/Library/Fonts/STHeiti Medium.ttc", subfontIndex=0))
@@ -240,13 +291,13 @@ def content_page(c, guide, number, page):
     c.setStrokeColor(LINE); c.line(36, H - 76, W - 36, H - 76)
     text(c, intro, 36, H - 100, 10, MUTED, width=755, leading=15)
 
-    columns = 3 if len(cards) <= 3 else 2
+    columns = 2 if len(cards) >= 7 else (3 if len(cards) <= 3 else 2)
     gap = 18
     card_width = (762 - gap * (columns - 1)) / columns
     rows = (len(cards) + columns - 1) // columns
     top = H - 147
-    card_height = 120 if rows == 1 else (96 if rows >= 3 else 114)
-    row_gap = 12 if rows >= 3 else 16
+    card_height = 78 if len(cards) >= 7 else (120 if rows == 1 else (96 if rows >= 3 else 114))
+    row_gap = 10 if len(cards) >= 7 else (12 if rows >= 3 else 16)
     accents = [LIME, CYAN, ORANGE, LIME, CYAN, ORANGE]
     for index, (heading, body) in enumerate(cards):
         col, row = index % columns, index // columns
@@ -254,7 +305,7 @@ def content_page(c, guide, number, page):
         y = top - row * (card_height + row_gap)
         c.setFillColor(PANEL if index % 2 == 0 else PANEL_ALT)
         c.roundRect(x, y - card_height, card_width, card_height, 11, fill=1, stroke=0)
-        c.setFillColor(accents[index]); c.roundRect(x, y - card_height, 4, card_height, 2, fill=1, stroke=0)
+        c.setFillColor(accents[index % len(accents)]); c.roundRect(x, y - card_height, 4, card_height, 2, fill=1, stroke=0)
         text(c, heading, x + 16, y - 25, 11, INK, True, width=card_width - 32)
         text(c, body, x + 16, y - 53, 8.5, MUTED, width=card_width - 32, leading=13.1)
 
