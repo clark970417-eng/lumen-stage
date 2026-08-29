@@ -395,3 +395,37 @@
 .m-setup.active { border-color: var(--signal); background: linear-gradient(100deg, rgba(255,180,84,.1), #151e25 55%); box-shadow: inset 2px 0 0 var(--signal); }
 .m-setup-plan { border-color: #374650; border-radius: 5px; background: #0d1318; }
 .m-hq { border-radius: 6px; }
+
+/* The compact shell follows the same five decisions as desktop. Each panel
+   opens with one high-value action; detailed controls remain below it. */
+.m-intent-reference, .m-continuity-card { overflow: hidden; border: 1px solid #3a4b57; border-radius: 8px; background: linear-gradient(145deg,rgba(103,216,255,.065),#111920 62%); }
+.m-intent-reference > header { min-height: 76px; padding: 13px 14px; display: flex; flex-direction: column; justify-content: center; }
+.m-intent-reference > header span, .m-continuity-card header span { color: var(--signal-cool); font: 8px var(--mono); letter-spacing: .13em; }
+.m-intent-reference > header strong, .m-continuity-card header strong { margin-top: 5px; color: #e9eef1; font-size: 13px; font-weight: 500; }
+.m-intent-reference > header small { margin-top: 5px; color: #73858f; font-size: 9px; }
+.m-intent-reference > button { width: 100%; min-height: 48px; border: 0; border-top: 1px solid #34444f; background: rgba(255,180,84,.055); color: var(--signal); font-size: 11px; cursor: pointer; }
+.m-reference-result { display: grid; grid-template-columns: repeat(3,1fr); border-top: 1px solid #34444f; border-bottom: 1px solid #34444f; }
+.m-reference-result > div { min-width: 0; min-height: 61px; padding: 10px; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid #34444f; }
+.m-reference-result > div:last-child { border-right: 0; }
+.m-reference-result span { overflow: hidden; color: #748690; font: 8px var(--mono); white-space: nowrap; text-overflow: ellipsis; }
+.m-reference-result b { margin-top: 6px; color: #e2e9ec; font-size: 11px; font-weight: 500; }
+.m-reference-file { display: block; padding: 8px 12px 0; overflow: hidden; color: #657782; font: 8px var(--mono); white-space: nowrap; text-overflow: ellipsis; }
+.m-reference-actions { padding: 9px; display: grid; grid-template-columns: .7fr 1.3fr; gap: 6px; }
+.m-reference-actions button { min-height: 44px; border: 1px solid #3a4b56; border-radius: 5px; background: #151f26; color: #95a6b0; font-size: 10px; cursor: pointer; }
+.m-reference-actions button:last-child { border-color: var(--signal); background: var(--signal); color: #171007; font-weight: 600; }
+
+.m-continuity-card header { min-height: 74px; padding: 12px 13px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #354651; }
+.m-continuity-card header > div { display: flex; flex-direction: column; }
+.m-continuity-card header > b { color: #eef3f5; font: 500 32px var(--mono); letter-spacing: -.06em; }
+.m-continuity-card > p { min-height: 48px; margin: 0; padding: 12px 13px; display: flex; align-items: center; color: #7b8d98; font-size: 10px; line-height: 1.45; }
+.m-continuity-card > p.stable { color: #8ed0b0; }
+.m-continuity-card > div { padding: 0 9px 9px; display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; }
+.m-continuity-card > div button { min-height: 44px; padding: 4px; border: 1px solid #3a4b56; border-radius: 5px; background: #151f26; color: #9dadb6; font-size: 9px; cursor: pointer; }
+.m-continuity-card > div button:first-child { border-color: var(--signal-cool); color: var(--signal-cool); }
+.m-continuity-card > div button:disabled { opacity: .34; }
+
+@media (max-width: 430px) {
+  .m-tabs { grid-template-columns: repeat(5,1fr) 42px; }
+  .m-tabs button { min-width: 0; padding-inline: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; }
+  .m-reference-result > div { padding-inline: 7px; }
+}

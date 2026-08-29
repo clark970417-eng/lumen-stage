@@ -1,8 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { StudioScene } from './components/StudioScene'
-import { Inspector } from './components/Inspector'
-import { Library } from './components/Library'
 import { ExposureAnalysis } from './components/ExposureAnalysis'
 import { ShotLibrary } from './components/ShotLibrary'
 import { SetupLibrary } from './components/SetupLibrary'
@@ -23,6 +21,7 @@ import { BrandMark } from './components/BrandMark'
 import { CanvasHealth } from './components/CanvasHealth'
 import { useDialogFocus } from './components/DialogFocus'
 import { OnboardingTour, shouldShowOnboarding } from './components/OnboardingTour'
+import { AssetDrawer, BlueprintPanel, ContinuityGuardPanel, DecisionConsole, ReferenceMatchPanel, ViewModeDock, WorkflowNavigation } from './components/WorkflowShell'
 
 let hintSequence = 0
 
@@ -235,12 +234,6 @@ function LanguageSwitch() {
 
 function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
   const t = useT()
-  const view = useStudio((state) => state.view)
-  const renderMode = useStudio((state) => state.renderMode)
-  const openStudioView = useStudio((state) => state.openStudioView)
-  const openCameraView = useStudio((state) => state.openCameraView)
-  const openTopView = useStudio((state) => state.openTopView)
-  const startPhotoRender = useStudio((state) => state.startPhotoRender)
   const saveProject = useStudio((state) => state.saveProject)
   const loadProject = useStudio((state) => state.loadProject)
   const exportProject = useStudio((state) => state.exportProject)
@@ -258,12 +251,7 @@ function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
         <div><strong>LUMEN</strong><small>STAGE / 001</small></div>
       </div>
       <div className="project-title"><span>PROJECT</span><input className="project-name-input" aria-label={t('topbar.projectName')} value={projectName} onChange={(event) => setValue('projectName', event.target.value)} /><small className={`save-state ${saveStatus}`}>{saveStatus === 'saved' ? t('topbar.save.saved') : saveStatus === 'autosaved' ? t('topbar.save.autosaved') : saveStatus === 'loaded' ? t('topbar.save.loaded') : saveStatus === 'exported' ? t('topbar.save.exported') : saveStatus === 'error' ? t('topbar.save.error') : t('topbar.save.idle')}</small><LanguageSwitch /></div>
-      <div className="view-switch" role="group" aria-label={t('topbar.views')}>
-        <button className={view === 'studio' ? 'active' : ''} onClick={openStudioView} title={t('view.studio.title')}>{t('view.studio')} <kbd>1</kbd></button>
-        <button className={view === 'top' ? 'active' : ''} onClick={openTopView} title={t('view.top.title')}>{t('view.top')} <kbd>2</kbd></button>
-        <button className={view === 'camera' && renderMode === 'preview' ? 'active' : ''} onClick={openCameraView} title={t('view.camera.title')}>{t('view.camera')} <kbd>3</kbd></button>
-        <button className={renderMode === 'path' ? 'active render-active' : ''} onClick={startPhotoRender} title={t('view.render.title')}>{t('view.render')} <kbd>4</kbd></button>
-      </div>
+      <WorkflowNavigation />
       <div className="project-actions">
         <button className="setup-library-button" onClick={() => setValue('setupLibraryOpen', true)} title={t('setups.launcher.title')}>{t('setups.launcher')}</button>
         <button className="setup-sheet-button" onClick={() => setValue('setupSheetOpen', true)} title={t('topbar.setupSheet.title')}>{t('topbar.setupSheet')}</button>
@@ -534,7 +522,7 @@ export default function App() {
   return (
     <main className="app-shell">
       <TopBar onOpenGuide={() => setGuideOpen(true)} />
-      <Library />
+      <BlueprintPanel />
       <section className={`viewport ${renderMode === 'path' ? 'path-color-science' : ''}`} aria-label={t('viewport.aria')} style={{ '--path-saturation': pathSaturation, '--path-contrast': pathContrast, '--path-sepia': pathSepia } as React.CSSProperties}>
         <Canvas
           onCreated={() => setSceneReady(true)}
@@ -556,6 +544,7 @@ export default function App() {
         {webglLost && <div className="webgl-notice" role="alert"><strong>3D renderer interrupted</strong><span>Your project is still saved. Reload to rebuild the studio.</span><button onClick={() => location.reload()}>Reload studio</button></div>}
         <div className={`viewport-label ${renderMode === 'path' ? 'rendering' : ''}`}><span className="status-dot" /> {renderMode === 'path' ? (pathStatus === 'building' ? 'BUILDING SCENE' : `PATH TRACING · ${Math.floor(pathSamples)} SPP`) : 'LIVE LIGHTING'} <b>{renderMode === 'path' ? 'HQ' : '60 FPS'}</b></div>
         <div className="axis-label">{renderMode === 'path' ? `${cameraMode.toUpperCase()} · ${SENSOR_LABELS[sensorFormat]} · ${frameAspect}` : view === 'camera' ? `${cameras.find((camera) => camera.id === activeCameraId)?.name.toUpperCase() ?? 'CAMERA'} · ${SENSOR_LABELS[sensorFormat]} · ${frameAspect} ${frameOrientation === 'portrait' ? 'V' : 'H'}` : view === 'top' ? 'TOP PLAN · METERS' : `STUDIO · ${roomWidth} × ${roomDepth} M`}</div>
+        <ViewModeDock />
         <SceneToolbar />
         <RenderToolbar />
         <ViewfinderOverlay />
@@ -567,9 +556,12 @@ export default function App() {
         <ShortcutLauncher />
         <ShortcutHint hint={hint} />
       </section>
-      <Inspector />
+      <DecisionConsole />
       <ProfessionalPanel />
       <BottomReadout onOpenAbout={() => setAboutOpen(true)} />
+      <AssetDrawer />
+      <ReferenceMatchPanel />
+      <ContinuityGuardPanel />
       <ShortcutHelp />
       <SetupLibraryHost />
       <SetupSheetHost />
