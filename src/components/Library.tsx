@@ -154,6 +154,9 @@ export function Library() {
       <div className="panel-heading prop-heading"><span>{t('library.props')}</span><b>{String(studioObjects.length).padStart(2, '0')}</b></div>
       <div className="prop-add-grid" role="toolbar" aria-label={t('library.props.add')}>
         <button onClick={() => addStudioObject('subject')}><i className="subject" />{t('object.subject')}</button>
+        <button onClick={() => addStudioObject('dog')}><i className="dog" />{t('object.dog')}</button>
+        <button onClick={() => addStudioObject('cat')}><i className="cat" />{t('object.cat')}</button>
+        <button onClick={() => addStudioObject('product')}><i className="product" />{t('object.product')}</button>
         <button onClick={() => addStudioObject('chair')}><i className="chair" />{t('object.chair')}</button>
         <button onClick={() => addStudioObject('table')}><i className="table" />{t('object.table')}</button>
         <button onClick={() => addStudioObject('plinth')}><i className="plinth" />{t('object.plinth')}</button>

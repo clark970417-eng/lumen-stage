@@ -46,7 +46,7 @@ export type LightOperationMode = 'continuous' | 'flash'
 export type LightTargetZone = 'face' | 'chest' | 'full'
 export type CameraFramingPreset = 'headshot' | 'half' | 'full'
 export type CompositionGuide = 'none' | 'thirds' | 'golden' | 'safe'
-export type SceneObjectType = 'subject' | 'chair' | 'table' | 'plinth' | 'cube' | 'sphere'
+export type SceneObjectType = 'subject' | 'dog' | 'cat' | 'product' | 'chair' | 'table' | 'plinth' | 'cube' | 'sphere'
 export type SceneObjectMaterial = 'matte' | 'glossy' | 'metal'
 export type ModifierType = 'reflector' | 'flag' | 'vflat'
 export type ModifierSurface = 'white' | 'silver' | 'gold' | 'black'
@@ -518,7 +518,7 @@ const floorOccupants = (state: Pick<StudioState, 'lights' | 'modifiers' | 'studi
     position: object.position,
     radius: object.type === 'subject' ? FOOTPRINT.subject : FOOTPRINT[object.type] ?? 0.4,
     movable: object.type !== 'subject',
-    kind: object.type === 'subject' ? ('subject' as const) : isSittable(object.type) ? ('furniture' as const) : ('stand' as const),
+    kind: object.type === 'subject' || object.type === 'dog' || object.type === 'cat' ? ('subject' as const) : isSittable(object.type) ? ('furniture' as const) : ('stand' as const),
   })),
   ...state.lights.map((light) => ({ id: light.id, position: light.position, radius: FOOTPRINT.lightStand, movable: true, kind: 'stand' as const })),
   ...state.modifiers.map((modifier) => ({ id: modifier.id, position: modifier.position, radius: FOOTPRINT.gripStand, movable: true, kind: 'stand' as const })),
@@ -829,6 +829,7 @@ const normalizePhysique = (value: unknown): Physique => {
     Number.isFinite(Number(input)) ? Math.min(max, Math.max(min, Number(input))) : fallback
   return {
     sex: raw.sex === 'masculine' || raw.sex === 'neutral' ? raw.sex : 'feminine',
+    age: span(raw.age, DEFAULT_PHYSIQUE.age ?? 28, 18, 80),
     face: span(raw.face, DEFAULT_PHYSIQUE.face, 0, 100),
     build: span(raw.build, DEFAULT_PHYSIQUE.build, 0, 100),
     muscle: span(raw.muscle, DEFAULT_PHYSIQUE.muscle, 0, 100),
@@ -842,7 +843,7 @@ const normalizePhysique = (value: unknown): Physique => {
 const normalizeStudioObject = (object: Partial<StudioObject>, index: number): StudioObject => ({
   id: typeof object.id === 'string' && object.id ? object.id : `object-${index + 1}`,
   name: typeof object.name === 'string' && object.name ? object.name : `Object ${index + 1}`,
-  type: object.type === 'subject' || object.type === 'chair' || object.type === 'table' || object.type === 'plinth' || object.type === 'sphere' ? object.type : 'cube',
+  type: object.type === 'subject' || object.type === 'dog' || object.type === 'cat' || object.type === 'product' || object.type === 'chair' || object.type === 'table' || object.type === 'plinth' || object.type === 'sphere' ? object.type : 'cube',
   position: Array.isArray(object.position) && object.position.length === 3 ? object.position.map(Number) as [number, number, number] : [0.8, 0, 0.4],
   rotationY: Number.isFinite(object.rotationY) ? Number(object.rotationY) : 0,
   scale: Number.isFinite(object.scale) ? Math.min(3, Math.max(0.2, Number(object.scale))) : 1,
@@ -1342,9 +1343,12 @@ export const useStudio = create<StudioState>((set, get) => ({
     const id = `object-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
     const index = state.studioObjects.length + 1
     const subjectCount = state.studioObjects.filter((object) => object.type === 'subject').length
-    const labels: Record<SceneObjectType, string> = { subject: 'Subject', chair: 'Chair', table: 'Table', plinth: 'Plinth', cube: 'Cube', sphere: 'Sphere' }
+    const labels: Record<SceneObjectType, string> = { subject: 'Subject', dog: 'Dog', cat: 'Cat', product: 'Product', chair: 'Chair', table: 'Table', plinth: 'Plinth', cube: 'Cube', sphere: 'Sphere' }
     const defaults: Record<SceneObjectType, Pick<StudioObject, 'position' | 'scale' | 'color' | 'material'>> = {
       subject: { position: [Number((0.85 + (subjectCount % 3) * 0.72).toFixed(2)), 0, Number((0.35 + Math.floor(subjectCount / 3) * 0.5).toFixed(2))], scale: 1, color: '#454c46', material: 'matte' },
+      dog: { position: [1.15, 0, 0.95], scale: 1, color: '#9b6844', material: 'matte' },
+      cat: { position: [-0.9, 0, 0.75], scale: 1, color: '#737976', material: 'matte' },
+      product: { position: [0.8, 0.02, -0.35], scale: 1, color: '#c7a36a', material: 'glossy' },
       chair: { position: [0.9, 0, 0.55], scale: 1, color: '#6f4938', material: 'matte' },
       table: { position: [-0.95, 0, 0.65], scale: 1, color: '#676d66', material: 'matte' },
       plinth: { position: [0.9, 0, 0.2], scale: 1, color: '#c8c6bd', material: 'matte' },

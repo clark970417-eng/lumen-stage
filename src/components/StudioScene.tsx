@@ -781,24 +781,59 @@ function StandaloneFigure({ object }: { object: StudioObject }) {
   )
 }
 
-function StudioObjectMaterial({ object }: { object: StudioObject }) {
-  return <meshStandardMaterial color={object.color} roughness={object.material === 'matte' ? 0.82 : object.material === 'glossy' ? 0.22 : 0.28} metalness={object.material === 'metal' ? 0.82 : 0.03} />
-}
-
 function StudioObjectMesh({ object }: { object: StudioObject }) {
+  const material = useMemo(() => new THREE.MeshPhysicalMaterial({
+    color: object.color,
+    roughness: object.material === 'matte' ? 0.78 : object.material === 'glossy' ? 0.18 : 0.26,
+    metalness: object.material === 'metal' ? 0.82 : 0.02,
+    clearcoat: object.material === 'glossy' ? 0.65 : 0.08,
+    clearcoatRoughness: 0.24,
+  }), [object.color, object.material])
+  useEffect(() => () => material.dispose(), [material])
   if (object.type === 'subject') return <StandaloneFigure object={object} />
+  if (object.type === 'dog') return <group>
+    <mesh castShadow receiveShadow position={[0, 0.42, 0]} scale={[0.7, 0.58, 1.12]} material={material}><capsuleGeometry args={[0.24, 0.38, 8, 20]} /></mesh>
+    <mesh castShadow position={[0, 0.64, 0.38]} scale={[0.92, 0.9, 1]} material={material}><sphereGeometry args={[0.25, 24, 18]} /></mesh>
+    <mesh castShadow position={[0, 0.57, 0.59]} scale={[0.78, 0.58, 1]} material={material}><sphereGeometry args={[0.18, 22, 16]} /></mesh>
+    {[-1, 1].map((side) => <group key={side}>
+      <mesh castShadow position={[side * 0.17, 0.79, 0.38]} rotation={[0.18, 0, side * 0.32]} material={material}><coneGeometry args={[0.11, 0.28, 18]} /></mesh>
+      <mesh castShadow position={[side * 0.18, 0.22, side * -0.03]} material={material}><capsuleGeometry args={[0.055, 0.31, 6, 12]} /></mesh>
+      <mesh position={[side * 0.095, 0.68, 0.60]}><sphereGeometry args={[0.026, 14, 10]} /><meshPhysicalMaterial color="#17130f" roughness={0.1} clearcoat={0.9} /></mesh>
+    </group>)}
+    <mesh position={[0, 0.57, 0.755]}><sphereGeometry args={[0.043, 16, 12]} /><meshPhysicalMaterial color="#17130f" roughness={0.18} clearcoat={0.65} /></mesh>
+    <mesh castShadow position={[0, 0.54, -0.48]} rotation={[0.2, 0, -0.75]} material={material}><torusGeometry args={[0.25, 0.035, 10, 28, Math.PI * 1.15]} /></mesh>
+  </group>
+  if (object.type === 'cat') return <group>
+    <mesh castShadow receiveShadow position={[0, 0.32, -0.02]} scale={[0.62, 0.82, 0.78]} material={material}><sphereGeometry args={[0.27, 24, 18]} /></mesh>
+    <mesh castShadow position={[0, 0.62, 0.12]} scale={[0.95, 0.88, 0.9]} material={material}><sphereGeometry args={[0.22, 24, 18]} /></mesh>
+    {[-1, 1].map((side) => <group key={side}>
+      <mesh castShadow position={[side * 0.13, 0.81, 0.10]} rotation={[0, 0, side * -0.14]} material={material}><coneGeometry args={[0.105, 0.24, 16]} /></mesh>
+      <mesh position={[side * 0.078, 0.65, 0.31]} rotation={[0, side * 0.12, 0]} scale={[1.3, 0.72, 0.5]}><sphereGeometry args={[0.033, 14, 10]} /><meshPhysicalMaterial color="#a9d06e" roughness={0.1} clearcoat={0.9} /></mesh>
+      <mesh castShadow position={[side * 0.11, 0.12, 0.06]} material={material}><capsuleGeometry args={[0.045, 0.18, 6, 12]} /></mesh>
+    </group>)}
+    <mesh position={[0, 0.57, 0.335]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[0.025, 0.038, 3]} /><meshStandardMaterial color="#a66f72" roughness={0.6} /></mesh>
+    <mesh castShadow position={[0.13, 0.38, -0.25]} rotation={[0.15, 0.15, -0.42]} material={material}><torusGeometry args={[0.31, 0.026, 9, 30, Math.PI * 1.45]} /></mesh>
+  </group>
+  if (object.type === 'product') return <group>
+    <RoundedBox castShadow receiveShadow args={[0.38, 0.12, 0.38]} radius={0.035} smoothness={3} position={[0, 0.06, 0]} material={material} />
+    <mesh castShadow receiveShadow position={[0, 0.34, 0]} material={material}><cylinderGeometry args={[0.135, 0.16, 0.48, 40]} /></mesh>
+    <mesh castShadow position={[0, 0.62, 0]}><cylinderGeometry args={[0.09, 0.09, 0.10, 32]} /><meshStandardMaterial color="#202320" metalness={0.72} roughness={0.22} /></mesh>
+    <mesh position={[0, 0.35, 0.151]}><planeGeometry args={[0.18, 0.18]} /><meshPhysicalMaterial color="#f3efe5" roughness={0.72} /></mesh>
+    <mesh position={[0, 0.35, 0.153]}><planeGeometry args={[0.09, 0.012]} /><meshBasicMaterial color="#3f433e" /></mesh>
+  </group>
   if (object.type === 'chair') return <>
-    <mesh castShadow receiveShadow position={[0, 0.48, 0]}><boxGeometry args={[0.68, 0.12, 0.66]} /><StudioObjectMaterial object={object} /></mesh>
-    <mesh castShadow receiveShadow position={[0, 0.91, 0.28]} rotation={[-0.08, 0, 0]}><boxGeometry args={[0.68, 0.76, 0.1]} /><StudioObjectMaterial object={object} /></mesh>
-    {[[-0.26,-0.25],[0.26,-0.25],[-0.26,0.25],[0.26,0.25]].map(([x,z], index) => <mesh key={index} castShadow position={[x,0.22,z]}><boxGeometry args={[0.07,0.46,0.07]} /><StudioObjectMaterial object={object} /></mesh>)}
+    <RoundedBox castShadow receiveShadow args={[0.72, 0.14, 0.68]} radius={0.055} smoothness={4} position={[0, 0.52, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[0.72, 0.76, 0.13]} radius={0.055} smoothness={4} position={[0, 0.92, 0.28]} rotation={[-0.08, 0, 0]} material={material} />
+    {[[-0.27,-0.24],[0.27,-0.24],[-0.27,0.24],[0.27,0.24]].map(([x,z], index) => <mesh key={index} castShadow position={[x,0.24,z]}><cylinderGeometry args={[0.035,0.025,0.48,12]} /><meshStandardMaterial color="#2c302d" metalness={0.72} roughness={0.28} /></mesh>)}
   </>
   if (object.type === 'table') return <>
-    <mesh castShadow receiveShadow position={[0, 0.82, 0]}><boxGeometry args={[1.35, 0.12, 0.75]} /><StudioObjectMaterial object={object} /></mesh>
-    {[[-0.55,-0.25],[0.55,-0.25],[-0.55,0.25],[0.55,0.25]].map(([x,z], index) => <mesh key={index} castShadow position={[x,0.39,z]}><boxGeometry args={[0.08,0.78,0.08]} /><StudioObjectMaterial object={object} /></mesh>)}
+    <RoundedBox castShadow receiveShadow args={[1.38, 0.13, 0.78]} radius={0.045} smoothness={3} position={[0, 0.84, 0]} material={material} />
+    {[[-0.57,-0.26],[0.57,-0.26],[-0.57,0.26],[0.57,0.26]].map(([x,z], index) => <mesh key={index} castShadow position={[x,0.41,z]} material={material}><cylinderGeometry args={[0.045,0.032,0.82,12]} /></mesh>)}
+    <mesh castShadow position={[0, 0.79, 0]} material={material}><boxGeometry args={[1.1, 0.055, 0.08]} /></mesh>
   </>
-  if (object.type === 'plinth') return <mesh castShadow receiveShadow position={[0, 0.55, 0]}><cylinderGeometry args={[0.42, 0.46, 1.1, 48]} /><StudioObjectMaterial object={object} /></mesh>
-  if (object.type === 'sphere') return <mesh castShadow receiveShadow><sphereGeometry args={[0.5, 48, 48]} /><StudioObjectMaterial object={object} /></mesh>
-  return <mesh castShadow receiveShadow><boxGeometry args={[0.82, 0.82, 0.82]} /><StudioObjectMaterial object={object} /></mesh>
+  if (object.type === 'plinth') return <group><mesh castShadow receiveShadow position={[0, 0.55, 0]} material={material}><cylinderGeometry args={[0.42, 0.46, 1.1, 48]} /></mesh><mesh position={[0, 1.105, 0]} material={material}><torusGeometry args={[0.395, 0.018, 10, 48]} /></mesh></group>
+  if (object.type === 'sphere') return <mesh castShadow receiveShadow material={material}><sphereGeometry args={[0.5, 40, 28]} /></mesh>
+  return <RoundedBox castShadow receiveShadow args={[0.82, 0.82, 0.82]} radius={0.045} smoothness={3} material={material} />
 }
 
 function MovableStudioObject({ object }: { object: StudioObject }) {
@@ -808,8 +843,8 @@ function MovableStudioObject({ object }: { object: StudioObject }) {
   const transformMode = useStudio((state) => state.transformMode)
   const setTransform = useStudio((state) => state.setStudioObjectTransform)
   const group = useRef<THREE.Group>(null)
-  const outlineSize: [number, number, number] = object.type === 'subject' ? [0.95, object.subjectHeight + 0.12, 0.65] : object.type === 'table' ? [1.5, 1, 0.9] : object.type === 'chair' ? [0.85, 1.4, 0.8] : object.type === 'plinth' ? [1, 1.25, 1] : [1, 1, 1]
-  const yOffset = object.type === 'subject' ? object.subjectHeight / 2 : object.type === 'table' ? 0.45 : object.type === 'chair' ? 0.65 : object.type === 'plinth' ? 0.55 : 0
+  const outlineSize: [number, number, number] = object.type === 'subject' ? [0.95, object.subjectHeight + 0.12, 0.65] : object.type === 'dog' ? [0.85, 1, 1.15] : object.type === 'cat' ? [0.65, 0.95, 0.75] : object.type === 'product' ? [0.55, 0.8, 0.55] : object.type === 'table' ? [1.5, 1, 0.9] : object.type === 'chair' ? [0.85, 1.4, 0.8] : object.type === 'plinth' ? [1, 1.25, 1] : [1, 1, 1]
+  const yOffset = object.type === 'subject' ? object.subjectHeight / 2 : object.type === 'dog' ? 0.45 : object.type === 'cat' ? 0.42 : object.type === 'product' ? 0.35 : object.type === 'table' ? 0.45 : object.type === 'chair' ? 0.65 : object.type === 'plinth' ? 0.55 : 0
   const content = <group ref={group} position={object.position} rotation={[0, object.rotationY, 0]} scale={object.type === 'subject' ? 1 : object.scale} onClick={(event) => { event.stopPropagation(); selectObject(object.id) }}>
     <StudioObjectMesh object={object} />
     {selected && view !== 'camera' && <mesh position={[0, yOffset, 0]}><boxGeometry args={outlineSize} /><meshBasicMaterial color={object.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={0.48} /></mesh>}

@@ -123,6 +123,12 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .studio-object-icon::before, .studio-object-icon::after { content: ''; position: absolute; border: 1px solid #a8aea4; }
 .studio-object-icon.subject::before { width: 6px; height: 6px; left: 12px; top: 4px; border-radius: 50%; }
 .studio-object-icon.subject::after { width: 12px; height: 16px; left: 9px; top: 13px; border-radius: 7px 7px 2px 2px; }
+.studio-object-icon.dog::before { width: 18px; height: 11px; left: 6px; top: 13px; border-radius: 8px 9px 5px 5px; }
+.studio-object-icon.dog::after { width: 8px; height: 8px; left: 19px; top: 8px; border-radius: 50%; }
+.studio-object-icon.cat::before { width: 15px; height: 14px; left: 7px; top: 13px; border-radius: 8px 8px 5px 5px; }
+.studio-object-icon.cat::after { width: 10px; height: 9px; left: 10px; top: 5px; border-radius: 50% 50% 45% 45%; transform: rotate(8deg); }
+.studio-object-icon.product::before { width: 12px; height: 17px; left: 9px; top: 10px; border-radius: 4px 4px 2px 2px; }
+.studio-object-icon.product::after { width: 6px; height: 4px; left: 12px; top: 5px; }
 .studio-object-icon.chair::before { width: 16px; height: 8px; left: 7px; top: 14px; }
 .studio-object-icon.chair::after { width: 16px; height: 22px; left: 7px; top: 5px; border-width: 1px 1px 0; }
 .studio-object-icon.table::before { width: 20px; height: 5px; left: 5px; top: 9px; }
@@ -141,6 +147,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .prop-add-grid i.subject { width: 12px; height: 16px; border: 0; }
 .prop-add-grid i.subject::before { content: ''; position: absolute; left: 50%; top: 0; width: 5px; height: 5px; margin-left: -3px; border: 1px solid currentColor; border-radius: 50%; }
 .prop-add-grid i.subject::after { content: ''; position: absolute; left: 0; top: 8px; width: 10px; height: 7px; border: 1px solid currentColor; border-radius: 6px 6px 2px 2px; }
+.prop-add-grid i.dog { width: 16px; height: 9px; margin-top: 4px; border-radius: 7px 8px 4px 4px; }
+.prop-add-grid i.dog::after { content: ''; position: absolute; width: 7px; height: 7px; right: -5px; top: -5px; border: 1px solid currentColor; border-radius: 50%; }
+.prop-add-grid i.cat { width: 13px; height: 12px; margin-top: 3px; border-radius: 7px 7px 4px 4px; }
+.prop-add-grid i.cat::before, .prop-add-grid i.cat::after { content: ''; position: absolute; top: -5px; width: 5px; height: 5px; border: 1px solid currentColor; transform: rotate(45deg); }
+.prop-add-grid i.cat::before { left: 0; } .prop-add-grid i.cat::after { right: 0; }
+.prop-add-grid i.product { width: 11px; height: 15px; border-radius: 3px; }
+.prop-add-grid i.product::before { content: ''; position: absolute; left: 2px; top: -5px; width: 5px; height: 4px; border: 1px solid currentColor; }
 .prop-add-grid i.chair { border-width: 1px 1px 0; box-shadow: inset 0 -5px 0 -4px currentColor; }
 .prop-add-grid i.table { height: 7px; border-width: 1px 0 0; box-shadow: inset 3px 0 0 -2px currentColor, inset -3px 0 0 -2px currentColor; }
 .prop-add-grid i.plinth { height: 16px; border-radius: 50% 50% 3px 3px; }

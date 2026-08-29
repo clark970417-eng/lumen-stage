@@ -233,6 +233,7 @@ export function PhysiquePanel({ physique, onChange, onPreset }: { physique: Phys
           ))}
         </div>
       </div>
+      <Range label={t('physique.age')} value={physique.age ?? 28} min={18} max={80} unit={t('physique.years')} onChange={(value) => onChange({ age: value })} />
       <div className="pose-grid physique-presets" role="group" aria-label={t('physique.presets')}>
         {Object.keys(PHYSIQUE_PRESETS).map((id) => (
           <button key={id} onClick={() => onPreset(id)}>{ct(`physique.${id}`, id)}</button>

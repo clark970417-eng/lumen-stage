@@ -54,6 +54,9 @@ export const FOOTPRINT = {
   lightStand: 0.42,
   /** A person, shoulder to shoulder plus clearance. */
   subject: 0.34,
+  dog: 0.42,
+  cat: 0.25,
+  product: 0.18,
   /** A C-stand holding a flag or reflector. */
   gripStand: 0.38,
   chair: 0.36,

@@ -20,9 +20,11 @@ import { SETUP_CATEGORIES, SETUP_LIBRARY, type SetupCategory } from '../setups'
 import { useStudio, type LightOptic, type LightShape, type StudioLight } from '../store'
 import { useUiModeStore } from '../uiMode'
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
+import { POSE_LIBRARY } from '../pose'
+import { OUTFITS, type OutfitStyle } from '../wardrobe'
 import '../mobile.css'
 
-type Tab = 'setups' | 'lights' | 'camera'
+type Tab = 'setups' | 'subject' | 'lights' | 'camera'
 
 const MobileStage = lazy(() => import('./MobileStage'))
 
@@ -64,6 +66,9 @@ const SIZED_OPTICS: LightOptic[] = ['softbox', 'umbrella-shoot', 'umbrella-refle
 
 /** Gel-ish colours, so a coloured rim is two taps rather than a colour wheel. */
 const RGB_PRESETS = ['#ff3d3d', '#ff8a3d', '#ffd23d', '#5cff8f', '#3ddcff', '#3d6cff', '#8b5cff', '#ff5cc8']
+const MOBILE_BODY_PRESETS = ['slim', 'average', 'curvy', 'athletic', 'heavy']
+const MOBILE_POSES = ['neutral', 'contrapposto', 'three-quarter', 'seated-upright', 'walking', 'editorial', 'holding']
+const MOBILE_OUTFITS: OutfitStyle[] = ['tshirt', 'shirt', 'suit', 'dress', 'activewear', 'coat']
 
 const toDegrees = (radians: number) => (radians * 180) / Math.PI
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180
@@ -187,6 +192,53 @@ function SetupsTab({ applied, onApply }: { applied: string | null; onApply: (id:
       </div>
     </div>
   )
+}
+
+/** The phone keeps only choices that materially change framing or light. */
+function SubjectTab() {
+  const t = useT()
+  const ct = useCatalogT()
+  const height = useStudio((state) => state.modelHeight)
+  const physique = useStudio((state) => state.physique)
+  const posePreset = useStudio((state) => state.posePreset)
+  const outfit = useStudio((state) => state.outfitStyle)
+  const setValue = useStudio((state) => state.setValue)
+  const updatePhysique = useStudio((state) => state.updatePhysique)
+  const applyPhysiquePreset = useStudio((state) => state.applyPhysiquePreset)
+  const applyPosePreset = useStudio((state) => state.applyPosePreset)
+
+  return <div className="m-tab">
+    <p className="m-note">{t('mobile.subject.hint')}</p>
+    <div className="m-field">
+      <span className="m-label">{t('physique.sex')}</span>
+      <div className="m-chips">
+        {([['feminine','physique.feminine'],['masculine','physique.masculine'],['neutral','physique.neutral']] as const).map(([value,key]) => <button key={value} className={physique.sex === value ? 'active' : ''} onClick={() => updatePhysique({ sex: value })}>{t(key)}</button>)}
+      </div>
+    </div>
+    <Dial label={t('subject.height')} value={height} min={1.45} max={2.2} step={0.01} readout={`${height.toFixed(2)} m`} onChange={(value) => setValue('modelHeight', Number(value.toFixed(2)))} />
+    <Dial label={t('physique.age')} value={physique.age ?? 28} min={18} max={80} readout={`${Math.round(physique.age ?? 28)}${t('physique.years')}`} onChange={(value) => updatePhysique({ age: value })} />
+    <div className="m-field">
+      <span className="m-label">{t('physique.presets')}</span>
+      <div className="m-chips m-chips-scroll">
+        {MOBILE_BODY_PRESETS.map((id) => <button key={id} onClick={() => applyPhysiquePreset(id)}>{ct(`physique.${id}`, id)}</button>)}
+      </div>
+    </div>
+    <div className="m-field">
+      <span className="m-label">{t('pose.library')}</span>
+      <div className="m-chips m-chips-scroll">
+        {MOBILE_POSES.map((id) => {
+          const entry = POSE_LIBRARY.find((item) => item.id === id)
+          return <button key={id} className={posePreset === id ? 'active' : ''} onClick={() => applyPosePreset(id)}>{ct(`pose.${id}`, entry?.label ?? id)}</button>
+        })}
+      </div>
+    </div>
+    <div className="m-field">
+      <span className="m-label">{t('wardrobe.outfit')}</span>
+      <div className="m-chips m-chips-scroll">
+        {MOBILE_OUTFITS.map((id) => <button key={id} className={outfit === id ? 'active' : ''} onClick={() => setValue('outfitStyle', id)}>{ct(`outfit.${id}`, OUTFITS.find((item) => item.id === id)?.label ?? id)}</button>)}
+      </div>
+    </div>
+  </div>
 }
 
 function LightsTab() {
@@ -549,7 +601,7 @@ export function MobileApp() {
       </Suspense>
 
       <nav className="m-tabs" role="tablist" aria-label={t('mobile.aria')}>
-        {(['setups', 'lights', 'camera'] as const).map((item) => (
+        {(['setups', 'subject', 'lights', 'camera'] as const).map((item) => (
           <button key={item} role="tab" id={`m-tab-${item}`} aria-controls="m-tabpanel" aria-selected={tab === item && sheetOpen}
             className={tab === item && sheetOpen ? 'active' : ''}
             onClick={() => { if (tab === item && sheetOpen) setSheetOpen(false); else { setTab(item); setSheetOpen(true) } }}>
@@ -564,6 +616,7 @@ export function MobileApp() {
       {sheetOpen && (
         <section className="m-sheet" id="m-tabpanel" role="tabpanel" aria-labelledby={`m-tab-${tab}`}>
           {tab === 'setups' && <SetupsTab applied={appliedSetup} onApply={setAppliedSetup} />}
+          {tab === 'subject' && <SubjectTab />}
           {tab === 'lights' && <LightsTab />}
           {tab === 'camera' && <CameraTab />}
         </section>
