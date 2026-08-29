@@ -805,7 +805,7 @@ const DICT = {
   'mobile.view.camera': { en: 'Framing', zh: '取景', ja: 'ファインダー' },
   'mobile.hint.orbit': { en: 'Drag to orbit · pinch to zoom', zh: '拖曳可轉動視角，雙指縮放', ja: 'ドラッグで回転・ピンチでズーム' },
   'mobile.hint.camera': { en: 'What the camera sees', zh: '相機看到的畫面', ja: 'カメラが見ている画面' },
-  'mobile.tab.setups': { en: 'Setups', zh: '燈位', ja: 'ライティング' },
+  'mobile.tab.setups': { en: 'Reference', zh: '參考', ja: '参考' },
   'mobile.tab.subject': { en: 'Subject', zh: '人物', ja: '人物' },
   'mobile.tab.lights': { en: 'Lights', zh: '燈光', ja: 'ライト' },
   'mobile.tab.camera': { en: 'Camera', zh: '相機', ja: 'カメラ' },
