@@ -100,6 +100,13 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
     if (!open || scope !== 'mobile') return
     const tab = document.querySelector<HTMLButtonElement>(MOBILE_TABS[stepIndex])
     if (tab?.getAttribute('aria-selected') !== 'true') tab?.click()
+    const update = () => {
+      const current = document.querySelector<HTMLElement>(MOBILE_TABS[stepIndex])
+      if (current) setTargetRect(current.getBoundingClientRect())
+    }
+    update()
+    const delayed = window.setTimeout(update, 140)
+    return () => window.clearTimeout(delayed)
   }, [open, scope, stepIndex])
 
   useEffect(() => {
