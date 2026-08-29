@@ -34,10 +34,16 @@ export type Side = -1 | 1
 /** Where every draggable point currently sits, in figure-local space. */
 export type RigPoints = {
   head: THREE.Vector3
+  neck: THREE.Vector3
+  chest: THREE.Vector3
+  leftShoulder: THREE.Vector3
+  rightShoulder: THREE.Vector3
   leftWrist: THREE.Vector3
   rightWrist: THREE.Vector3
   leftElbow: THREE.Vector3
   rightElbow: THREE.Vector3
+  leftHip: THREE.Vector3
+  rightHip: THREE.Vector3
   leftAnkle: THREE.Vector3
   rightAnkle: THREE.Vector3
   leftKnee: THREE.Vector3
@@ -137,17 +143,63 @@ export function forwardKinematics(pose: ModelPose, physique: Physique, seatHeigh
   const rightLeg = leg(1)
 
   const neck = new THREE.Vector3(0, SEGMENT.torso + 0.040, 0).applyQuaternion(frames.spineRotation).add(frames.pelvisPosition)
+  const chest = new THREE.Vector3(0, SEGMENT.torso * 0.62, 0).applyQuaternion(frames.spineRotation).add(frames.pelvisPosition)
   const headRotation = frames.spineRotation.clone().multiply(euler(pose.headTilt, pose.headYaw, -pose.headRoll))
   const head = new THREE.Vector3(0, SEGMENT.neckLength + 0.004 + HEAD.eyeY, pose.neckExtend * 0.0007)
     .applyQuaternion(headRotation).add(neck)
 
   return {
     head,
+    neck,
+    chest,
     hips: frames.pelvisPosition.clone(),
+    leftShoulder: frames.shoulder(-1), rightShoulder: frames.shoulder(1),
+    leftHip: frames.hip(-1), rightHip: frames.hip(1),
     leftElbow: leftArm.elbow, leftWrist: leftArm.wrist,
     rightElbow: rightArm.elbow, rightWrist: rightArm.wrist,
     leftKnee: leftLeg.knee, leftAnkle: leftLeg.ankle,
     rightKnee: rightLeg.knee, rightAnkle: rightLeg.ankle,
+  }
+}
+
+/** Points one upper arm at an elbow handle without changing the elbow bend. */
+export function solveUpperArm(side: Side, target: THREE.Vector3, pose: ModelPose, physique: Physique, seatHeight: number | null = null): Partial<ModelPose> {
+  const frames = rigFrames(pose, physique, seatHeight)
+  const local = target.clone().sub(frames.shoulder(side)).applyQuaternion(frames.spineRotation.clone().invert())
+  if (local.lengthSq() < 1e-6) return {}
+  const rotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), local.normalize())
+  const angles = new THREE.Euler().setFromQuaternion(rotation, 'XYZ')
+  const forward = clamp(Number((-deg(angles.x)).toFixed(2)), -70, 110)
+  const twist = clamp(Number(deg(angles.y).toFixed(2)), -80, 80)
+  const abduct = deg(angles.z)
+  return side === -1
+    ? { leftArmForward: forward, leftArmTwist: twist, leftArm: clamp(Number(abduct.toFixed(2)), -175, 60) }
+    : { rightArmForward: forward, rightArmTwist: twist, rightArm: clamp(Number(abduct.toFixed(2)), -60, 175) }
+}
+
+/** Points one thigh at a knee handle while preserving its current knee bend. */
+export function solveThigh(side: Side, target: THREE.Vector3, pose: ModelPose, physique: Physique, seatHeight: number | null = null): Partial<ModelPose> {
+  const p = resolvePhysique(physique)
+  const frames = rigFrames(pose, physique, seatHeight)
+  const local = target.clone().sub(frames.hip(side)).applyQuaternion(frames.pelvisRotation.clone().invert())
+  if (local.lengthSq() < 1e-6) return {}
+  const rotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), local.normalize())
+  const angles = new THREE.Euler().setFromQuaternion(rotation, 'XYZ')
+  const hip = clamp(Number((-deg(angles.x)).toFixed(2)), -30, 120)
+  const splay = clamp(Number((deg(angles.z) - side * stanceSplayFor(pose, p.hipJoint)).toFixed(2)), -45, 45)
+  return side === -1 ? { leftLeg: hip, leftLegSplay: splay } : { rightLeg: hip, rightLegSplay: splay }
+}
+
+/** Bends the spine toward a dragged chest point. Axial twist remains independent. */
+export function solveSpineAim(target: THREE.Vector3, pose: ModelPose, physique: Physique, seatHeight: number | null = null): Partial<ModelPose> {
+  const frames = rigFrames(pose, physique, seatHeight)
+  const local = target.clone().sub(frames.pelvisPosition).applyQuaternion(frames.pelvisRotation.clone().invert())
+  if (local.lengthSq() < 1e-6) return {}
+  const rotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), local.normalize())
+  const angles = new THREE.Euler().setFromQuaternion(rotation, 'XYZ')
+  return {
+    spineBend: clamp(Number(deg(angles.x).toFixed(2)), -25, 40),
+    spineSide: clamp(Number((-deg(angles.z)).toFixed(2)), -25, 25),
   }
 }
 

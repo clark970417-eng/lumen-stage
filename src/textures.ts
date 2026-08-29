@@ -198,6 +198,68 @@ export function skinColorMap() {
   })
 }
 
+const gaussian = (u: number, v: number, cu: number, cv: number, su: number, sv: number) => {
+  const du = Math.min(Math.abs(u - cu), 1 - Math.abs(u - cu)) / su
+  const dv = (v - cv) / sv
+  return Math.exp(-(du * du + dv * dv) * 0.5)
+}
+
+/**
+ * Face-specific complexion in the head loft's UV space.
+ * Front centre is U=.25; V runs chin to crown. Real faces are warmer through
+ * the cheeks and nose, cooler under the eyes, and never one uniform swatch.
+ */
+export function faceColorMap() {
+  return cached('face-color', () => {
+    const size = SKIN_SIZE
+    const canvas = makeCanvas(size)
+    const context = canvas.getContext('2d')!
+    const image = context.createImageData(size, size)
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const u = x / size
+        const v = y / size
+        const poreTone = (fbm(u * 28, v * 28, 3, 131) - 0.5) * 0.025
+        const leftCheek = gaussian(u, v, 0.185, 0.43, 0.038, 0.105)
+        const rightCheek = gaussian(u, v, 0.315, 0.43, 0.038, 0.105)
+        const nose = gaussian(u, v, 0.25, 0.34, 0.030, 0.12)
+        const underEyes = gaussian(u, v, 0.25, 0.53, 0.105, 0.040)
+        const jaw = gaussian(u, v, 0.25, 0.16, 0.12, 0.075)
+        const warmth = (leftCheek + rightCheek) * 0.030 + nose * 0.026
+        const cool = underEyes * 0.022
+        const shadow = jaw * 0.018
+        const index = (y * size + x) * 4
+        image.data[index] = clamp01(0.985 + poreTone + warmth - cool * 0.35 - shadow) * 255
+        image.data[index + 1] = clamp01(0.965 + poreTone * 0.45 - warmth * 0.45 - cool * 0.22 - shadow) * 255
+        image.data[index + 2] = clamp01(0.945 - poreTone * 0.25 - warmth * 0.72 + cool * 0.35 - shadow) * 255
+        image.data[index + 3] = 255
+      }
+    }
+    context.putImageData(image, 0, 0)
+    return finish(canvas, 1, true)
+  })
+}
+
+/** Sebum-rich T-zone and drier cheeks, aligned to the face rather than tiled. */
+export function faceRoughnessMap() {
+  return cached('face-roughness', () => {
+    const size = 256
+    const values = new Float32Array(size * size)
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const u = x / size
+        const v = y / size
+        const nose = gaussian(u, v, 0.25, 0.36, 0.032, 0.17)
+        const forehead = gaussian(u, v, 0.25, 0.68, 0.075, 0.17)
+        const cheeks = gaussian(u, v, 0.18, 0.43, 0.055, 0.14) + gaussian(u, v, 0.32, 0.43, 0.055, 0.14)
+        const variation = (fbm(u * 34, v * 34, 3, 137) - 0.5) * 0.08
+        values[y * size + x] = clamp01(0.82 - nose * 0.20 - forehead * 0.10 + cheeks * 0.05 + variation)
+      }
+    }
+    return grayscale(values, size, 1)
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Fabric
 // ---------------------------------------------------------------------------

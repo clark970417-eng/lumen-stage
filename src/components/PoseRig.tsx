@@ -17,11 +17,17 @@ import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { Physique } from '../anatomy'
 import {
-  armPatch, forwardKinematics, legPatch, solveArm, solveHeadAim, solveLeg, type Side,
+  armPatch, forwardKinematics, legPatch, solveArm, solveHeadAim, solveLeg,
+  solveSpineAim, solveThigh, solveUpperArm, type Side,
 } from '../ik'
 import type { ModelPose } from '../pose'
 
-type HandleId = 'head' | 'leftWrist' | 'rightWrist' | 'leftAnkle' | 'rightAnkle'
+type HandleId =
+  | 'head' | 'chest' | 'hips'
+  | 'leftShoulder' | 'rightShoulder'
+  | 'leftElbow' | 'rightElbow' | 'leftWrist' | 'rightWrist'
+  | 'leftHip' | 'rightHip'
+  | 'leftKnee' | 'rightKnee' | 'leftAnkle' | 'rightAnkle'
 
 const HANDLE_COLOR = '#d8ff3e'
 const HANDLE_ACTIVE = '#ffffff'
@@ -42,7 +48,7 @@ function Handle({ position, radius, active, onStart, onDrag, onEnd }: {
 }) {
   // The visible sphere is sized for the body; the pick sphere is sized for a
   // fingertip. Separating them is what makes this usable on a phone.
-  const pickRadius = radius * 2.6
+  const pickRadius = radius * 3.8
   const { camera } = useThree()
   const plane = useRef<THREE.Mesh>(null)
   const anchor = useRef(new THREE.Vector3())
@@ -153,20 +159,59 @@ export function PoseRig({ pose, physique, seatHeight, groupRef, onChange }: {
   const drag = useCallback((id: HandleId, world: THREE.Vector3) => {
     const local = toLocal(world)
     if (id === 'head') { onChange(solveHeadAim(local, pose, physique, seatHeight)); return }
+    if (id === 'chest') { onChange(solveSpineAim(local, pose, physique, seatHeight)); return }
+    if (id === 'hips') {
+      onChange({ hipShift: THREE.MathUtils.clamp(local.x, -0.16, 0.16) })
+      return
+    }
     const side: Side = id.startsWith('left') ? -1 : 1
+    if (id === 'leftShoulder' || id === 'rightShoulder') {
+      const current = side === -1 ? points.leftShoulder : points.rightShoulder
+      const key = side === -1 ? 'leftShoulder' : 'rightShoulder'
+      onChange({ [key]: THREE.MathUtils.clamp(pose[key] + (local.y - current.y) / 0.0009, -25, 45) })
+      return
+    }
+    if (id === 'leftElbow' || id === 'rightElbow') {
+      onChange(solveUpperArm(side, local, pose, physique, seatHeight))
+      return
+    }
     if (id === 'leftWrist' || id === 'rightWrist') {
       onChange(armPatch(side, solveArm(side, local, pose, physique, seatHeight)))
       return
     }
+    if (id === 'leftHip' || id === 'rightHip') {
+      const current = side === -1 ? points.leftHip : points.rightHip
+      const hipRadius = Math.max(0.04, Math.abs(current.x - points.hips.x))
+      const tiltDelta = (local.y - current.y) / (hipRadius * THREE.MathUtils.DEG2RAD) * -side
+      onChange({
+        hipShift: THREE.MathUtils.clamp(pose.hipShift + local.x - current.x, -0.16, 0.16),
+        hipTilt: THREE.MathUtils.clamp(pose.hipTilt + tiltDelta, -18, 18),
+      })
+      return
+    }
+    if (id === 'leftKnee' || id === 'rightKnee') {
+      onChange(solveThigh(side, local, pose, physique, seatHeight))
+      return
+    }
     onChange(legPatch(side, solveLeg(side, local, pose, physique, seatHeight)))
-  }, [onChange, physique, pose, seatHeight, toLocal])
+  }, [onChange, physique, points, pose, seatHeight, toLocal])
 
   const handles: { id: HandleId; point: THREE.Vector3; radius: number }[] = [
-    { id: 'head', point: points.head, radius: 0.045 },
-    { id: 'leftWrist', point: points.leftWrist, radius: 0.038 },
-    { id: 'rightWrist', point: points.rightWrist, radius: 0.038 },
-    { id: 'leftAnkle', point: points.leftAnkle, radius: 0.038 },
-    { id: 'rightAnkle', point: points.rightAnkle, radius: 0.038 },
+    { id: 'head', point: points.head, radius: 0.024 },
+    { id: 'chest', point: points.chest, radius: 0.020 },
+    { id: 'hips', point: points.hips, radius: 0.020 },
+    { id: 'leftShoulder', point: points.leftShoulder, radius: 0.016 },
+    { id: 'rightShoulder', point: points.rightShoulder, radius: 0.016 },
+    { id: 'leftElbow', point: points.leftElbow, radius: 0.018 },
+    { id: 'rightElbow', point: points.rightElbow, radius: 0.018 },
+    { id: 'leftWrist', point: points.leftWrist, radius: 0.017 },
+    { id: 'rightWrist', point: points.rightWrist, radius: 0.017 },
+    { id: 'leftHip', point: points.leftHip, radius: 0.016 },
+    { id: 'rightHip', point: points.rightHip, radius: 0.016 },
+    { id: 'leftKnee', point: points.leftKnee, radius: 0.018 },
+    { id: 'rightKnee', point: points.rightKnee, radius: 0.018 },
+    { id: 'leftAnkle', point: points.leftAnkle, radius: 0.017 },
+    { id: 'rightAnkle', point: points.rightAnkle, radius: 0.017 },
   ]
 
   return (
@@ -193,13 +238,21 @@ function PoseSkeleton({ points }: { points: ReturnType<typeof forwardKinematics>
   const geometry = useMemo(() => {
     const vertices: number[] = []
     const segment = (a: THREE.Vector3, b: THREE.Vector3) => vertices.push(a.x, a.y, a.z, b.x, b.y, b.z)
-    segment(points.hips, points.head)
+    segment(points.hips, points.chest)
+    segment(points.chest, points.neck)
+    segment(points.neck, points.head)
+    segment(points.chest, points.leftShoulder)
+    segment(points.chest, points.rightShoulder)
+    segment(points.leftShoulder, points.leftElbow)
+    segment(points.rightShoulder, points.rightElbow)
     segment(points.leftElbow, points.leftWrist)
     segment(points.rightElbow, points.rightWrist)
+    segment(points.hips, points.leftHip)
+    segment(points.hips, points.rightHip)
+    segment(points.leftHip, points.leftKnee)
+    segment(points.rightHip, points.rightKnee)
     segment(points.leftKnee, points.leftAnkle)
     segment(points.rightKnee, points.rightAnkle)
-    segment(points.hips, points.leftKnee)
-    segment(points.hips, points.rightKnee)
     const buffer = new THREE.BufferGeometry()
     buffer.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
     return buffer

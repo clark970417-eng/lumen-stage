@@ -14,7 +14,7 @@ import { useStudio, type OutfitFabric, type StudioLight, type StudioModifier, ty
 import { Figure, type FigureAppearance } from './Figure'
 import type { ModelPose } from '../pose'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { captureLightOutput, opticTransmission, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
+import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
 import { getBackdrop, type BackdropProfile } from '../backdrops'
@@ -900,7 +900,6 @@ function Softbox({ light }: { light: StudioLight }) {
     : light.headType === 'panel' ? Math.max(light.modifierWidth, light.modifierHeight) * 0.22 : 0.025
   const beamAngle = THREE.MathUtils.degToRad(light.beamAngle / 2)
   const penumbra = THREE.MathUtils.clamp((light.feather / 100) * (gridEnabled ? 0.55 : areaModifier ? 1 : 0.45), 0, 1)
-  const modifierOutput = opticTransmission(light)
   const effectiveEnabled = enabled && (!soloLightId || soloLightId === lightId)
   const standOffset = useMemo<[number, number]>(() => {
     const awayX = position[0] - light.target[0]
@@ -1068,7 +1067,8 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
       const direction = source.sub(panelPosition)
       const distanceSquared = Math.max(0.35, direction.lengthSq())
       const incoming = Math.max(0.12, Math.abs(normal.dot(direction.normalize())))
-      const output = captureLightOutput(light, shutter, syncSpeed) * opticTransmission(light)
+      // captureLightOutput already includes modifier and grid transmission.
+      const output = captureLightOutput(light, shutter, syncSpeed)
       reflected += output * incoming / distanceSquared
       if (output > dominantOutput) { dominant = light; dominantOutput = output }
     })

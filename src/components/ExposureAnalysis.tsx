@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useStudio, type ExposureOverlay, type ExposureSample } from '../store'
 import { calculateMetering } from '../metering'
 import { useT } from '../i18n'
-import { effectiveLightOutput } from '../lightProfiles'
 
 type ExposureMetrics = {
   histogram: number[]
@@ -160,7 +159,7 @@ export function ExposureAnalysis() {
       <section className="incident-metering">
         <div className="meter-heading"><span>{t('exposure.autoMeter')}</span><small>AUTO · SUBJECT</small></div>
         <div className="meter-primary">
-          <div><span>TOTAL INCIDENT</span><strong>{Math.round(metering.totalLux).toLocaleString()}<small> lx</small></strong></div>
+          <div><span>METER CALL</span><strong>{metering.recommendedApertureLabel}</strong></div>
           <div><span>EV 100</span><strong>{metering.ev100.toFixed(1)}</strong></div>
           <div><span>KEY : FILL</span><strong>{metering.keyFillRatio >= 99 ? '∞' : `${metering.keyFillRatio.toFixed(1)}:1`}</strong></div>
         </div>
@@ -170,19 +169,24 @@ export function ExposureAnalysis() {
         </div>
         <div className="light-contributions">
           {metering.readings.map((reading) => {
-            const share = metering.totalLux ? reading.totalLux / metering.totalLux : 0
+            const contributionTotal = metering.readings.reduce((total, item) => total + item.exposureContribution, 0)
+            const share = contributionTotal ? reading.exposureContribution / contributionTotal : 0
             return <div key={reading.lightId} className={reading.blocked ? 'blocked' : ''}>
               <span>{reading.name}<small>{reading.blocked ? 'FLAGGED' : `${lights.find((light) => light.id === reading.lightId)?.operationMode === 'flash' ? 'FLASH' : 'CONT'}${reading.bouncedLux > 0.5 ? ` · +${Math.round(reading.bouncedLux)} bounce` : ''}`}</small></span>
               <i><em style={{ width: `${Math.max(1, share * 100)}%` }} /></i>
-              <b>{Math.round(reading.totalLux)} lx</b>
+              <b>{Math.round(reading.totalLux)} {reading.flash ? 'lx·s' : 'lx'}</b>
             </div>
           })}
         </div>
-        <footer><span>DIRECT {Math.round(metering.directLux)} lx</span><span>BOUNCE {Math.round(metering.bouncedLux)} lx</span><span>AMBIENT {Math.round(metering.ambientLux)} lx</span></footer>
+        <footer>
+          <span>CONT {Math.round(metering.continuousLux)} lx</span>
+          <span>FLASH {Math.round(metering.flashLuxSeconds)} lx·s</span>
+          <span>AMBIENT {Math.round(metering.ambientLux)} lx</span>
+        </footer>
       </section>
       <section className="solo-metering">
         <div><span>{t('exposure.soloTitle')}</span><button onClick={() => setValue('soloLightId', null)} disabled={!soloLightId}>{t('exposure.allLights')}</button></div>
-        {lights.map((light) => <button key={light.id} className={soloLightId === light.id ? 'active' : ''} disabled={!light.enabled} onClick={() => setValue('soloLightId', soloLightId === light.id ? null : light.id)}><i style={{ background: light.colorMode === 'rgb' ? light.rgb : '#f3e6cd' }} /><span>{light.name}</span><b>{soloLightId === light.id ? 'SOLO' : light.enabled ? `${Math.round(effectiveLightOutput(light))} lm` : 'OFF'}</b></button>)}
+        {lights.map((light) => <button key={light.id} className={soloLightId === light.id ? 'active' : ''} disabled={!light.enabled} onClick={() => setValue('soloLightId', soloLightId === light.id ? null : light.id)}><i style={{ background: light.colorMode === 'rgb' ? light.rgb : '#f3e6cd' }} /><span>{light.name}</span><b>{soloLightId === light.id ? 'SOLO' : light.enabled ? `${Math.round(light.powerPercent)}% POWER` : 'OFF'}</b></button>)}
       </section>
       <footer><span>0</span><span>18% GRAY</span><span>100 IRE</span></footer>
     </aside>}

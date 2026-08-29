@@ -14,11 +14,11 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import {
-  DEFAULT_PHYSIQUE, faceShapeFor, faceVariation, footRings, forearmRings, HEAD, headRings, jointBall, loft, neckRings,
+  DEFAULT_PHYSIQUE, faceShapeFor, faceVariation, footRings, forearmRings, HEAD, headRings, loft, neckRings,
   palmRings, resolvePhysique, SEGMENT, shinRings, sliceRings, thighRings, torsoRings,
   hairShell, sculptedHead, upperArmRings, type FaceVariation, type Physique,
 } from '../anatomy'
-import { fabricNormalMap, fabricRoughnessMap, hairNormalMap, skinColorMap, skinNormalMap, skinRoughnessMap } from '../textures'
+import { faceColorMap, faceRoughnessMap, fabricNormalMap, fabricRoughnessMap, hairNormalMap, skinColorMap, skinNormalMap, skinRoughnessMap } from '../textures'
 import type { HandPose, ModelPose } from '../pose'
 import type { FabricKind, HairStyle, OutfitStyle } from '../wardrobe'
 
@@ -109,6 +109,15 @@ function useFigureMaterials(skinColor: string, outfitColor: string, appearance: 
     })
   }, [appearance.outfitFabric, outfitColor])
 
+  const faceSkin = useMemo(() => {
+    const material = skin.clone()
+    material.map = faceColorMap()
+    material.roughnessMap = faceRoughnessMap()
+    material.normalScale = new THREE.Vector2(0.26, 0.26)
+    material.needsUpdate = true
+    return material
+  }, [skin])
+
   const hair = useMemo(() => new THREE.MeshPhysicalMaterial({
     color: appearance.hairColor,
     roughness: lerp(0.74, 0.16, appearance.hairGloss / 100),
@@ -135,8 +144,8 @@ function useFigureMaterials(skinColor: string, outfitColor: string, appearance: 
     })
   }, [skinColor])
 
-  useEffect(() => () => { skin.dispose(); outfit.dispose(); hair.dispose(); nail.dispose() }, [hair, nail, outfit, skin])
-  return { skin, outfit, hair, nail }
+  useEffect(() => () => { skin.dispose(); faceSkin.dispose(); outfit.dispose(); hair.dispose(); nail.dispose() }, [faceSkin, hair, nail, outfit, skin])
+  return { skin, faceSkin, outfit, hair, nail }
 }
 
 function useFigureGeometry(physique: Physique, jawSet: number, neckline: number, jacket: boolean) {
@@ -159,12 +168,20 @@ function useFigureGeometry(physique: Physique, jawSet: number, neckline: number,
       forearm: loft(forearmRings(p), { segments: 20 }),
       thigh: loft(thighRings(p), { segments: 24 }),
       shin: loft(shinRings(p), { segments: 24 }),
+      skirt: loft([
+        { t: 0, rx: p.hipHalf * 0.98, rz: p.hipDepth * 1.02, cz: -0.004 },
+        { t: 0.10, rx: p.hipHalf * 1.02, rz: p.hipDepth * 1.00 },
+        { t: 0.30, rx: p.hipHalf * 1.12, rz: p.hipDepth * 0.98, cz: 0.004 },
+        { t: 0.56, rx: p.hipHalf * 1.26, rz: p.hipDepth * 0.94, cz: 0.010 },
+      ], { segments: 40 }),
+      longSkirt: loft([
+        { t: 0, rx: p.hipHalf * 0.98, rz: p.hipDepth * 1.02, cz: -0.004 },
+        { t: 0.16, rx: p.hipHalf * 1.04, rz: p.hipDepth },
+        { t: 0.52, rx: p.hipHalf * 1.28, rz: p.hipDepth * 0.96, cz: 0.008 },
+        { t: 0.98, rx: p.hipHalf * 1.72, rz: p.hipDepth * 1.02, cz: 0.018 },
+      ], { segments: 44 }),
       foot: loft(footRings(0.048), { segments: 16, up: true }),
       palm: loft(palmRings(1), { segments: 14 }),
-      shoulderBall: jointBall(p.armUpper * 1.2, 1, 1),
-      elbowBall: jointBall(p.armUpper * 0.84, 1, 1),
-      kneeBall: jointBall(p.calf * 1.06, 1, 1),
-      hipBall: jointBall(p.thigh * 1.02, 1, 1),
       finger: new THREE.CapsuleGeometry(0.0075, 0.02, 4, 8),
     }
   }, [jacket, jawSet, neckline, physique])
@@ -250,24 +267,24 @@ function Face({ pose, skin, hair, appearance, gaze, face }: { pose: ModelPose; s
 
   const eye = (side: -1 | 1) => (
     <group key={`eye-${side}`} position={[side * (HEAD.eyeX + face.eyeSpacing), HEAD.eyeY + face.eyeHeight + (side < 0 ? face.asymmetry : 0), HEAD.eyeZ]}>
-      <mesh scale={[1.04, 0.74, 0.92]}><sphereGeometry args={[0.0118, 32, 20]} /><meshPhysicalMaterial color="#ded8cd" roughness={0.28} clearcoat={0.56} clearcoatRoughness={0.12} /></mesh>
-      <mesh position={[irisX, irisY, 0.01015]}><circleGeometry args={[0.00625, 32]} /><meshBasicMaterial color="#1a1815" /></mesh>
-      <mesh position={[irisX, irisY, 0.01035]}><circleGeometry args={[0.00565, 32]} /><meshPhysicalMaterial color={appearance.eyeColor} roughness={0.2} clearcoat={0.72} /></mesh>
-      <mesh position={[irisX, irisY, 0.01048]}><ringGeometry args={[0.0030, 0.0047, 32]} /><meshBasicMaterial color="#d9c58f" transparent opacity={0.24} /></mesh>
-      <mesh position={[irisX, irisY, 0.0107]}><circleGeometry args={[0.0026, 20]} /><meshBasicMaterial color="#07090a" /></mesh>
-      <mesh position={[irisX - 0.0018, irisY + 0.0021, 0.0111]}><circleGeometry args={[0.00115, 12]} /><meshBasicMaterial color="#ffffff" toneMapped={false} /></mesh>
+      <mesh scale={[1.04, 0.67, 0.92]}><sphereGeometry args={[0.0101, 32, 20]} /><meshPhysicalMaterial color="#ded8cd" roughness={0.28} clearcoat={0.56} clearcoatRoughness={0.12} /></mesh>
+      <mesh position={[irisX, irisY, 0.00865]}><circleGeometry args={[0.0052, 32]} /><meshBasicMaterial color="#1a1815" /></mesh>
+      <mesh position={[irisX, irisY, 0.00882]}><circleGeometry args={[0.00465, 32]} /><meshPhysicalMaterial color={appearance.eyeColor} roughness={0.2} clearcoat={0.72} /></mesh>
+      <mesh position={[irisX, irisY, 0.00894]}><ringGeometry args={[0.00245, 0.00385, 32]} /><meshBasicMaterial color="#d9c58f" transparent opacity={0.20} /></mesh>
+      <mesh position={[irisX, irisY, 0.00912]}><circleGeometry args={[0.0021, 20]} /><meshBasicMaterial color="#07090a" /></mesh>
+      <mesh position={[irisX - 0.0016, irisY + 0.0019, 0.0104]}><circleGeometry args={[0.00095, 12]} /><meshBasicMaterial color="#ffffff" toneMapped={false} /></mesh>
       <mesh position={[-side * 0.0102, -0.002, 0.0074]} scale={[1.1, 0.55, 0.6]}><sphereGeometry args={[0.0032, 14, 10]} /><meshPhysicalMaterial color="#b55b58" roughness={0.42} /></mesh>
       <mesh position={[0, -0.0069, 0.0084]} scale={[1.15, 0.075, 0.22]}><sphereGeometry args={[0.0118, 18, 10]} /><meshPhysicalMaterial color="#e8b7ae" roughness={0.24} clearcoat={0.4} /></mesh>
       {/* Lash line. A dark edge is what separates an eye from a bead. */}
-      <mesh position={[0, 0.0088 - (1 - open) * 0.0088, 0.0060]} rotation={[rad(-14), 0, 0]} scale={[1.16, 0.10, 0.5]}>
+      <mesh position={[0, 0.0063 - (1 - open) * 0.0082, 0.0056]} rotation={[rad(-14), 0, 0]} scale={[1.12, 0.085, 0.46]}>
         <sphereGeometry args={[0.0126, 18, 10]} />
         <meshStandardMaterial color={appearance.makeup === 'none' ? '#3a2c26' : '#241a18'} roughness={0.5} />
       </mesh>
       {/* Lids. Dropping the upper one is the only honest way to show a squint. */}
-      <mesh castShadow position={[0, 0.0122 - (1 - open) * 0.0112, -0.0016]} rotation={[rad(-12), 0, 0]} scale={[1.24, 0.40 + (1 - open) * 0.58, 1.10]} material={skin}>
+      <mesh castShadow position={[0, 0.0074 - (1 - open) * 0.0102, -0.0016]} rotation={[rad(-12), 0, 0]} scale={[1.22, 0.32 + (1 - open) * 0.58, 1.08]} material={skin}>
         <sphereGeometry args={[0.0126, 20, 14]} />
       </mesh>
-      <mesh castShadow position={[0, -0.0112 + (1 - open) * 0.0024, -0.0018]} scale={[1.20, 0.26, 1.06]} material={skin}>
+      <mesh castShadow position={[0, -0.0066 + (1 - open) * 0.0024, -0.0018]} scale={[1.18, 0.22, 1.04]} material={skin}>
         <sphereGeometry args={[0.0124, 18, 12]} />
       </mesh>
     </group>
@@ -278,8 +295,8 @@ function Face({ pose, skin, hair, appearance, gaze, face }: { pose: ModelPose; s
       {/* The brow itself: thin, and sitting on the ridge rather than floating. */}
       {([-1, 1] as const).map((side) => (
         <mesh key={`brow-${side}`} position={[side * (HEAD.eyeX + face.eyeSpacing), HEAD.browY + face.browHeight + brow * 0.005 + (side < 0 ? face.asymmetry * 1.4 : 0), HEAD.eyeZ + 0.016]}
-          rotation={[0, 0, rad(side * (-9 + brow * -6))]} scale={[1.75, 0.115, 0.16]} material={hair}>
-          <sphereGeometry args={[0.0142, 18, 12]} />
+          rotation={[0, 0, rad(side * (-9 + brow * -6))]} scale={[1.18, 0.085, 0.14]} material={hair}>
+          <sphereGeometry args={[0.0132, 18, 12]} />
         </mesh>
       ))}
       {([-1, 1] as const).map((side) => (
@@ -304,7 +321,7 @@ function Face({ pose, skin, hair, appearance, gaze, face }: { pose: ModelPose; s
         Lips. The shape is sculpted into the skull; this is only the colour,
         laid on as a thin shell that follows it.
       */}
-      <group position={[face.asymmetry * 0.6, HEAD.mouthY - mouthOpen * 0.013, HEAD.mouthZ]} scale={[1 + face.mouthWidth, 1, 1]}>
+      <group position={[face.asymmetry * 0.6, HEAD.mouthY - mouthOpen * 0.013, HEAD.mouthZ]} scale={[1 + face.mouthWidth, 0.84, 1]}>
         {(mouthOpen > 0.04 || lipPart > 0.1) && (
           <group>
             <mesh position={[0, 0, -0.008]} scale={[1, 0.4 + mouthOpen * 1.7 + lipPart * 0.3, 0.8]}>
@@ -433,7 +450,7 @@ export function Figure({ pose, skinColor, outfitColor, appearance, gaze, seatHei
 }) {
   const physique = appearance.physique ?? DEFAULT_PHYSIQUE
   const cover = OUTFIT_COVER[appearance.outfit] ?? OUTFIT_COVER.tshirt
-  const { skin, outfit, hair, nail } = useFigureMaterials(skinColor, outfitColor, appearance)
+  const { skin, faceSkin, outfit, hair, nail } = useFigureMaterials(skinColor, outfitColor, appearance)
   const geo = useFigureGeometry(physique, pose.jawSet, cover.neckline, cover.jacket)
   const p = geo.resolved
   const face = useMemo(() => faceVariation(physique.face ?? 0), [physique.face])
@@ -479,10 +496,8 @@ export function Figure({ pose, skinColor, outfitColor, appearance, gaze, seatHei
 
     return (
       <group key={`leg-${side}`} position={[side * p.hipJoint, 0, 0]} rotation={[rad(-hip), 0, rad(splay)]}>
-        <mesh castShadow geometry={geo.hipBall} material={legMaterial} scale={legScale} />
         <mesh castShadow geometry={geo.thigh} material={legMaterial} scale={legScale} />
         <group position={[0, -SEGMENT.thigh, 0]} rotation={[rad(knee), 0, 0]}>
-          <mesh castShadow geometry={geo.kneeBall} material={legMaterial} scale={legScale} />
           <mesh castShadow geometry={geo.shin} material={legMaterial} scale={legScale} />
           <group position={[0, -SEGMENT.shin, 0]} rotation={[rad(ankle), rad(side * turn), rad(-splay)]}>
             <mesh castShadow geometry={geo.foot} material={outfit} scale={[1.08, 1.04, 1.12]} rotation={[rad(90), 0, 0]} position={[0, -SEGMENT.ankleY, -0.058]} />
@@ -506,10 +521,11 @@ export function Figure({ pose, skinColor, outfitColor, appearance, gaze, seatHei
 
     return (
       <group key={`arm-${side}`} position={[side * p.shoulderJoint, SEGMENT.torso - 0.045 + shoulderLift * 0.0009, -0.006]} rotation={[rad(-forward), rad(twist), rad(abduct)]}>
-        <mesh castShadow geometry={geo.shoulderBall} material={cover.upperArm ? outfit : skin} scale={cover.upperArm ? sleeve : 1} />
         <mesh castShadow geometry={geo.upperArm} material={cover.upperArm ? outfit : skin} scale={cover.upperArm ? sleeve : 1} />
+        {cover.upperArm && !cover.forearm && <mesh material={outfit} position={[0, -SEGMENT.upperArm * 0.965, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[p.armUpper * 0.72, 0.0035, 8, 24]} />
+        </mesh>}
         <group position={[0, -SEGMENT.upperArm, 0]} rotation={[0, 0, rad(elbow)]}>
-          <mesh castShadow geometry={geo.elbowBall} material={cover.forearm ? outfit : skin} scale={cover.forearm ? sleeve : 1} />
           <group rotation={[0, rad(forearmTwist), 0]}>
             <mesh castShadow geometry={geo.forearm} material={cover.forearm ? outfit : skin} scale={cover.forearm ? sleeve : 1} />
             <group position={[0, -SEGMENT.forearm, 0]} rotation={[rad(wrist), 0, 0]}>
@@ -533,6 +549,12 @@ export function Figure({ pose, skinColor, outfitColor, appearance, gaze, seatHei
             <mesh castShadow receiveShadow geometry={geo.torso} material={skin} />
             {/* The garment stops at the neckline; skin above it catches the key. */}
             <mesh castShadow receiveShadow geometry={geo.garment} material={outfit} scale={cloth} />
+            {(appearance.outfit === 'tshirt' || appearance.outfit === 'shirt' || appearance.outfit === 'activewear') && <mesh material={outfit}
+              position={[0, cover.neckline * (SEGMENT.torso + SEGMENT.pelvisDrop) + 0.002, 0.006]}
+              rotation={[Math.PI / 2, 0, 0]}
+              scale={[1.26, 1, 1]}>
+              <torusGeometry args={[p.neck * 1.42, 0.0055, 8, 36]} />
+            </mesh>}
             {geo.jacket && <mesh castShadow receiveShadow geometry={geo.jacket} material={outfit} scale={[CLOTH_OFFSET * 1.10, 1, CLOTH_OFFSET * 1.14]} />}
             {(appearance.outfit === 'shirt' || appearance.outfit === 'suit' || appearance.outfit === 'coat') && <group position={[0, SEGMENT.torso * 0.46, p.chestDepth * 1.075]}>
               {[-0.12, -0.04, 0.04, 0.12].map((y) => <mesh key={y} position={[0, y, 0]}><sphereGeometry args={[0.006, 12, 8]} /><meshPhysicalMaterial color="#242724" roughness={0.38} clearcoat={0.3} /></mesh>)}
@@ -556,8 +578,8 @@ export function Figure({ pose, skinColor, outfitColor, appearance, gaze, seatHei
               position={[0, SEGMENT.neckLength + 0.004, pose.neckExtend * 0.0007]}
               rotation={[rad(pose.headTilt), rad(pose.headYaw), rad(-pose.headRoll)]}
             >
-              <mesh castShadow geometry={geo.head} material={skin} />
-              <Face pose={pose} skin={skin} hair={hair} appearance={appearance} gaze={gazeResolved} face={face} />
+              <mesh castShadow geometry={geo.head} material={faceSkin} />
+              <Face pose={pose} skin={faceSkin} hair={hair} appearance={appearance} gaze={gazeResolved} face={face} />
               <Hair style={appearance.hairStyle} material={hair} physique={physique} jawSet={pose.jawSet} />
             </group>
           </group>
@@ -565,11 +587,8 @@ export function Figure({ pose, skinColor, outfitColor, appearance, gaze, seatHei
           {arm(-1)}{arm(1)}
         </group>
 
-        {(cover.legs === 'skirt' || cover.legs === 'long-skirt') && (
-          <mesh castShadow receiveShadow material={outfit} position={[0, -(cover.legs === 'skirt' ? 0.24 : 0.46), 0]}>
-            <cylinderGeometry args={[p.hipHalf * 1.06, p.hipHalf * (cover.legs === 'skirt' ? 1.4 : 1.9), cover.legs === 'skirt' ? 0.56 : 1.00, 40, 1, true]} />
-          </mesh>
-        )}
+        {cover.legs === 'skirt' && <mesh castShadow receiveShadow material={outfit} geometry={geo.skirt} position={[0, 0.035, 0]} scale={[CLOTH_OFFSET, 1, CLOTH_OFFSET]} />}
+        {cover.legs === 'long-skirt' && <mesh castShadow receiveShadow material={outfit} geometry={geo.longSkirt} position={[0, 0.035, 0]} scale={[CLOTH_OFFSET, 1, CLOTH_OFFSET]} />}
         {leg(-1)}{leg(1)}
       </group>
     </group>

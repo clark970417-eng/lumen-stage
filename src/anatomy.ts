@@ -248,7 +248,7 @@ export const SEGMENT = {
   /** Hip joint to the acromion. */
   torso: 0.56,
   /** Shoulder line to the chin. */
-  neckLength: 0.085,
+  neckLength: 0.066,
   clavicle: 0.155,
   upperArm: 0.335,
   forearm: 0.265,
@@ -323,23 +323,23 @@ export function faceVariation(seed: number): FaceVariation {
 export const HEAD = {
   /** Chin to crown. */
   height: 0.232,
-  halfWidth: 0.077,
+  halfWidth: 0.081,
   halfDepth: 0.101,
   /** Pupils sit at half the chin-to-crown height on every real face. */
   eyeY: 0.118,
   eyeX: 0.032,
-  eyeZ: 0.078,
+  eyeZ: 0.086,
   browY: 0.140,
   noseBridgeY: 0.112,
   noseTipY: 0.070,
   noseTipZ: 0.100,
   mouthY: 0.042,
-  mouthZ: 0.086,
+  mouthZ: 0.098,
   chinY: 0.012,
-  chinZ: 0.070,
+  chinZ: 0.078,
   cheekY: 0.092,
   cheekX: 0.050,
-  cheekZ: 0.058,
+  cheekZ: 0.066,
   earY: 0.108,
   earX: 0.073,
   crownY: 0.190,
@@ -387,11 +387,12 @@ export function neckRings(p: Resolved): Ring[] {
 export function upperArmRings(p: Resolved): Ring[] {
   const L = SEGMENT.upperArm
   return [
-    { t: 0, rx: p.armUpper * 1.20, rz: p.armUpper * 1.22 },
-    { t: L * 0.18, rx: p.armUpper * 1.14, rz: p.armUpper * 1.16, cz: -0.004 },
+    { t: 0, rx: p.armUpper * 1.02, rz: p.armUpper * 1.04 },
+    { t: L * 0.13, rx: p.armUpper * 1.24, rz: p.armUpper * 1.18, cz: -0.004 },
+    { t: L * 0.28, rx: p.armUpper * 1.10, rz: p.armUpper * 1.12, cz: -0.005 },
     { t: L * 0.48, rx: p.armUpper * 0.94, rz: p.armUpper * 1.00, cz: -0.003 },
     { t: L * 0.82, rx: p.armUpper * 0.80, rz: p.armUpper * 0.85 },
-    { t: L, rx: p.armUpper * 0.76, rz: p.armUpper * 0.80 },
+    { t: L, rx: p.armUpper * 0.68, rz: p.armUpper * 0.74 },
   ]
 }
 
@@ -399,7 +400,7 @@ export function upperArmRings(p: Resolved): Ring[] {
 export function forearmRings(p: Resolved): Ring[] {
   const L = SEGMENT.forearm
   return [
-    { t: 0, rx: p.armLower * 1.00, rz: p.armLower * 1.04 },
+    { t: 0, rx: p.armLower * 0.82, rz: p.armLower * 0.88 },
     { t: L * 0.22, rx: p.armLower * 1.10, rz: p.armLower * 1.12 },
     { t: L * 0.58, rx: p.armLower * 0.84, rz: p.armLower * 0.90 },
     { t: L * 0.88, rx: p.armLower * 0.62, rz: p.armLower * 0.74 },
@@ -410,11 +411,11 @@ export function forearmRings(p: Resolved): Ring[] {
 export function thighRings(p: Resolved): Ring[] {
   const L = SEGMENT.thigh
   return [
-    { t: 0, rx: p.thigh * 1.06, rz: p.thigh * 1.04 },
-    { t: L * 0.16, rx: p.thigh * 1.00, rz: p.thigh * 0.98, cz: 0.004 },
+    { t: 0, rx: p.thigh * 0.92, rz: p.thigh * 0.94 },
+    { t: L * 0.13, rx: p.thigh * 1.05, rz: p.thigh * 1.02, cz: 0.004 },
     { t: L * 0.48, rx: p.thigh * 0.84, rz: p.thigh * 0.88, cz: 0.002 },
     { t: L * 0.82, rx: p.thigh * 0.64, rz: p.thigh * 0.70 },
-    { t: L, rx: p.thigh * 0.58, rz: p.thigh * 0.62 },
+    { t: L, rx: p.thigh * 0.52, rz: p.thigh * 0.57 },
   ]
 }
 
@@ -422,7 +423,7 @@ export function thighRings(p: Resolved): Ring[] {
 export function shinRings(p: Resolved): Ring[] {
   const L = SEGMENT.shin
   return [
-    { t: 0, rx: p.calf * 1.02, rz: p.calf * 1.00 },
+    { t: 0, rx: p.calf * 0.84, rz: p.calf * 0.88 },
     { t: L * 0.28, rx: p.calf * 1.06, rz: p.calf * 1.18, cz: -0.012 },
     { t: L * 0.58, rx: p.calf * 0.80, rz: p.calf * 0.90, cz: -0.006 },
     { t: L * 0.88, rx: p.calf * 0.50, rz: p.calf * 0.58 },
@@ -442,12 +443,12 @@ export function headRings(jawSet: number): Ring[] {
   const D = HEAD.halfDepth
   const jaw = 1 + clamp(jawSet, -30, 40) / 100 * 0.22
   return [
-    { t: 0, rx: W * 0.42 * jaw, rz: D * 0.46 * jaw, cz: 0.020 },
-    { t: 0.028, rx: W * 0.62 * jaw, rz: D * 0.66 * jaw, cz: 0.016 },
-    { t: 0.058, rx: W * 0.80 * jaw, rz: D * 0.82 * jaw, cz: 0.010 },
+    { t: 0, rx: W * 0.48 * jaw, rz: D * 0.48 * jaw, cz: 0.020 },
+    { t: 0.028, rx: W * 0.70 * jaw, rz: D * 0.68 * jaw, cz: 0.016 },
+    { t: 0.058, rx: W * 0.86 * jaw, rz: D * 0.84 * jaw, cz: 0.010 },
     { t: 0.094, rx: W * 0.94, rz: D * 0.94, cz: 0.004 },
-    { t: 0.132, rx: W * 1.00, rz: D * 1.00, cz: 0 },
-    { t: 0.166, rx: W * 1.00, rz: D * 0.99, cz: -0.006 },
+    { t: 0.132, rx: W * 1.02, rz: D * 1.00, cz: 0 },
+    { t: 0.166, rx: W * 1.01, rz: D * 0.99, cz: -0.006 },
     { t: 0.196, rx: W * 0.90, rz: D * 0.88, cz: -0.010 },
     { t: 0.219, rx: W * 0.62, rz: D * 0.60, cz: -0.010 },
     { t: HEAD.height, rx: W * 0.24, rz: D * 0.24, cz: -0.008 },

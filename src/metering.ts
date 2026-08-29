@@ -31,6 +31,8 @@ export type LightMeterReading = {
   falloff: number
   /** Stops below the strongest light in the scene. */
   stopsUnderKey: number
+  /** Unitless exposure demand before ISO: E·t/250 or H/128. */
+  exposureContribution: number
   headLabel: string
   modifierLabel: string
 }
@@ -43,6 +45,8 @@ export type MeteringResult = {
   ambientLux: number
   /** Flash contribution in lux-seconds, metered separately from continuous. */
   flashLuxSeconds: number
+  flashDirectLuxSeconds: number
+  flashBouncedLuxSeconds: number
   continuousLux: number
   ev100: number
   exposureDelta: number
@@ -189,16 +193,26 @@ export function calculateMetering(
     }
   })
 
-  const strongest = raw.reduce<LightMeterReading | null>((best, reading) => !best || reading.totalLux > best.totalLux ? reading : best, null)
-  const readings = raw.map((reading) => ({
+  const withExposure = raw.map((reading) => ({
     ...reading,
-    stopsUnderKey: strongest && strongest.totalLux > 0 && reading.totalLux > 0 ? stopsBetween(strongest.totalLux, reading.totalLux) : 0,
+    exposureContribution: reading.flash
+      ? reading.totalLux / INCIDENT_CONSTANT_FLASH
+      : reading.totalLux * shutterSeconds / INCIDENT_CONSTANT_CONTINUOUS,
+  }))
+  const strongest = withExposure.reduce<LightMeterReading | null>((best, reading) => !best || reading.exposureContribution > best.exposureContribution ? reading : best, null)
+  const readings = withExposure.map((reading) => ({
+    ...reading,
+    stopsUnderKey: strongest && strongest.exposureContribution > 0 && reading.exposureContribution > 0
+      ? stopsBetween(strongest.exposureContribution, reading.exposureContribution)
+      : 0,
   }))
 
   const continuousLux = readings.filter((reading) => !reading.flash).reduce((total, reading) => total + reading.totalLux, 0)
   const flashLuxSeconds = readings.filter((reading) => reading.flash).reduce((total, reading) => total + reading.totalLux, 0)
-  const directLux = readings.reduce((total, reading) => total + reading.directLux, 0)
-  const bouncedLux = readings.reduce((total, reading) => total + reading.bouncedLux, 0)
+  const directLux = readings.filter((reading) => !reading.flash).reduce((total, reading) => total + reading.directLux, 0)
+  const bouncedLux = readings.filter((reading) => !reading.flash).reduce((total, reading) => total + reading.bouncedLux, 0)
+  const flashDirectLuxSeconds = readings.filter((reading) => reading.flash).reduce((total, reading) => total + reading.directLux, 0)
+  const flashBouncedLuxSeconds = readings.filter((reading) => reading.flash).reduce((total, reading) => total + reading.bouncedLux, 0)
   // Ambient slider is a room-brightness percentage; 100 % is a bright white cyc at ~600 lux.
   const ambientLux = Math.pow(clamp(ambientLevel, 0, 100) / 100, 2) * 600
   const totalLux = continuousLux + ambientLux
@@ -222,8 +236,8 @@ export function calculateMetering(
   // Error in stops. Doubling is because a stop of aperture is √2 of f-number.
   const exposureDelta = 2 * Math.log2(recommendedAperture / Math.max(0.35, aperture))
 
-  const active = readings.filter((reading) => reading.totalLux > 0.001).sort((a, b) => b.totalLux - a.totalLux)
-  const keyFillRatio = active.length > 1 ? active[0].totalLux / active[1].totalLux : active.length ? 99 : 0
+  const active = readings.filter((reading) => reading.exposureContribution > 1e-9).sort((a, b) => b.exposureContribution - a.exposureContribution)
+  const keyFillRatio = active.length > 1 ? active[0].exposureContribution / active[1].exposureContribution : active.length ? 99 : 0
   const nearest = nearestAperture(Math.max(0.7, recommendedAperture))
 
   return {
@@ -233,6 +247,8 @@ export function calculateMetering(
     bouncedLux,
     ambientLux,
     flashLuxSeconds,
+    flashDirectLuxSeconds,
+    flashBouncedLuxSeconds,
     continuousLux,
     ev100,
     exposureDelta,
