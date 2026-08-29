@@ -19,6 +19,7 @@ import { buildShareLink, copyToClipboard, readSceneFromLocation } from './share'
 import { COLOR_PROFILES } from './colorScience'
 import { CAMERA_BODIES } from './cameraProfiles'
 import { MAX_PROJECT_FILE_BYTES, readTextFileWithinLimit } from './security'
+import { BrandMark } from './components/BrandMark'
 
 let hintSequence = 0
 
@@ -250,7 +251,7 @@ function TopBar({ onOpenGuide }: { onOpenGuide: () => void }) {
   return (
     <header className="topbar">
       <div className="brand" aria-label="Lumen Stage">
-        <span className="brand-mark"><i /></span>
+        <BrandMark />
         <div><strong>LUMEN</strong><small>STAGE / 001</small></div>
       </div>
       <div className="project-title"><span>PROJECT</span><input className="project-name-input" aria-label={t('topbar.projectName')} value={projectName} onChange={(event) => setValue('projectName', event.target.value)} /><small className={`save-state ${saveStatus}`}>{saveStatus === 'saved' ? t('topbar.save.saved') : saveStatus === 'autosaved' ? t('topbar.save.autosaved') : saveStatus === 'loaded' ? t('topbar.save.loaded') : saveStatus === 'exported' ? t('topbar.save.exported') : saveStatus === 'error' ? t('topbar.save.error') : t('topbar.save.idle')}</small><LanguageSwitch /></div>

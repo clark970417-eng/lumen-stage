@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useT } from '../i18n'
 
-export const SITE_OWNER = 'Clark'
+export const SITE_OWNER = 'YuYing'
 
 export function CopyrightMark({ onOpen, compact = false }: { onOpen: () => void; compact?: boolean }) {
   const t = useT()

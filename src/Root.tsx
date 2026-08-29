@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { useT } from './i18n'
 import { useMobileShell, usePhoneScreen, useUiModeStore } from './uiMode'
+import { BrandMark } from './components/BrandMark'
 
 const App = lazy(() => import('./App'))
 const MobileApp = lazy(() => import('./components/MobileApp').then((module) => ({ default: module.MobileApp })))
@@ -8,7 +9,7 @@ const MobileApp = lazy(() => import('./components/MobileApp').then((module) => (
 function ShellLoading() {
   return (
     <div className="shell-loading" role="status" aria-label="Loading Lumen Stage">
-      <span><i /></span>
+      <BrandMark className="brand-symbol--loading" />
       <strong>LUMEN STAGE</strong>
     </div>
   )

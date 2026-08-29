@@ -12,6 +12,7 @@
 
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { AboutDialog, CopyrightMark } from './AboutDialog'
+import { BrandMark } from './BrandMark'
 import { BACKDROPS } from '../backdrops'
 import { LENS_PROFILES, type LensProfileId } from '../cameraProfiles'
 import { LOCALES, useCatalogT, useLocaleStore, useT, type Locale, type MessageKey } from '../i18n'
@@ -562,7 +563,7 @@ export function MobileApp() {
   return (
     <main className={sheetOpen ? 'm-shell sheet-open' : 'm-shell'} aria-label={t('mobile.aria')}>
       <header className="m-top">
-        <span className="m-brand"><i />LUMEN<small>{t('mobile.badge')}</small></span>
+        <span className="m-brand"><BrandMark />LUMEN<small>{t('mobile.badge')}</small></span>
         <div className="m-lang" role="group" aria-label={t('lang.label')}>
           {LOCALES.map((item) => (
             <button key={item.id} lang={item.htmlLang} aria-label={item.native} aria-pressed={locale === item.id}
