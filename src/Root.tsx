@@ -5,6 +5,7 @@ import { BrandMark } from './components/BrandMark'
 import { routeFromLocation } from './routing'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { supportsWebGL } from './webgl'
+import './ui-mode.css'
 
 const loadApp = () => import('./App')
 const loadMobileApp = () => import('./components/MobileApp').then((module) => ({ default: module.MobileApp }))
@@ -29,6 +30,20 @@ function ReturnToPhoneShell() {
   const setMode = useUiModeStore((state) => state.setMode)
   if (!phone || mode !== 'full') return null
   return <button className="m-return" onClick={() => setMode('auto')} title={t('mobile.compact.title')}>{t('mobile.compact')}</button>
+}
+
+/** Desktop users can deliberately choose the simpler workflow too. */
+function SimplifiedModeSwitch() {
+  const t = useT()
+  const phone = usePhoneScreen()
+  const setMode = useUiModeStore((state) => state.setMode)
+  if (phone) return null
+  return (
+    <button className="desktop-compact-switch" onClick={() => setMode('mobile')} title={t('mobile.compact.title')}>
+      <span aria-hidden="true">▤</span>
+      {t('mobile.compact')}
+    </button>
+  )
 }
 
 function WebGLFallback() {
@@ -63,6 +78,7 @@ function StudioShell() {
     <Suspense fallback={<ShellLoading />}>
       <App />
       <ReturnToPhoneShell />
+      <SimplifiedModeSwitch />
     </Suspense>
   )
 }

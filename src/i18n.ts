@@ -797,6 +797,8 @@ const DICT = {
   // ── 手機版 ──────────────────────────────────────────────
   'mobile.aria': { en: 'Lumen Stage, phone edition', zh: 'Lumen Stage 手機版', ja: 'Lumen Stage モバイル版' },
   'mobile.badge': { en: 'MOBILE', zh: '手機版', ja: 'モバイル' },
+  'mobile.desktop.aria': { en: 'Lumen Stage, simplified desktop workspace', zh: 'Lumen Stage 簡化桌面工作區', ja: 'Lumen Stage シンプルデスクトップ' },
+  'mobile.desktop.badge': { en: 'SIMPLIFIED', zh: '簡化工作區', ja: 'シンプル' },
   'mobile.full': { en: 'Full', zh: '完整版', ja: 'フル版' },
   'mobile.full.title': { en: 'Switch to the full desktop interface', zh: '切換到完整桌面介面', ja: 'フルデスクトップ版に切り替える' },
   'mobile.compact': { en: 'Phone edition', zh: '手機版', ja: 'モバイル版' },

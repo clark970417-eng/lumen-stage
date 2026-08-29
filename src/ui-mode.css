@@ -1,0 +1,24 @@
+.desktop-compact-switch {
+  position: fixed;
+  right: 16px;
+  bottom: 96px;
+  z-index: 60;
+  min-height: 42px;
+  padding: 0 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #465762;
+  border-radius: 7px;
+  background: rgba(15, 21, 26, .94);
+  color: #cbd5da;
+  box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  font: 500 11px var(--mono);
+  letter-spacing: .06em;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.desktop-compact-switch span { color: var(--signal); font-size: 15px; }
+.desktop-compact-switch:hover { border-color: var(--signal); color: #fff; transform: translateY(-1px); }
+.desktop-compact-switch:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }

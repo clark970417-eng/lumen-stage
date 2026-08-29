@@ -19,6 +19,8 @@
   overscroll-behavior: none;
 }
 
+.m-console { display: contents; }
+
 .m-top {
   display: flex; align-items: center; gap: 10px;
   min-height: calc(48px + env(safe-area-inset-top));
@@ -242,6 +244,93 @@
   .m-sheet { max-height: 46dvh; }
   .m-shutter { width: 54px; height: 54px; }
   .m-shutter i { width: 40px; height: 40px; }
+}
+
+/* When the simplified shell is deliberately opened on a computer, it becomes
+   a desktop workspace: a large canvas plus a persistent inspector rail. */
+@media (min-width: 901px) {
+  .m-shell {
+    grid-template-columns: minmax(0, 1fr) clamp(360px, 31vw, 460px);
+    grid-template-rows: 64px minmax(0, 1fr);
+  }
+  .m-top {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-height: 64px;
+    padding: 0 18px;
+  }
+  .m-brand small { color: var(--signal-cool); }
+  .m-lang { margin-left: auto; }
+  .m-escape {
+    min-width: 112px;
+    padding-inline: 16px;
+    border-color: #52626e;
+    color: #e3e9ec;
+  }
+  .m-escape:hover { border-color: var(--signal); color: var(--signal); background: #202a31; }
+  .m-shell .m-viewport {
+    grid-column: 1;
+    grid-row: 2;
+    margin: 10px;
+    min-width: 0;
+    min-height: 0;
+  }
+  .m-console {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: 54px minmax(0, 1fr);
+    margin: 10px 10px 10px 0;
+    overflow: hidden;
+    border: 1px solid #394a57;
+    border-radius: 10px;
+    background: #0d1318;
+    box-shadow: 0 18px 44px rgba(0,0,0,.28);
+  }
+  .m-tabs {
+    grid-row: 1;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid #2b3943;
+    border-radius: 0;
+  }
+  .m-tabs button { min-height: 53px; font-size: 11px; }
+  .m-tabs button:hover { background: #1b2730; color: #f0f4f5; }
+  .m-sheet {
+    grid-row: 2;
+    max-height: none;
+    padding: 18px;
+    border-top: 0;
+  }
+  .m-console:not(:has(.m-sheet))::after {
+    content: 'SELECT A TAB TO OPEN THE QUICK CONTROLS';
+    grid-row: 2;
+    place-self: center;
+    max-width: 210px;
+    color: #60717d;
+    font: 500 10px/1.6 var(--mono);
+    letter-spacing: .12em;
+    text-align: center;
+  }
+  .m-views button,
+  .m-chips button,
+  .m-toggle,
+  .m-light-name,
+  .m-add-light,
+  .m-delete,
+  .m-project-actions button,
+  .m-project-links a,
+  .m-project-links button { min-height: 38px; }
+  .m-dial input[type='range'] { height: 26px; }
+  .m-setup-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .m-setup { grid-template-columns: 46px 1fr; padding: 9px; }
+  .m-setup-plan { width: 46px; height: 46px; }
+  .m-stage-hint { max-width: 46%; }
+  .m-shutter { width: 68px; height: 68px; }
+  .m-shutter i { width: 50px; height: 50px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

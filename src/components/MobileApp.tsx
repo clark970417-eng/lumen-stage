@@ -19,7 +19,7 @@ import { LOCALES, useCatalogT, useLocaleStore, useT, type Locale, type MessageKe
 import { renderExportCanvas, exportFileName } from '../shotCapture'
 import { SETUP_CATEGORIES, SETUP_LIBRARY, type SetupCategory } from '../setups'
 import { useStudio, type LightOptic, type LightShape, type StudioLight } from '../store'
-import { useUiModeStore } from '../uiMode'
+import { usePhoneScreen, useUiModeStore } from '../uiMode'
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
 import { POSE_LIBRARY } from '../pose'
 import { OUTFITS, type OutfitStyle } from '../wardrobe'
@@ -558,6 +558,7 @@ export function MobileApp() {
   const locale = useLocaleStore((state) => state.locale)
   const setLocale = useLocaleStore((state) => state.setLocale)
   const setUiMode = useUiModeStore((state) => state.setMode)
+  const phone = usePhoneScreen()
   const view = useStudio((state) => state.view)
   const renderMode = useStudio((state) => state.renderMode)
   const pathSamples = useStudio((state) => state.pathTracingSamples)
@@ -610,9 +611,9 @@ export function MobileApp() {
   }
 
   return (
-    <main className={sheetOpen ? 'm-shell sheet-open' : 'm-shell'} aria-label={t('mobile.aria')}>
+    <main className={sheetOpen ? 'm-shell sheet-open' : 'm-shell'} aria-label={t(phone ? 'mobile.aria' : 'mobile.desktop.aria')}>
       <header className="m-top">
-        <span className="m-brand"><BrandMark />LUMEN<small>{t('mobile.badge')}</small></span>
+        <span className="m-brand"><BrandMark />LUMEN<small>{t(phone ? 'mobile.badge' : 'mobile.desktop.badge')}</small></span>
         <div className="m-lang" role="group" aria-label={t('lang.label')}>
           {LOCALES.map((item) => (
             <button key={item.id} lang={item.htmlLang} aria-label={item.native} aria-pressed={locale === item.id}
@@ -650,28 +651,30 @@ export function MobileApp() {
         />
       </Suspense>
 
-      <nav className="m-tabs" role="tablist" aria-label={t('mobile.aria')}>
-        {(['setups', 'subject', 'lights', 'camera', 'project'] as const).map((item) => (
-          <button key={item} role="tab" id={`m-tab-${item}`} aria-controls="m-tabpanel" aria-selected={tab === item && sheetOpen}
-            className={tab === item && sheetOpen ? 'active' : ''}
-            onClick={() => { if (tab === item && sheetOpen) setSheetOpen(false); else { setTab(item); setSheetOpen(true) } }}>
-            {t(`mobile.tab.${item}` as MessageKey)}
+      <div className="m-console">
+        <nav className="m-tabs" role="tablist" aria-label={t(phone ? 'mobile.aria' : 'mobile.desktop.aria')}>
+          {(['setups', 'subject', 'lights', 'camera', 'project'] as const).map((item) => (
+            <button key={item} role="tab" id={`m-tab-${item}`} aria-controls="m-tabpanel" aria-selected={tab === item && sheetOpen}
+              className={tab === item && sheetOpen ? 'active' : ''}
+              onClick={() => { if (tab === item && sheetOpen) setSheetOpen(false); else { setTab(item); setSheetOpen(true) } }}>
+              {t(`mobile.tab.${item}` as MessageKey)}
+            </button>
+          ))}
+          <button className="m-sheet-handle" aria-label={t(sheetOpen ? 'mobile.sheet.collapse' : 'mobile.sheet.expand')} onClick={() => setSheetOpen(!sheetOpen)}>
+            {sheetOpen ? '▾' : '▴'}
           </button>
-        ))}
-        <button className="m-sheet-handle" aria-label={t(sheetOpen ? 'mobile.sheet.collapse' : 'mobile.sheet.expand')} onClick={() => setSheetOpen(!sheetOpen)}>
-          {sheetOpen ? '▾' : '▴'}
-        </button>
-      </nav>
+        </nav>
 
-      {sheetOpen && (
-        <section className="m-sheet" id="m-tabpanel" role="tabpanel" aria-labelledby={`m-tab-${tab}`}>
-          {tab === 'setups' && <SetupsTab applied={appliedSetup} onApply={setAppliedSetup} />}
-          {tab === 'subject' && <SubjectTab />}
-          {tab === 'lights' && <LightsTab />}
-          {tab === 'camera' && <CameraTab />}
-          {tab === 'project' && <ProjectTab onOpenAbout={() => setAboutOpen(true)} onOpenTour={openTour} />}
-        </section>
-      )}
+        {sheetOpen && (
+          <section className="m-sheet" id="m-tabpanel" role="tabpanel" aria-labelledby={`m-tab-${tab}`}>
+            {tab === 'setups' && <SetupsTab applied={appliedSetup} onApply={setAppliedSetup} />}
+            {tab === 'subject' && <SubjectTab />}
+            {tab === 'lights' && <LightsTab />}
+            {tab === 'camera' && <CameraTab />}
+            {tab === 'project' && <ProjectTab onOpenAbout={() => setAboutOpen(true)} onOpenTour={openTour} />}
+          </section>
+        )}
+      </div>
 
       {photo && <PhotoSheet photo={photo} onClose={() => setPhoto(null)} />}
       <OnboardingTour open={tourOpen} scope="mobile" onClose={() => setTourOpen(false)} />
