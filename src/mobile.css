@@ -73,6 +73,8 @@
 .m-note { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
 .m-label { color: var(--muted); font: 500 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
 .m-field { display: grid; gap: 7px; }
+.m-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.m-label-row b { color: var(--signal); font: 500 11px var(--mono); letter-spacing: .04em; }
 
 .m-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .m-chips-scroll { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
@@ -84,6 +86,37 @@
 .m-chips button.active { border-color: var(--signal); background: rgba(216,255,62,.08); color: var(--paper); }
 .m-led { width: 7px; height: 7px; border-radius: 50%; background: #4a4f48; }
 .m-led.on { background: var(--signal); box-shadow: 0 0 8px rgba(216,255,62,.55); }
+
+.m-chips button.m-chip-add {
+  min-width: 44px; justify-content: center; border-style: dashed; border-color: #4a5540;
+  color: var(--signal); font-size: 17px; line-height: 1;
+}
+
+.m-light-name {
+  min-height: 46px; width: 100%; padding: 0 13px; border: 1px solid #343934; border-radius: 0;
+  background: #1b1e1b; color: #dfe3da; font-size: 14px;
+}
+.m-light-name:focus { border-color: var(--signal); outline: none; }
+
+.m-light-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.m-light-actions .m-toggle { min-width: 0; }
+.m-delete {
+  min-height: 46px; padding: 0 16px; border: 1px solid #4a3532; background: #211a19;
+  color: #d09a8d; font-size: 12.5px; cursor: pointer;
+}
+.m-delete:disabled { opacity: .35; cursor: not-allowed; }
+
+.m-add-light {
+  min-height: 46px; border: 1px dashed #4a5540; background: #1b1e1b;
+  color: var(--signal); font-size: 13px; cursor: pointer;
+}
+
+.m-color-row { display: flex; align-items: center; gap: 10px; }
+.m-color-row .m-label { flex: 1; }
+.m-color-row input[type='color'] {
+  width: 54px; height: 44px; padding: 2px; border: 1px solid #343934; background: #1b1e1b; cursor: pointer;
+}
+.m-color-row output { color: var(--signal); font: 500 12px var(--mono); }
 
 .m-toggle {
   min-height: 46px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between;

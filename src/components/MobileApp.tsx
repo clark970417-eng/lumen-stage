@@ -19,7 +19,7 @@ import { LENS_PROFILES, type LensProfileId } from '../cameraProfiles'
 import { LOCALES, useCatalogT, useLocaleStore, useT, type Locale, type MessageKey } from '../i18n'
 import { renderExportCanvas, exportFileName } from '../shotCapture'
 import { SETUP_CATEGORIES, SETUP_LIBRARY, type SetupCategory } from '../setups'
-import { useStudio, type StudioLight } from '../store'
+import { useStudio, type LightOptic, type LightShape, type StudioLight } from '../store'
 import { useUiModeStore } from '../uiMode'
 import '../mobile.css'
 
@@ -30,6 +30,39 @@ const LENS_CHOICES: LensProfileId[] = ['zoom-24-70', 'prime-35', 'prime-50', 'pr
 
 /** A short backdrop shelf — the papers that cover most of what a studio shoots. */
 const BACKDROP_CHOICES = ['super-white', 'bone', 'fashion-grey', 'studio-grey', 'thunder-grey', 'charcoal', 'black-paper', 'cobalt', 'crimson']
+
+/**
+ * The shapers worth carrying on a phone, each a real modifier from the
+ * catalogue rather than a look: fitting one moves the beam, the size and the
+ * transmission together, so the meter agrees with the picture.
+ */
+const MOBILE_MODIFIERS: { id: string; optic: LightOptic }[] = [
+  { id: 'rfi-3x3', optic: 'softbox' },
+  { id: 'umbrella-shoot-105', optic: 'umbrella-shoot' },
+  { id: 'umbrella-silver-105', optic: 'umbrella-reflect' },
+  { id: 'godox-dish-55', optic: 'beauty-dish' },
+  { id: 'aputure-lantern-90', optic: 'lantern' },
+  { id: 'standard-reflector', optic: 'standard' },
+  { id: 'fresnel-8', optic: 'fresnel' },
+  { id: 'snoot', optic: 'snoot' },
+]
+
+/** Nothing on the head at all — the hardest light in the room. */
+const BARE_BULB = 'bare-bulb'
+
+/** Sizes named the way a rental house names them. */
+const MODIFIER_SIZES: { label: string; shape: LightShape; width: number; height: number }[] = [
+  { label: '60×60', shape: 'square', width: 0.6, height: 0.6 },
+  { label: '90×90', shape: 'square', width: 0.9, height: 0.9 },
+  { label: 'Ø120', shape: 'round', width: 1.2, height: 1.2 },
+  { label: '30×120', shape: 'strip', width: 0.3, height: 1.2 },
+]
+
+/** Shapers with a lit surface; the rest are a bare reflector or a tube. */
+const SIZED_OPTICS: LightOptic[] = ['softbox', 'umbrella-shoot', 'umbrella-reflect', 'beauty-dish', 'deep-parabolic', 'lantern']
+
+/** Gel-ish colours, so a coloured rim is two taps rather than a colour wheel. */
+const RGB_PRESETS = ['#ff3d3d', '#ff8a3d', '#ffd23d', '#5cff8f', '#3ddcff', '#3d6cff', '#8b5cff', '#ff5cc8']
 
 const toDegrees = (radians: number) => (radians * 180) / Math.PI
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180
@@ -145,9 +178,19 @@ function LightsTab() {
   const selectObject = useStudio((state) => state.selectObject)
   const updateLight = useStudio((state) => state.updateLight)
   const setLightPosition = useStudio((state) => state.setLightPosition)
+  const fitModifier = useStudio((state) => state.fitModifier)
+  const addLight = useStudio((state) => state.addLight)
+  const deleteLight = useStudio((state) => state.deleteLight)
 
   const light = lights.find((item) => item.id === selected) ?? lights[0]
-  if (!light) return <div className="m-tab"><p className="m-note">{t('mobile.light.empty')}</p></div>
+  if (!light) {
+    return (
+      <div className="m-tab">
+        <p className="m-note">{t('mobile.light.empty')}</p>
+        <button className="m-add-light" onClick={() => addLight()}>{t('mobile.light.add')}</button>
+      </div>
+    )
+  }
 
   const { angle, distance } = lightPolar(light, subject)
   const move = (nextAngle: number, nextDistance: number, nextHeight: number) =>
@@ -155,6 +198,10 @@ function LightsTab() {
   const side = angle === 0 ? t('mobile.light.angle.front')
     : Math.abs(angle) > 150 ? t('mobile.light.angle.back')
       : angle > 0 ? t('mobile.light.angle.right') : t('mobile.light.angle.left')
+  // A bare head has no shaper on it; everything else with a lit surface has a
+  // size worth setting.
+  const bare = light.modifierId === BARE_BULB
+  const sized = !bare && SIZED_OPTICS.includes(light.optic)
 
   return (
     <div className="m-tab">
@@ -165,11 +212,24 @@ function LightsTab() {
             {item.name.split('·')[0].trim()}
           </button>
         ))}
+        <button className="m-chip-add" onClick={() => addLight()} title={t('mobile.light.add')}>＋</button>
       </div>
 
-      <button className={light.enabled ? 'm-toggle active' : 'm-toggle'} aria-pressed={light.enabled} onClick={() => updateLight(light.id, { enabled: !light.enabled })}>
-        {t('mobile.light.toggle')}<b>{t(light.enabled ? 'common.on' : 'common.off')}</b>
-      </button>
+      <input
+        className="m-light-name"
+        aria-label={t('light.name')}
+        value={light.name}
+        maxLength={24}
+        onChange={(event) => updateLight(light.id, { name: event.target.value })}
+        onBlur={(event) => { if (!event.target.value.trim()) updateLight(light.id, { name: t('mobile.light.untitled') }) }}
+      />
+
+      <div className="m-light-actions">
+        <button className={light.enabled ? 'm-toggle active' : 'm-toggle'} aria-pressed={light.enabled} onClick={() => updateLight(light.id, { enabled: !light.enabled })}>
+          {t('mobile.light.toggle')}<b>{t(light.enabled ? 'common.on' : 'common.off')}</b>
+        </button>
+        <button className="m-delete" disabled={lights.length < 2} onClick={() => deleteLight(light.id)}>{t('common.delete')}</button>
+      </div>
 
       <Dial label={t('mobile.light.power')} value={light.powerPercent} min={1} max={100} readout={`${light.powerPercent}%`}
         onChange={(value) => updateLight(light.id, { powerPercent: value })} />
@@ -179,8 +239,63 @@ function LightsTab() {
         onChange={(value) => move(angle, value, light.position[1])} />
       <Dial label={t('mobile.light.height')} value={Number(light.position[1].toFixed(2))} min={0.8} max={3.4} step={0.05} readout={`${light.position[1].toFixed(2)} m`}
         onChange={(value) => move(angle, distance, value)} />
-      <Dial label={t('mobile.light.temperature')} value={light.temperature} min={2800} max={7500} step={50} readout={`${light.temperature} K`}
-        onChange={(value) => updateLight(light.id, { colorMode: 'kelvin', temperature: value })} />
+
+      <div className="m-field">
+        <span className="m-label">{t('optic.title')}</span>
+        <div className="m-chips">
+          {MOBILE_MODIFIERS.map((entry) => (
+            <button key={entry.id} className={bare ? '' : light.optic === entry.optic ? 'active' : ''}
+              onClick={() => fitModifier(light.id, entry.id)}>
+              {t(`optic.${entry.optic}` as MessageKey)}
+            </button>
+          ))}
+          <button className={bare ? 'active' : ''} onClick={() => fitModifier(light.id, BARE_BULB)}>{t('mobile.light.bare')}</button>
+        </div>
+      </div>
+
+      {sized && (
+        <div className="m-field">
+          <span className="m-label m-label-row">
+            {t('modifier.size')}
+            <b>{light.shape === 'round' ? `Ø${Math.round(light.modifierWidth * 100)}` : `${Math.round(light.modifierWidth * 100)}×${Math.round(light.modifierHeight * 100)}`} cm</b>
+          </span>
+          <div className="m-chips">
+            {MODIFIER_SIZES.map((size) => (
+              <button key={size.label} className={light.shape === size.shape && Math.abs(light.modifierWidth - size.width) < 0.02 ? 'active' : ''}
+                onClick={() => updateLight(light.id, { shape: size.shape, modifierWidth: size.width, modifierHeight: size.height })}>
+                {size.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="m-field">
+        <span className="m-label">{t('light.colorMode')}</span>
+        <div className="m-chips">
+          <button className={light.colorMode === 'kelvin' ? 'active' : ''} onClick={() => updateLight(light.id, { colorMode: 'kelvin' })}>{t('light.kelvin')}</button>
+          <button className={light.colorMode === 'rgb' ? 'active' : ''} onClick={() => updateLight(light.id, { colorMode: 'rgb' })}>RGB</button>
+        </div>
+      </div>
+
+      {light.colorMode === 'kelvin' ? (
+        <Dial label={t('mobile.light.temperature')} value={light.temperature} min={2800} max={7500} step={50} readout={`${light.temperature} K`}
+          onChange={(value) => updateLight(light.id, { temperature: value })} />
+      ) : (
+        <div className="m-field">
+          <label className="m-color-row">
+            <span className="m-label">{t('light.rgbColor')}</span>
+            <input type="color" aria-label={t('light.rgbColor')} value={light.rgb} onChange={(event) => updateLight(light.id, { rgb: event.target.value })} />
+            <output>{light.rgb.toUpperCase()}</output>
+          </label>
+          <div className="m-swatches">
+            {RGB_PRESETS.map((color) => (
+              <button key={color} className={light.rgb.toLowerCase() === color ? 'active' : ''} style={{ padding: 4 }}
+                aria-label={color} onClick={() => updateLight(light.id, { rgb: color })}><i style={{ background: color }} /></button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
