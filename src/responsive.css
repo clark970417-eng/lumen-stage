@@ -50,7 +50,7 @@ main.app-shell {
   }
 
   .control-drawer > .control-drawer-body {
-    grid-template-columns: repeat(5, minmax(132px, 1fr));
+    grid-template-columns: minmax(160px, 1.2fr) repeat(6, minmax(132px, 1fr));
     padding-right: 44px;
   }
 }
@@ -81,36 +81,27 @@ main.app-shell {
 
   .control-drawer {
     grid-template-columns: 1fr;
-    grid-template-rows: 46px minmax(0, 1fr);
+    grid-template-rows: 42px minmax(0, 1fr);
   }
 
-  .control-drawer > .control-drawer-tabs {
-    padding: 5px 42px 5px 6px;
-    grid-template-columns: repeat(3, minmax(68px, 1fr));
-    grid-template-rows: 1fr;
-    gap: 5px;
-    overflow-x: auto;
+  .control-drawer > .control-drawer-heading {
+    padding: 5px 42px 5px 10px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
     border-right: 0;
     border-bottom: 1px solid #2f3d47;
   }
 
-  .control-drawer-tabs > span {
-    display: none;
-  }
-
-  .control-drawer-tabs button {
-    min-height: 34px;
-  }
-
   .control-drawer > .control-drawer-body {
     padding: 7px 42px 7px 7px;
-    grid-template-columns: repeat(5, minmax(132px, 1fr));
+    grid-template-columns: minmax(160px, 1.2fr) repeat(6, minmax(132px, 1fr));
     gap: 6px;
   }
 
   .drawer-control,
   .drawer-select,
-  .drawer-light-name,
   .drawer-meter {
     padding-block: 7px;
   }
@@ -210,7 +201,7 @@ main.app-shell {
     grid-template-rows: 0 minmax(230px, 1fr) 112px;
   }
 
-  .control-drawer > .control-drawer-tabs {
+  .control-drawer > .control-drawer-heading {
     padding-block: 8px;
   }
 
@@ -507,8 +498,6 @@ html.public-site-root .legal-page {
 
 /* Touch input needs room even on a wide tablet or resized desktop window. */
 @media (pointer: coarse) {
-  .control-drawer-tabs button,
-  .drawer-power-toggle,
   .setup-sheet-actions button {
     min-height: 44px;
   }

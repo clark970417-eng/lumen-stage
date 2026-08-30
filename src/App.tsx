@@ -16,7 +16,6 @@ import { useStudio } from './store'
 import { buildShareLink, copyToClipboard } from './share'
 import { COLOR_PROFILES } from './colorScience'
 import { CAMERA_BODIES, LENS_PROFILES } from './cameraProfiles'
-import { lightWattage, percentForWattage, wattageLimit } from './lightProfiles'
 import { MAX_PROJECT_FILE_BYTES, readTextFileWithinLimit } from './security'
 import { BrandMark } from './components/BrandMark'
 import { CanvasHealth } from './components/CanvasHealth'
@@ -450,53 +449,32 @@ function SceneToolbar() {
   )
 }
 
-function DrawerRange({ label, value, min, max, step = 1, suffix = '', onChange }: { label: string; value: number; min: number; max: number; step?: number; suffix?: string; onChange: (value: number) => void }) {
+function DrawerRange({ label, value, min, max, step = 1, suffix = '', disabled = false, onChange }: { label: string; value: number; min: number; max: number; step?: number; suffix?: string; disabled?: boolean; onChange: (value: number) => void }) {
   const progress = ((value - min) / Math.max(0.001, max - min)) * 100
-  return <label className="drawer-control"><span>{label}</span><output>{value}{suffix}</output><input aria-label={label} type="range" min={min} max={max} step={step} value={value} style={{ '--progress': `${progress}%` } as React.CSSProperties} onChange={(event) => onChange(Number(event.target.value))} /></label>
+  return <label className={`drawer-control ${disabled ? 'is-fixed' : ''}`}><span>{label}</span><output>{value}{suffix}</output><input aria-label={label} disabled={disabled} type="range" min={min} max={max} step={step} value={value} style={{ '--progress': `${progress}%` } as React.CSSProperties} onChange={(event) => onChange(Number(event.target.value))} /></label>
 }
 
 function BottomControlDrawer({ onOpenAbout }: { onOpenAbout: () => void }) {
   const state = useStudio()
   const locale = useLocaleStore((item) => item.locale)
-  const [tab, setTab] = useState<'camera' | 'light' | 'readout'>('camera')
-  const light = state.lights.find((item) => item.id === state.selected) ?? state.lights[0]
   const lens = LENS_PROFILES[state.lensProfileId]
   const ev = Math.log2((state.aperture * state.aperture * 100) / (1 / state.shutter * state.iso)).toFixed(1)
   const copy = locale === 'zh'
-    ? { camera: '相機', light: '燈光', readout: '讀值', direct: '常用參數可直接在這裡調整', noLight: '尚未加入燈光', power: '功率', temperature: '色溫', focus: '對焦距離' }
+    ? { title: '相機 / 即時讀值', direct: '鏡頭與曝光同步顯示', lens: '鏡頭', focus: '對焦距離' }
     : locale === 'ja'
-      ? { camera: 'カメラ', light: 'ライト', readout: '読み取り', direct: 'よく使う設定をここで直接調整', noLight: 'ライトがありません', power: '出力', temperature: '色温度', focus: '焦点距離' }
-      : { camera: 'Camera', light: 'Light', readout: 'Readout', direct: 'Adjust everyday settings here', noLight: 'No light in the scene', power: 'Power', temperature: 'Temperature', focus: 'Focus distance' }
+      ? { title: 'カメラ / 読み取り', direct: 'レンズと露出を同期表示', lens: 'レンズ', focus: '焦点距離' }
+      : { title: 'Camera / Readout', direct: 'Lens and exposure stay in sync', lens: 'Lens', focus: 'Focus distance' }
 
   return <footer className="readout control-drawer">
-    <nav className="control-drawer-tabs" aria-label="Bottom controls">
-      <span>{copy.direct}</span>
-      <button className={tab === 'camera' ? 'active' : ''} onClick={() => setTab('camera')}>{copy.camera}</button>
-      <button className={tab === 'light' ? 'active' : ''} onClick={() => setTab('light')}>{copy.light}</button>
-      <button className={tab === 'readout' ? 'active' : ''} onClick={() => setTab('readout')}>{copy.readout}</button>
-    </nav>
+    <header className="control-drawer-heading"><span>{copy.title}</span><small>{copy.direct}</small></header>
     <div className="control-drawer-body">
-      {tab === 'camera' && <>
-        <DrawerRange label="FOCAL" value={state.focalLength} min={lens.minFocal} max={lens.minFocal === lens.maxFocal ? lens.maxFocal + 1 : lens.maxFocal} suffix=" mm" onChange={(value) => state.setValue('focalLength', value)} />
-        <DrawerRange label="APERTURE" value={state.aperture} min={lens.maxAperture} max={16} step={0.1} suffix="" onChange={(value) => state.setValue('aperture', Number(value.toFixed(1)))} />
-        <label className="drawer-select"><span>SHUTTER</span><select aria-label="Shutter speed" value={state.shutter} onChange={(event) => state.setValue('shutter', Number(event.target.value))}>{[8,15,30,60,125,250,500,1000,2000].map((value) => <option key={value} value={value}>1/{value} s</option>)}</select></label>
-        <DrawerRange label="ISO" value={state.iso} min={100} max={12800} step={100} onChange={(value) => state.setValue('iso', value)} />
-        <DrawerRange label={copy.focus} value={state.focusDistance} min={1} max={10} step={0.05} suffix=" m" onChange={(value) => { if (state.cameraAutoFocus) state.setCameraAutoFocus(false); state.setValue('focusDistance', Number(value.toFixed(2))) }} />
-      </>}
-      {tab === 'light' && (light ? <>
-        <div className="drawer-light-name"><i className={light.enabled ? 'on' : ''} /><span>ACTIVE LIGHT</span><strong>{light.name}</strong></div>
-        <DrawerRange label={copy.power} value={lightWattage(light)} min={1} max={wattageLimit(light)} suffix={light.operationMode === 'flash' ? ' Ws' : ' W'} onChange={(value) => state.updateLight(light.id, { powerPercent: percentForWattage(light, value) })} />
-        <DrawerRange label={copy.temperature} value={light.temperature} min={2800} max={7500} step={100} suffix=" K" onChange={(value) => state.updateLight(light.id, { colorMode: 'kelvin', temperature: value })} />
-        <DrawerRange label="BEAM" value={light.beamAngle} min={12} max={90} suffix="°" onChange={(value) => state.updateLight(light.id, { beamAngle: value })} />
-        <button className={light.enabled ? 'drawer-power-toggle active' : 'drawer-power-toggle'} onClick={() => state.updateLight(light.id, { enabled: !light.enabled })}>{light.enabled ? 'ON' : 'OFF'}</button>
-      </> : <p>{copy.noLight}</p>)}
-      {tab === 'readout' && <>
-        <div className="drawer-meter"><span>LENS</span><strong>{state.focalLength}<small> mm</small></strong></div>
-        <div className="drawer-meter"><span>APERTURE</span><strong>ƒ/{state.aperture}</strong></div>
-        <div className="drawer-meter"><span>SHUTTER</span><strong>1/{state.shutter}<small> s</small></strong></div>
-        <div className="drawer-meter"><span>ISO</span><strong>{state.iso}</strong></div>
-        <div className="drawer-meter scene-ev"><span>SCENE EV</span><strong>{ev}</strong><i style={{ '--meter': `${Math.min(100, Number(ev) * 7)}%` } as React.CSSProperties} /></div>
-      </>}
+      <label className="drawer-select drawer-lens-select"><span>{copy.lens}</span><select aria-label={copy.lens} value={state.lensProfileId} onChange={(event) => state.selectLensProfile(event.target.value as keyof typeof LENS_PROFILES)}>{Object.values(LENS_PROFILES).map((profile) => <option key={profile.id} value={profile.id}>{profile.model}</option>)}</select></label>
+      <DrawerRange label="FOCAL" disabled={lens.minFocal === lens.maxFocal} value={state.focalLength} min={lens.minFocal} max={lens.minFocal === lens.maxFocal ? lens.maxFocal + 1 : lens.maxFocal} suffix=" mm" onChange={(value) => state.setValue('focalLength', value)} />
+      <DrawerRange label="APERTURE" value={state.aperture} min={lens.maxAperture} max={16} step={0.1} suffix="" onChange={(value) => state.setValue('aperture', Number(value.toFixed(1)))} />
+      <label className="drawer-select"><span>SHUTTER</span><select aria-label="Shutter speed" value={state.shutter} onChange={(event) => state.setValue('shutter', Number(event.target.value))}>{[8,15,30,60,125,250,500,1000,2000].map((value) => <option key={value} value={value}>1/{value} s</option>)}</select></label>
+      <DrawerRange label="ISO" value={state.iso} min={100} max={12800} step={100} onChange={(value) => state.setValue('iso', value)} />
+      <DrawerRange label={copy.focus} value={state.focusDistance} min={1} max={10} step={0.05} suffix=" m" onChange={(value) => { if (state.cameraAutoFocus) state.setCameraAutoFocus(false); state.setValue('focusDistance', Number(value.toFixed(2))) }} />
+      <div className="drawer-meter scene-ev"><span>SCENE EV</span><strong>{ev}</strong><i style={{ '--meter': `${Math.min(100, Number(ev) * 7)}%` } as React.CSSProperties} /></div>
     </div>
     <CopyrightMark onOpen={onOpenAbout} />
   </footer>
@@ -541,11 +519,12 @@ export default function App() {
   const [webglLost, setWebglLost] = useState(false)
   const [workspacePanels, setWorkspacePanels] = useState(() => {
     try {
-      const saved = window.localStorage.getItem('lumen-stage:workspace-panels:v2')
+      const currentSaved = window.localStorage.getItem('lumen-stage:workspace-panels:v3')
+      const saved = currentSaved ?? window.localStorage.getItem('lumen-stage:workspace-panels:v2')
       const parsed = saved ? JSON.parse(saved) as Partial<{ left: boolean; right: boolean; top: boolean; bottom: boolean }> : {}
-      return { left: parsed.left ?? true, right: parsed.right ?? false, top: parsed.top ?? true, bottom: parsed.bottom ?? true }
+      return { left: parsed.left ?? true, right: currentSaved ? parsed.right ?? true : true, top: parsed.top ?? true, bottom: parsed.bottom ?? true }
     } catch {
-      return { left: true, right: false, top: true, bottom: true }
+      return { left: true, right: true, top: true, bottom: true }
     }
   })
   const onWebglLost = useCallback(() => setWebglLost(true), [])
@@ -561,7 +540,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    window.localStorage.setItem('lumen-stage:workspace-panels:v2', JSON.stringify(workspacePanels))
+    window.localStorage.setItem('lumen-stage:workspace-panels:v3', JSON.stringify(workspacePanels))
   }, [workspacePanels])
 
   useEffect(() => {
