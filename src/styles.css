@@ -1923,7 +1923,7 @@ button, input, select { transition: border-color .16s ease, background-color .16
 .webgl-notice button { min-height: 44px; margin-top: 8px; padding: 0 18px; border: 1px solid var(--signal); background: var(--signal); color: var(--ink); cursor: pointer; }
 
 /* ── Shoot-decision workflow ───────────────────────────────────────────── */
-.topbar { grid-template-columns: 240px minmax(150px,.65fr) minmax(430px,1fr) 370px; }
+.topbar { grid-template-columns: 190px minmax(270px,.72fr) minmax(390px,1fr) 350px; }
 .workflow-navigation {
   min-width: 0; align-self: stretch; display: grid; grid-template-columns: repeat(4,minmax(92px,1fr));
   border-left: 1px solid var(--line); border-right: 1px solid var(--line);
@@ -2182,8 +2182,8 @@ header.topbar .workflow-navigation {
 }
 header.topbar .workflow-navigation button {
   min-height: 40px;
-  padding-inline: 10px;
-  gap: 7px;
+  padding-inline: 7px;
+  gap: 5px;
   border: 0;
   border-radius: 8px;
 }
@@ -2288,11 +2288,27 @@ header.topbar .project-actions .workflow-next-button:hover {
   main.app-shell.top-panel-hidden { grid-template-rows: 0 minmax(0, 1fr) 0; }
   main.app-shell.top-panel-hidden.bottom-panel-hidden { grid-template-rows: 0 minmax(0, 1fr) 0; }
   header.topbar {
-    grid-template-columns: 196px minmax(250px, .72fr) minmax(360px, 1fr) 372px;
+    grid-template-columns: 174px minmax(286px, .78fr) minmax(320px, 1fr) 350px;
     grid-template-rows: 1fr;
   }
   header.topbar .brand { grid-column: 1; grid-row: 1; }
-  header.topbar .project-title { grid-column: 2; grid-row: 1; }
+  header.topbar .project-title { grid-column: 2; grid-row: 1; padding-inline: 10px; gap: 6px; }
+  header.topbar .project-name-input { width: min(172px, 16vw); }
+  header.topbar .project-title .save-state {
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 50%;
+    background: #6e7d88;
+    color: transparent;
+    font-size: 0;
+  }
+  header.topbar .project-title .save-state.saved,
+  header.topbar .project-title .save-state.autosaved,
+  header.topbar .project-title .save-state.loaded { background: var(--signal-cool); box-shadow: 0 0 8px rgba(103,216,255,.32); }
   header.topbar .workflow-navigation { grid-column: 3; grid-row: 1; height: 48px; margin: 7px 4px; }
   header.topbar .project-actions {
     grid-column: 4;
@@ -2306,6 +2322,8 @@ header.topbar .project-actions .workflow-next-button:hover {
   }
   header.topbar .project-actions .save-button { grid-column: 3 / 5; }
   header.topbar .project-actions .workspace-focus-button span { display: none; }
+  header.topbar .brand { padding-inline: 14px; }
+  header.topbar .workflow-navigation i { display: none; }
 }
 
 @media (min-width: 1681px) {

@@ -182,7 +182,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     <section className="capability-grid" data-reveal>{copy.capabilities.map(([title, body], index) => <article key={title}>
       <div><span>0{index + 1}</span><i aria-hidden="true" /></div>
       <picture>
-        <img src={`/site-detail/${locale}/${['light', 'camera', 'handoff'][index]}.png`} alt={`${title} — ${body}`} width="1200" height="675" loading="lazy" decoding="async" />
+        <img src={`/site-detail/${locale}/${['light', 'camera', 'handoff'][index]}.png`} alt={`${title} — ${body}`} width="780" height="438" loading="lazy" decoding="async" />
       </picture>
       <h3>{title}</h3><p>{body}</p>
     </article>)}</section>
