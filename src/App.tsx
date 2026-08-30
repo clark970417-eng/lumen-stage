@@ -23,6 +23,7 @@ import { useDialogFocus } from './components/DialogFocus'
 import { OnboardingTour, shouldShowOnboarding } from './components/OnboardingTour'
 import { AssetDrawer, BlueprintPanel, ContinuityGuardPanel, DecisionConsole, ReferenceMatchPanel, ViewModeDock, WorkflowNavigation } from './components/WorkflowShell'
 import { useUiModeStore } from './uiMode'
+import { summarizeHistoryChange, type HistorySummaryLabels } from './historySummary'
 
 let hintSequence = 0
 
@@ -143,10 +144,12 @@ function SetupSheetHost() {
   return open ? <SetupSheet /> : null
 }
 
-const MORE_MENU_COPY: Record<Locale, { trigger: string; title: string; history: string; undo: string; redo: string; workspace: string; project: string; focus: string; showPanels: string; pro: string; presets: string; on: string; off: string; mobile: string; export: string }> = {
-  en: { trigger: 'More', title: 'Workspace and project tools', history: 'History', undo: 'Undo', redo: 'Redo', workspace: 'Workspace', project: 'Project', focus: 'Focus view', showPanels: 'Show panels', pro: 'Professional controls', presets: 'Presets', on: 'On', off: 'Off', mobile: 'Mobile', export: 'Export' },
-  zh: { trigger: '更多', title: '工作區與專案工具', history: '操作紀錄', undo: '復原', redo: '重做', workspace: '工作區', project: '專案', focus: '專注檢視', showPanels: '顯示面板', pro: '專業控制', presets: '預設', on: '開啟', off: '關閉', mobile: '手機', export: '匯出' },
-  ja: { trigger: 'その他', title: 'ワークスペースとプロジェクト', history: '履歴', undo: '元に戻す', redo: 'やり直す', workspace: 'ワークスペース', project: 'プロジェクト', focus: '集中表示', showPanels: 'パネル表示', pro: 'プロ設定', presets: 'プリセット', on: 'オン', off: 'オフ', mobile: 'モバイル', export: '書き出す' },
+type MoreMenuCopy = { trigger: string; title: string; history: string; current: string; emptyHistory: string; restoreHere: string; steps: string; undo: string; redo: string; workspace: string; project: string; focus: string; showPanels: string; pro: string; presets: string; on: string; off: string; mobile: string; export: string; summaries: HistorySummaryLabels }
+
+const MORE_MENU_COPY: Record<Locale, MoreMenuCopy> = {
+  en: { trigger: 'More', title: 'Workspace and project tools', history: 'History', current: 'Current state', emptyHistory: 'Changes to people, lights or camera will appear here.', restoreHere: 'Return to this state', steps: 'steps', undo: 'Undo', redo: 'Redo', workspace: 'Workspace', project: 'Project', focus: 'Focus view', showPanels: 'Show panels', pro: 'Professional controls', presets: 'Presets', on: 'On', off: 'Off', mobile: 'Mobile', export: 'Export', summaries: { project: 'Project name', subject: 'Person / stage object', lighting: 'Lighting adjustment', camera: 'Camera adjustment', stage: 'Studio setup', scene: 'Scene adjustment' } },
+  zh: { trigger: '更多', title: '工作區與專案工具', history: '操作紀錄', current: '目前狀態', emptyHistory: '調整人物、燈光或相機後，操作會顯示在這裡。', restoreHere: '返回這個狀態', steps: '步', undo: '復原', redo: '重做', workspace: '工作區', project: '專案', focus: '專注檢視', showPanels: '顯示面板', pro: '專業控制', presets: '預設', on: '開啟', off: '關閉', mobile: '手機', export: '匯出', summaries: { project: '專案名稱', subject: '人物／場景物件', lighting: '燈光調整', camera: '相機調整', stage: '攝影棚設定', scene: '場景調整' } },
+  ja: { trigger: 'その他', title: 'ワークスペースとプロジェクト', history: '履歴', current: '現在の状態', emptyHistory: '人物・照明・カメラの変更がここに表示されます。', restoreHere: 'この状態に戻る', steps: '手前', undo: '元に戻す', redo: 'やり直す', workspace: 'ワークスペース', project: 'プロジェクト', focus: '集中表示', showPanels: 'パネル表示', pro: 'プロ設定', presets: 'プリセット', on: 'オン', off: 'オフ', mobile: 'モバイル', export: '書き出す', summaries: { project: 'プロジェクト名', subject: '人物／セット', lighting: '照明調整', camera: 'カメラ調整', stage: 'スタジオ設定', scene: 'シーン調整' } },
 }
 
 /** Keep the header focused on one primary action; occasional tools live here. */
@@ -186,7 +189,14 @@ function MoreMenu({
   const trigger = useRef<HTMLButtonElement>(null)
   const t = useT()
   const locale = useLocaleStore((state) => state.locale)
+  const undoStack = useStudio((state) => state.undoStack)
   const copy = MORE_MENU_COPY[locale]
+  const currentState = useStudio.getState()
+  const historyItems = undoStack.slice(-6).map((snapshot, visibleIndex) => {
+    const stackIndex = Math.max(0, undoStack.length - 6) + visibleIndex
+    const next = undoStack[stackIndex + 1] ?? currentState
+    return { label: summarizeHistoryChange(snapshot, next, copy.summaries), steps: undoStack.length - stackIndex }
+  }).reverse()
 
   useEffect(() => {
     if (!open) return
@@ -220,6 +230,10 @@ function MoreMenu({
           <span className="file-menu-group">{copy.history}</span>
           <button role="menuitem" disabled={!canUndo} onClick={pick(onUndo)}>{copy.undo}<small>⌘Z</small></button>
           <button role="menuitem" disabled={!canRedo} onClick={pick(onRedo)}>{copy.redo}<small>⇧⌘Z</small></button>
+          <div className="history-timeline" aria-label={copy.history}>
+            <div className="history-current"><i /><span>{copy.current}</span><small>{undoStack.length} {copy.steps}</small></div>
+            {historyItems.length ? historyItems.map((item) => <button key={`${item.steps}-${item.label}`} type="button" onClick={pick(() => { for (let step = 0; step < item.steps; step += 1) onUndo() })}><i>{item.steps}</i><span><strong>{item.label}</strong><small>{copy.restoreHere}</small></span></button>) : <p>{copy.emptyHistory}</p>}
+          </div>
           <span className="file-menu-group">{copy.workspace}</span>
           <button role="menuitem" onClick={pick(onTogglePanels)}>{panelsHidden ? copy.showPanels : copy.focus}<small>Tab</small></button>
           <button role="menuitem" onClick={pick(onOpenSetups)}>{t('setups.launcher')}<small>{copy.presets}</small></button>

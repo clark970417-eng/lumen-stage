@@ -2692,6 +2692,18 @@ header.topbar .project-actions.is-simplified .history-button:disabled {
   letter-spacing: .14em;
   text-transform: uppercase;
 }
+.history-timeline { max-height: 190px; overflow-y: auto; border-bottom: 1px solid #293640; background: #111920; scrollbar-width: thin; }
+.history-current { position: sticky; top: 0; z-index: 1; min-height: 38px; padding: 0 12px; display: grid; grid-template-columns: 8px 1fr auto; align-items: center; gap: 9px; background: #16212a; color: #d6e1e7; }
+.history-current i { width: 7px; height: 7px; border-radius: 50%; background: var(--signal-cool); box-shadow: 0 0 8px rgba(103,216,255,.55); }
+.history-current span { font-size: 10px; }
+.history-current small { color: #738896; font: 8px var(--mono); }
+.history-timeline > button { width: 100%; min-height: 46px; padding: 6px 12px; display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 8px; border: 0; border-top: 1px solid #26343e; background: #111920; color: #aebbc3; text-align: left; cursor: pointer; }
+.history-timeline > button:hover { background: #1a2730; color: #edf5f8; }
+.history-timeline > button > i { width: 21px; height: 21px; display: grid; place-items: center; border: 1px solid #3a4b57; border-radius: 50%; color: #7f96a5; font: 8px var(--mono); font-style: normal; }
+.history-timeline > button span { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.history-timeline > button strong { font-size: 10px; font-weight: 500; }
+.history-timeline > button small { color: #6f838f; font: 8px var(--mono); }
+.history-timeline > p { margin: 0; padding: 13px 12px 15px; color: #71838f; font-size: 9px; line-height: 1.6; }
 .blueprint-actions { grid-template-columns: 1fr; }
 .workspace-panel-tab.panel-visible { display: none; }
 
