@@ -7,7 +7,7 @@
  * feature late.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PHYSIQUE_PRESETS, type Physique } from '../physique'
 import { HAND_POSES, POSE_CATEGORIES, POSE_LIBRARY, type HandPose, type ModelPose, type PoseCategory } from '../pose'
 import { FABRICS, HAIR_STYLES, OUTFITS, type FabricKind, type HairStyle, type OutfitStyle } from '../wardrobe'
@@ -54,13 +54,16 @@ function JointGroup({ title, count, children, defaultOpen = false }: { title: st
 export function PoseLibraryPanel({ current, onApply }: { current: string; onApply: (id: string) => void }) {
   const t = useT()
   const ct = useCatalogT()
-  const [category, setCategory] = useState<PoseCategory>('standing')
+  const currentCategory = POSE_LIBRARY.find((entry) => entry.id === current)?.category ?? 'standing'
+  const [category, setCategory] = useState<PoseCategory>(currentCategory)
   const entries = POSE_LIBRARY.filter((entry) => entry.category === category)
   const active = POSE_LIBRARY.find((entry) => entry.id === current)
+  const note = active ? ct(`pose.note.${active.id}`, active.note) : t('pose.custom')
+  useEffect(() => setCategory(currentCategory), [currentCategory])
 
   return (
     <div className="pose-library">
-      <div className="pose-heading"><span>{t('pose.library')}</span><small>{POSE_LIBRARY.length} POSES</small></div>
+      <div className="pose-heading"><span>{t('pose.library')}</span><small>{t('pose.count', { count: POSE_LIBRARY.length })}</small></div>
       <div className="pose-category-tabs" role="tablist">
         {POSE_CATEGORIES.map((item) => (
           <button key={item} role="tab" aria-selected={category === item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)}>
@@ -70,12 +73,12 @@ export function PoseLibraryPanel({ current, onApply }: { current: string; onAppl
       </div>
       <div className="pose-grid" role="group" aria-label={t('pose.library')}>
         {entries.map((entry) => (
-          <button key={entry.id} className={current === entry.id ? 'active' : ''} title={entry.note} onClick={() => onApply(entry.id)}>
+          <button key={entry.id} className={current === entry.id ? 'active' : ''} title={ct(`pose.note.${entry.id}`, entry.note)} onClick={() => onApply(entry.id)}>
             {ct(`pose.${entry.id}`, entry.label)}
           </button>
         ))}
       </div>
-      <p className="pose-note">{active ? active.note : t('pose.custom')}</p>
+      <p className="pose-note" aria-live="polite">{note}</p>
     </div>
   )
 }
