@@ -259,12 +259,15 @@ function accumulate(pose: ModelPose, stanceSplay: number): Partial<Record<Humano
 
 /** Finger deltas layered over the imported hand's authored rest shape. */
 const HAND_CURL: Record<HandPose, { fingers: number; index: number; thumb: number }> = {
-  relaxed: { fingers: 0, index: 0, thumb: 0 },
-  open: { fingers: -8, index: -8, thumb: -4 },
-  fist: { fingers: 30, index: 30, thumb: 18 },
-  point: { fingers: 30, index: -8, thumb: 12 },
-  pocket: { fingers: 18, index: 16, thumb: 10 },
-  grip: { fingers: 24, index: 22, thumb: 14 },
+  // A hand at rest is not a flat hand. The MPFB export ships one with the
+  // fingers straight and fanned — a glove on a rack — so even "relaxed" has to
+  // close it, or every standing pose ends in two starfish.
+  relaxed: { fingers: 15, index: 13, thumb: 7 },
+  open: { fingers: -6, index: -6, thumb: -3 },
+  fist: { fingers: 40, index: 40, thumb: 24 },
+  point: { fingers: 40, index: -6, thumb: 16 },
+  pocket: { fingers: 28, index: 26, thumb: 15 },
+  grip: { fingers: 34, index: 31, thumb: 20 },
 }
 
 const FINGER_PATTERN = /(thumb|index|middle|ring|pinky|little)/

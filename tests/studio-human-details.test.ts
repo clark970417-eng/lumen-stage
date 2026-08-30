@@ -11,19 +11,40 @@ test('shipped human eyeballs sit behind the measured eyelid, not in front of it'
   const male = studioEyeAnchor(-0.124, 1.82)
   const female = studioEyeAnchor(-0.168, 1.82)
 
-  assert.ok(male.z > -0.124, 'the eyeball centre is behind the eyelid, not out in front of the nose')
-  assert.ok(female.z > -0.168, 'the eyeball centre is behind the eyelid, not out in front of the nose')
-  assert.ok(male.z - -0.124 < 0.02, 'and only just behind it, or the iris never reaches the socket')
-  assert.ok(female.z - -0.168 < 0.02, 'and only just behind it, or the iris never reaches the socket')
+  assert.ok(male.z < -0.124, 'the eyeball centre is behind the +Z-facing eyelid, not out in front of the nose')
+  assert.ok(female.z < -0.168, 'the eyeball centre is behind the +Z-facing eyelid, not out in front of the nose')
+  assert.ok(-0.124 - male.z < 0.02, 'and only just behind it, or the iris never reaches the socket')
+  assert.ok(-0.168 - female.z < 0.02, 'and only just behind it, or the iris never reaches the socket')
   // A deeper-set face pushes its eyes further forward, one for one.
   assert.ok(Math.abs((male.z - female.z) - 0.044) < 1e-9, 'the anchor tracks the face it measured')
   assert.ok(Math.abs(male.y - (1.82 - EYE_DEPTH_BELOW_CROWN)) < 1e-9, 'eye height is the calibrated depth below the crown')
   assert.ok(male.y > 1.68 && male.y < 1.73, 'and stays somewhere a pupil could plausibly be')
 })
 
+test('eye height follows the actor own skull, not one baked-in drop', () => {
+  // The two shipped actors normalise to the same 1.82 m but not to the same
+  // head: her crown sits 152.4 mm above the head bone and his 148.4 mm. Read
+  // as a fixed drop from the crown that difference landed his pupils on the
+  // lower lid, so the drop scales with the length it belongs to.
+  const female = studioEyeAnchor(0.033, 1.82, 0, 0.1524)
+  const male = studioEyeAnchor(0.012, 1.82, 0, 0.14837)
+
+  assert.ok(male.y > female.y, 'a shorter skull puts its eyes higher above the chin, not lower')
+  assert.ok(male.y - female.y < 0.006, 'but only by the difference between the two skulls')
+  for (const eye of [male, female]) {
+    assert.ok(eye.y > 1.69 && eye.y < 1.73, 'both stay somewhere a pupil could plausibly be')
+  }
+  // No measurement, no scaling: the calibrated constant is the fallback.
+  assert.ok(Math.abs(studioEyeAnchor(0.033, 1.82).y - (1.82 - EYE_DEPTH_BELOW_CROWN)) < 1e-9)
+  // And a nonsense measurement cannot put an eye on the chin or the crown.
+  assert.ok(studioEyeAnchor(0.033, 1.82, 0, 0.6).y >= 1.82 - 0.135)
+  assert.ok(studioEyeAnchor(0.033, 1.82, 0, 0.02).y <= 1.82 - 0.095)
+})
+
 test('shipped human hair stays on the face-facing side of the head bone', () => {
   const head = new THREE.Vector3(0, 1.672, -0.090)
-  assert.ok(studioHairAnchor(head, 1.82).z < head.z)
+  assert.ok(studioHairAnchor(head, 1.82).z > head.z)
+  assert.ok(Math.abs(studioHairAnchor(head, 1.82, 0.08, -0.12).z - -0.026) < 1e-9)
 })
 
 test('runtime hair is a compact CC0 MakeHuman mesh, not a procedural helmet', () => {

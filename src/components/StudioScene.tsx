@@ -17,7 +17,7 @@ import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjec
 import { Figure, type FigureAppearance } from './Figure'
 import { isSeatedPose, type ModelPose } from '../pose'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_SAMPLE_X, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairResponse, studioSkinResponse } from '../studioHumanDetails'
+import { EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairResponse, studioSkinResponse } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -729,6 +729,19 @@ function attachHeadDetail(model: THREE.Group, head: THREE.Bone, detail: THREE.Gr
   head.attach(detail)
 }
 
+/**
+ * The stance the shipped actors are settled into before their rest pose is
+ * captured. Degrees, all in world space, all applied to a figure facing +Z.
+ */
+const REST_ARM_DROP = 28
+const REST_ELBOW_FLEX = 9
+const REST_FOREARM_ROLL = 24
+const RIG_AXIS = {
+  x: new THREE.Vector3(1, 0, 0),
+  y: new THREE.Vector3(0, 1, 0),
+  z: new THREE.Vector3(0, 0, 1),
+}
+
 /** Material names the appearance pass looks for on a loaded actor. */
 const STUDIO_HAIR_MATERIAL = 'studio-hair-material'
 const ACTOR_IRIS_MATERIAL = 'lumen-actor-iris'
@@ -819,7 +832,8 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
     child.receiveShadow = true
   })
   hairstyle.add(source)
-  attachHeadDetail(model, head, hairstyle, studioHairAnchor(headPosition, box.max.y))
+  const skull = measureSkullDepth(model, box.max.y)
+  attachHeadDetail(model, head, hairstyle, studioHairAnchor(headPosition, box.max.y, skull?.front, skull?.back))
 }
 
 /*
@@ -944,6 +958,13 @@ function applyActorSkin(material: THREE.MeshPhysicalMaterial, appearance: Figure
   material.specularIntensity = response.specularIntensity
   material.specularIntensityMap = null
   material.envMapIntensity = response.envMapIntensity
+  // A body is a closed surface. The file marks it double-sided anyway, which
+  // costs a second pass through every shadow map and lets the inside of the
+  // torso answer the key light — the source of the grey wash that used to sit
+  // under the jaw and inside the elbows. Cloth keeps its own sidedness: a
+  // dress hem really is one-sided geometry.
+  material.side = THREE.FrontSide
+  material.shadowSide = THREE.FrontSide
   material.needsUpdate = true
 }
 
@@ -994,12 +1015,15 @@ function applyActorAppearance(model: THREE.Object3D, appearance: FigureAppearanc
  * what matters is finding the face.
  *
  * Sampled in a band at eye height and out on the eyelid rather than on the
- * nose bridge, and taken from the forward quartile rather than the frontmost
- * point so one stray vertex cannot throw it. The head bone is not consulted at
- * all: the two shipped actors carry theirs three centimetres apart in depth,
- * so no offset from it could ever place both.
+ * nose bridge, and taken from a high percentile of the forward direction
+ * rather than the single frontmost vertex, so a stray point on the brow ridge
+ * cannot throw it. The head bone is not consulted at all: the two shipped
+ * actors carry theirs three centimetres apart in depth, so no offset from it
+ * could ever place both.
  */
-function measureEyeSurface(model: THREE.Object3D, modelTop: number) {
+const FACE_SURFACE_PERCENTILE = 0.9
+
+function measureFaceBand(model: THREE.Object3D, modelTop: number, belowCrown: number, halfHeight: number, sampleX: { min: number; max: number }) {
   const point = new THREE.Vector3()
   const depths: number[] = []
   model.updateMatrixWorld(true)
@@ -1009,15 +1033,36 @@ function measureEyeSurface(model: THREE.Object3D, modelTop: number) {
     if (!position) return
     for (let index = 0; index < position.count; index += 1) {
       point.fromBufferAttribute(position as THREE.BufferAttribute, index).applyMatrix4(child.matrixWorld)
-      if (Math.abs(modelTop - point.y - EYE_DEPTH_BELOW_CROWN) > EYE_BAND_HALF_HEIGHT) continue
+      if (Math.abs(modelTop - point.y - belowCrown) > halfHeight) continue
       const offset = Math.abs(point.x)
-      if (offset < EYE_SAMPLE_X.min || offset > EYE_SAMPLE_X.max) continue
-      depths.push(point.z)
+      if (offset < sampleX.min || offset > sampleX.max) continue
+      depths.push(point.z * FACE_FORWARD)
     }
   })
   if (depths.length < 8) return null
   depths.sort((a, b) => a - b)
-  return depths[Math.floor(depths.length * 0.25)]
+  return depths
+}
+
+function measureEyeSurface(model: THREE.Object3D, modelTop: number) {
+  const depths = measureFaceBand(model, modelTop, EYE_DEPTH_BELOW_CROWN, EYE_BAND_HALF_HEIGHT, EYE_SAMPLE_X)
+  if (!depths) return null
+  return depths[Math.round((depths.length - 1) * FACE_SURFACE_PERCENTILE)] * FACE_FORWARD
+}
+
+/**
+ * The front and back of the skull, for centring a scalp shell on it.
+ *
+ * Read at the same height the hair anchor uses and out on the temples, so the
+ * span is the head's own depth rather than an assumption about where the
+ * rigger put the head bone.
+ */
+function measureSkullDepth(model: THREE.Object3D, modelTop: number) {
+  const depths = measureFaceBand(model, modelTop, 0.105, 0.03, { min: 0.03, max: 0.075 })
+  if (!depths) return null
+  const front = depths[Math.round((depths.length - 1) * 0.97)] * FACE_FORWARD
+  const back = depths[Math.round((depths.length - 1) * 0.03)] * FACE_FORWARD
+  return { front, back }
 }
 
 /**
@@ -1039,13 +1084,15 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
   // The previous 27.8 mm width covered the painted eyelids. This 24.2 mm width
   // stays inside both shipped socket textures without making the iris smaller.
   const scleraGeometry = new THREE.SphereGeometry(0.0112, 40, 26)
-  const irisGeometry = new THREE.CircleGeometry(0.0054, 40)
-  const limbusGeometry = new THREE.RingGeometry(0.00485, 0.0056, 40)
-  const pupilGeometry = new THREE.CircleGeometry(0.00245, 32)
+  const irisGeometry = new THREE.CircleGeometry(0.0068, 40)
+  const limbusGeometry = new THREE.RingGeometry(0.0062, 0.0071, 40)
+  const pupilGeometry = new THREE.CircleGeometry(0.0030, 32)
   // A shallow cap, not a full sphere: only the front of an eye bulges.
   const corneaGeometry = new THREE.SphereGeometry(0.0072, 28, 20, 0, Math.PI * 2, 0, Math.PI / 2.5)
 
-  const sclera = new THREE.MeshPhysicalMaterial({ color: '#e8e4da', roughness: 0.26, clearcoat: 0.5, clearcoatRoughness: 0.1 })
+  // Not white: a sclera in a socket is always half a stop under the cheek,
+  // and a pure white one reads as a headlight against a face this dark.
+  const sclera = new THREE.MeshPhysicalMaterial({ color: '#cfc9bd', roughness: 0.3, clearcoat: 0.45, clearcoatRoughness: 0.12 })
   sclera.name = ACTOR_EYE_MATERIAL
   const iris = new THREE.MeshPhysicalMaterial({ color: eyeColor, roughness: 0.22, clearcoat: 0.62, clearcoatRoughness: 0.08 })
   iris.name = ACTOR_IRIS_MATERIAL
@@ -1071,7 +1118,7 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     const eye = new THREE.Group()
     eye.position.x = side * EYE_HALF_SEPARATION
     const white = new THREE.Mesh(scleraGeometry, sclera)
-    white.scale.set(1.08, 0.68, 0.84)
+    white.scale.set(1.12, 0.72, 0.86)
     white.castShadow = true
     eye.add(white)
     const irisMesh = new THREE.Mesh(irisGeometry, iris)
@@ -1098,7 +1145,7 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
   // only the iris/pupil surfaces sit just ahead of the face.
   // Measured off this actor's own face.
   const surface = measureEyeSurface(model, box.max.y)
-  const anchor = studioEyeAnchor(surface ?? headPosition.z - 0.12, box.max.y, headPosition.x)
+  const anchor = studioEyeAnchor(surface ?? headPosition.z - 0.12, box.max.y, headPosition.x, box.max.y - headPosition.y)
   attachHeadDetail(model, head, eyes, anchor)
 }
 
@@ -1241,19 +1288,27 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
         })
       }
 
-      // This source is authored in a wide A-stance. Lower only its upper arms
-      // before capturing the neutral rest pose, keeping elbows and hands fully
-      // visible beside the body instead of forcing them behind the torso.
-      if (shippedHuman && map.leftUpperArm && map.rightUpperArm) {
-        const lowerArmInWorld = (bone: THREE.Bone, degrees: number) => {
+      // This source is authored in a wide A-stance with straight arms and flat,
+      // splayed hands — a modelling pose, not a standing one. Everything the
+      // pose library does to an actor is a delta from whatever is captured
+      // next, so the file's stance has to be settled into a human one first:
+      // arms down beside the body, a little flex left in the elbows, and the
+      // forearms rolled in so the palms face the thighs instead of the lens.
+      if (shippedHuman) {
+        const rotateInWorld = (bone: THREE.Bone | undefined, axis: THREE.Vector3, degrees: number) => {
+          if (!bone || degrees === 0) return
           const parentWorld = bone.parent?.getWorldQuaternion(new THREE.Quaternion()) ?? new THREE.Quaternion()
           const desiredWorld = bone.getWorldQuaternion(new THREE.Quaternion())
-          desiredWorld.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(degrees)))
+          desiredWorld.premultiply(new THREE.Quaternion().setFromAxisAngle(axis, THREE.MathUtils.degToRad(degrees)))
           bone.quaternion.copy(parentWorld.invert()).multiply(desiredWorld)
+          model.updateMatrixWorld(true)
         }
-        lowerArmInWorld(map.leftUpperArm, -28)
-        lowerArmInWorld(map.rightUpperArm, 28)
-        model.updateMatrixWorld(true)
+        rotateInWorld(map.leftUpperArm, RIG_AXIS.z, -REST_ARM_DROP)
+        rotateInWorld(map.rightUpperArm, RIG_AXIS.z, REST_ARM_DROP)
+        rotateInWorld(map.leftLowerArm, RIG_AXIS.x, -REST_ELBOW_FLEX)
+        rotateInWorld(map.rightLowerArm, RIG_AXIS.x, -REST_ELBOW_FLEX)
+        rotateInWorld(map.leftLowerArm, RIG_AXIS.y, -REST_FOREARM_ROLL)
+        rotateInWorld(map.rightLowerArm, RIG_AXIS.y, REST_FOREARM_ROLL)
       }
 
       const footY = (bone: THREE.Bone | undefined) => bone
@@ -1322,10 +1377,11 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   useEffect(() => {
     const eyes = object?.getObjectByName('studio-eyeballs')
     if (!eyes) return
-    // The actor faces -Z, so looking toward the subject's own +X is a negative
-    // turn about Y from where the eye is standing.
+    // The eye looks down +Z, the same way the rig faces, so a positive turn
+    // about Y swings the gaze toward +X — which is the sense the pose values
+    // are authored in — and a positive turn about X drops it.
     eyes.children.forEach((eye) => {
-      eye.rotation.set(THREE.MathUtils.degToRad(gazePitch), THREE.MathUtils.degToRad(-gazeYaw), 0)
+      eye.rotation.set(THREE.MathUtils.degToRad(gazePitch), THREE.MathUtils.degToRad(gazeYaw), 0)
     })
   }, [gazePitch, gazeYaw, object])
 
