@@ -4,6 +4,7 @@ import { assetHref, routeHref, studioHref, type PublicRoute } from '../routing'
 import { SETUP_LIBRARY } from '../setups'
 import { BrandMark } from './BrandMark'
 import '../site.css'
+import '../site-demo-video.css'
 
 type Copy = {
   nav: [string, string, string, string]
@@ -129,6 +130,18 @@ const STUDIO_PREVIEWS: Record<Locale, { desktop: string; mobile: string; alt: st
   },
 }
 
+const DEMO_VIDEOS: Record<Locale, { src: string; poster: string }> = {
+  zh: { src: assetHref('site-demo/zh.mp4'), poster: assetHref('site-demo/zh.jpg') },
+  en: { src: assetHref('site-demo/en.mp4'), poster: assetHref('site-demo/en.jpg') },
+  ja: { src: assetHref('site-demo/ja.mp4'), poster: assetHref('site-demo/ja.jpg') },
+}
+
+const DEMO_LIVE_LABEL: Record<Locale, string> = {
+  zh: '即時場景',
+  en: 'LIVE SCENE',
+  ja: 'ライブシーン',
+}
+
 const FEATURED_SETUP_IDS = ['rembrandt', 'three-point', 'clamshell'] as const
 
 function setupHref(id: string) {
@@ -161,6 +174,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
   const locale = useLocaleStore((state) => state.locale)
   const copy = COPY[locale]
   const studioPreview = STUDIO_PREVIEWS[locale]
+  const demoVideo = DEMO_VIDEOS[locale]
   const heroStage = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const titles = { home: 'Lumen Stage — Virtual Photography Studio', privacy: `${copy.privacyTitle} — Lumen Stage`, terms: `${copy.termsTitle} — Lumen Stage`, support: `${copy.supportTitle} — Lumen Stage` }
@@ -219,9 +233,10 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
       <header><span>01 / QUICK DEMO</span><h2>{copy.demoTitle}</h2><p>{copy.demoBody}</p></header>
       <div className="demo-console">
         <div className="demo-screen">
-          <picture><source media="(max-width: 620px)" srcSet={studioPreview.mobile} /><img src={studioPreview.desktop} alt={studioPreview.alt} width="1920" height="1080" loading="lazy" decoding="async" /></picture>
-          <div className="demo-cursor" aria-hidden="true"><i /></div><div className="demo-pulse" aria-hidden="true" />
-          <span className="demo-live"><i /> LIVE SCENE</span>
+          <video key={locale} autoPlay muted loop playsInline preload="metadata" poster={demoVideo.poster} aria-label={studioPreview.alt}>
+            <source src={demoVideo.src} type="video/mp4" />
+          </video>
+          <span className="demo-live"><i /> {DEMO_LIVE_LABEL[locale]}</span>
         </div>
         <ol>{copy.demoSteps.map(([title, body], index) => <li key={title} style={{ '--demo-delay': `${index * 3}s` } as React.CSSProperties}><span>0{index + 1}</span><div><strong>{title}</strong><small>{body}</small></div></li>)}</ol>
       </div>
