@@ -1,0 +1,519 @@
+/*
+ * Viewport safety layer
+ *
+ * The product has three deliberately different surfaces (public site, full
+ * studio and compact studio).  Keep their visual character, but let content
+ * drive the breakpoints: reflow before labels collide, scroll dense controls
+ * in their own region, and preserve a useful stage at every viewport size.
+ */
+
+/* Full studio ----------------------------------------------------------- */
+
+main.app-shell,
+main.app-shell > * {
+  min-inline-size: 0;
+}
+
+main.app-shell {
+  min-block-size: 0;
+  block-size: 100vh;
+  block-size: 100dvh;
+}
+
+.control-drawer > .control-drawer-body {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #415664 transparent;
+}
+
+.control-drawer > .control-drawer-body > * {
+  min-inline-size: 118px;
+}
+
+@media (max-width: 1180px) {
+  main.app-shell,
+  main.app-shell.bottom-panel-hidden {
+    grid-template-columns: clamp(150px, 18vw, 166px) minmax(320px, 1fr) clamp(198px, 23vw, 218px);
+  }
+
+  main.app-shell.left-panel-hidden {
+    grid-template-columns: 0 minmax(320px, 1fr) clamp(198px, 23vw, 218px);
+  }
+
+  main.app-shell.right-panel-hidden {
+    grid-template-columns: clamp(150px, 18vw, 166px) minmax(320px, 1fr) 0;
+  }
+
+  main.app-shell.left-panel-hidden.right-panel-hidden {
+    grid-template-columns: 0 minmax(320px, 1fr) 0;
+  }
+
+  .control-drawer > .control-drawer-body {
+    grid-template-columns: repeat(5, minmax(132px, 1fr));
+    padding-right: 44px;
+  }
+}
+
+/* A forced full workspace still remains usable below the automatic compact
+   switch. Side panels step away and dense controls become a horizontal tray. */
+@media (max-width: 759px) {
+  main.app-shell,
+  main.app-shell.left-panel-hidden,
+  main.app-shell.right-panel-hidden,
+  main.app-shell.left-panel-hidden.right-panel-hidden,
+  main.app-shell.bottom-panel-hidden {
+    grid-template-columns: 0 minmax(0, 1fr) 0;
+    grid-template-rows: 148px minmax(250px, 1fr) 124px;
+  }
+
+  main.app-shell.bottom-panel-hidden {
+    grid-template-rows: 148px minmax(250px, 1fr) 0;
+  }
+
+  main.app-shell.top-panel-hidden {
+    grid-template-rows: 0 minmax(250px, 1fr) 124px;
+  }
+
+  main.app-shell.top-panel-hidden.bottom-panel-hidden {
+    grid-template-rows: 0 minmax(250px, 1fr) 0;
+  }
+
+  .control-drawer {
+    grid-template-columns: 1fr;
+    grid-template-rows: 46px minmax(0, 1fr);
+  }
+
+  .control-drawer > .control-drawer-tabs {
+    padding: 5px 42px 5px 6px;
+    grid-template-columns: repeat(3, minmax(68px, 1fr));
+    grid-template-rows: 1fr;
+    gap: 5px;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid #2f3d47;
+  }
+
+  .control-drawer-tabs > span {
+    display: none;
+  }
+
+  .control-drawer-tabs button {
+    min-height: 34px;
+  }
+
+  .control-drawer > .control-drawer-body {
+    padding: 7px 42px 7px 7px;
+    grid-template-columns: repeat(5, minmax(132px, 1fr));
+    gap: 6px;
+  }
+
+  .drawer-control,
+  .drawer-select,
+  .drawer-light-name,
+  .drawer-meter {
+    padding-block: 7px;
+  }
+
+  .control-drawer > .copyright-mark {
+    top: 7px;
+  }
+
+  .setup-library {
+    top: 0;
+    width: 100vw;
+    max-width: 100vw;
+  }
+
+  .setup-sheet-overlay {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .setup-sheet-bar {
+    min-height: 58px;
+    padding: 8px 10px;
+    gap: 10px;
+  }
+
+  .setup-sheet-bar > div:first-child {
+    min-width: 0;
+  }
+
+  .setup-sheet-bar small {
+    display: none;
+  }
+
+  .setup-sheet-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .setup-sheet-actions button {
+    min-height: 40px;
+  }
+
+  .setup-sheet-scroll {
+    padding: 12px;
+    place-items: start;
+  }
+
+  .setup-sheet-svg {
+    min-width: 720px;
+  }
+
+  .asset-drawer,
+  .reference-panel,
+  .continuity-panel {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+}
+
+@media (max-width: 430px) {
+  header.topbar .language-switch button {
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  header.topbar .project-actions {
+    overflow-x: auto;
+    grid-template-columns: repeat(7, minmax(46px, 1fr));
+  }
+
+  header.topbar .workflow-navigation {
+    overflow-x: auto;
+    grid-template-columns: repeat(5, minmax(68px, 1fr));
+  }
+
+  .professional-panel {
+    left: 4px;
+    right: 4px;
+  }
+}
+
+/* Avoid sacrificing the stage when the browser is short or landscape. */
+@media (min-width: 760px) and (max-height: 760px) {
+  main.app-shell {
+    overflow-y: auto;
+  }
+
+  main.app-shell,
+  main.app-shell.bottom-panel-hidden {
+    grid-template-rows: 104px minmax(230px, 1fr) 112px;
+  }
+
+  main.app-shell.bottom-panel-hidden {
+    grid-template-rows: 104px minmax(230px, 1fr) 0;
+  }
+
+  main.app-shell.top-panel-hidden {
+    grid-template-rows: 0 minmax(230px, 1fr) 112px;
+  }
+
+  .control-drawer > .control-drawer-tabs {
+    padding-block: 8px;
+  }
+
+  .control-drawer > .control-drawer-body {
+    padding-block: 8px;
+  }
+}
+
+/* Compact studio -------------------------------------------------------- */
+
+.m-shell.m-shell,
+.m-shell.m-shell > * {
+  min-inline-size: 0;
+}
+
+.m-shell .m-top,
+.m-shell .m-tabs,
+.m-shell .m-sheet {
+  max-inline-size: 100vw;
+}
+
+.m-shell .m-sheet {
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 560px) {
+  .m-shell .m-top {
+    gap: 6px;
+    padding-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right));
+  }
+
+  .m-shell .m-brand {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .m-shell .m-lang {
+    flex: none;
+  }
+
+  .m-shell .m-lang button {
+    min-width: 40px;
+  }
+
+  .m-shell .m-escape {
+    flex: none;
+  }
+
+  .m-shell .m-sheet {
+    max-height: min(44dvh, 420px);
+    padding-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
+  }
+
+  .m-shell .m-project-links {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 380px) {
+  .m-shell .m-brand small {
+    display: none;
+  }
+
+  .m-shell .m-lang button {
+    min-width: 36px;
+    padding-inline: 5px;
+  }
+
+  .m-shell .m-tabs {
+    grid-template-columns: repeat(5, minmax(54px, 1fr)) 44px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .m-shell .m-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .m-shell .m-tabs button {
+    min-width: 54px;
+    text-overflow: clip;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .m-shell.m-shell {
+    grid-template-rows: auto minmax(150px, 1fr) 48px auto;
+  }
+
+  .m-shell .m-top {
+    min-height: calc(46px + env(safe-area-inset-top));
+  }
+
+  .m-shell .m-sheet {
+    max-height: min(52dvh, 290px);
+  }
+
+  .m-shell .m-tabs button {
+    min-height: 48px;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  .m-shell.m-shell {
+    grid-template-columns: minmax(0, 1fr) clamp(330px, 38vw, 410px);
+  }
+
+  .m-shell .m-console {
+    margin-left: 0;
+  }
+
+  .m-shell .m-setup-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Public and legal pages ------------------------------------------------ */
+
+html.public-site-root {
+  overflow-x: clip;
+}
+
+html.public-site-root .site-header-shell,
+html.public-site-root .hero-copy,
+html.public-site-root .hero-instrument,
+html.public-site-root .site-intro,
+html.public-site-root .workflow,
+html.public-site-root .faq,
+html.public-site-root .local-first,
+html.public-site-root .legal-page {
+  min-inline-size: 0;
+}
+
+@media (max-width: 760px) {
+  html.public-site-root .hero-copy h1 {
+    overflow-wrap: anywhere;
+  }
+
+  html.public-site-root .site-intro,
+  html.public-site-root .workflow,
+  html.public-site-root .faq {
+    gap: 30px;
+  }
+
+  html.public-site-root .site-footer nav {
+    row-gap: 14px;
+  }
+}
+
+@media (max-width: 430px) {
+  html.public-site-root .site-header-shell {
+    width: 100%;
+  }
+
+  html.public-site-root .site-actions {
+    min-width: 0;
+    gap: 5px;
+  }
+
+  html.public-site-root .site-locale button {
+    width: 28px;
+  }
+
+  html.public-site-root .site-hero {
+    min-height: auto;
+    padding-top: 92px;
+  }
+
+  html.public-site-root .hero-copy h1 {
+    font-size: clamp(38px, 11.5vw, 52px);
+    line-height: .94;
+  }
+
+  html.public-site-root .hero-instrument {
+    margin-top: 56px;
+  }
+
+  html.public-site-root .site-intro,
+  html.public-site-root .workflow,
+  html.public-site-root .faq,
+  html.public-site-root .final-cta {
+    padding-inline: 18px;
+  }
+
+  html.public-site-root .site-intro h2,
+  html.public-site-root .workflow h2,
+  html.public-site-root .faq h2,
+  html.public-site-root .final-cta h2 {
+    font-size: clamp(36px, 11vw, 48px);
+    line-height: 1;
+  }
+
+  html.public-site-root .workflow li {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  html.public-site-root .faq summary {
+    grid-template-columns: 24px minmax(0, 1fr) 30px;
+    gap: 9px;
+  }
+
+  html.public-site-root .faq details p {
+    margin-left: 24px;
+  }
+
+  html.public-site-root .site-footer {
+    padding-inline: 18px;
+  }
+
+  html.public-site-root .legal-page {
+    width: calc(100% - 32px);
+  }
+
+  html.public-site-root .legal-page h1 {
+    margin-bottom: 36px;
+    font-size: clamp(40px, 13vw, 58px);
+  }
+}
+
+/* Photo analysis page --------------------------------------------------- */
+
+.trace-shell .trace-workspace,
+.trace-shell .trace-report {
+  min-inline-size: 0;
+}
+
+.trace-shell {
+  min-block-size: 100vh;
+  min-block-size: 100dvh;
+}
+
+@media (max-width: 700px) {
+  .trace-shell .trace-topbar {
+    min-height: 64px;
+    height: auto;
+    padding-block: 10px;
+    gap: 12px;
+  }
+
+  .trace-shell .trace-workspace {
+    padding-inline: 16px;
+  }
+
+  .trace-shell .image-stage {
+    min-height: clamp(260px, 52vh, 420px);
+  }
+
+  .trace-shell .analysis-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .trace-shell .clear-button {
+    width: 100%;
+  }
+
+  .trace-shell .evidence-row {
+    padding-right: 0;
+  }
+
+  .trace-shell .evidence-row i {
+    position: static;
+  }
+}
+
+@media (max-width: 430px) {
+  .trace-shell .trace-brand small,
+  .trace-shell .privacy-mark,
+  .trace-shell .studio-link {
+    display: none;
+  }
+
+  .trace-shell .trace-workspace {
+    padding-block: 30px 50px;
+  }
+
+  .trace-shell .trace-intro h1 {
+    font-size: clamp(36px, 12vw, 52px);
+  }
+
+  .trace-shell .drop-zone {
+    min-height: 280px;
+    padding: 24px 16px;
+  }
+
+  .trace-shell .image-meta {
+    max-width: calc(100% - 24px);
+  }
+
+  .trace-shell .image-meta span {
+    max-width: 100%;
+  }
+}
+
+/* Touch input needs room even on a wide tablet or resized desktop window. */
+@media (pointer: coarse) {
+  .control-drawer-tabs button,
+  .drawer-power-toggle,
+  .setup-sheet-actions button {
+    min-height: 44px;
+  }
+
+  .drawer-control input {
+    min-height: 28px;
+  }
+}
