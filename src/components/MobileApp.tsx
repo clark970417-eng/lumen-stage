@@ -31,6 +31,7 @@ import { OnboardingTour, shouldShowOnboarding } from './OnboardingTour'
 import { analyzeReferencePixels, type ReferenceLightingAnalysis } from '../referenceLighting'
 import { captureContinuityBaseline, evaluateContinuity, type ContinuityBaseline } from '../continuity'
 import { useWorkflow, type WorkflowStage } from '../workflow'
+import { assetHref, routeHref } from '../routing'
 import '../mobile.css'
 
 type Tab = 'planning' | 'lighting' | 'shooting' | 'layout'
@@ -593,7 +594,7 @@ function ProjectTab({ onOpenAbout, onOpenTour }: { onOpenAbout: () => void; onOp
       setShareStatus(await copyToClipboard(await buildShareLink(shareableJson())) ? 'copied' : 'error')
     } catch { setShareStatus('error') }
   }
-  const guide = locale === 'en' ? '/LUMEN_STAGE_Site_Guide_EN.pdf' : locale === 'ja' ? '/LUMEN_STAGE_サイトガイド_JA.pdf' : '/LUMEN_STAGE_網站使用教學.pdf'
+  const guide = locale === 'en' ? assetHref('LUMEN_STAGE_Site_Guide_EN.pdf') : locale === 'ja' ? assetHref('LUMEN_STAGE_サイトガイド_JA.pdf') : assetHref('LUMEN_STAGE_網站使用教學.pdf')
 
   return <div className="m-tab m-project">
     <div className={`m-save-card ${saveStatus === 'error' ? 'error' : ''}`} role="status"><span>{t('mobile.project.storage')}</span><strong>{saveStatus === 'error' ? t('mobile.project.failed') : t('mobile.project.saved')}</strong><small>{usage}</small></div>
@@ -609,7 +610,7 @@ function ProjectTab({ onOpenAbout, onOpenTour }: { onOpenAbout: () => void; onOp
       if (file) { try { importProject(await readTextFileWithinLimit(file, MAX_PROJECT_FILE_BYTES)) } catch { useStudio.setState({ saveStatus: 'error' }) } }
       event.target.value = ''
     }} />
-    <div className="m-project-links"><button onClick={onOpenTour}>{t('tour.replay')}</button><a href={guide} target="_blank" rel="noreferrer">{t('mobile.project.guide')}</a><button onClick={onOpenAbout}>{t('mobile.project.about')}</button><a href="/support">{t('mobile.project.support')}</a></div>
+    <div className="m-project-links"><button onClick={onOpenTour}>{t('tour.replay')}</button><a href={guide} target="_blank" rel="noreferrer">{t('mobile.project.guide')}</a><button onClick={onOpenAbout}>{t('mobile.project.about')}</button><a href={routeHref('support')}>{t('mobile.project.support')}</a></div>
   </div>
 }
 

@@ -6,6 +6,8 @@ test('public routes resolve without a router dependency', () => {
   assert.equal(routeFromLocation('/', '', ''), 'home')
   assert.equal(routeFromLocation('/privacy/', '', ''), 'privacy')
   assert.equal(routeFromLocation('/studio', '', ''), 'studio')
+  assert.equal(routeFromLocation('/lumen-stage/', '?route=support', ''), 'support')
+  assert.equal(routeFromLocation('/lumen-stage/studio', '', ''), 'studio')
 })
 
 test('legacy shared links and ui mode links still open the studio', () => {

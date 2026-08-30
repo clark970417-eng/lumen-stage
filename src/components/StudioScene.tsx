@@ -1178,7 +1178,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     loader.load(url, (gltf) => {
       if (!active) return
       const model = clone(gltf.scene) as THREE.Group
-      const shippedHuman = url.startsWith('/models/lumen-human/')
+      const shippedHuman = url.includes('/models/lumen-human/')
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.castShadow = true
@@ -1346,8 +1346,8 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     }
   }, [effectivePose, object])
 
-  if (object) return <primitive object={object} rotation={url.startsWith('/models/lumen-human/') ? [0, 0, 0] : undefined} />
-  return url.startsWith('/models/lumen-human/') || loadError ? <DefaultMannequin pose={poseOverride} appearance={appearance} /> : null
+  if (object) return <primitive object={object} rotation={url.includes('/models/lumen-human/') ? [0, 0, 0] : undefined} />
+  return url.includes('/models/lumen-human/') || loadError ? <DefaultMannequin pose={poseOverride} appearance={appearance} /> : null
 }
 
 function Mannequin() {

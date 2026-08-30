@@ -26,6 +26,7 @@ import { useUiModeStore } from './uiMode'
 import { summarizeHistoryChange, type HistorySummaryLabels } from './historySummary'
 import { useWorkflow } from './workflow'
 import { workflowModeForStage } from './workflowControl'
+import { assetHref } from './routing'
 
 let hintSequence = 0
 
@@ -455,10 +456,10 @@ export function GuideModal({ open, onClose, onStartTour }: { open: boolean; onCl
 
   if (!open) return null
   const guideUrl = locale === 'en'
-    ? '/LUMEN_STAGE_Site_Guide_EN.pdf'
+    ? assetHref('LUMEN_STAGE_Site_Guide_EN.pdf')
     : locale === 'ja'
-      ? '/LUMEN_STAGE_サイトガイド_JA.pdf'
-      : '/LUMEN_STAGE_網站使用教學.pdf'
+      ? assetHref('LUMEN_STAGE_サイトガイド_JA.pdf')
+      : assetHref('LUMEN_STAGE_網站使用教學.pdf')
 
   return (
     <div className="guide-overlay" role="dialog" aria-modal="true" aria-label={t('guide.aria')} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
@@ -499,7 +500,7 @@ export function GuideModal({ open, onClose, onStartTour }: { open: boolean; onCl
           }}>
             {slides.map((slide, index) => {
               const chapter = slide.chapter[locale]
-              const image = slide.image === 'mobile.png' ? `/site-preview/${locale}-mobile.png` : `/onboarding/${locale}/${slide.image}`
+              const image = slide.image === 'mobile.png' ? assetHref(`site-preview/${locale}-mobile.png`) : assetHref(`onboarding/${locale}/${slide.image}`)
               return <figure key={`${locale}-${index + 1}`} data-guide-page={index + 1}>
                 <article className={`guide-slide${slide.image === 'mobile.png' ? ' is-mobile' : ''}`}>
                   <div className="guide-slide-visual"><img loading={index < 2 ? 'eager' : 'lazy'} src={image} alt={t('guide.pageNamed', { n: index + 1, title: chapter })} /></div>

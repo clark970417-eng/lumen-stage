@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { reportError } from '../monitoring'
 import { BrandMark } from './BrandMark'
+import { routeHref } from '../routing'
 
 type Props = { children: ReactNode }
 type State = { error: Error | null }
@@ -24,7 +25,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <p>Your locally saved project has not been removed. Reload the studio, or return to the site while we keep the technical error report anonymous.</p>
         <div>
           <button onClick={() => location.reload()}>Reload studio</button>
-          <a href="/">Return home</a>
+          <a href={routeHref('home')}>Return home</a>
         </div>
       </main>
     )

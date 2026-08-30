@@ -3,6 +3,7 @@ import EditingWorkflowGuide from './EditingWorkflowGuide'
 import '../photo-analyzer.css'
 import { buildPhotoAnalysisPrompt } from '../photoAnalysisPrompt'
 import { copyToClipboard } from '../share'
+import { routeHref } from '../routing'
 
 type AnalysisResult = {
   styleLabel: string
@@ -288,9 +289,9 @@ export default function PhotoAnalyzer() {
   return (
     <main className="trace-shell">
       <header className="trace-topbar">
-        <a href="/" className="trace-brand" aria-label="返回 Lumen Stage"><span><i /></span><div><b>LUMEN TRACE</b><small>POST-PROCESS FORENSICS</small></div></a>
+        <a href={routeHref('home')} className="trace-brand" aria-label="返回 Lumen Stage"><span><i /></span><div><b>LUMEN TRACE</b><small>POST-PROCESS FORENSICS</small></div></a>
         <div className="privacy-mark"><i /> 本站不會自動上傳圖片</div>
-        <a className="studio-link" href="/">LIGHTING STUDIO ↗</a>
+        <a className="studio-link" href={routeHref('home')}>LIGHTING STUDIO ↗</a>
       </header>
 
       <section className={`trace-workspace ${result ? 'has-report' : ''}`}>

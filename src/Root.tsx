@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { useT } from './i18n'
 import { useMobileShell, usePhoneScreen, useUiModeStore } from './uiMode'
 import { BrandMark } from './components/BrandMark'
-import { routeFromLocation } from './routing'
+import { routeFromLocation, routeHref } from './routing'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { supportsWebGL } from './webgl'
 import './ui-mode.css'
@@ -33,7 +33,7 @@ function ReturnToPhoneShell() {
 }
 
 function WebGLFallback() {
-  return <main className="fatal-screen"><BrandMark title="Lumen Stage" /><span>WEBGL REQUIRED</span><h1>This device cannot open the 3D studio.</h1><p>Update your browser, enable hardware acceleration, or open Lumen Stage on another device. Your browser data has not been changed.</p><div><button onClick={() => location.reload()}>Try again</button><a href="/support">Compatibility help</a></div></main>
+  return <main className="fatal-screen"><BrandMark title="Lumen Stage" /><span>WEBGL REQUIRED</span><h1>This device cannot open the 3D studio.</h1><p>Update your browser, enable hardware acceleration, or open Lumen Stage on another device. Your browser data has not been changed.</p><div><button onClick={() => location.reload()}>Try again</button><a href={routeHref('support')}>Compatibility help</a></div></main>
 }
 
 function StudioShell() {

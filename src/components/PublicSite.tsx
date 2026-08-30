@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { LOCALES, useLocaleStore, type Locale } from '../i18n'
-import type { PublicRoute } from '../routing'
+import { assetHref, routeHref, studioHref, type PublicRoute } from '../routing'
 import { BrandMark } from './BrandMark'
 import '../site.css'
 
@@ -84,18 +84,18 @@ const COPY: Record<Locale, Copy> = {
 
 const STUDIO_PREVIEWS: Record<Locale, { desktop: string; mobile: string; alt: string }> = {
   zh: {
-    desktop: '/site-preview/zh.png',
-    mobile: '/site-preview/zh-mobile.png',
+    desktop: assetHref('site-preview/zh.png'),
+    mobile: assetHref('site-preview/zh-mobile.png'),
     alt: 'Lumen Stage 繁體中文虛擬攝影棚，顯示人物、佈光、相機與配置四個模式',
   },
   en: {
-    desktop: '/site-preview/en.png',
-    mobile: '/site-preview/en-mobile.png',
+    desktop: assetHref('site-preview/en.png'),
+    mobile: assetHref('site-preview/en-mobile.png'),
     alt: 'Lumen Stage virtual studio showing the Person, Light, Camera and Layout modes',
   },
   ja: {
-    desktop: '/site-preview/ja.png',
-    mobile: '/site-preview/ja-mobile.png',
+    desktop: assetHref('site-preview/ja.png'),
+    mobile: assetHref('site-preview/ja-mobile.png'),
     alt: '人物、照明、カメラ、配置の 4 モードを表示する Lumen Stage 日本語版',
   },
 }
@@ -107,17 +107,18 @@ function LocaleSwitch() {
 }
 
 function SiteHeader({ copy }: { copy: Copy }) {
-  return <header className="site-header"><div className="site-header-shell"><a className="site-brand" href="/" aria-label="Lumen Stage home"><BrandMark /><span><b>LUMEN</b><small>STAGE / WEB</small></span></a><nav aria-label="Primary"><a href="/#capabilities">{copy.nav[0]}</a><a href="/#workflow">{copy.nav[1]}</a><a href="/#faq">{copy.nav[2]}</a><a href="/support">{copy.nav[3]}</a></nav><div className="site-actions"><LocaleSwitch /><a className="site-cta compact" href="/studio"><span>{copy.open}</span><b aria-hidden="true">↗</b></a></div></div></header>
+  const home = routeHref('home')
+  return <header className="site-header"><div className="site-header-shell"><a className="site-brand" href={home} aria-label="Lumen Stage home"><BrandMark /><span><b>LUMEN</b><small>STAGE / WEB</small></span></a><nav aria-label="Primary"><a href={`${home}#capabilities`}>{copy.nav[0]}</a><a href={`${home}#workflow`}>{copy.nav[1]}</a><a href={`${home}#faq`}>{copy.nav[2]}</a><a href={routeHref('support')}>{copy.nav[3]}</a></nav><div className="site-actions"><LocaleSwitch /><a className="site-cta compact" href={studioHref()}><span>{copy.open}</span><b aria-hidden="true">↗</b></a></div></div></header>
 }
 
 function SiteFooter({ copy }: { copy: Copy }) {
-  return <footer className="site-footer"><span>© {new Date().getFullYear()} YuYing · LUMEN STAGE</span><nav><a href="/privacy">{copy.privacyTitle}</a><a href="/terms">{copy.termsTitle}</a><a href="/support">{copy.supportTitle}</a><a href="https://github.com/clark970417-eng" target="_blank" rel="noreferrer" aria-label="YuYing on GitHub">GitHub</a><a href="https://x.com/4yuying" target="_blank" rel="noreferrer" aria-label="YuYing on X">X</a></nav></footer>
+  return <footer className="site-footer"><span>© {new Date().getFullYear()} YuYing · LUMEN STAGE</span><nav><a href={routeHref('privacy')}>{copy.privacyTitle}</a><a href={routeHref('terms')}>{copy.termsTitle}</a><a href={routeHref('support')}>{copy.supportTitle}</a><a href="https://github.com/clark970417-eng" target="_blank" rel="noreferrer" aria-label="YuYing on GitHub">GitHub</a><a href="https://x.com/4yuying" target="_blank" rel="noreferrer" aria-label="YuYing on X">X</a></nav></footer>
 }
 
 function LegalPage({ route, copy }: { route: Exclude<PublicRoute, 'home' | 'studio'>; copy: Copy }) {
   const title = route === 'privacy' ? copy.privacyTitle : route === 'terms' ? copy.termsTitle : copy.supportTitle
   const paragraphs = route === 'privacy' ? copy.privacyBody : route === 'terms' ? copy.termsBody : copy.supportBody
-  return <><SiteHeader copy={copy} /><main className="legal-page"><span>LUMEN STAGE / {route.toUpperCase()}</span><h1>{title}</h1><div>{paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>{route === 'support' && <a className="site-cta" href="https://github.com/clark970417-eng" target="_blank" rel="noreferrer">{copy.issues}</a>}<a className="legal-back" href="/">← {copy.back}</a></main><SiteFooter copy={copy} /></>
+  return <><SiteHeader copy={copy} /><main className="legal-page"><span>LUMEN STAGE / {route.toUpperCase()}</span><h1>{title}</h1><div>{paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>{route === 'support' && <a className="site-cta" href="https://github.com/clark970417-eng" target="_blank" rel="noreferrer">{copy.issues}</a>}<a className="legal-back" href={routeHref('home')}>← {copy.back}</a></main><SiteFooter copy={copy} /></>
 }
 
 export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> }) {
@@ -182,7 +183,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     <section className="capability-grid" data-reveal>{copy.capabilities.map(([title, body], index) => <article key={title}>
       <div><span>0{index + 1}</span><i aria-hidden="true" /></div>
       <picture>
-        <img src={`/site-detail/${locale}/${['light', 'camera', 'handoff'][index]}.png`} alt={`${title} — ${body}`} width="780" height="438" loading="lazy" decoding="async" />
+        <img src={assetHref(`site-detail/${locale}/${['light', 'camera', 'handoff'][index]}.png`)} alt={`${title} — ${body}`} width="780" height="438" loading="lazy" decoding="async" />
       </picture>
       <h3>{title}</h3><p>{body}</p>
     </article>)}</section>
@@ -190,8 +191,8 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
       <header><span>02 / LIVE WORKSPACE</span><h2 id="site-proof-title">{copy.galleryTitle}</h2><p>{copy.galleryBody}</p></header>
       <div className="site-proof-grid">{copy.gallery.map(([title, body], index) => <figure key={title} className={index === 0 ? 'feature' : ''}>
         <picture>
-          <source media="(max-width: 620px)" srcSet={`/onboarding/${locale}/mobile-${index + 1}.png`} type="image/png" width="780" height="438" />
-          <img src={`/onboarding/${locale}/desktop-${index + 1}.png`} alt={`${title} — ${body}`} width="1920" height="1080" loading="lazy" decoding="async" />
+          <source media="(max-width: 620px)" srcSet={assetHref(`onboarding/${locale}/mobile-${index + 1}.png`)} type="image/png" width="780" height="438" />
+          <img src={assetHref(`onboarding/${locale}/desktop-${index + 1}.png`)} alt={`${title} — ${body}`} width="1920" height="1080" loading="lazy" decoding="async" />
         </picture>
         <figcaption><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></figcaption>
       </figure>)}</div>

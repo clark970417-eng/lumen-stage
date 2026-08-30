@@ -1,6 +1,9 @@
 import * as THREE from 'three'
 
-export const STUDIO_HAIR_SOURCE_URL = '/models/lumen-human/hair/short04.obj'
+const assetBase = (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/'
+const assetHref = (path: string) => `${assetBase}${path.replace(/^\/+/, '')}`
+
+export const STUDIO_HAIR_SOURCE_URL = assetHref('models/lumen-human/hair/short04.obj')
 export const STUDIO_HAIR_SOURCE_SCALE = 0.108
 
 export function studioSkinResponse(skinRoughness: number, skinOil: number, subsurface: number, age = 28) {

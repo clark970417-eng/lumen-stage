@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useT } from '../i18n'
 import { useDialogFocus } from './DialogFocus'
+import { assetHref } from '../routing'
 
 export const SITE_OWNER = 'YuYing'
 
@@ -38,7 +39,7 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => v
 
         <div className="about-owner">
           <span>{t('about.creator')}</span>
-          <img className="creator-avatar" src="/yuying-avatar.png" alt={`${SITE_OWNER} ${t('about.creator')}`} />
+          <img className="creator-avatar" src={assetHref('yuying-avatar.png')} alt={`${SITE_OWNER} ${t('about.creator')}`} />
           <strong>{SITE_OWNER}</strong>
           <small>{t('about.role')}</small>
         </div>

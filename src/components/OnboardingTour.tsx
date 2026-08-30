@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useLocaleStore, useT, type MessageKey } from '../i18n'
+import { assetHref } from '../routing'
 import '../onboarding.css'
 
 export type OnboardingScope = 'desktop' | 'mobile'
@@ -215,7 +216,7 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
       {highlightRect && <div className="onboarding-highlight" aria-hidden="true" style={highlightRect} />}
       <article ref={cardRef} className="onboarding-card" role="dialog" aria-modal="false" aria-label={t('tour.aria')} style={cardStyle}>
         {media.kind === 'image'
-          ? <div className={`onboarding-media onboarding-media--${step.aspect}`}><img src={`/onboarding/${locale}/${media.src}`} alt={t(step.title)} /></div>
+          ? <div className={`onboarding-media onboarding-media--${step.aspect}`}><img src={assetHref(`onboarding/${locale}/${media.src}`)} alt={t(step.title)} /></div>
           : <div className={`onboarding-media onboarding-media--${step.aspect} onboarding-compare${showAfter ? ' is-after' : ''}`}>
               <img className="before" src={media.before} alt={t('tour.beforeAlt', { title: t(step.title) })} />
               <img className="after" src={media.after} alt={t('tour.afterAlt', { title: t(step.title) })} />

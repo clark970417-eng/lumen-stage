@@ -1,6 +1,9 @@
 import type { OutfitStyle } from './wardrobe'
 import type { Physique } from './physique'
 
+const assetBase = (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/'
+const assetHref = (path: string) => `${assetBase}${path.replace(/^\/+/, '')}`
+
 /**
  * Shipped, redistributable people used by the studio.
  *
@@ -8,12 +11,12 @@ import type { Physique } from './physique'
  * CC0 textures. Keeping their URLs in one place makes the procedural figure a
  * deliberate failure fallback instead of the product's default appearance.
  */
-export const DEFAULT_HUMAN_URL = '/models/lumen-human/human-suited-runtime.glb'
-export const SUITED_HUMAN_URL = '/models/lumen-human/human-suited-runtime.glb'
-export const FEMALE_CASUAL_URL = '/models/lumen-human/human-female-casual.glb'
-export const FEMALE_ACTIVEWEAR_URL = '/models/lumen-human/human-female-activewear.glb'
-export const FEMALE_DRESS_URL = '/models/lumen-human/human-female-dress.glb'
-export const FEMALE_GOWN_URL = '/models/lumen-human/human-female-gown.glb'
+export const DEFAULT_HUMAN_URL = assetHref('models/lumen-human/human-suited-runtime.glb')
+export const SUITED_HUMAN_URL = assetHref('models/lumen-human/human-suited-runtime.glb')
+export const FEMALE_CASUAL_URL = assetHref('models/lumen-human/human-female-casual.glb')
+export const FEMALE_ACTIVEWEAR_URL = assetHref('models/lumen-human/human-female-activewear.glb')
+export const FEMALE_DRESS_URL = assetHref('models/lumen-human/human-female-dress.glb')
+export const FEMALE_GOWN_URL = assetHref('models/lumen-human/human-female-gown.glb')
 
 export const DEFAULT_HUMAN_NAME = 'Everyday Adult'
 
