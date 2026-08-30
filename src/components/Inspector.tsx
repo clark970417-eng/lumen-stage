@@ -133,6 +133,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
       ? { lightOutput: '照明／出力', meters: 'メートル', tracking: '人物追従', manual: '手動', grip: '遮光・反射', metersDeg: 'メートル／角度', subjectPose: '人物／ポーズ', cameraBody: 'カメラ本体', optical: 'レンズ特性', color: 'RAW／カラー処理', sensor: 'センサー／シャッター', frame: '構図／露出', ambient: '環境光／フラッシュ同期', cameraExposure: 'カメラ／露出', fullFrame: 'フルサイズ' }
       : { lightOutput: 'Light / output', meters: 'Meters', tracking: 'Subject tracking', manual: 'Manual', grip: 'Grip', metersDeg: 'Meters / degrees', subjectPose: 'Subject / pose', cameraBody: 'Camera body', optical: 'Optical character', color: 'RAW / color pipeline', sensor: 'Sensor / shutter', frame: 'Frame / exposure', ambient: 'Ambient / flash sync', cameraExposure: 'Camera / exposure', fullFrame: 'Full frame' }
   const setValue = state.setValue
+  const editableBuiltin = !state.modelAssetUrl || state.modelImportStatus === 'error'
   const light = state.lights.find((item) => item.id === state.selected)
   const modifier = state.modifiers.find((item) => item.id === state.selected)
   const studioObject = state.studioObjects.find((item) => item.id === state.selected)
@@ -342,7 +343,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
           </>
         )}
         {state.modelRigStatus === 'unrigged' && <p className="pose-note">{t('pose.unriggedNote')}</p>}
-        {state.modelImportStatus === 'error' && <>
+        {editableBuiltin && <>
           <div className="appearance-controls">
             <label><span>{t('appearance.skin')}</span><input aria-label={t('appearance.skinAria')} type="color" value={state.skinColor} onChange={(event) => setValue('skinColor', event.target.value)} /></label>
             <label><span>{t('appearance.outfit')}</span><input aria-label={t('appearance.outfitAria')} type="color" value={state.outfitColor} onChange={(event) => setValue('outfitColor', event.target.value)} /></label>
@@ -362,7 +363,6 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             if (patch.outfit) setValue('outfitStyle', patch.outfit)
             if (patch.fabric) setValue('outfitFabric', patch.fabric)
           }} />
-          <PoseControls pose={state.modelPose} onChange={state.updateModelPose} />
         </>}
       </InspectorDrawer>}
 

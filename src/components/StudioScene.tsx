@@ -24,7 +24,7 @@ import { FOOTPRINT, seatHeightOf } from '../layout'
 import { PoseRig } from './PoseRig'
 import { applyGelTint, geledTemperature, getGel } from '../gels'
 import { brickNormalMap, canvasNormalMap, concreteNormalMap, mottleMap, paperNormalMap, plasterNormalMap, woodNormalMap } from '../textures'
-import { DEFAULT_HUMAN_URL, shippedHumanFor } from '../characterAssets'
+import { shippedHumanFor } from '../characterAssets'
 import { useWorkflow } from '../workflow'
 import { canControlInWorkflow } from '../workflowControl'
 
@@ -936,10 +936,11 @@ function Mannequin() {
   const modelHeight = useStudio((state) => state.modelHeight)
   const modelPose = useStudio((state) => state.modelPose)
   const physique = useStudio((state) => state.physique)
+  const outfitStyle = useStudio((state) => state.outfitStyle)
   const updateModelPose = useStudio((state) => state.updateModelPose)
   const poseHandles = useStudio((state) => state.poseHandles)
   const modelRigStatus = useStudio((state) => state.modelRigStatus)
-  const activeModelUrl = modelAssetUrl ?? DEFAULT_HUMAN_URL
+  const activeModelUrl = modelAssetUrl ?? shippedHumanFor(physique, outfitStyle)
   const seatHeight = useSeatHeight(position)
   const seatedLift = Math.min(modelPose.leftLeg, modelPose.rightLeg) > 60 ? seatHeight ?? 0.46 : 0
   const group = useRef<THREE.Group>(null)

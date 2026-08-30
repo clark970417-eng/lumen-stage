@@ -15,3 +15,10 @@
 - Runtime treatment: scaled to the normalized head, centered from source bounds, assigned the Lumen hair material, and attached to the real head bone.
 
 Upstream attribution and generation notes: <https://github.com/kunalkushwaha/vsim/blob/main/packages/assets/library/CREDITS.md>
+
+`human-female-activewear.glb`, `human-female-dress.glb`, and `human-female-gown.glb` are matching female studio subjects generated with the same MPFB 2 pipeline and 53-bone game-engine rig.
+
+- Body and skin: MakeHuman system assets, CC0 1.0.
+- Dress: `toigo_halter_dress_knee_length` by Margaret Toigo, from the MakeHuman Dress 01 CC0 asset pack.
+- Gown: `toigo_halter_dress_with_fluted_skirt` by Margaret Toigo, from the MakeHuman Dress 01 CC0 asset pack.
+- Runtime treatment: female macro body baked into the mesh, 1024 px embedded PBR maps, fitted and skinned garments, four embedded motion clips, normalized to 1.82 m in the studio.

@@ -10,6 +10,7 @@ test('shipped human face details use its real -Z forward axis', () => {
   const hair = studioHairAnchor(head, 1.82)
 
   assert.ok(eyes.z < head.z, 'eyeballs must sit toward the face, not behind the skull')
+  assert.ok(Math.abs(eyes.z - -0.225) < 1e-9, 'eyeballs must reach the authored eye-socket surface')
   assert.ok(Math.abs(eyes.y - 1.694) < 1e-9)
   assert.ok(hair.z > head.z, 'hair cap centre follows the rearward scalp centre')
 })
