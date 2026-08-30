@@ -20,19 +20,11 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      // Let Vite follow the actual dynamic-import boundaries. Manual vendor
+      // chunks pulled the path tracer into index.html as a module preload,
+      // making the marketing homepage download the 3D engine before it was
+      // needed.
       input: { main: 'index.html', analyze: 'analyze.html' },
-      output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined
-          if (id.includes('three-gpu-pathtracer')) return 'pathtracer-vendor'
-          if (id.includes('@react-three/postprocessing') || id.includes('/postprocessing/')) return 'postprocessing-vendor'
-          if (id.includes('@react-three/drei')) return 'r3f-drei-vendor'
-          if (id.includes('@react-three/fiber')) return 'r3f-core-vendor'
-          if (id.includes('/three/')) return 'three-vendor'
-          if (id.includes('/react-dom/') || id.includes('/react/')) return 'react-vendor'
-          return undefined
-        }
-      }
     }
   }
 })

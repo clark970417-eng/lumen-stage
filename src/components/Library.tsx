@@ -176,7 +176,7 @@ export function Library() {
       <BackdropPicker />
 
       <div className="panel-heading asset-heading"><span>{t('library.asset')}</span><b>GLB</b></div>
-      <input ref={fileInput} className="asset-input model-import-input" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={(event) => importModel(event.target.files?.[0])} />
+      <input ref={fileInput} className="asset-input model-import-input" type="file" aria-label={t('library.import')} accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={(event) => importModel(event.target.files?.[0])} />
       <button className="import-model" onClick={() => fileInput.current?.click()}><span>＋</span><p><strong>{t('library.import')}</strong><small>{t('library.import.sub')}</small></p></button>
       <div className="library-note"><span>↗</span><p><strong>{t('library.note')}</strong><small>{t('library.note.sub')}</small></p></div>
     </aside>

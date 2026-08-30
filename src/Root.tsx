@@ -39,7 +39,11 @@ function WebGLFallback() {
 function StudioShell() {
   const [ready, setReady] = useState(false)
   const mobile = useMobileShell()
+  const webgl = supportsWebGL()
   useEffect(() => {
+    // The compatibility screen must stay lightweight. Do not download the 3D
+    // engine on a device that cannot create a WebGL context.
+    if (!webgl) return
     let active = true
     document.title = 'Studio — Lumen Stage'
     // Start downloading the selected interface while project data is restored.
@@ -62,7 +66,7 @@ function StudioShell() {
     }).finally(() => { if (active) setReady(true) })
     return () => { active = false }
   }, [])
-  if (!supportsWebGL()) return <WebGLFallback />
+  if (!webgl) return <WebGLFallback />
   if (!ready) return <ShellLoading />
   if (mobile) return <Suspense fallback={<ShellLoading />}><MobileApp /></Suspense>
   return (

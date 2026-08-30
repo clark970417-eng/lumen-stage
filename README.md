@@ -51,6 +51,15 @@ npm run preview
 npm run check
 ```
 
+瀏覽器發布檢查會另外以 Chromium、WebKit、手機、超寬、直式與低高度畫面測試主要流程、水平溢位、WebGL 失敗提示與 WCAG 自動掃描：
+
+```bash
+npx playwright install chromium webkit
+npm run check:release
+```
+
+正式建置也有 JavaScript 與 CSS 資源上限；超過 `performance-budget.json` 的預算時，CI 會直接失敗。
+
 照片分析 API 預設會對每個來源限制每分鐘 6 次請求；可用
 `ANALYSIS_RATE_LIMIT_PER_MINUTE` 調整（上限 60），並建議在正式環境再搭配
 Vercel Firewall 或共享式限流儲存。
@@ -112,4 +121,4 @@ palace_*.jpg                 場景環境圖片
 
 ## 授權
 
-目前尚未指定開源授權。原始碼可供檢視，但未明確授予重製、修改或散布權利。
+Lumen Stage 並非開源軟體。除個別檔案另有說明外，原始碼、介面、品牌與原創素材均依 [`LICENSE`](LICENSE) 保留所有權利；能夠檢視 Repository 不代表獲得使用、重製、修改或散布授權。第三方套件與素材仍依各自授權使用。

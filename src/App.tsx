@@ -393,7 +393,7 @@ function TopBar({ onOpenGuide, onOpenAbout, panelsHidden, onTogglePanels }: { on
       <div className="project-actions is-simplified">
         <button className="history-button" onClick={undo} disabled={!canUndo} title={t('library.undo.title')} aria-label={t('library.undo.title')}>↶</button>
         <button className="history-button" onClick={redo} disabled={!canRedo} title={t('library.redo.title')} aria-label={t('library.redo.title')}>↷</button>
-        <input ref={projectInput} className="asset-input" type="file" accept=".json,.lumen.json,application/json" onChange={async (event) => {
+        <input ref={projectInput} className="asset-input" type="file" aria-label={t('file.import')} accept=".json,.lumen.json,application/json" onChange={async (event) => {
           const file = event.target.files?.[0]
           if (file) {
             try { importProject(await readTextFileWithinLimit(file, MAX_PROJECT_FILE_BYTES)) }

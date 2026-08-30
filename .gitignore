@@ -12,3 +12,6 @@ vite.config.d.ts
 .env.*
 !.env.example
 .vercel
+playwright-report/
+test-results/
+blob-report/

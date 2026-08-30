@@ -8,8 +8,12 @@
     "build": "tsc -b && vite build && node scripts/prune-build-assets.mjs",
     "preview": "vite preview",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:chromium": "playwright test --project=chromium-desktop --project=chromium-phone",
     "typecheck": "tsc -p tsconfig.quality.json",
-    "check": "npm run test && npm run typecheck && npm run build"
+    "check:performance": "node scripts/check-performance.mjs",
+    "check": "npm run test && npm run typecheck && npm run build && npm run check:performance",
+    "check:release": "npm run check && npm run test:e2e"
   },
   "dependencies": {
     "@react-three/drei": "10.7.8",
@@ -23,6 +27,8 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^26.4.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",

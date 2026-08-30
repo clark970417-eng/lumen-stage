@@ -868,18 +868,20 @@ export function MobileApp() {
       </Suspense>
 
       <div className="m-console">
-        <nav className="m-tabs" role="tablist" aria-label={t(phone ? 'mobile.aria' : 'mobile.desktop.aria')}>
-          {(['planning', 'lighting', 'shooting', 'layout'] as const).map((item) => (
-            <button key={item} role="tab" id={`m-tab-${item}`} aria-controls="m-tabpanel" aria-selected={tab === item && sheetOpen}
-              className={tab === item && sheetOpen ? 'active' : ''}
-              onClick={() => { if (tab === item && sheetOpen) setSheetOpen(false); else { setTab(item); setSheetOpen(true) } }}>
-              {MOBILE_WORKFLOW[locale][item]}
-            </button>
-          ))}
+        <div className="m-tabs">
+          <nav className="m-tablist" role="tablist" aria-label={t(phone ? 'mobile.aria' : 'mobile.desktop.aria')}>
+            {(['planning', 'lighting', 'shooting', 'layout'] as const).map((item) => (
+              <button key={item} role="tab" id={`m-tab-${item}`} aria-controls="m-tabpanel" aria-selected={tab === item && sheetOpen}
+                className={tab === item && sheetOpen ? 'active' : ''}
+                onClick={() => { if (tab === item && sheetOpen) setSheetOpen(false); else { setTab(item); setSheetOpen(true) } }}>
+                {MOBILE_WORKFLOW[locale][item]}
+              </button>
+            ))}
+          </nav>
           <button className="m-sheet-handle" aria-label={t(sheetOpen ? 'mobile.sheet.collapse' : 'mobile.sheet.expand')} onClick={() => setSheetOpen(!sheetOpen)}>
             {sheetOpen ? '▾' : '▴'}
           </button>
-        </nav>
+        </div>
 
         {sheetOpen && (
           <section className="m-sheet" id="m-tabpanel" role="tabpanel" aria-labelledby={`m-tab-${tab}`}>
