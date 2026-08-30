@@ -17,13 +17,13 @@
 .onboarding-copy { padding: 17px 18px 13px; }
 .onboarding-kicker { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .onboarding-kicker span { color: var(--signal-cool); font: 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
-.onboarding-kicker button { min-height: 32px; padding-inline: 6px; border: 0; background: transparent; color: #91a5b2; cursor: pointer; }
+.onboarding-kicker button { min-height: 44px; padding-inline: 8px; border: 0; background: transparent; color: #91a5b2; cursor: pointer; }
 .onboarding-kicker button:hover { color: #fff; }
 .onboarding-card h2 { margin: 10px 0 7px; color: #f4f8fa; font-size: 18px; line-height: 1.35; }
 .onboarding-card p { margin: 0; color: #afbdc6; font-size: 13px; line-height: 1.65; }
 .onboarding-card > footer { min-height: 58px; padding: 10px 12px 10px 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #2a3b47; background: #0c151c; }
 .onboarding-card > footer > div:last-child { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
-.onboarding-card footer button { min-height: 36px; padding: 0 12px; border: 1px solid #3d5260; border-radius: 6px; background: #172630; color: #b9c8d1; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.onboarding-card footer button { min-height: 44px; padding: 0 12px; border: 1px solid #3d5260; border-radius: 6px; background: #172630; color: #b9c8d1; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .onboarding-card footer button:hover { border-color: #718a9a; color: #fff; }
 .onboarding-card footer button.primary { border-color: var(--signal-cool); background: var(--signal-cool); color: #071117; font-weight: 700; }
 .onboarding-card footer button.secondary { color: var(--signal-cool); }
@@ -31,7 +31,7 @@
 .onboarding-dots i { width: 5px; height: 5px; border-radius: 999px; background: #40515c; }
 .onboarding-dots i.active { width: 16px; background: var(--signal-cool); }
 
-/* The last tour step targets Save. Keep every top-bar action inside its grid
+/* The last tour step targets the workflow action. Keep every top-bar action inside its grid
    even when OS scaling leaves a few fewer CSS pixels than the nominal width. */
 @media (min-width: 1681px) {
   header.topbar .project-actions {
@@ -58,7 +58,7 @@
   .onboarding-card h2 { margin-top: 7px; font-size: 17px; }
   .onboarding-card p { font-size: 12.5px; line-height: 1.55; }
   .onboarding-card > footer { min-height: 54px; padding: 8px 10px 8px 15px; }
-  .onboarding-card footer button { min-height: 40px; padding-inline: 10px; }
+  .onboarding-card footer button { min-height: 44px; padding-inline: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

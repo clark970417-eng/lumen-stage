@@ -271,17 +271,14 @@ main.app-shell {
   }
 
   .m-shell .m-tabs {
-    grid-template-columns: repeat(5, minmax(54px, 1fr)) 44px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .m-shell .m-tabs::-webkit-scrollbar {
-    display: none;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) 44px;
+    overflow-x: hidden;
   }
 
   .m-shell .m-tabs button {
-    min-width: 54px;
+    min-width: 0;
+    padding-inline: 2px;
+    font-size: 10px;
     text-overflow: clip;
   }
 }
@@ -362,7 +359,19 @@ html.public-site-root .legal-page {
   }
 
   html.public-site-root .site-locale button {
-    width: 28px;
+    width: 44px;
+    height: 44px;
+  }
+
+  html.public-site-root .site-header .site-cta.compact {
+    display: none;
+  }
+
+  html.public-site-root .site-brand,
+  html.public-site-root .site-footer nav a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
   }
 
   html.public-site-root .site-hero {

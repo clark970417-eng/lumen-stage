@@ -14,8 +14,8 @@ const COPY = {
     blueprint: 'Shoot blueprint', material: '+ Add to stage', reference: 'Reference match', continuity: 'Continuity guard',
     target: 'Visual target', targetHint: 'Start from the image you want to make.', subject: 'Subject & blocking', lightRoles: 'Lighting roles', framing: 'Frame plan', verify: 'Preflight',
     mainSubject: 'Main subject', camera: 'Camera A', shots: 'shots', key: 'Key light', fill: 'Fill light', rim: 'Separation light', background: 'Background light', effect: 'Effect light',
-    noProps: 'No supporting objects yet', tracked: 'tracking subject', manual: 'manual aim', selected: 'Selected decision', desired: 'Desired effect', impact: 'Current impact', advanced: 'Advanced controls',
-    soften: 'Softer light', deepen: 'Deeper shadow', trackFace: 'Track face', headshot: 'Headshot', half: 'Half body', full: 'Full body',
+    noProps: 'No supporting objects yet', tracked: 'tracking subject', manual: 'manual aim', selected: 'Adjusting now', desired: 'Desired effect', impact: 'Current impact', advanced: 'Advanced controls',
+    soften: 'Soften light', deepen: 'Deepen shadow', trackFace: 'Track face', headshot: 'Headshot', half: 'Half body', full: 'Full body', exposureCheck: 'Exposure check', shotCompare: 'Compare shots', compareNeedTwo: 'Save 2 shots to compare',
     assetTitle: 'Add to the stage', lights: 'Lights', people: 'People & set', grip: 'Light control', backdrops: 'Backdrops', close: 'Close',
     square: 'Soft key', round: 'Round source', strip: 'Strip source', person: 'Person', product: 'Product', chair: 'Chair', table: 'Table', reflector: 'Reflector', flag: 'Black flag', vflat: 'V-Flat',
     referenceTitle: 'Reference → starting light', referenceIntro: 'A local luminance read suggests a conservative starting point. It does not claim to identify hidden gear.',
@@ -30,8 +30,8 @@ const COPY = {
     blueprint: '拍攝藍圖', material: '＋ 加入舞台', reference: '參考照配光', continuity: '光線連戲',
     target: '視覺目標', targetHint: '先從你想做出的畫面開始。', subject: '人物與走位', lightRoles: '燈光角色', framing: '鏡位計畫', verify: '拍攝前檢查',
     mainSubject: '主要人物', camera: '相機 A', shots: '個鏡位', key: '主光', fill: '補光', rim: '分離光', background: '背景光', effect: '效果光',
-    noProps: '尚未加入其他人物或道具', tracked: '跟隨人物', manual: '手動瞄準', selected: '目前決策', desired: '想得到的效果', impact: '當前影響', advanced: '進階器材參數',
-    soften: '光線更柔', deepen: '陰影更深', trackFace: '鎖定臉部', headshot: '臉部近景', half: '半身構圖', full: '全身構圖',
+    noProps: '尚未加入其他人物或道具', tracked: '跟隨人物', manual: '手動瞄準', selected: '正在調整', desired: '想得到的效果', impact: '當前影響', advanced: '進階器材參數',
+    soften: '柔化光線', deepen: '加深陰影', trackFace: '鎖定臉部', headshot: '臉部近景', half: '半身構圖', full: '全身構圖', exposureCheck: '檢查曝光', shotCompare: '比較鏡位', compareNeedTwo: '儲存 2 個鏡位後比較',
     assetTitle: '加入拍攝舞台', lights: '燈光', people: '人物與佈景', grip: '控光附件', backdrops: '背景', close: '關閉',
     square: '柔光主燈', round: '圓形光源', strip: '條形光源', person: '人物', product: '商品', chair: '椅子', table: '桌子', reflector: '反光板', flag: '黑旗', vflat: 'V-Flat',
     referenceTitle: '參考照片 → 起始燈位', referenceIntro: '只在本機讀取大範圍明暗分布，提供保守的起始推測，不會宣稱辨識出照片外的器材。',
@@ -46,8 +46,8 @@ const COPY = {
     blueprint: '撮影ブループリント', material: '＋ ステージに追加', reference: '参照写真から配光', continuity: '光の連続性',
     target: 'ビジュアル目標', targetHint: '作りたい写真から始めます。', subject: '人物と配置', lightRoles: 'ライトの役割', framing: 'ショット計画', verify: '撮影前チェック',
     mainSubject: 'メイン人物', camera: 'カメラ A', shots: 'ショット', key: 'キーライト', fill: 'フィルライト', rim: 'セパレーション', background: '背景ライト', effect: 'エフェクト',
-    noProps: '人物や小道具はまだありません', tracked: '人物を追従', manual: '手動照準', selected: '現在の判断', desired: '目指す効果', impact: '現在の影響', advanced: '詳細機材設定',
-    soften: '光を柔らかく', deepen: '影を深く', trackFace: '顔を追従', headshot: 'ヘッドショット', half: '上半身', full: '全身',
+    noProps: '人物や小道具はまだありません', tracked: '人物を追従', manual: '手動照準', selected: '調整中', desired: '目指す効果', impact: '現在の影響', advanced: '詳細機材設定',
+    soften: '光を柔らかく', deepen: '影を深く', trackFace: '顔を追従', headshot: 'ヘッドショット', half: '上半身', full: '全身', exposureCheck: '露出を確認', shotCompare: 'ショット比較', compareNeedTwo: '2 件保存後に比較',
     assetTitle: 'ステージに追加', lights: 'ライト', people: '人物とセット', grip: '遮光・反射', backdrops: '背景', close: '閉じる',
     square: 'ソフトキー', round: '円形光源', strip: 'ストリップ', person: '人物', product: '商品', chair: '椅子', table: 'テーブル', reflector: 'レフ板', flag: '黒旗', vflat: 'V-Flat',
     referenceTitle: '参照写真 → 初期ライティング', referenceIntro: '端末内で明暗分布だけを読み、控えめな開始点を提案します。写っていない機材は断定しません。',
@@ -120,9 +120,9 @@ export function BlueprintPanel() {
 
     {stage === 'framing' && <section className="blueprint-section"><h2>{copy.framing}</h2><button className="blueprint-row active" onClick={() => studio.selectObject('camera')}><i className="camera-icon" /><span><strong>{copy.camera}</strong><small>{studio.focalLength} mm · ƒ/{studio.aperture} · ISO {studio.iso}</small></span></button><div className="framing-presets"><button onClick={() => studio.frameCameraSubject('model', 'headshot')}>{copy.headshot}</button><button onClick={() => studio.frameCameraSubject('model', 'half')}>{copy.half}</button><button onClick={() => studio.frameCameraSubject('model', 'full')}>{copy.full}</button></div></section>}
 
-    {stage === 'verify' && <section className="blueprint-section verify-actions"><h2>{copy.verify}</h2><button onClick={() => studio.setValue('analysisOpen', true)}>EXPOSURE CHECK <b>→</b></button><button onClick={() => studio.setValue('shotPanelOpen', true)}>SHOT COMPARE <b>→</b></button><button onClick={() => setContinuityOpen(true)}>{copy.continuity}<b>→</b></button></section>}
+    {stage === 'verify' && <section className="blueprint-section verify-actions"><h2>{copy.verify}</h2><button onClick={() => studio.setValue('analysisOpen', true)}>{copy.exposureCheck}<b>→</b></button><button disabled={studio.shots.length < 2} onClick={() => studio.setValue('shotPanelOpen', true)}>{studio.shots.length < 2 ? copy.compareNeedTwo : copy.shotCompare}<b>→</b></button><button onClick={() => setContinuityOpen(true)}>{copy.continuity}<b>→</b></button></section>}
 
-    <footer className="blueprint-actions"><button onClick={() => setAssetOpen(true)}>{copy.material}</button><button onClick={() => setReferenceOpen(true)} title={copy.reference}>◎</button><button onClick={() => setContinuityOpen(true)} title={copy.continuity}>⌁</button></footer>
+    {stage !== 'verify' && <footer className="blueprint-actions"><button onClick={() => setAssetOpen(true)}>{copy.material}</button></footer>}
   </aside>
 }
 
@@ -156,7 +156,7 @@ export function AssetDrawer() {
 export function DecisionConsole() {
   const copy = useCopy()
   const state = useStudio()
-  const [advancedOpen, setAdvancedOpen] = useState(true)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const light = state.lights.find((item) => item.id === state.selected)
   const object = state.studioObjects.find((item) => item.id === state.selected)
   const distance = light ? Math.hypot(light.position[0] - state.modelPosition[0], light.position[1] - state.modelPosition[1], light.position[2] - state.modelPosition[2]) : 0

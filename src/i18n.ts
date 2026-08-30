@@ -692,6 +692,7 @@ const DICT = {
   'shots.preview': { en: '{name} preview', zh: '{name} 預覽', ja: '{name} のプレビュー' },
   'shots.nameAria': { en: '{name} name', zh: '{name} 名稱', ja: '{name} の名前' },
   'shots.overwrite': { en: 'Overwrite', zh: '覆寫', ja: '上書き' },
+  'shots.deleteConfirm': { en: 'Delete {name}? This cannot be undone.', zh: '要刪除「{name}」嗎？此動作無法復原。', ja: '「{name}」を削除しますか？この操作は元に戻せません。' },
 
   // ── 燈位工作表 ──────────────────────────────────────────
   'sheet.dark': { en: 'Dark', zh: '深色', ja: 'ダーク' },
@@ -804,7 +805,7 @@ const DICT = {
   'mobile.compact': { en: 'Phone edition', zh: '手機版', ja: 'モバイル版' },
   'mobile.compact.title': { en: 'Switch to the simplified phone interface', zh: '切換到簡易手機介面', ja: 'シンプルなモバイル版に切り替える' },
   'mobile.view.studio': { en: 'Lighting', zh: '佈光', ja: 'ライティング' },
-  'mobile.view.camera': { en: 'Framing', zh: '取景', ja: 'ファインダー' },
+  'mobile.view.camera': { en: 'Viewfinder', zh: '鏡頭畫面', ja: 'カメラ画面' },
   'mobile.hint.orbit': { en: 'Drag to orbit · pinch to zoom', zh: '拖曳可轉動視角，雙指縮放', ja: 'ドラッグで回転・ピンチでズーム' },
   'mobile.hint.camera': { en: 'What the camera sees', zh: '相機看到的畫面', ja: 'カメラが見ている画面' },
   'mobile.tab.setups': { en: 'Reference', zh: '參考', ja: '参考' },

@@ -547,8 +547,8 @@ function ProjectTab({ onOpenAbout, onOpenTour }: { onOpenAbout: () => void; onOp
     <div className={`m-save-card ${saveStatus === 'error' ? 'error' : ''}`} role="status"><span>{t('mobile.project.storage')}</span><strong>{saveStatus === 'error' ? t('mobile.project.failed') : t('mobile.project.saved')}</strong><small>{usage}</small></div>
     <p className="m-note">{t('mobile.project.note')}</p>
     <div className="m-project-actions">
-      <button onClick={saveProject}>{t('mobile.project.save')}</button>
-      <button onClick={share}>{shareStatus === 'copied' ? t('mobile.project.copied') : shareStatus === 'error' ? t('mobile.project.shareFailed') : t('mobile.project.share')}</button>
+      {saveStatus === 'error' && <button onClick={saveProject}>{t('mobile.project.save')}</button>}
+      <button className="m-project-share" onClick={share}>{shareStatus === 'copied' ? t('mobile.project.copied') : shareStatus === 'error' ? t('mobile.project.shareFailed') : t('mobile.project.share')}</button>
       <button onClick={exportProject}>{t('mobile.project.export')}</button>
       <button onClick={() => input.current?.click()}>{t('mobile.project.import')}</button>
     </div>
@@ -670,6 +670,12 @@ export function MobileApp() {
     window.requestAnimationFrame(() => setTourOpen(true))
   }
 
+  const closeTour = () => {
+    setTourOpen(false)
+    setTab('intent')
+    setSheetOpen(true)
+  }
+
   useEffect(() => {
     const compactLandscape = window.matchMedia('(orientation: landscape) and (max-height: 520px)')
     const adaptSheet = (event: MediaQueryListEvent) => { if (event.matches) setSheetOpen(false) }
@@ -712,7 +718,7 @@ export function MobileApp() {
           ))}
         </div>
         <CopyrightMark compact onOpen={() => setAboutOpen(true)} />
-        <button className="m-escape" onClick={() => setUiMode('full')} title={t('mobile.full.title')}>{t('mobile.full')}</button>
+        {!phone && <button className="m-escape" onClick={() => setUiMode('full')} title={t('mobile.full.title')}>{t('mobile.full')}</button>}
       </header>
 
       <Suspense fallback={
@@ -768,7 +774,7 @@ export function MobileApp() {
       </div>
 
       {photo && <PhotoSheet photo={photo} onClose={() => setPhoto(null)} />}
-      <OnboardingTour open={tourOpen} scope="mobile" onClose={() => setTourOpen(false)} />
+      <OnboardingTour open={tourOpen} scope="mobile" onClose={closeTour} />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </main>
   )

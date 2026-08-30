@@ -202,8 +202,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .project-actions .pro-console-button.active { background: var(--signal); color: #11140f; }
 .project-actions .guide-button { color: #d8ddd4; font-weight: 500; }
 .project-actions .guide-button:hover { background: #252a23; color: var(--signal); }
-.project-actions .save-button { border-right: 0; background: var(--signal); color: #151811; font-weight: 600; font-size: 11px; }
-.project-actions .save-button span { margin-left: 10px; font: 10px var(--mono); opacity: .65; }
+.project-actions .save-button,
+.project-actions .workflow-next-button { border-right: 0; background: var(--signal); color: #151811; font-weight: 600; font-size: 11px; }
+.project-actions .save-button span,
+.project-actions .workflow-next-button span { margin-left: 10px; font: 10px var(--mono); opacity: .65; }
 
 .panel { background: var(--panel); min-height: 0; overflow: auto; scrollbar-color: #4d554a transparent; scrollbar-width: thin; }
 .library { grid-column: 1; grid-row: 2; border-right: 1px solid var(--line); }
@@ -1735,8 +1737,10 @@ button, input, select { transition: border-color .16s ease, background-color .16
 .project-actions .pro-console-button.active { background: var(--signal-cool); color: #081016; }
 .project-actions .guide-button { color: #d6dee3; }
 .project-actions .guide-button:hover { color: var(--signal); background: #252d33; }
-.project-actions .save-button { background: var(--signal); color: #191208; box-shadow: inset 0 1px 0 rgba(255,255,255,.3); }
-.project-actions .save-button:hover { background: #ffc36f; }
+.project-actions .save-button,
+.project-actions .workflow-next-button { background: var(--signal); color: #191208; box-shadow: inset 0 1px 0 rgba(255,255,255,.3); }
+.project-actions .save-button:hover,
+.project-actions .workflow-next-button:hover { background: #ffc36f; }
 
 .panel {
   border: 1px solid var(--line);
@@ -1955,6 +1959,8 @@ button, input, select { transition: border-color .16s ease, background-color .16
 .verify-actions > button:first-of-type { border-top: 1px solid #394954; border-radius: 7px 7px 0 0; }
 .verify-actions > button:last-child { border-radius: 0 0 7px 7px; }
 .verify-actions > button:hover, .intent-card > button:hover { background: #202c35; color: #fff; }
+.verify-actions > button:disabled { background: #11181e; color: #65737c; cursor: not-allowed; opacity: .72; }
+.verify-actions > button:disabled:hover { background: #11181e; color: #65737c; }
 .verify-actions b, .intent-card b { color: var(--signal); font-weight: 400; }
 .framing-presets { display: grid; grid-template-columns: repeat(3,1fr); gap: 3px; }
 .framing-presets button { min-height: 34px; padding: 4px; border: 1px solid #34434e; border-radius: 4px; background: #111820; color: #82929d; font-size: 9px; cursor: pointer; }
@@ -2185,14 +2191,16 @@ header.topbar .project-actions button:hover,
 header.topbar .project-actions .setup-sheet-button:hover,
 header.topbar .file-menu > button:hover,
 header.topbar .file-menu > button.active { background: #24313a; }
-header.topbar .project-actions .save-button {
+header.topbar .project-actions .save-button,
+header.topbar .project-actions .workflow-next-button {
   border-radius: 8px;
   background: var(--signal);
   color: #191208;
   font-weight: 700;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.3);
 }
-header.topbar .project-actions .save-button:hover {
+header.topbar .project-actions .save-button:hover,
+header.topbar .project-actions .workflow-next-button:hover {
   background: #ffc36f;
   color: #191208;
 }
@@ -2608,4 +2616,65 @@ main.app-shell.top-panel-hidden.bottom-panel-hidden { grid-template-rows: 0 minm
 
 @media (prefers-reduced-motion: reduce) {
   .inspector-drawer-toggle > i { transition: none; }
+}
+
+/* Human-first command hierarchy: history stays visible; occasional tools live
+   in one menu instead of competing with the primary save action. */
+header.topbar .project-actions.is-simplified {
+  width: auto;
+  height: 48px;
+  align-self: center;
+  grid-template-columns: 40px 40px 76px minmax(140px, 1fr) !important;
+  grid-template-rows: 1fr;
+  overflow: visible;
+}
+header.topbar.simplified-topbar { overflow: visible; }
+header.topbar .project-actions.is-simplified .save-button,
+header.topbar .project-actions.is-simplified .workflow-next-button { grid-column: auto; }
+header.topbar .project-actions.is-simplified .history-button {
+  min-height: 38px;
+  color: #aebbc3;
+  font: 18px/1 var(--mono);
+}
+header.topbar .project-actions.is-simplified .history-button:disabled {
+  color: #4f5c64;
+  cursor: default;
+  opacity: .5;
+}
+.more-menu-list {
+  width: min(248px, calc(100vw - 24px));
+  max-height: min(580px, calc(100vh - 132px));
+  overflow-y: auto;
+}
+.file-menu-group {
+  min-height: 30px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #293640;
+  background: #0f171d;
+  color: #71838f;
+  font: 8px var(--mono);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.blueprint-actions { grid-template-columns: 1fr; }
+.workspace-panel-tab.panel-visible { display: none; }
+
+@media (max-width: 1280px) {
+  header.topbar .project-actions.is-simplified {
+    grid-template-columns: 36px 36px 66px minmax(104px, 1fr) !important;
+  }
+}
+
+@media (max-width: 759px) {
+  header.topbar .project-actions.is-simplified {
+    height: 42px;
+    margin: 2px 4px;
+    grid-template-columns: 36px 36px minmax(64px, .75fr) minmax(96px, 1.25fr) !important;
+  }
+  header.topbar .project-actions.is-simplified .history-button {
+    min-height: 34px;
+    font-size: 17px;
+  }
 }

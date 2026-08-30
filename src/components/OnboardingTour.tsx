@@ -24,7 +24,7 @@ const STEPS: Record<OnboardingScope, TourStep[]> = {
     { target: '.exposure-launcher', title: 'tour.desktop.5.title', body: 'tour.desktop.5.body', media: { kind: 'image', src: '/onboarding/exposure-after.webp' }, aspect: 'panel', placement: 'above' },
     { target: '.readout', title: 'tour.desktop.6.title', body: 'tour.desktop.6.body', media: { kind: 'image', src: '/onboarding/desktop-readout.webp' }, aspect: 'strip', placement: 'above' },
     { target: '.view-mode-dock', title: 'tour.desktop.7.title', body: 'tour.desktop.7.body', media: { kind: 'compare', before: '/onboarding/render-before.webp', after: '/onboarding/render-after.webp' }, aspect: 'wide', placement: 'below' },
-    { target: ['.save-button', '.file-menu', '.project-actions'], title: 'tour.desktop.8.title', body: 'tour.desktop.8.body', media: { kind: 'image', src: '/onboarding/desktop-save.webp' }, aspect: 'panel', placement: 'below' },
+    { target: ['.workflow-next-button', '.file-menu', '.project-actions'], title: 'tour.desktop.8.title', body: 'tour.desktop.8.body', media: { kind: 'image', src: '/onboarding/desktop-save.webp' }, aspect: 'panel', placement: 'below' },
   ],
   mobile: [
     { target: '#m-tab-intent', title: 'tour.mobile.1.title', body: 'tour.mobile.1.body', media: { kind: 'image', src: '/onboarding/mobile-setup.webp' }, aspect: 'wide', placement: 'above' },

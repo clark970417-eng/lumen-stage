@@ -32,20 +32,6 @@ function ReturnToPhoneShell() {
   return <button className="m-return" onClick={() => setMode('auto')} title={t('mobile.compact.title')}>{t('mobile.compact')}</button>
 }
 
-/** Desktop users can deliberately choose the simpler workflow too. */
-function SimplifiedModeSwitch() {
-  const t = useT()
-  const phone = usePhoneScreen()
-  const setMode = useUiModeStore((state) => state.setMode)
-  if (phone) return null
-  return (
-    <button className="desktop-compact-switch" onClick={() => setMode('mobile')} title={t('mobile.compact.title')}>
-      <span aria-hidden="true">▤</span>
-      {t('mobile.compact')}
-    </button>
-  )
-}
-
 function WebGLFallback() {
   return <main className="fatal-screen"><BrandMark title="Lumen Stage" /><span>WEBGL REQUIRED</span><h1>This device cannot open the 3D studio.</h1><p>Update your browser, enable hardware acceleration, or open Lumen Stage on another device. Your browser data has not been changed.</p><div><button onClick={() => location.reload()}>Try again</button><a href="/support">Compatibility help</a></div></main>
 }
@@ -78,7 +64,6 @@ function StudioShell() {
     <Suspense fallback={<ShellLoading />}>
       <App />
       <ReturnToPhoneShell />
-      <SimplifiedModeSwitch />
     </Suspense>
   )
 }

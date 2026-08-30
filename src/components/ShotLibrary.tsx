@@ -171,7 +171,7 @@ export function ShotLibrary() {
               <button onClick={() => state.loadShot(shot.id)}>{t('common.load')}</button>
               <button onClick={() => state.overwriteShot(shot.id, thumbnail())}>{t('shots.overwrite')}</button>
               <button onClick={() => openSetupSheetForShot(shot)}>{t('topbar.setupSheet')}</button>
-              <button className="danger" onClick={() => state.deleteShot(shot.id)}>{t('common.delete')}</button>
+              <button className="danger" onClick={() => { if (window.confirm(t('shots.deleteConfirm', { name: shot.name }))) state.deleteShot(shot.id) }}>{t('common.delete')}</button>
             </div>
           </article>
         })}

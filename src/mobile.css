@@ -140,15 +140,15 @@
 .m-dial span { display: flex; align-items: baseline; justify-content: space-between; color: #c2c8bd; font-size: 12.5px; }
 .m-dial b { color: var(--signal); font: 500 12px var(--mono); }
 .m-dial input[type='range'] {
-  -webkit-appearance: none; appearance: none; width: 100%; height: 30px; margin: 0; background: transparent;
+  -webkit-appearance: none; appearance: none; width: 100%; height: 44px; margin: 0; background: transparent;
 }
 .m-dial input[type='range']::-webkit-slider-runnable-track { height: 3px; background: #3b403a; }
 .m-dial input[type='range']::-moz-range-track { height: 3px; background: #3b403a; }
 .m-dial input[type='range']::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none; width: 26px; height: 26px; margin-top: -11.5px;
+  -webkit-appearance: none; appearance: none; width: 30px; height: 30px; margin-top: -13.5px;
   border: 1px solid #11140f; border-radius: 50%; background: var(--paper);
 }
-.m-dial input[type='range']::-moz-range-thumb { width: 26px; height: 26px; border: 1px solid #11140f; border-radius: 50%; background: var(--paper); }
+.m-dial input[type='range']::-moz-range-thumb { width: 30px; height: 30px; border: 1px solid #11140f; border-radius: 50%; background: var(--paper); }
 
 .m-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
 .m-swatches button { width: 44px; height: 44px; padding: 4px; border: 1px solid #343934; background: #1b1e1b; cursor: pointer; }
@@ -184,9 +184,9 @@
 .m-save-card small { color: #7d8d99; font: 10px var(--mono); }
 .m-save-card.error { border-color: #8f4d43; background: rgba(143,77,67,.12); }
 .m-save-card.error strong { color: #f1a292; }
-.m-project-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.m-project-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
 .m-project-actions button, .m-project-links a, .m-project-links button { min-height: 46px; padding: 0 12px; display: flex; align-items: center; justify-content: center; border: 1px solid #34424d; background: #172029; color: #c8d2d8; font-size: 12px; text-decoration: none; cursor: pointer; }
-.m-project-actions button:nth-child(2) { border-color: var(--signal); color: var(--signal); }
+.m-project-actions .m-project-share { border-color: var(--signal); color: var(--signal); }
 .m-project-links { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
 .m-project-links a, .m-project-links button { min-width: 0; padding-inline: 7px; background: transparent; color: #93a0a9; font-size: 10.5px; text-align: center; }
 

@@ -22,6 +22,8 @@ import { CanvasHealth } from './components/CanvasHealth'
 import { useDialogFocus } from './components/DialogFocus'
 import { OnboardingTour, shouldShowOnboarding } from './components/OnboardingTour'
 import { AssetDrawer, BlueprintPanel, ContinuityGuardPanel, DecisionConsole, ReferenceMatchPanel, ViewModeDock, WorkflowNavigation } from './components/WorkflowShell'
+import { useUiModeStore } from './uiMode'
+import { useWorkflow, type WorkflowStage } from './workflow'
 
 let hintSequence = 0
 
@@ -80,14 +82,13 @@ function PoseHandleButton() {
   const t = useT()
   const on = useStudio((state) => state.poseHandles)
   const setValue = useStudio((state) => state.setValue)
-  const selected = useStudio((state) => state.selected)
   const isFigure = useStudio((state) => state.selected === 'model' || state.studioObjects.some((object) => object.id === state.selected && object.type === 'subject'))
+  if (!isFigure) return null
   return (
     <button
-      disabled={!isFigure}
-      className={on && isFigure ? 'active pose-active' : ''}
+      className={on ? 'active pose-active' : ''}
       onClick={() => setValue('poseHandles', !on)}
-      title={t(selected === 'model' || isFigure ? 'scene.pose.title' : 'scene.pose.disabled')}
+      title={t('scene.pose.title')}
     >
       <i className="pose-glyph" />{t('scene.pose')} <kbd>H</kbd>
     </button>
@@ -138,12 +139,57 @@ function SetupSheetHost() {
   return open ? <SetupSheet /> : null
 }
 
-/** 把匯入／匯出／載入收進一個選單，讓頂欄剩下真正常用的動作 */
-function FileMenu({ onImport, onExport, onLoad }: { onImport: () => void; onExport: () => void; onLoad: () => void }) {
+const MORE_MENU_COPY: Record<Locale, { trigger: string; title: string; workspace: string; project: string; focus: string; showPanels: string; pro: string }> = {
+  en: { trigger: 'More', title: 'Workspace and project tools', workspace: 'Workspace', project: 'Project', focus: 'Focus view', showPanels: 'Show panels', pro: 'Professional controls' },
+  zh: { trigger: '更多', title: '工作區與專案工具', workspace: '工作區', project: '專案', focus: '專注檢視', showPanels: '顯示面板', pro: '專業控制' },
+  ja: { trigger: 'その他', title: 'ワークスペースとプロジェクト', workspace: 'ワークスペース', project: 'プロジェクト', focus: '集中表示', showPanels: 'パネル表示', pro: 'プロ設定' },
+}
+
+const WORKFLOW_ACTION_COPY: Record<Locale, Record<WorkflowStage, string>> = {
+  en: { intent: 'Next: Block', blocking: 'Next: Shape', lighting: 'Next: Frame', framing: 'Next: Verify', verify: 'Run preflight' },
+  zh: { intent: '下一步：走位', blocking: '下一步：塑光', lighting: '下一步：取景', framing: '下一步：驗證', verify: '開始拍攝前檢查' },
+  ja: { intent: '次へ：配置', blocking: '次へ：光作り', lighting: '次へ：構図', framing: '次へ：検証', verify: '撮影前確認' },
+}
+
+const NEXT_WORKFLOW_STAGE: Partial<Record<WorkflowStage, WorkflowStage>> = {
+  intent: 'blocking',
+  blocking: 'lighting',
+  lighting: 'framing',
+  framing: 'verify',
+}
+
+/** Keep the header focused on one primary action; occasional tools live here. */
+function MoreMenu({
+  onImport,
+  onExport,
+  onSave,
+  onTogglePanels,
+  panelsHidden,
+  onOpenSetups,
+  onOpenSheet,
+  onTogglePro,
+  proOpen,
+  onOpenGuide,
+  onOpenMobile,
+}: {
+  onImport: () => void
+  onExport: () => void
+  onSave: () => void
+  onTogglePanels: () => void
+  panelsHidden: boolean
+  onOpenSetups: () => void
+  onOpenSheet: () => void
+  onTogglePro: () => void
+  proOpen: boolean
+  onOpenGuide: () => void
+  onOpenMobile: () => void
+}) {
   const [open, setOpen] = useState(false)
   const wrapper = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const t = useT()
+  const locale = useLocaleStore((state) => state.locale)
+  const copy = MORE_MENU_COPY[locale]
 
   useEffect(() => {
     if (!open) return
@@ -169,14 +215,22 @@ function FileMenu({ onImport, onExport, onLoad }: { onImport: () => void; onExpo
 
   return (
     <div className="file-menu" ref={wrapper}>
-      <button ref={trigger} className={open ? 'active' : ''} onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} title={t('file.menu.title')}>
-        {t('file.menu')} <i aria-hidden="true" />
+      <button ref={trigger} className={open ? 'active' : ''} onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} title={copy.title}>
+        {copy.trigger} <i aria-hidden="true" />
       </button>
       {open && (
-        <div className="file-menu-list" role="menu">
+        <div className="file-menu-list more-menu-list" role="menu">
+          <span className="file-menu-group">{copy.workspace}</span>
+          <button role="menuitem" onClick={pick(onTogglePanels)}>{panelsHidden ? copy.showPanels : copy.focus}<small>Tab</small></button>
+          <button role="menuitem" onClick={pick(onOpenSetups)}>{t('setups.launcher')}<small>PRESETS</small></button>
+          <button role="menuitem" onClick={pick(onOpenSheet)}>{t('topbar.setupSheet')}<small>PDF</small></button>
+          <button role="menuitem" onClick={pick(onTogglePro)}>{copy.pro}<small>{proOpen ? 'ON' : 'OFF'}</small></button>
+          <button role="menuitem" onClick={pick(onOpenGuide)}>{t('topbar.guide')}<small>?</small></button>
+          <button role="menuitem" onClick={pick(onOpenMobile)}>{t('mobile.compact')}<small>MOBILE</small></button>
+          <span className="file-menu-group">{copy.project}</span>
+          <button role="menuitem" onClick={pick(onSave)}>{t('topbar.save')}<small>⌘S</small></button>
           <button role="menuitem" onClick={pick(onImport)}>{t('file.import')}<small>.json</small></button>
           <button role="menuitem" onClick={pick(onExport)}>{t('file.export')}<small>⌘E</small></button>
-          <button role="menuitem" onClick={pick(onLoad)}>{t('file.load')}<small>{t('file.load.sub')}</small></button>
           <ShareLinkItem onDone={() => setOpen(false)} />
         </div>
       )}
@@ -240,31 +294,51 @@ function LanguageSwitch() {
 function TopBar({ onOpenGuide, panelsHidden, onTogglePanels }: { onOpenGuide: () => void; panelsHidden: boolean; onTogglePanels: () => void }) {
   const t = useT()
   const locale = useLocaleStore((state) => state.locale)
-  const panelLabel = locale === 'zh' ? (panelsHidden ? '顯示面板' : '專注檢視') : locale === 'ja' ? (panelsHidden ? 'パネル表示' : '集中表示') : (panelsHidden ? 'Show panels' : 'Focus view')
   const saveProject = useStudio((state) => state.saveProject)
-  const loadProject = useStudio((state) => state.loadProject)
   const exportProject = useStudio((state) => state.exportProject)
   const importProject = useStudio((state) => state.importProject)
   const saveStatus = useStudio((state) => state.saveStatus)
   const projectName = useStudio((state) => state.projectName)
   const setValue = useStudio((state) => state.setValue)
   const professionalPanelOpen = useStudio((state) => state.professionalPanelOpen)
+  const undo = useStudio((state) => state.undo)
+  const redo = useStudio((state) => state.redo)
+  const canUndo = useStudio((state) => state.undoStack.length > 0)
+  const canRedo = useStudio((state) => state.redoStack.length > 0)
+  const setUiMode = useUiModeStore((state) => state.setMode)
+  const workflowStage = useWorkflow((state) => state.stage)
+  const setWorkflowStage = useWorkflow((state) => state.setStage)
+  const lights = useStudio((state) => state.lights)
+  const selectObject = useStudio((state) => state.selectObject)
+  const openStudioView = useStudio((state) => state.openStudioView)
+  const openCameraView = useStudio((state) => state.openCameraView)
   const projectInput = useRef<HTMLInputElement>(null)
 
+  const continueWorkflow = () => {
+    if (workflowStage === 'verify') {
+      setValue('analysisOpen', true)
+      return
+    }
+    const next = NEXT_WORKFLOW_STAGE[workflowStage]
+    if (!next) return
+    setWorkflowStage(next)
+    if (next === 'blocking') { selectObject('model'); openStudioView() }
+    if (next === 'lighting') { const light = lights.find((item) => item.enabled) ?? lights[0]; if (light) selectObject(light.id); openStudioView() }
+    if (next === 'framing') { selectObject('camera'); openCameraView() }
+    if (next === 'verify') openCameraView()
+  }
+
   return (
-    <header className="topbar">
+    <header className="topbar simplified-topbar">
       <div className="brand" aria-label="Lumen Stage">
         <BrandMark />
         <div><strong>LUMEN</strong><small>STAGE / 001</small></div>
       </div>
       <div className="project-title"><span>PROJECT</span><input className="project-name-input" aria-label={t('topbar.projectName')} value={projectName} onChange={(event) => setValue('projectName', event.target.value)} /><small className={`save-state ${saveStatus}`}>{saveStatus === 'saved' ? t('topbar.save.saved') : saveStatus === 'autosaved' ? t('topbar.save.autosaved') : saveStatus === 'loaded' ? t('topbar.save.loaded') : saveStatus === 'exported' ? t('topbar.save.exported') : saveStatus === 'error' ? t('topbar.save.error') : t('topbar.save.idle')}</small><LanguageSwitch /></div>
       <WorkflowNavigation />
-      <div className="project-actions">
-        <button className={panelsHidden ? 'workspace-focus-button active' : 'workspace-focus-button'} onClick={onTogglePanels} title={`${panelLabel} · Tab`} aria-label={`${panelLabel} · Tab`} aria-pressed={panelsHidden}><i aria-hidden="true" /><span>{panelLabel}</span></button>
-        <button className="setup-library-button" onClick={() => setValue('setupLibraryOpen', true)} title={t('setups.launcher.title')}>{t('setups.launcher')}</button>
-        <button className="setup-sheet-button" onClick={() => setValue('setupSheetOpen', true)} title={t('topbar.setupSheet.title')}>{t('topbar.setupSheet')}</button>
-        <button className={professionalPanelOpen ? 'pro-console-button active' : 'pro-console-button'} onClick={() => setValue('professionalPanelOpen', !professionalPanelOpen)} title={t('topbar.pro.title')} aria-pressed={professionalPanelOpen}>PRO</button>
-        <button className="guide-button" onClick={onOpenGuide} title={t('topbar.guide.title')}>{t('topbar.guide')}</button>
+      <div className="project-actions is-simplified">
+        <button className="history-button" onClick={undo} disabled={!canUndo} title={t('library.undo.title')} aria-label={t('library.undo.title')}>↶</button>
+        <button className="history-button" onClick={redo} disabled={!canRedo} title={t('library.redo.title')} aria-label={t('library.redo.title')}>↷</button>
         <input ref={projectInput} className="asset-input" type="file" accept=".json,.lumen.json,application/json" onChange={async (event) => {
           const file = event.target.files?.[0]
           if (file) {
@@ -273,8 +347,20 @@ function TopBar({ onOpenGuide, panelsHidden, onTogglePanels }: { onOpenGuide: ()
           }
           event.target.value = ''
         }} />
-        <FileMenu onImport={() => projectInput.current?.click()} onExport={exportProject} onLoad={loadProject} />
-        <button className="save-button" onClick={saveProject} title={t('topbar.save.title')}>{t('topbar.save')} <span>⌘S</span></button>
+        <MoreMenu
+          onImport={() => projectInput.current?.click()}
+          onExport={exportProject}
+          onSave={saveProject}
+          onTogglePanels={onTogglePanels}
+          panelsHidden={panelsHidden}
+          onOpenSetups={() => setValue('setupLibraryOpen', true)}
+          onOpenSheet={() => setValue('setupSheetOpen', true)}
+          onTogglePro={() => setValue('professionalPanelOpen', !professionalPanelOpen)}
+          proOpen={professionalPanelOpen}
+          onOpenGuide={onOpenGuide}
+          onOpenMobile={() => setUiMode('mobile')}
+        />
+        <button className="workflow-next-button" onClick={continueWorkflow}>{WORKFLOW_ACTION_COPY[locale][workflowStage]} <span>→</span></button>
       </div>
     </header>
   )
@@ -542,11 +628,12 @@ export default function App() {
   const [hint, setHint] = useState<{ id: number; text: string } | null>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const allPanelsHidden = !workspacePanels.left && !workspacePanels.right && !workspacePanels.top && !workspacePanels.bottom
+  const anyPanelHidden = !workspacePanels.left || !workspacePanels.right || !workspacePanels.top || !workspacePanels.bottom
 
   const toggleAllPanels = useCallback(() => {
-    setWorkspacePanels((current) => current.left || current.right || current.top || current.bottom
-      ? { left: false, right: false, top: false, bottom: false }
-      : { left: true, right: true, top: true, bottom: true })
+    setWorkspacePanels((current) => !current.left || !current.right || !current.top || !current.bottom
+      ? { left: true, right: true, top: true, bottom: true }
+      : { left: false, right: false, top: false, bottom: false })
   }, [])
 
   useEffect(() => {
@@ -584,7 +671,7 @@ export default function App() {
 
   return (
     <main className={`app-shell ${workspacePanels.left ? '' : 'left-panel-hidden'} ${workspacePanels.right ? '' : 'right-panel-hidden'} ${workspacePanels.top ? '' : 'top-panel-hidden'} ${workspacePanels.bottom ? '' : 'bottom-panel-hidden'}`}>
-      <TopBar onOpenGuide={() => setGuideOpen(true)} panelsHidden={allPanelsHidden} onTogglePanels={toggleAllPanels} />
+      <TopBar onOpenGuide={() => setGuideOpen(true)} panelsHidden={anyPanelHidden} onTogglePanels={toggleAllPanels} />
       <BlueprintPanel />
       <section className={`viewport ${renderMode === 'path' ? 'path-color-science' : ''}`} aria-label={t('viewport.aria')} style={{ '--path-saturation': pathSaturation, '--path-contrast': pathContrast, '--path-sepia': pathSepia } as React.CSSProperties}>
         <Canvas

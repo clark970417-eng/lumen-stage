@@ -14,7 +14,7 @@ type WorkflowState = {
 }
 
 export const useWorkflow = create<WorkflowState>((set) => ({
-  stage: 'lighting',
+  stage: 'intent',
   assetDrawerOpen: false,
   referencePanelOpen: false,
   continuityPanelOpen: false,
