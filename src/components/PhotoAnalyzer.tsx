@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
+import EditingWorkflowGuide from './EditingWorkflowGuide'
 import '../photo-analyzer.css'
 
 type AnalysisResult = {
@@ -16,37 +17,45 @@ type AnalysisResult = {
 const MAX_BYTES = 18 * 1024 * 1024
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp']
 
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onerror = () => reject(new Error('無法讀取圖片'))
-    reader.onload = () => resolve(String(reader.result))
-    reader.readAsDataURL(file)
-  })
-}
+const ANALYSIS_MAX_DATA_URL_LENGTH = 3_750_000
 
-async function prepareImage(file: File) {
-  const source = await fileToDataUrl(file)
+async function prepareImage(source: string) {
   const image = new Image()
   image.src = source
   await image.decode()
-  const maxSide = 1800
-  const ratio = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight))
-  const width = Math.max(1, Math.round(image.naturalWidth * ratio))
-  const height = Math.max(1, Math.round(image.naturalHeight * ratio))
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-  const context = canvas.getContext('2d', { alpha: false })
-  if (!context) throw new Error('瀏覽器無法處理這張圖片')
-  context.drawImage(image, 0, 0, width, height)
-  return { dataUrl: canvas.toDataURL('image/jpeg', 0.86), width: image.naturalWidth, height: image.naturalHeight }
+  const attempts = [
+    { maxSide: 2560, quality: .92 }, { maxSide: 2560, quality: .86 },
+    { maxSide: 2304, quality: .86 }, { maxSide: 2048, quality: .84 },
+    { maxSide: 1920, quality: .82 }
+  ]
+  let dataUrl = ''
+  let analysisWidth = 0
+  let analysisHeight = 0
+  for (const attempt of attempts) {
+    const ratio = Math.min(1, attempt.maxSide / Math.max(image.naturalWidth, image.naturalHeight))
+    analysisWidth = Math.max(1, Math.round(image.naturalWidth * ratio))
+    analysisHeight = Math.max(1, Math.round(image.naturalHeight * ratio))
+    const canvas = document.createElement('canvas')
+    canvas.width = analysisWidth
+    canvas.height = analysisHeight
+    const context = canvas.getContext('2d', { alpha: false })
+    if (!context) throw new Error('瀏覽器無法處理這張圖片')
+    context.imageSmoothingEnabled = true
+    context.imageSmoothingQuality = 'high'
+    context.fillStyle = '#0b0e12'
+    context.fillRect(0, 0, analysisWidth, analysisHeight)
+    context.drawImage(image, 0, 0, analysisWidth, analysisHeight)
+    dataUrl = canvas.toDataURL('image/jpeg', attempt.quality)
+    if (dataUrl.length <= ANALYSIS_MAX_DATA_URL_LENGTH) break
+  }
+  if (dataUrl.length > ANALYSIS_MAX_DATA_URL_LENGTH) throw new Error('圖片細節過於複雜，無法建立安全的分析副本。請改用較小的圖片。')
+  return { dataUrl, width: image.naturalWidth, height: image.naturalHeight, analysisWidth, analysisHeight }
 }
 
-function ResultPanel({ result }: { result: AnalysisResult }) {
+function ResultPanel({ result, imageUrl }: { result: AnalysisResult; imageUrl: string }) {
   return (
-    <article className="trace-report" aria-live="polite">
-      <header className="report-hero">
+    <article className="trace-report">
+      <header className="report-hero" aria-live="polite" aria-atomic="true">
         <div><span>STYLE DIAGNOSIS</span><h2>{result.styleLabel}</h2></div>
         <p>{result.diagnosis}</p>
         <small>整體信心：{result.confidence}</small>
@@ -81,13 +90,15 @@ function ResultPanel({ result }: { result: AnalysisResult }) {
         </div>
       </section>
 
+      <EditingWorkflowGuide imageUrl={imageUrl} />
+
       {result.plugins.length > 0 && <section>
-        <div className="section-title"><span>05</span><h3>可能的插件家族</h3></div>
+        <div className="section-title"><span>06</span><h3>可能的插件家族</h3></div>
         <div className="plugin-list">{result.plugins.map((item) => <div key={item.family}><b>{item.family}</b><span>{item.likelihood}</span><p>手動等效：{item.manualEquivalent}</p></div>)}</div>
       </section>}
 
       <section>
-        <div className="section-title"><span>06</span><h3>比對校正</h3></div>
+        <div className="section-title"><span>07</span><h3>比對校正</h3></div>
         <ul className="calibration-list">{result.calibration.map((item) => <li key={item}>{item}</li>)}</ul>
       </section>
     </article>
@@ -96,6 +107,10 @@ function ResultPanel({ result }: { result: AnalysisResult }) {
 
 export default function PhotoAnalyzer() {
   const input = useRef<HTMLInputElement>(null)
+  const localPreviewUrl = useRef<string | null>(null)
+  const selectionGeneration = useRef(0)
+  const analysisGeneration = useRef(0)
+  const analysisController = useRef<AbortController | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [fileName, setFileName] = useState('')
   const [dimensions, setDimensions] = useState('')
@@ -123,23 +138,42 @@ export default function PhotoAnalyzer() {
       if (file) void selectFile(file)
     }
     window.addEventListener('paste', onPaste)
-    return () => window.removeEventListener('paste', onPaste)
+    return () => {
+      window.removeEventListener('paste', onPaste)
+      selectionGeneration.current += 1
+      analysisGeneration.current += 1
+      analysisController.current?.abort()
+      if (localPreviewUrl.current) URL.revokeObjectURL(localPreviewUrl.current)
+    }
   }, [])
 
   const selectFile = async (file: File) => {
+    const selectionId = ++selectionGeneration.current
+    analysisGeneration.current += 1
+    analysisController.current?.abort()
+    analysisController.current = null
+    setBusy(false)
     setError('')
     setResult(null)
     if (!ACCEPTED.includes(file.type)) return setError('請使用 JPG、PNG 或 WebP 圖片。')
     if (file.size > MAX_BYTES) return setError('圖片超過 18 MB，請先縮小後再試。')
+    const originalUrl = URL.createObjectURL(file)
     try {
-      const prepared = await prepareImage(file)
-      setPreview(prepared.dataUrl)
+      const prepared = await prepareImage(originalUrl)
+      if (selectionId !== selectionGeneration.current) {
+        URL.revokeObjectURL(originalUrl)
+        return
+      }
+      if (localPreviewUrl.current) URL.revokeObjectURL(localPreviewUrl.current)
+      localPreviewUrl.current = originalUrl
+      setPreview(originalUrl)
       setDataUrl(prepared.dataUrl)
       setRemoteUrl(null)
       setFileName(file.name || '貼上的圖片')
-      setDimensions(`${prepared.width} × ${prepared.height}`)
+      setDimensions(`${prepared.width} × ${prepared.height} 原始預覽 · ${prepared.analysisWidth} × ${prepared.analysisHeight} 分析`)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : '圖片處理失敗')
+      URL.revokeObjectURL(originalUrl)
+      if (selectionId === selectionGeneration.current) setError(reason instanceof Error ? reason.message : '圖片處理失敗')
     }
   }
 
@@ -152,13 +186,19 @@ export default function PhotoAnalyzer() {
 
   const analyze = async () => {
     if (!dataUrl && !remoteUrl) return input.current?.click()
+    const analysisId = ++analysisGeneration.current
+    analysisController.current?.abort()
+    const controller = new AbortController()
+    analysisController.current = controller
     setBusy(true)
     setError('')
+    setResult(null)
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dataUrl ? { imageData: dataUrl, notes } : { imageUrl: remoteUrl, notes })
+        body: JSON.stringify(dataUrl ? { imageData: dataUrl, notes } : { imageUrl: remoteUrl, notes }),
+        signal: controller.signal
       })
       const raw = await response.text()
       let payload: AnalysisResult & { error?: string }
@@ -168,11 +208,15 @@ export default function PhotoAnalyzer() {
         throw new Error(response.status === 404 ? '本機預覽尚未啟動分析後端；部署並設定 API 金鑰後即可使用。' : '分析服務回傳了無法辨識的內容。')
       }
       if (!response.ok) throw new Error(payload.error || '分析服務暫時無法使用')
-      setResult(payload)
+      if (analysisId === analysisGeneration.current) setResult(payload)
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : '分析失敗')
+      if (controller.signal.aborted) return
+      if (analysisId === analysisGeneration.current) setError(reason instanceof Error ? reason.message : '分析失敗')
     } finally {
-      setBusy(false)
+      if (analysisId === analysisGeneration.current) {
+        analysisController.current = null
+        setBusy(false)
+      }
     }
   }
 
@@ -183,6 +227,13 @@ export default function PhotoAnalyzer() {
   }, [autoStart, remoteUrl])
 
   const reset = () => {
+    selectionGeneration.current += 1
+    analysisGeneration.current += 1
+    analysisController.current?.abort()
+    analysisController.current = null
+    setBusy(false)
+    if (localPreviewUrl.current) URL.revokeObjectURL(localPreviewUrl.current)
+    localPreviewUrl.current = null
     setPreview(null); setDataUrl(null); setRemoteUrl(null); setResult(null); setError(''); setFileName(''); setDimensions('')
     if (input.current) input.current.value = ''
   }
@@ -235,7 +286,7 @@ export default function PhotoAnalyzer() {
         </section>
       </section>
 
-      {result && <ResultPanel result={result} />}
+      {result && preview && <ResultPanel result={result} imageUrl={preview} />}
       <footer className="trace-footer"><span>LUMEN TRACE · PRIVATE BY DESIGN</span><p>你的照片不會建立公開圖庫。請只分析你有權使用的影像。</p></footer>
     </main>
   )
