@@ -1,0 +1,6 @@
+/* Keep the full desktop action cluster inside its chrome at the wide layout. */
+@media (min-width: 1681px) {
+  header.topbar {
+    grid-template-columns: 220px minmax(250px, .8fr) minmax(500px, 1.25fr) 456px;
+  }
+}
