@@ -15,6 +15,14 @@
 export type HandPose = 'relaxed' | 'open' | 'fist' | 'point' | 'pocket' | 'grip'
 
 export type ModelPose = {
+  // --- Root motion ---------------------------------------------------------
+  /** True when neither foot should be pulled back to the floor. */
+  airborne: boolean
+  /** True when the pelvis should be placed on a chair rather than grounded. */
+  seated: boolean
+  /** Authored vertical travel in metres, used for jumps and lifted poses. */
+  rootLift: number
+
   // --- Head and neck -------------------------------------------------------
   /** Turn, + is the figure's left (screen right at 0° facing). */
   headYaw: number
@@ -108,20 +116,21 @@ export type ModelPose = {
 }
 
 export const NEUTRAL_POSE: ModelPose = {
+  airborne: false, seated: false, rootLift: 0,
   headYaw: 0, headTilt: 0, headRoll: 0, neckExtend: 0,
-  torsoYaw: 0, spineBend: 0, spineSide: 0, chestLift: 20,
-  leftShoulder: 0, rightShoulder: 0,
-  leftArm: -7, rightArm: 7,
-  leftArmForward: 2, rightArmForward: 2,
+  torsoYaw: 0, spineBend: 0, spineSide: 0, chestLift: 18,
+  leftShoulder: -1, rightShoulder: -1,
+  leftArm: -8, rightArm: 8,
+  leftArmForward: 1, rightArmForward: 1,
   leftArmTwist: 0, rightArmTwist: 0,
-  leftElbow: 4, rightElbow: -4,
+  leftElbow: 5, rightElbow: -5,
   leftForearmTwist: 0, rightForearmTwist: 0,
   leftWrist: 0, rightWrist: 0,
   leftHand: 'relaxed', rightHand: 'relaxed',
-  hipShift: 0, hipTilt: 0, hipYaw: 0, stanceWidth: 0.29, weightShift: 0,
+  hipShift: 0, hipTilt: 0, hipYaw: 0, stanceWidth: 0.27, weightShift: 0,
   leftLeg: 0, rightLeg: 0, leftLegSplay: 0, rightLegSplay: 0,
-  leftKnee: 3, rightKnee: 3, leftAnkle: 0, rightAnkle: 0,
-  leftFootTurn: 7, rightFootTurn: 7,
+  leftKnee: 2, rightKnee: 2, leftAnkle: 0, rightAnkle: 0,
+  leftFootTurn: 6, rightFootTurn: 6,
   browRaise: 0, eyeOpen: 100, squint: 0, smile: 0, mouthOpen: 0, lipPart: 0, jawSet: 0,
   gazeYaw: 0, gazePitch: 0,
 }
@@ -130,6 +139,13 @@ export const NEUTRAL_POSE: ModelPose = {
 export function normalizePose(partial: Partial<ModelPose> | undefined | null): ModelPose {
   if (!partial) return { ...NEUTRAL_POSE }
   const pose = { ...NEUTRAL_POSE, ...partial }
+  if (typeof partial.airborne !== 'boolean') pose.airborne = false
+  if (typeof partial.seated !== 'boolean') {
+    const folded = Math.min(pose.leftLeg, pose.rightLeg) > 60
+    const crouched = Math.max(pose.leftKnee, pose.rightKnee) >= 102
+    pose.seated = folded && !crouched
+  }
+  pose.rootLift = Number.isFinite(pose.rootLift) ? Math.min(0.8, Math.max(-0.2, pose.rootLift)) : 0
   // Hand poses arrive as free-form strings from imported project files.
   if (!HAND_POSES.includes(pose.leftHand)) pose.leftHand = 'relaxed'
   if (!HAND_POSES.includes(pose.rightHand)) pose.rightHand = 'relaxed'
@@ -162,40 +178,40 @@ const p = (overrides: Partial<ModelPose>): ModelPose => ({ ...NEUTRAL_POSE, ...o
 export const POSE_LIBRARY: PoseEntry[] = [
   // --- Standing ------------------------------------------------------------
   { id: 'neutral', category: 'standing', label: 'Neutral stand', note: 'Square to camera. The reference every ratio is judged against.', pose: p({}) },
-  { id: 'contrapposto', category: 'standing', label: 'Contrapposto', note: 'Weight on one foot. The hip break gives the key light a waist to model.', pose: p({ hipShift: 0.065, hipTilt: -6, weightShift: 0.58, headYaw: 10, headTilt: -2, headRoll: 2, torsoYaw: -7, spineSide: 3, chestLift: 34, leftShoulder: -2, rightShoulder: 1, leftArm: -10, rightArm: 13, leftArmForward: 3, rightArmForward: -2, leftElbow: 10, rightElbow: -16, rightKnee: 12, leftKnee: 2, leftFootTurn: 5, rightFootTurn: 13, stanceWidth: 0.23 }) },
-  { id: 'hands-on-hips', category: 'standing', label: 'Hands on hips', note: 'Triangles at the elbows. Watch the arms shadowing the ribcage.', pose: p({ leftArm: -46, rightArm: 46, leftArmForward: -6, rightArmForward: -6, leftElbow: 88, rightElbow: -88, leftForearmTwist: -35, rightForearmTwist: 35, leftHand: 'grip', rightHand: 'grip', stanceWidth: 0.36, chestLift: 45 }) },
-  { id: 'profile', category: 'standing', label: 'Profile', note: 'Full side-on. Short lighting becomes rim lighting here.', pose: p({ torsoYaw: 62, hipYaw: 48, headYaw: 16, leftArm: -5, rightArm: 9, leftElbow: 10, rightElbow: -14, hipShift: 0.02, leftFootTurn: 32, rightFootTurn: 38 }) },
-  { id: 'three-quarter', category: 'standing', label: 'Three-quarter turn', note: 'The classic portrait angle. Sets up short and broad lighting.', pose: p({ torsoYaw: 34, hipYaw: 26, headYaw: -14, headTilt: -3, leftArm: -8, rightArm: 10, leftElbow: 14, rightElbow: -12, weightShift: 0.4, hipShift: 0.04, rightKnee: 10 }) },
-  { id: 'arms-crossed', category: 'standing', label: 'Arms crossed', note: 'Forearms build a hard edge across the chest — fill it or lose it.', pose: p({ leftArm: -52, rightArm: 52, leftArmForward: 34, rightArmForward: 34, leftElbow: 105, rightElbow: -105, leftForearmTwist: -55, rightForearmTwist: 55, leftHand: 'relaxed', rightHand: 'relaxed', chestLift: 30 }) },
-  { id: 'hands-pockets', category: 'standing', label: 'Hands in pockets', note: 'Relaxed shoulders, arms tight to the body. Clean silhouette.', pose: p({ leftArm: -13, rightArm: 13, leftElbow: 26, rightElbow: -26, leftArmForward: 8, rightArmForward: 8, leftHand: 'pocket', rightHand: 'pocket', leftShoulder: -6, rightShoulder: -6, weightShift: 0.3, hipShift: 0.04 }) },
-  { id: 'lean-back', category: 'standing', label: 'Leaning back', note: 'Chest opens to a high key; the jaw clears the neck shadow.', pose: p({ spineBend: -12, chestLift: 60, headTilt: -8, neckExtend: 8, leftArm: -18, rightArm: 18, leftElbow: 20, rightElbow: -20, weightShift: -0.4, stanceWidth: 0.34 }) },
+  { id: 'contrapposto', category: 'standing', label: 'Contrapposto', note: 'Weight on one foot. The hip break gives the key light a waist to model.', pose: p({ hipShift: 0.05, hipTilt: -4, weightShift: 0.45, headYaw: 7, headTilt: -1, headRoll: 2, torsoYaw: -5, spineSide: 2, chestLift: 28, leftShoulder: -2, rightShoulder: 0, leftArm: -9, rightArm: 11, leftArmForward: 2, rightArmForward: -1, leftElbow: 8, rightElbow: -11, rightKnee: 9, leftKnee: 2, rightAnkle: 2, leftFootTurn: 5, rightFootTurn: 11, stanceWidth: 0.24 }) },
+  { id: 'hands-on-hips', category: 'standing', label: 'Hands on hips', note: 'Triangles at the elbows. Watch the arms shadowing the ribcage.', pose: p({ leftArm: -38, rightArm: 38, leftArmForward: 5, rightArmForward: 5, leftElbow: 80, rightElbow: -80, leftForearmTwist: -25, rightForearmTwist: 25, leftWrist: 7, rightWrist: -7, leftHand: 'grip', rightHand: 'grip', stanceWidth: 0.34, chestLift: 36 }) },
+  { id: 'profile', category: 'standing', label: 'Profile', note: 'Full side-on. Short lighting becomes rim lighting here.', pose: p({ torsoYaw: 56, hipYaw: 48, headYaw: 14, headTilt: -1, leftArm: -7, rightArm: 9, leftArmForward: 2, rightArmForward: -2, leftElbow: 9, rightElbow: -12, hipShift: 0.02, leftFootTurn: 28, rightFootTurn: 32, chestLift: 24 }) },
+  { id: 'three-quarter', category: 'standing', label: 'Three-quarter turn', note: 'The classic portrait angle. Sets up short and broad lighting.', pose: p({ torsoYaw: 29, hipYaw: 22, headYaw: -10, headTilt: -2, headRoll: 1, leftArm: -8, rightArm: 10, leftElbow: 11, rightElbow: -10, weightShift: 0.32, hipShift: 0.035, rightKnee: 8, chestLift: 27 }) },
+  { id: 'arms-crossed', category: 'standing', label: 'Arms crossed', note: 'Forearms build a hard edge across the chest — fill it or lose it.', pose: p({ leftArm: -42, rightArm: 42, leftArmForward: 29, rightArmForward: 25, leftElbow: 94, rightElbow: -92, leftForearmTwist: -42, rightForearmTwist: 42, leftWrist: -5, rightWrist: 5, leftHand: 'relaxed', rightHand: 'relaxed', chestLift: 27 }) },
+  { id: 'hands-pockets', category: 'standing', label: 'Hands in pockets', note: 'Relaxed shoulders, arms tight to the body. Clean silhouette.', pose: p({ leftArm: -12, rightArm: 12, leftElbow: 22, rightElbow: -22, leftArmForward: 10, rightArmForward: 10, leftForearmTwist: -10, rightForearmTwist: 10, leftWrist: 5, rightWrist: 5, leftHand: 'pocket', rightHand: 'pocket', leftShoulder: -5, rightShoulder: -5, weightShift: 0.26, hipShift: 0.035, chestLift: 21 }) },
+  { id: 'lean-back', category: 'standing', label: 'Leaning back', note: 'Chest opens to a high key; the jaw clears the neck shadow.', pose: p({ spineBend: -8, chestLift: 46, headTilt: -5, neckExtend: 5, leftArm: -15, rightArm: 15, leftArmForward: -2, rightArmForward: -2, leftElbow: 16, rightElbow: -16, weightShift: -0.32, stanceWidth: 0.32 }) },
   { id: 'walking', category: 'standing', label: 'Walking', note: 'Stride splits the legs — good for a full-length strip light.', pose: p({ headYaw: 3, headTilt: -2, torsoYaw: -4, spineSide: -2, chestLift: 32, hipShift: -0.025, hipTilt: 3, hipYaw: 6, weightShift: -0.22, stanceWidth: 0.18, leftLeg: 24, rightLeg: -13, leftLegSplay: -2, rightLegSplay: 2, leftKnee: 9, rightKnee: 32, leftAnkle: -8, rightAnkle: 22, leftFootTurn: 4, rightFootTurn: 7, leftShoulder: -2, rightShoulder: 1, leftArm: -7, rightArm: 7, leftArmForward: -12, rightArmForward: 14, leftArmTwist: -3, rightArmTwist: 3, leftElbow: 12, rightElbow: -15, leftHand: 'relaxed', rightHand: 'relaxed' }) },
 
   // --- Seated --------------------------------------------------------------
-  { id: 'seated-upright', category: 'seated', label: 'Seated upright', note: 'Hips at chair height. Drop the key or you will light the scalp.', pose: p({ leftLeg: 88, rightLeg: 88, leftKnee: 86, rightKnee: 86, stanceWidth: 0.34, chestLift: 45, leftArm: -8, rightArm: 8, leftElbow: 52, rightElbow: -52, leftForearmTwist: -30, rightForearmTwist: 30 }) },
-  { id: 'seated-lean', category: 'seated', label: 'Seated, leaning in', note: 'Elbows on knees. The face moves a foot closer to the key.', pose: p({ leftLeg: 84, rightLeg: 84, leftKnee: 88, rightKnee: 88, spineBend: 26, chestLift: 10, headTilt: -12, neckExtend: 10, leftArm: -22, rightArm: 22, leftArmForward: 22, rightArmForward: 22, leftElbow: 74, rightElbow: -74, stanceWidth: 0.4 }) },
-  { id: 'seated-crossed', category: 'seated', label: 'Seated, legs crossed', note: 'Asymmetric lower half; keep the fill wide enough to cover it.', pose: p({ leftLeg: 82, rightLeg: 74, leftKnee: 84, rightKnee: 96, leftLegSplay: -18, rightLegSplay: 14, stanceWidth: 0.12, torsoYaw: -12, headYaw: 10, chestLift: 40, leftArm: -10, rightArm: 12, leftElbow: 48, rightElbow: -56 }) },
-  { id: 'seated-backward', category: 'seated', label: 'Straddling the chair', note: 'Arms over the backrest — a natural place for a hard rim.', pose: p({ leftLeg: 86, rightLeg: 86, leftKnee: 82, rightKnee: 82, leftLegSplay: -22, rightLegSplay: 22, stanceWidth: 0.52, leftArm: -34, rightArm: 34, leftArmForward: 46, rightArmForward: 46, leftElbow: 62, rightElbow: -62, spineBend: 14 }) },
+  { id: 'seated-upright', category: 'seated', label: 'Seated upright', note: 'Hips at chair height. Drop the key or you will light the scalp.', pose: p({ seated: true, leftLeg: 82, rightLeg: 82, leftKnee: 92, rightKnee: 92, leftAnkle: -4, rightAnkle: -4, stanceWidth: 0.32, chestLift: 34, leftArm: -8, rightArm: 8, leftArmForward: 18, rightArmForward: 18, leftElbow: 42, rightElbow: -42, leftForearmTwist: -22, rightForearmTwist: 22, leftWrist: 3, rightWrist: 3 }) },
+  { id: 'seated-lean', category: 'seated', label: 'Seated, leaning in', note: 'Elbows on knees. The face moves a foot closer to the key.', pose: p({ seated: true, leftLeg: 82, rightLeg: 82, leftKnee: 92, rightKnee: 92, leftAnkle: -6, rightAnkle: -6, spineBend: 18, chestLift: 14, headTilt: -4, neckExtend: 6, leftArm: -16, rightArm: 16, leftArmForward: 36, rightArmForward: 36, leftElbow: 62, rightElbow: -62, leftForearmTwist: -18, rightForearmTwist: 18, stanceWidth: 0.38 }) },
+  { id: 'seated-crossed', category: 'seated', label: 'Seated, legs crossed', note: 'Asymmetric lower half; keep the fill wide enough to cover it.', pose: p({ seated: true, leftLeg: 80, rightLeg: 72, leftKnee: 86, rightKnee: 94, leftLegSplay: -12, rightLegSplay: 10, leftAnkle: -3, rightAnkle: 5, stanceWidth: 0.16, torsoYaw: -9, headYaw: 8, headRoll: 2, chestLift: 31, leftArm: -9, rightArm: 11, leftArmForward: 15, rightArmForward: 12, leftElbow: 40, rightElbow: -46 }) },
+  { id: 'seated-backward', category: 'seated', label: 'Straddling the chair', note: 'Arms over the backrest — a natural place for a hard rim.', pose: p({ seated: true, leftLeg: 82, rightLeg: 82, leftKnee: 88, rightKnee: 88, leftLegSplay: -18, rightLegSplay: 18, stanceWidth: 0.48, leftArm: -28, rightArm: 28, leftArmForward: 38, rightArmForward: 38, leftElbow: 56, rightElbow: -56, leftForearmTwist: -14, rightForearmTwist: 14, spineBend: 10, chestLift: 22 }) },
 
   // --- Dynamic -------------------------------------------------------------
-  { id: 'jump', category: 'dynamic', label: 'Mid-air', note: 'Everything leaves the floor. Freeze it with a short flash duration.', pose: p({ leftLeg: 46, rightLeg: 18, leftKnee: 76, rightKnee: 34, leftArm: -68, rightArm: 74, leftArmForward: -18, rightArmForward: 22, leftElbow: 42, rightElbow: -30, spineBend: -8, headTilt: -10, leftAnkle: 24, rightAnkle: 30, leftHand: 'open', rightHand: 'open' }) },
-  { id: 'reach', category: 'dynamic', label: 'Reaching up', note: 'Fully extended arm. Check the top of the softbox still covers it.', pose: p({ rightArm: 155, rightArmForward: 12, rightElbow: -8, rightHand: 'open', leftArm: -14, leftElbow: 18, spineSide: -10, headTilt: -16, chestLift: 60, weightShift: 0.3 }) },
-  { id: 'twist', category: 'dynamic', label: 'Torso twist', note: 'Ribcage against the hips. The chest plane turns away from the key.', pose: p({ torsoYaw: 46, hipYaw: -14, headYaw: -30, spineSide: 6, leftArm: -30, rightArm: 22, leftArmForward: 34, rightArmForward: -26, leftElbow: 54, rightElbow: -40, weightShift: -0.35 }) },
-  { id: 'crouch', category: 'dynamic', label: 'Crouching', note: 'Low centre of gravity — drop the key stand to match.', pose: p({ leftLeg: 96, rightLeg: 96, leftKnee: 112, rightKnee: 112, spineBend: 22, stanceWidth: 0.46, leftAnkle: -24, rightAnkle: -24, leftArm: -16, rightArm: 16, leftElbow: 58, rightElbow: -58, headTilt: -10 }) },
+  { id: 'jump', category: 'dynamic', label: 'Mid-air', note: 'Everything leaves the floor. Freeze it with a short flash duration.', pose: p({ airborne: true, rootLift: 0.24, leftLeg: 40, rightLeg: 15, leftKnee: 68, rightKnee: 31, leftArm: -61, rightArm: 66, leftArmForward: -14, rightArmForward: 18, leftElbow: 35, rightElbow: -27, leftWrist: -4, rightWrist: 5, spineBend: -6, spineSide: 2, torsoYaw: -5, headTilt: -7, headRoll: 2, leftAnkle: 20, rightAnkle: 26, leftHand: 'open', rightHand: 'open' }) },
+  { id: 'reach', category: 'dynamic', label: 'Reaching up', note: 'Fully extended arm. Check the top of the softbox still covers it.', pose: p({ rightArm: 142, rightArmForward: 8, rightArmTwist: 6, rightElbow: -12, rightWrist: -3, rightHand: 'open', leftArm: -13, leftArmForward: 3, leftElbow: 16, spineSide: -7, torsoYaw: -4, headTilt: -10, headYaw: 5, chestLift: 48, weightShift: 0.26 }) },
+  { id: 'twist', category: 'dynamic', label: 'Torso twist', note: 'Ribcage against the hips. The chest plane turns away from the key.', pose: p({ torsoYaw: 36, hipYaw: -10, headYaw: -22, spineSide: 4, leftArm: -25, rightArm: 19, leftArmForward: 28, rightArmForward: -19, leftElbow: 47, rightElbow: -34, leftForearmTwist: -10, rightForearmTwist: 8, weightShift: -0.3, chestLift: 26 }) },
+  { id: 'crouch', category: 'dynamic', label: 'Crouching', note: 'Low centre of gravity — drop the key stand to match.', pose: p({ leftLeg: 78, rightLeg: 78, leftKnee: 104, rightKnee: 104, spineBend: 16, chestLift: 12, stanceWidth: 0.42, leftAnkle: -18, rightAnkle: -18, leftArm: -14, rightArm: 14, leftArmForward: 16, rightArmForward: 16, leftElbow: 48, rightElbow: -48, leftForearmTwist: -12, rightForearmTwist: 12, headTilt: -5 }) },
 
   // --- Beauty --------------------------------------------------------------
-  { id: 'beauty-front', category: 'beauty', label: 'Beauty, straight on', note: 'Square, chin slightly forward. Built for a butterfly key.', pose: p({ neckExtend: 12, headTilt: -2, chestLift: 55, leftShoulder: -4, rightShoulder: -4, leftArm: -6, rightArm: 6, leftElbow: 8, rightElbow: -8, eyeOpen: 96, jawSet: 22, squint: 8 }) },
-  { id: 'beauty-hands-face', category: 'beauty', label: 'Hands to face', note: 'Hands enter the light — expect a bounce onto the jaw.', pose: p({ leftArm: -58, rightArm: 30, leftArmForward: 66, rightArmForward: 30, leftElbow: 118, rightElbow: -96, leftWrist: -18, leftHand: 'open', rightHand: 'relaxed', headTilt: -6, headRoll: 7, neckExtend: 8, smile: 18 }) },
-  { id: 'over-shoulder', category: 'beauty', label: 'Over the shoulder', note: 'Body away, face back. The shoulder becomes the shadow edge.', pose: p({ torsoYaw: 118, hipYaw: 124, headYaw: -74, headTilt: -4, headRoll: -6, leftArm: -8, rightArm: 8, leftElbow: 16, rightElbow: -16, weightShift: 0.4, hipShift: -0.05, squint: 6, smile: 12 }) },
-  { id: 'editorial', category: 'beauty', label: 'Editorial', note: 'Angular and asymmetric. Hard light reads as intent here, not error.', pose: p({ headYaw: -26, headTilt: 8, headRoll: -9, torsoYaw: 16, spineSide: -7, leftArm: -70, leftArmForward: 28, leftElbow: 66, leftHand: 'open', rightArm: 22, rightElbow: -32, hipShift: -0.06, hipTilt: 6, weightShift: -0.5, rightKnee: 16, browRaise: -6, eyeOpen: 88, jawSet: 18 }) },
-  { id: 'chin-down', category: 'beauty', label: 'Chin down, eyes up', note: 'Lifts the eyes into the catchlight without lifting the jaw.', pose: p({ headTilt: 13, gazePitch: -14, browRaise: 12, neckExtend: 6, eyeOpen: 100, chestLift: 50, jawSet: 14 }) },
-  { id: 'laughing', category: 'beauty', label: 'Laughing', note: 'A real laugh closes the eyes — keep a catchlight in the lower lid.', pose: p({ smile: 88, squint: 62, mouthOpen: 42, lipPart: 60, headTilt: -12, headRoll: 9, browRaise: 18, eyeOpen: 52, leftArm: -14, rightArm: 20, leftElbow: 34, rightElbow: -44, chestLift: 45 }) },
+  { id: 'beauty-front', category: 'beauty', label: 'Beauty, straight on', note: 'Square, chin slightly forward. Built for a butterfly key.', pose: p({ neckExtend: 6, headTilt: -1, chestLift: 40, leftShoulder: -3, rightShoulder: -3, leftArm: -7, rightArm: 7, leftElbow: 7, rightElbow: -7, eyeOpen: 94, jawSet: 14, squint: 5 }) },
+  { id: 'beauty-hands-face', category: 'beauty', label: 'Hands to face', note: 'Hands enter the light — expect a bounce onto the jaw.', pose: p({ leftArm: -46, rightArm: 24, leftArmForward: 48, rightArmForward: 22, leftElbow: 102, rightElbow: -82, leftForearmTwist: -18, rightForearmTwist: 16, leftWrist: -10, rightWrist: 6, leftHand: 'open', rightHand: 'relaxed', headTilt: -4, headRoll: 6, neckExtend: 5, smile: 14 }) },
+  { id: 'over-shoulder', category: 'beauty', label: 'Over the shoulder', note: 'Body away, face back. The shoulder becomes the shadow edge.', pose: p({ torsoYaw: 95, hipYaw: 100, headYaw: -58, headTilt: -3, headRoll: -4, leftArm: -8, rightArm: 8, leftArmForward: 2, rightArmForward: -2, leftElbow: 12, rightElbow: -12, weightShift: 0.32, hipShift: -0.04, squint: 5, smile: 10, chestLift: 25 }) },
+  { id: 'editorial', category: 'beauty', label: 'Editorial', note: 'Angular and asymmetric. Hard light reads as intent here, not error.', pose: p({ headYaw: -21, headTilt: 6, headRoll: -7, torsoYaw: 14, spineSide: -5, leftArm: -52, leftArmForward: 22, leftElbow: 58, leftForearmTwist: -12, leftWrist: -5, leftHand: 'open', rightArm: 18, rightArmForward: -4, rightElbow: -27, hipShift: -0.05, hipTilt: 5, weightShift: -0.42, rightKnee: 13, browRaise: -5, eyeOpen: 90, jawSet: 14 }) },
+  { id: 'chin-down', category: 'beauty', label: 'Chin down, eyes up', note: 'Lifts the eyes into the catchlight without lifting the jaw.', pose: p({ headTilt: 10, gazePitch: -10, browRaise: 9, neckExtend: 4, eyeOpen: 98, chestLift: 38, jawSet: 10 }) },
+  { id: 'laughing', category: 'beauty', label: 'Laughing', note: 'A real laugh closes the eyes — keep a catchlight in the lower lid.', pose: p({ smile: 78, squint: 48, mouthOpen: 34, lipPart: 48, headTilt: -9, headRoll: 7, browRaise: 14, eyeOpen: 60, leftArm: -13, rightArm: 17, leftArmForward: 4, rightArmForward: 7, leftElbow: 27, rightElbow: -35, chestLift: 36 }) },
 
   // --- Commercial ----------------------------------------------------------
-  { id: 'presenting', category: 'commercial', label: 'Presenting', note: 'Open palm out to the side. Product goes on the palm.', pose: p({ rightArm: 62, rightArmForward: 34, rightElbow: -62, rightForearmTwist: 70, rightWrist: -14, rightHand: 'open', leftArm: -10, leftElbow: 16, smile: 42, chestLift: 50, torsoYaw: -12 }) },
-  { id: 'holding', category: 'commercial', label: 'Holding a product', note: 'Both hands in front — a specular product wants a large soft key.', pose: p({ leftArm: -26, rightArm: 26, leftArmForward: 52, rightArmForward: 52, leftElbow: 86, rightElbow: -86, leftForearmTwist: -30, rightForearmTwist: 30, leftHand: 'grip', rightHand: 'grip', headTilt: 10, gazePitch: 16 }) },
-  { id: 'thinking', category: 'commercial', label: 'Hand to chin', note: 'The forearm cuts across the neck. Fill from below or lose the jaw.', pose: p({ rightArm: 24, rightArmForward: 62, rightElbow: -122, rightForearmTwist: 40, rightWrist: 12, rightHand: 'relaxed', leftArm: -24, leftArmForward: 26, leftElbow: 72, leftHand: 'grip', headTilt: -4, headYaw: -12, browRaise: -10 }) },
-  { id: 'greeting', category: 'commercial', label: 'Waving', note: 'Raised open hand — the brightest thing in frame unless flagged.', pose: p({ rightArm: 96, rightArmForward: 18, rightElbow: -54, rightHand: 'open', rightWrist: -10, leftArm: -10, leftElbow: 16, smile: 62, squint: 22, headRoll: -5 }) },
+  { id: 'presenting', category: 'commercial', label: 'Presenting', note: 'Open palm out to the side. Product goes on the palm.', pose: p({ rightArm: 50, rightArmForward: 28, rightElbow: -52, rightForearmTwist: 55, rightWrist: -8, rightHand: 'open', leftArm: -10, leftArmForward: 2, leftElbow: 14, smile: 34, chestLift: 38, torsoYaw: -9, headYaw: 5 }) },
+  { id: 'holding', category: 'commercial', label: 'Holding a product', note: 'Both hands in front — a specular product wants a large soft key.', pose: p({ leftArm: -22, rightArm: 22, leftArmForward: 42, rightArmForward: 42, leftElbow: 78, rightElbow: -78, leftForearmTwist: -22, rightForearmTwist: 22, leftWrist: -3, rightWrist: 3, leftHand: 'grip', rightHand: 'grip', headTilt: 6, gazePitch: 10, chestLift: 30 }) },
+  { id: 'thinking', category: 'commercial', label: 'Hand to chin', note: 'The forearm cuts across the neck. Fill from below or lose the jaw.', pose: p({ rightArm: 18, rightArmForward: 48, rightElbow: -104, rightForearmTwist: 32, rightWrist: 8, rightHand: 'relaxed', leftArm: -18, leftArmForward: 20, leftElbow: 60, leftForearmTwist: -12, leftHand: 'grip', headTilt: -3, headYaw: -10, browRaise: -7, chestLift: 27 }) },
+  { id: 'greeting', category: 'commercial', label: 'Waving', note: 'Raised open hand — the brightest thing in frame unless flagged.', pose: p({ rightArm: 82, rightArmForward: 14, rightElbow: -48, rightForearmTwist: 10, rightHand: 'open', rightWrist: -6, leftArm: -10, leftArmForward: 2, leftElbow: 14, smile: 52, squint: 16, headRoll: -4, chestLift: 30 }) },
 ]
 
 export const POSE_CATEGORIES: PoseCategory[] = ['standing', 'seated', 'dynamic', 'beauty', 'commercial']
@@ -206,8 +222,9 @@ export function getPoseEntry(id: string): PoseEntry | undefined {
 
 /** Poses that move the pelvis off the floor need the figure raised to a seat. */
 export function seatHeightFor(pose: ModelPose): number {
-  // Both hips folded past 60° means the figure is sitting, not standing.
-  const folded = Math.min(pose.leftLeg, pose.rightLeg)
-  if (folded < 60) return 0
-  return 0.45
+  return pose.seated ? 0.45 : 0
+}
+
+export function isSeatedPose(pose: ModelPose): boolean {
+  return pose.seated
 }

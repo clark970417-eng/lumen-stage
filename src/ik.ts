@@ -15,7 +15,7 @@
 
 import * as THREE from 'three'
 import { HEAD, resolvePhysique, SEGMENT, type Physique } from './anatomy'
-import type { ModelPose } from './pose'
+import { isSeatedPose, type ModelPose } from './pose'
 
 const rad = THREE.MathUtils.degToRad
 const deg = THREE.MathUtils.radToDeg
@@ -72,7 +72,7 @@ export function stanceSplayFor(pose: ModelPose, hipJoint: number) {
 
 /** Pelvis height, solved from the leg angles — the same rule the figure uses. */
 export function pelvisHeight(pose: ModelPose, seatHeight: number | null) {
-  const seated = Math.min(pose.leftLeg, pose.rightLeg) > 60
+  const seated = isSeatedPose(pose)
   if (seated) return seatHeight ?? 0.46
   const drop = (hip: number, knee: number, ankle: number) => {
     const thighEnd = new THREE.Vector3(0, -SEGMENT.thigh, 0).applyEuler(new THREE.Euler(rad(-hip), 0, 0))

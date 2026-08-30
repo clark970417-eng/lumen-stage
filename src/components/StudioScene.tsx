@@ -15,7 +15,7 @@ import type { TransformControls as TransformControlsImpl } from 'three-stdlib'
 import { breathingAdjustedFocalLength, calculateDepthOfField } from '../optics'
 import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjectType, type StudioLight, type StudioModifier, type StudioObject, type TransformAxis } from '../store'
 import { Figure, type FigureAppearance } from './Figure'
-import type { ModelPose } from '../pose'
+import { isSeatedPose, type ModelPose } from '../pose'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
 import { EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_SAMPLE_X, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairResponse, studioSkinResponse } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
@@ -1139,7 +1139,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   const mainPhysique = useStudio((state) => state.physique)
   const mainHairStyle = useStudio((state) => state.hairStyle)
   const mainOutfitStyle = useStudio((state) => state.outfitStyle)
-  const rig = useRef<{ map: BoneMap; rest: RestPose } | null>(null)
+  const rig = useRef<{ map: BoneMap; rest: RestPose; restFootY: number; baseY: number } | null>(null)
   const pose = poseOverride ?? mainPose
   const lookAtCamera = lookAtCameraOverride ?? mainLookAtCamera
 
@@ -1256,7 +1256,16 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
         model.updateMatrixWorld(true)
       }
 
-      rig.current = quality.usable ? { map, rest: captureRestPose(model, map) } : null
+      const footY = (bone: THREE.Bone | undefined) => bone
+        ? model.worldToLocal(bone.getWorldPosition(new THREE.Vector3())).y
+        : Number.POSITIVE_INFINITY
+      const restFootY = Math.min(footY(map.leftFoot), footY(map.rightFoot))
+      rig.current = quality.usable ? {
+        map,
+        rest: captureRestPose(model, map),
+        restFootY: Number.isFinite(restFootY) ? restFootY : 0,
+        baseY: model.position.y,
+      } : null
       onRigReady?.(quality.usable ? map : null)
       if (reportStatus) setRigStatus(quality.usable ? 'rigged' : 'unrigged')
 
@@ -1323,8 +1332,18 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   useEffect(() => {
     if (!object || !rig.current) return
     const stanceSplay = THREE.MathUtils.radToDeg(Math.atan2(effectivePose.stanceWidth / 2 - 0.083, 0.865))
+    object.position.y = rig.current.baseY + effectivePose.rootLift
     applyPoseToSkeleton(object, rig.current.map, rig.current.rest, effectivePose, stanceSplay)
     applyExpressionToMorphs(object, effectivePose)
+    object.updateMatrixWorld(true)
+    if (!effectivePose.airborne && !isSeatedPose(effectivePose)) {
+      const footY = (bone: THREE.Bone | undefined) => bone
+        ? object.worldToLocal(bone.getWorldPosition(new THREE.Vector3())).y
+        : Number.POSITIVE_INFINITY
+      const posedFootY = Math.min(footY(rig.current.map.leftFoot), footY(rig.current.map.rightFoot))
+      if (Number.isFinite(posedFootY)) object.position.y += (rig.current.restFootY - posedFootY) * object.scale.y
+      object.updateMatrixWorld(true)
+    }
   }, [effectivePose, object])
 
   if (object) return <primitive object={object} rotation={url.startsWith('/models/lumen-human/') ? [0, 0, 0] : undefined} />
@@ -1352,7 +1371,7 @@ function Mannequin() {
   const modelRigStatus = useStudio((state) => state.modelRigStatus)
   const activeModelUrl = modelAssetUrl ?? shippedHumanFor(physique, outfitStyle)
   const seatHeight = useSeatHeight(position)
-  const seatedLift = Math.min(modelPose.leftLeg, modelPose.rightLeg) > 60 ? seatHeight ?? 0.46 : 0
+  const seatedLift = isSeatedPose(modelPose) ? seatHeight ?? 0.46 : 0
   const group = useRef<THREE.Group>(null)
   const [boneMap, setBoneMap] = useState<BoneMap | null>(null)
   const transformControl = useRef<TransformControlsImpl>(null)
@@ -1417,7 +1436,7 @@ function Mannequin() {
 /** A standalone person, seated on whatever furniture it happens to be over. */
 function StandaloneFigure({ object }: { object: StudioObject }) {
   const seatHeight = useSeatHeight(object.position)
-  const seatedLift = Math.min(object.subjectPose.leftLeg, object.subjectPose.rightLeg) > 60 ? seatHeight ?? 0.46 : 0
+  const seatedLift = isSeatedPose(object.subjectPose) ? seatHeight ?? 0.46 : 0
   const poseHandles = useStudio((state) => state.poseHandles)
   const selected = useStudio((state) => state.selected === object.id)
   const view = useStudio((state) => state.view)

@@ -19,7 +19,7 @@ import {
   hairShell, sculptedHead, upperArmRings, type FaceVariation, type Physique,
 } from '../anatomy'
 import { faceColorMap, faceRoughnessMap, fabricNormalMap, fabricRoughnessMap, hairNormalMap, skinColorMap, skinNormalMap, skinRoughnessMap } from '../textures'
-import type { HandPose, ModelPose } from '../pose'
+import { isSeatedPose, type HandPose, type ModelPose } from '../pose'
 import { studioHairResponse, studioSkinResponse } from '../studioHumanDetails'
 import type { FabricKind, HairStyle, OutfitStyle } from '../wardrobe'
 
@@ -472,7 +472,7 @@ export function Figure({ pose, skinColor, outfitColor, appearance, gaze, seatHei
    * a light stand, which is the whole reason to get it right.
    */
   const pelvisY = useMemo(() => {
-    const seated = Math.min(pose.leftLeg, pose.rightLeg) > 60
+    const seated = isSeatedPose(pose)
     // Sit on the actual furniture when there is some; otherwise assume a
     // standard chair, so a seated pose is never left floating in mid-air.
     if (seated) return seatHeight ?? 0.46
@@ -550,7 +550,7 @@ export function Figure({ pose, skinColor, outfitColor, appearance, gaze, seatHei
   const cloth: [number, number, number] = [CLOTH_OFFSET, 1, CLOTH_OFFSET]
 
   return (
-    <group position={[pose.hipShift, pelvisY, 0]}>
+    <group position={[pose.hipShift, pelvisY + pose.rootLift, 0]}>
       <group rotation={[0, rad(pose.hipYaw), rad(-pose.hipTilt + pose.weightShift * 2.5)]}>
         {/* The spine turns above the pelvis; the legs stay with the pelvis. */}
         <group rotation={[rad(pose.spineBend), rad(pose.torsoYaw - pose.hipYaw), rad(-pose.spineSide)]}>
