@@ -25,6 +25,8 @@ import { PoseRig } from './PoseRig'
 import { applyGelTint, geledTemperature, getGel } from '../gels'
 import { brickNormalMap, canvasNormalMap, concreteNormalMap, mottleMap, paperNormalMap, plasterNormalMap, woodNormalMap } from '../textures'
 import { DEFAULT_HUMAN_URL, shippedHumanFor } from '../characterAssets'
+import { useWorkflow } from '../workflow'
+import { canControlInWorkflow } from '../workflowControl'
 
 const SENSOR_WIDTH = { 'full-frame': 36, 'aps-c': 23.5, mft: 17.3 } as const
 const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
@@ -922,6 +924,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
 }
 
 function Mannequin() {
+  const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'person'))
   const selectObject = useStudio((state) => state.selectObject)
   const position = useStudio((state) => state.modelPosition)
   const rotation = useStudio((state) => state.modelRotation)
@@ -944,10 +947,10 @@ function Mannequin() {
   const transformControl = useRef<TransformControlsImpl>(null)
   // An imported model with no recognised skeleton cannot be posed, so it gets
   // no handles rather than handles that quietly do nothing.
-  const showHandles = poseHandles && selected && view !== 'camera' && modelRigStatus === 'rigged'
+  const showHandles = canControl && poseHandles && selected && view !== 'camera' && modelRigStatus === 'rigged'
 
   const model = (
-    <group ref={group} position={[position[0], seatedLift, position[2]]} rotation={[0, rotation, 0]} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); selectObject('model') }}>
+    <group ref={group} position={[position[0], seatedLift, position[2]]} rotation={[0, rotation, 0]} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('model') }}>
       <ImportedModel url={activeModelUrl} onRigReady={setBoneMap} />
       {showHandles && (
         <PoseRig
@@ -962,7 +965,7 @@ function Mannequin() {
     </group>
   )
 
-  if (!selected || view === 'camera') return model
+  if (!canControl || !selected || view === 'camera') return model
 
   return (
     <>
@@ -1076,6 +1079,7 @@ function StudioObjectMesh({ object }: { object: StudioObject }) {
 }
 
 function MovableStudioObject({ object }: { object: StudioObject }) {
+  const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, object.type === 'subject' ? 'person' : 'set'))
   const selected = useStudio((state) => state.selected === object.id)
   const selectObject = useStudio((state) => state.selectObject)
   const view = useStudio((state) => state.view)
@@ -1085,17 +1089,18 @@ function MovableStudioObject({ object }: { object: StudioObject }) {
   const transformControl = useRef<TransformControlsImpl>(null)
   const outlineSize: [number, number, number] = object.type === 'subject' ? [0.95, object.subjectHeight + 0.12, 0.65] : object.type === 'dog' ? [0.85, 1, 1.15] : object.type === 'cat' ? [0.65, 0.95, 0.75] : object.type === 'product' ? [0.55, 0.8, 0.55] : object.type === 'table' ? [1.5, 1, 0.9] : object.type === 'chair' ? [0.85, 1.4, 0.8] : object.type === 'plinth' ? [1, 1.25, 1] : [1, 1, 1]
   const yOffset = object.type === 'subject' ? object.subjectHeight / 2 : object.type === 'dog' ? 0.45 : object.type === 'cat' ? 0.42 : object.type === 'product' ? 0.35 : object.type === 'table' ? 0.45 : object.type === 'chair' ? 0.65 : object.type === 'plinth' ? 0.55 : 0
-  const content = <group ref={group} position={object.position} rotation={[0, object.rotationY, 0]} scale={object.type === 'subject' ? 1 : object.scale} onClick={(event) => { event.stopPropagation(); selectObject(object.id) }}>
+  const content = <group ref={group} position={object.position} rotation={[0, object.rotationY, 0]} scale={object.type === 'subject' ? 1 : object.scale} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(object.id) }}>
     <StudioObjectMesh object={object} />
-    {selected && view !== 'camera' && <mesh position={[0, yOffset, 0]}><boxGeometry args={outlineSize} /><meshBasicMaterial color={object.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={0.48} /></mesh>}
+    {canControl && selected && view !== 'camera' && <mesh position={[0, yOffset, 0]}><boxGeometry args={outlineSize} /><meshBasicMaterial color={object.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={0.48} /></mesh>}
   </group>
-  return <>{content}{selected && view !== 'camera' && !object.locked && <TransformControls ref={transformControl} object={group as RefObject<THREE.Object3D>} mode={transformMode} size={0.7} translationSnap={0.05} rotationSnap={THREE.MathUtils.degToRad(5)} showX={transformMode === 'translate'} showY showZ={transformMode === 'translate'} onMouseUp={() => {
+  return <>{content}{canControl && selected && view !== 'camera' && !object.locked && <TransformControls ref={transformControl} object={group as RefObject<THREE.Object3D>} mode={transformMode} size={0.7} translationSnap={0.05} rotationSnap={THREE.MathUtils.degToRad(5)} showX={transformMode === 'translate'} showY showZ={transformMode === 'translate'} onMouseUp={() => {
     if (!group.current) return
     setTransform(object.id, [Number(group.current.position.x.toFixed(2)), Number(Math.max(0, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))], Number(group.current.rotation.y.toFixed(3)), transformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined)
   }} />}</>
 }
 
 function Softbox({ light }: { light: StudioLight }) {
+  const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'light'))
   const { id: lightId, position, temperature, shape, grid: gridEnabled, colorMode, rgb, enabled } = light
   const gel = getGel(light.gelId)
   const softboxEnabled = light.optic === 'softbox'
@@ -1172,7 +1177,7 @@ function Softbox({ light }: { light: StudioLight }) {
   }, [light.target, position])
 
   const softbox = (
-    <group ref={rig} position={position} onClick={(event) => { event.stopPropagation(); selectObject(lightId, Boolean((event.nativeEvent as PointerEvent).shiftKey)) }}>
+    <group ref={rig} position={position} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(lightId, Boolean((event.nativeEvent as PointerEvent).shiftKey)) }}>
       <spotLight
         ref={spot}
         position={[0, 0, 0]} target={target} color={color} intensity={effectiveEnabled ? outputLumens / (renderMode === 'path' ? PATHTRACE_CANDELA_SCALE : PREVIEW_CANDELA_SCALE) : 0}
@@ -1218,7 +1223,7 @@ function Softbox({ light }: { light: StudioLight }) {
         {light.optic === 'barn-doors' && <group position={[0, 0, 0.12]}>
           {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((rotation) => <group key={rotation} rotation={[0, 0, rotation]}><mesh position={[0, 0.48, 0.1]} rotation={[THREE.MathUtils.degToRad(light.barnDoorAngle), 0, 0]}><planeGeometry args={[0.72, 0.48]} /><meshStandardMaterial color="#101310" metalness={0.65} roughness={0.28} side={THREE.DoubleSide} /></mesh></group>)}
         </group>}
-        {selected && view !== 'camera' && <RoundedBox args={[1.34, 1.34, 0.46]} radius={0.025} smoothness={2}><meshBasicMaterial color={light.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={primary ? 0.58 : 0.28} /></RoundedBox>}
+        {canControl && selected && view !== 'camera' && <RoundedBox args={[1.34, 1.34, 0.46]} radius={0.025} smoothness={2}><meshBasicMaterial color={light.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={primary ? 0.58 : 0.28} /></RoundedBox>}
       </group>
       <Line points={[[standOffset[0], -0.09, standOffset[1]], [0, -0.09, 0]]} color="#343936" lineWidth={4} />
       <mesh castShadow position={[standOffset[0], -0.09, standOffset[1]]}><sphereGeometry args={[0.052, 16, 12]} /><meshStandardMaterial color="#272a28" metalness={0.78} roughness={0.25} /></mesh>
@@ -1234,7 +1239,7 @@ function Softbox({ light }: { light: StudioLight }) {
       <primitive object={target} />
       <primitive object={aimPivot} />
       {softbox}
-      {primary && view !== 'camera' && <>
+      {canControl && primary && view !== 'camera' && <>
         <Line points={[position, light.target]} color="#d8ff3e" lineWidth={0.75} dashed dashSize={0.12} gapSize={0.08} transparent opacity={0.52} />
         <group position={light.target} visible={aimMode}>
           <mesh><sphereGeometry args={[0.065, 20, 20]} /><meshBasicMaterial color="#d8ff3e" /></mesh>
@@ -1243,7 +1248,7 @@ function Softbox({ light }: { light: StudioLight }) {
           </mesh>
         </group>
       </>}
-      {primary && view !== 'camera' && (aimMode || !light.locked) && (
+      {canControl && primary && view !== 'camera' && (aimMode || !light.locked) && (
         <TransformControls
           ref={transformControl}
           object={aimMode ? target : transformMode === 'rotate' ? aimPivot : rig as RefObject<THREE.Object3D>}
@@ -1278,6 +1283,7 @@ const MODIFIER_MATERIALS = {
 } as const
 
 function GripModifier({ modifier }: { modifier: StudioModifier }) {
+  const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'grip'))
   const selected = useStudio((state) => state.selected === modifier.id)
   const selectObject = useStudio((state) => state.selectObject)
   const transformMode = useStudio((state) => state.transformMode)
@@ -1351,7 +1357,7 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
       ref={group}
       position={modifier.position}
       rotation={[0, modifier.rotationY, 0]}
-      onClick={(event) => { event.stopPropagation(); selectObject(modifier.id) }}
+      onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(modifier.id) }}
     >
       {modifier.type === 'vflat' ? <>
         {panel(-panelWidth * 0.24, 0.34)}
@@ -1361,7 +1367,7 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
         <mesh position={[0, -modifier.height / 2 - 0.34, 0]} castShadow><cylinderGeometry args={[0.018, 0.025, 0.68, 10]} /><meshStandardMaterial color="#242824" metalness={0.7} roughness={0.28} /></mesh>
         <mesh position={[0, -modifier.height / 2 - 0.67, 0]} rotation={[0, 0, Math.PI / 2]} castShadow><cylinderGeometry args={[0.018, 0.018, 0.48, 10]} /><meshStandardMaterial color="#242824" metalness={0.7} /></mesh>
       </>}
-      {selected && view !== 'camera' && <mesh>
+      {canControl && selected && view !== 'camera' && <mesh>
         <boxGeometry args={[modifier.width + 0.1, modifier.height + 0.1, modifier.type === 'vflat' ? 0.5 : 0.1]} />
         <meshBasicMaterial color={modifier.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={0.48} />
       </mesh>}
@@ -1371,7 +1377,7 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
   return <>
     {object}
     {modifier.surface !== 'black' && <rectAreaLight ref={bounceLight} position={modifier.position} color={bounce.color} intensity={renderMode === 'path' ? 0 : bounce.intensity} width={modifier.width} height={modifier.height} />}
-    {selected && view !== 'camera' && !modifier.locked && <TransformControls
+    {canControl && selected && view !== 'camera' && !modifier.locked && <TransformControls
       ref={transformControl}
       object={group as RefObject<THREE.Object3D>}
       mode={transformMode}
@@ -1394,6 +1400,7 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
 }
 
 function CameraProp() {
+  const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'camera'))
   const selectObject = useStudio((state) => state.selectObject)
   const selected = useStudio((state) => state.selected === 'camera')
   const view = useStudio((state) => state.view)
@@ -1408,17 +1415,17 @@ function CameraProp() {
   }, [position, target])
 
   const camera = (
-    <group ref={group} position={position} onClick={(event) => { event.stopPropagation(); selectObject('camera') }}>
+    <group ref={group} position={position} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('camera') }}>
       <RoundedBox args={[0.48, 0.32, 0.25]} radius={0.04} smoothness={4}><meshStandardMaterial color="#1d201e" metalness={0.55} roughness={0.36} /></RoundedBox>
       <mesh position={[0, 0, -0.23]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.15, 0.12, 0.3, 32]} /><meshStandardMaterial color="#111312" metalness={0.72} roughness={0.28} /></mesh>
       <mesh position={[0, -0.8, 0.08]}><cylinderGeometry args={[0.025, 0.035, 1.45, 12]} /><meshStandardMaterial color="#2b2e2b" metalness={0.8} /></mesh>
-      {selected && view !== 'camera' && <RoundedBox args={[0.54, 0.38, 0.32]} radius={0.03} smoothness={2}><meshBasicMaterial color="#d8ff3e" wireframe transparent opacity={0.58} /></RoundedBox>}
+      {canControl && selected && view !== 'camera' && <RoundedBox args={[0.54, 0.38, 0.32]} radius={0.03} smoothness={2}><meshBasicMaterial color="#d8ff3e" wireframe transparent opacity={0.58} /></RoundedBox>}
     </group>
   )
 
   return <>
     {camera}
-    {selected && view !== 'camera' && <>
+    {canControl && selected && view !== 'camera' && <>
       <TransformControls
         ref={transformControl}
         object={group as RefObject<THREE.Object3D>}

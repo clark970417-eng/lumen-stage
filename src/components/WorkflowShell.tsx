@@ -7,6 +7,7 @@ import { useStudio } from '../store'
 import { useWorkflow, type WorkflowStage } from '../workflow'
 import { Inspector } from './Inspector'
 import { lightWattage } from '../lightProfiles'
+import { workflowModeForStage } from '../workflowControl'
 
 const COPY = {
   en: {
@@ -70,8 +71,9 @@ const lightDisplayName = (name: string, index: number, copy: (typeof COPY)['en']
 function DecisionStatusCard() {
   const copy = useCopy()
   const state = useStudio()
-  const light = state.lights.find((item) => item.id === state.selected)
-  const object = state.studioObjects.find((item) => item.id === state.selected)
+  const mode = useWorkflow((workflow) => workflowModeForStage(workflow.stage))
+  const light = mode === 'lighting' ? state.lights.find((item) => item.id === state.selected) : undefined
+  const object = mode === 'person' ? state.studioObjects.find((item) => item.id === state.selected) : undefined
   const lightIndex = light ? state.lights.findIndex((item) => item.id === light.id) : -1
   const distance = light ? Math.hypot(light.position[0] - state.modelPosition[0], light.position[1] - state.modelPosition[1], light.position[2] - state.modelPosition[2]) : 0
   const selection = light ? lightDisplayName(light.name, lightIndex, copy) : state.selected === 'camera' ? copy.camera : state.selected === 'model' ? copy.mainSubject : object?.name ?? String(state.selected)
@@ -87,6 +89,17 @@ export function WorkflowNavigation() {
   const stage = useWorkflow((state) => state.stage)
   const setStage = useWorkflow((state) => state.setStage)
   const studio = useStudio()
+
+  useEffect(() => {
+    const current = useStudio.getState()
+    const mode = workflowModeForStage(stage)
+    if (mode === 'person' && current.selected !== 'model' && !current.studioObjects.some((item) => item.id === current.selected)) current.selectObject('model')
+    if (mode === 'lighting' && !current.lights.some((item) => item.id === current.selected) && !current.modifiers.some((item) => item.id === current.selected)) {
+      const light = current.lights.find((item) => item.enabled) ?? current.lights[0]
+      if (light) current.selectObject(light.id)
+    }
+    if (mode === 'camera' && current.selected !== 'camera') current.selectObject('camera')
+  }, [stage])
 
   const chooseStage = (next: WorkflowStage) => {
     setStage(next)
@@ -156,8 +169,14 @@ export function AssetDrawer() {
   const copy = useCopy()
   const open = useWorkflow((state) => state.assetDrawerOpen)
   const setOpen = useWorkflow((state) => state.setAssetDrawerOpen)
+  const stage = useWorkflow((state) => state.stage)
   const studio = useStudio()
   const [tab, setTab] = useState<'lights' | 'people' | 'grip' | 'backdrops'>('lights')
+  const mode = workflowModeForStage(stage)
+  const tabs = mode === 'lighting' ? (['lights', 'grip'] as const) : (['people', 'backdrops'] as const)
+  useEffect(() => {
+    if (!tabs.includes(tab as never)) setTab(tabs[0])
+  }, [stage])
   useEffect(() => {
     if (!open) return
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
@@ -169,7 +188,7 @@ export function AssetDrawer() {
   const finish = (action: () => void) => { action(); setOpen(false) }
   return <div className="workspace-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false) }}><section className="asset-drawer" role="dialog" aria-modal="true" aria-label={copy.assetTitle}>
     <header><div><span>STAGE LIBRARY</span><h2>{copy.assetTitle}</h2></div><button onClick={() => setOpen(false)} aria-label={copy.close}>×</button></header>
-    <nav>{(['lights', 'people', 'grip', 'backdrops'] as const).map((id) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{copy[id]}</button>)}</nav>
+    <nav>{tabs.map((id) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{copy[id]}</button>)}</nav>
     <div className="asset-drawer-grid">
       {tab === 'lights' && <><button onClick={() => finish(() => studio.addLight('square'))}><i className="light-icon square" /><strong>{copy.square}</strong><small>SOFT / PORTRAIT</small></button><button onClick={() => finish(() => studio.addLight('round'))}><i className="light-icon round" /><strong>{copy.round}</strong><small>BEAUTY / OPEN</small></button><button onClick={() => finish(() => studio.addLight('strip'))}><i className="light-icon strip" /><strong>{copy.strip}</strong><small>EDGE / SEPARATION</small></button></>}
       {tab === 'people' && <>{([['subject', copy.person], ['product', copy.product], ['chair', copy.chair], ['table', copy.table]] as const).map(([id, label]) => <button key={id} onClick={() => finish(() => studio.addStudioObject(id))}><i className={`studio-object-icon ${id}`} /><strong>{label}</strong><small>STAGE OBJECT</small></button>)}</>}

@@ -210,6 +210,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .panel { background: var(--panel); min-height: 0; overflow: auto; scrollbar-color: #4d554a transparent; scrollbar-width: thin; }
 .library { grid-column: 1; grid-row: 2; border-right: 1px solid var(--line); }
 .inspector { grid-column: 3; grid-row: 2; border-left: 1px solid var(--line); }
+.inspector:not(.workflow-mode-camera) > .camera-body-controls,
+.inspector:not(.workflow-mode-camera) > .camera-controls { display: none; }
 .panel-heading { position: sticky; top: 0; z-index: 3; height: 43px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: var(--panel); }
 .panel-heading b { color: #bcc1b8; font-weight: 400; }
 
@@ -2650,10 +2652,11 @@ header.topbar .project-actions.is-simplified .topbar-export-button:hover { backg
 header.topbar .project-actions.is-simplified > .copyright-mark {
   position: static;
   min-width: 0;
-  width: auto;
-  height: auto;
-  padding: 0 10px;
-  justify-content: center;
+  width: fit-content;
+  height: 32px;
+  margin: auto 8px;
+  padding: 0 8px;
+  justify-content: flex-start;
   overflow: hidden;
   border-radius: 8px;
 }

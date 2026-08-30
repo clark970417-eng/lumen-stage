@@ -9,6 +9,8 @@ import { GEL_CATEGORIES, GELS, gelStopLoss, geledTemperature, getGel, type GelCa
 import { PhysiquePanel, PoseControls, PoseLibraryPanel, WardrobePanel } from './SubjectPanels'
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
 import { DEFAULT_HUMAN_NAME } from '../characterAssets'
+import { useWorkflow } from '../workflow'
+import { workflowModeForStage } from '../workflowControl'
 
 type RangeProps = {
   label: string
@@ -122,6 +124,7 @@ function GelPicker({ light }: { light: StudioLight }) {
 
 export function Inspector({ footer }: { footer?: ReactNode } = {}) {
   const state = useStudio()
+  const mode = useWorkflow((workflow) => workflowModeForStage(workflow.stage))
   const t = useT()
   const locale = useLocaleStore((item) => item.locale)
   const meta = locale === 'zh'
@@ -156,9 +159,9 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
   }
 
   return (
-    <aside className="inspector panel">
+    <aside className={`inspector panel workflow-mode-${mode}`}>
       <div className="panel-heading"><span>{t('inspector.title')}</span><b>{selectionLabel}</b></div>
-      {isLight && light && <>
+      {mode === 'lighting' && isLight && light && <>
         <InspectorDrawer key="light-output" title={t('light.section')} meta={meta.lightOutput} action={<button onClick={state.resetLighting}>{t('light.resetAll')}</button>}>
           {state.selectedIds.length > 1 && <div className="multi-selection-note"><b>{state.selectedIds.length}</b><span>{t('light.multiNote')}</span></div>}
           <div className="object-management">
@@ -253,7 +256,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
         </InspectorDrawer>
       </>}
 
-      {modifier && <InspectorDrawer key="grip" title={t('library.grip')} meta={meta.grip} className="grip-inspector">
+      {mode === 'lighting' && modifier && <InspectorDrawer key="grip" title={t('library.grip')} meta={meta.grip} className="grip-inspector">
         <div className="object-management">
           <input aria-label={t('grip.name')} value={modifier.name} maxLength={32} onChange={(event) => state.updateModifier(modifier.id, { name: event.target.value || 'Untitled grip' })} />
           <button onClick={() => state.duplicateModifier(modifier.id)}>{t('common.duplicate')}</button>
@@ -279,7 +282,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
         <p className="grip-note">{t('grip.note')}</p>
       </InspectorDrawer>}
 
-      {studioObject && <InspectorDrawer key="object" title={t('object.section')} meta={studioObject.type.toUpperCase()} className="studio-object-inspector">
+      {mode === 'person' && studioObject && <InspectorDrawer key="object" title={t('object.section')} meta={studioObject.type.toUpperCase()} className="studio-object-inspector">
         <div className="object-management"><input aria-label={t('object.name')} value={studioObject.name} maxLength={32} onChange={(event) => state.updateStudioObject(studioObject.id, { name: event.target.value || 'Untitled object' })} /><button onClick={() => state.duplicateStudioObject(studioObject.id)}>{t('common.duplicate')}</button><button className="danger" onClick={() => state.deleteStudioObject(studioObject.id)}>{t('common.delete')}</button></div>
         <div className="lock-row"><span>{t(studioObject.type === 'subject' ? 'object.subjectRig' : 'object.setPiece')}</span><button className={studioObject.locked ? 'locked' : ''} onClick={() => state.updateStudioObject(studioObject.id, { locked: !studioObject.locked })}>{t(studioObject.locked ? 'common.unlock' : 'common.lock')}</button></div>
         <div className="object-type-grid" role="group" aria-label={t('object.typeAria')}>{(['subject','dog','cat','product','chair','table','plinth','cube','sphere'] as const).map((type) => <button key={type} className={studioObject.type === type ? 'active' : ''} onClick={() => state.updateStudioObject(studioObject.id, { type })}>{t(`object.${type}`)}</button>)}</div>
