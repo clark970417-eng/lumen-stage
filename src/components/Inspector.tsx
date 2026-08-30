@@ -4,7 +4,7 @@ import { calculateDepthOfField } from '../optics'
 import { effectiveLightOutput, flashSyncFactor, lightWattage, opticTransmission, percentForWattage, wattageLimit } from '../lightProfiles'
 import { automaticLensProfileId, CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, type ColorProfileId } from '../colorScience'
-import { useT, type MessageKey } from '../i18n'
+import { useLocaleStore, useT, type MessageKey } from '../i18n'
 import { GEL_CATEGORIES, GELS, gelStopLoss, geledTemperature, getGel, type GelCategory } from '../gels'
 import { PhysiquePanel, PoseControls, PoseLibraryPanel, WardrobePanel } from './SubjectPanels'
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
@@ -120,9 +120,15 @@ function GelPicker({ light }: { light: StudioLight }) {
   )
 }
 
-export function Inspector() {
+export function Inspector({ footer }: { footer?: ReactNode } = {}) {
   const state = useStudio()
   const t = useT()
+  const locale = useLocaleStore((item) => item.locale)
+  const meta = locale === 'zh'
+    ? { lightOutput: '燈光／輸出', meters: '公尺', tracking: '人物追蹤', manual: '手動', grip: '控光附件', metersDeg: '公尺／角度', subjectPose: '人物／姿勢', cameraBody: '相機機身', optical: '鏡頭特性', color: 'RAW／色彩流程', sensor: '感光元件／快門', frame: '構圖／曝光', ambient: '環境光／閃燈同步', cameraExposure: '相機／曝光', fullFrame: '全片幅' }
+    : locale === 'ja'
+      ? { lightOutput: '照明／出力', meters: 'メートル', tracking: '人物追従', manual: '手動', grip: '遮光・反射', metersDeg: 'メートル／角度', subjectPose: '人物／ポーズ', cameraBody: 'カメラ本体', optical: 'レンズ特性', color: 'RAW／カラー処理', sensor: 'センサー／シャッター', frame: '構図／露出', ambient: '環境光／フラッシュ同期', cameraExposure: 'カメラ／露出', fullFrame: 'フルサイズ' }
+      : { lightOutput: 'Light / output', meters: 'Meters', tracking: 'Subject tracking', manual: 'Manual', grip: 'Grip', metersDeg: 'Meters / degrees', subjectPose: 'Subject / pose', cameraBody: 'Camera body', optical: 'Optical character', color: 'RAW / color pipeline', sensor: 'Sensor / shutter', frame: 'Frame / exposure', ambient: 'Ambient / flash sync', cameraExposure: 'Camera / exposure', fullFrame: 'Full frame' }
   const setValue = state.setValue
   const light = state.lights.find((item) => item.id === state.selected)
   const modifier = state.modifiers.find((item) => item.id === state.selected)
@@ -153,7 +159,7 @@ export function Inspector() {
     <aside className="inspector panel">
       <div className="panel-heading"><span>{t('inspector.title')}</span><b>{selectionLabel}</b></div>
       {isLight && light && <>
-        <InspectorDrawer key="light-output" title={t('light.section')} meta="LIGHT / OUTPUT" action={<button onClick={state.resetLighting}>{t('light.resetAll')}</button>}>
+        <InspectorDrawer key="light-output" title={t('light.section')} meta={meta.lightOutput} action={<button onClick={state.resetLighting}>{t('light.resetAll')}</button>}>
           {state.selectedIds.length > 1 && <div className="multi-selection-note"><b>{state.selectedIds.length}</b><span>{t('light.multiNote')}</span></div>}
           <div className="object-management">
             <input aria-label={t('light.name')} value={light.name} maxLength={32} onChange={(event) => state.updateLight(light.id, { name: event.target.value || 'Untitled light' })} />
@@ -218,12 +224,12 @@ export function Inspector() {
             <label className="rgb-control"><span>{t('light.rgbColor')}</span><input aria-label={t('light.rgbColor')} type="color" value={light.rgb} onChange={(event) => state.updateLight(light.id, { rgb: event.target.value })} /><output>{light.rgb.toUpperCase()}</output></label>
           )}
         </InspectorDrawer>
-        <InspectorDrawer key="light-position" title={t('axis.section')} meta="METERS">
+        <InspectorDrawer key="light-position" title={t('axis.section')} meta={meta.meters}>
           <Range label={t('axis.x')} disabled={light.locked} value={light.position[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setLightAxis(light.id, 0, value)} />
           <Range label={t('axis.y')} disabled={light.locked} value={light.position[1]} min={0.8} max={4.5} step={0.05} onChange={(value) => state.setLightAxis(light.id, 1, value)} />
           <Range label={t('axis.z')} disabled={light.locked} value={light.position[2]} min={-2} max={5} step={0.05} onChange={(value) => state.setLightAxis(light.id, 2, value)} />
         </InspectorDrawer>
-        <InspectorDrawer key="light-aim" title={t('beam.title')} meta={light.targetSubjectId ? 'SUBJECT TRACKING' : 'MANUAL'} className="beam-controls">
+        <InspectorDrawer key="light-aim" title={t('beam.title')} meta={light.targetSubjectId ? meta.tracking : meta.manual} className="beam-controls">
           <div className="target-binding-panel">
             <label><span>{t('beam.follow')}</span><select aria-label={t('beam.follow.aria')} value={light.targetSubjectId ?? 'manual'} onChange={(event) => state.bindLightToSubject(light.id, event.target.value === 'manual' ? null : event.target.value, light.targetZone ?? 'face')}>
               <option value="manual">{t('beam.manual')}</option>
@@ -247,7 +253,7 @@ export function Inspector() {
         </InspectorDrawer>
       </>}
 
-      {modifier && <InspectorDrawer key="grip" title={t('library.grip')} meta="GRIP" className="grip-inspector">
+      {modifier && <InspectorDrawer key="grip" title={t('library.grip')} meta={meta.grip} className="grip-inspector">
         <div className="object-management">
           <input aria-label={t('grip.name')} value={modifier.name} maxLength={32} onChange={(event) => state.updateModifier(modifier.id, { name: event.target.value || 'Untitled grip' })} />
           <button onClick={() => state.duplicateModifier(modifier.id)}>{t('common.duplicate')}</button>
@@ -265,7 +271,7 @@ export function Inspector() {
         </div></div>
         <Range label={t('common.width')} disabled={modifier.locked} value={modifier.width} min={0.3} max={3} step={0.05} unit=" m" onChange={(value) => state.updateModifier(modifier.id, { width: value })} />
         <Range label={t('common.height')} disabled={modifier.locked} value={modifier.height} min={0.4} max={3} step={0.05} unit=" m" onChange={(value) => state.updateModifier(modifier.id, { height: value })} />
-        <div className="coordinate-label"><span>{t('axis.posAndAngle')}</span><small>METERS / DEG</small></div>
+        <div className="coordinate-label"><span>{t('axis.posAndAngle')}</span><small>{meta.metersDeg}</small></div>
         <Range label={t('axis.x')} disabled={modifier.locked} value={modifier.position[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setModifierTransform(modifier.id, [value, modifier.position[1], modifier.position[2]])} />
         <Range label={t('axis.y')} disabled={modifier.locked} value={modifier.position[1]} min={0.3} max={3.5} step={0.05} onChange={(value) => state.setModifierTransform(modifier.id, [modifier.position[0], value, modifier.position[2]])} />
         <Range label={t('axis.z')} disabled={modifier.locked} value={modifier.position[2]} min={-2} max={5} step={0.05} onChange={(value) => state.setModifierTransform(modifier.id, [modifier.position[0], modifier.position[1], value])} />
@@ -308,14 +314,14 @@ export function Inspector() {
           })} />
           <PoseControls pose={studioObject.subjectPose} onChange={(patch) => state.updateStudioSubjectPose(studioObject.id, patch)} />
         </>}
-        <div className="coordinate-label"><span>{t('axis.posAndFacing')}</span><small>METERS / DEG</small></div>
+        <div className="coordinate-label"><span>{t('axis.posAndFacing')}</span><small>{meta.metersDeg}</small></div>
         <Range label={t('axis.x')} disabled={studioObject.locked} value={studioObject.position[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setStudioObjectTransform(studioObject.id, [value, studioObject.position[1], studioObject.position[2]])} />
         <Range label={t('axis.y')} disabled={studioObject.locked} value={studioObject.position[1]} min={0} max={3} step={0.05} onChange={(value) => state.setStudioObjectTransform(studioObject.id, [studioObject.position[0], value, studioObject.position[2]])} />
         <Range label={t('axis.z')} disabled={studioObject.locked} value={studioObject.position[2]} min={-1.5} max={5} step={0.05} onChange={(value) => state.setStudioObjectTransform(studioObject.id, [studioObject.position[0], studioObject.position[1], value])} />
         <Range label={t('axis.rotY')} disabled={studioObject.locked} value={Math.round(THREE_RAD_TO_DEG * studioObject.rotationY)} min={-180} max={180} step={5} unit="°" onChange={(value) => state.setStudioObjectTransform(studioObject.id, studioObject.position, value / THREE_RAD_TO_DEG)} />
       </InspectorDrawer>}
 
-      {state.selected === 'model' && <InspectorDrawer key="model" title={t('model.section')} meta="SUBJECT / POSE" className="model-inspector">
+      {state.selected === 'model' && <InspectorDrawer key="model" title={t('model.section')} meta={meta.subjectPose} className="model-inspector">
         <div className="selection-chip"><span className="model-silhouette" /><div><strong>{state.modelAssetName || DEFAULT_HUMAN_NAME}</strong><small>{state.modelImportStatus === 'ready' ? 'Rigged human · 1.82 m normalized' : state.modelImportStatus === 'error' ? 'Model failed · procedural fallback' : 'Loading realistic human…'}</small></div><b>SELECTED</b></div>
         <Range label={t('axis.x')} value={state.modelPosition[0]} min={-3} max={3} step={0.05} onChange={(value) => state.setModelTransform([value, 0, state.modelPosition[2]])} />
         <Range label={t('axis.z')} value={state.modelPosition[2]} min={-1} max={4} step={0.05} onChange={(value) => state.setModelTransform([state.modelPosition[0], 0, value])} />
@@ -357,7 +363,7 @@ export function Inspector() {
         </>}
       </InspectorDrawer>}
 
-      {state.selected === 'camera' && <InspectorDrawer key="camera-position" title={t('camera.section')} meta={state.cameraTargetSubjectId ? 'SUBJECT TRACKING' : 'MANUAL'} className="camera-body-controls">
+      {state.selected === 'camera' && <InspectorDrawer key="camera-position" title={t('camera.section')} meta={state.cameraTargetSubjectId ? meta.tracking : meta.manual} className="camera-body-controls">
         <div className="target-binding-panel camera-target-panel">
           <label><span>{t('beam.follow')}</span><select aria-label={t('camera.followAria')} value={state.cameraTargetSubjectId ?? 'manual'} onChange={(event) => state.bindCameraToSubject(event.target.value === 'manual' ? null : event.target.value, state.cameraTargetZone)}>
             <option value="manual">{t('camera.manual')}</option>
@@ -384,13 +390,13 @@ export function Inspector() {
         <Range label={t('camera.aimZ')} value={state.cameraTarget[2]} min={-1.5} max={4} step={0.05} onChange={(value) => state.setCameraTarget([state.cameraTarget[0], state.cameraTarget[1], value])} />
       </InspectorDrawer>}
 
-      <InspectorDrawer key="camera-body" title={t('camera.section')} meta="CAMERA BODY" className="camera-controls">
+      <InspectorDrawer key="camera-body" title={t('camera.section')} meta={meta.cameraBody} className="camera-controls">
         <div className="camera-gear-block">
           <label><span>{t('cam.body')}</span><select aria-label={t('cam.body')} value={state.cameraBodyId} onChange={(event) => state.selectCameraBody(event.target.value as keyof typeof CAMERA_BODIES)}>{Object.values(CAMERA_BODIES).map((body) => <option key={body.id} value={body.id}>{body.brand} · {body.model}</option>)}</select></label>
-          <div><span>{cameraBody.sensor === 'full-frame' ? 'FULL FRAME' : cameraBody.sensor === 'aps-c' ? 'APS-C' : 'MFT'}</span><b>{cameraBody.megapixels} MP</b><small>12–200 MM AUTO · ƒ/{lensProfile.maxAperture}</small></div>
+          <div><span>{cameraBody.sensor === 'full-frame' ? meta.fullFrame : cameraBody.sensor === 'aps-c' ? 'APS-C' : 'MFT'}</span><b>{cameraBody.megapixels} MP</b><small>12–200 mm · ƒ/{lensProfile.maxAperture}</small></div>
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-optics" title={t('lens.character')} meta="OPTICAL CHARACTER" className="camera-controls">
+      <InspectorDrawer key="camera-optics" title={t('lens.character')} meta={meta.optical} className="camera-controls">
         <div className="lens-character-block">
           <div className="lens-optics-switch-row"><button className={state.lensOpticsEnabled ? 'active' : ''} onClick={() => setValue('lensOpticsEnabled', !state.lensOpticsEnabled)}><i />{t(state.lensOpticsEnabled ? 'lens.opticsOn' : 'lens.opticsOff')}</button><button onClick={() => { setValue('lensVignette', lensProfile.vignette); setValue('lensDistortion', lensProfile.distortion); setValue('lensChromaticAberration', lensProfile.chromaticAberration); setValue('lensBreathing', lensProfile.breathing) }}>{t('lens.preset')}</button></div>
           <Range label={t('lens.vignette')} disabled={!state.lensOpticsEnabled} value={state.lensVignette} min={0} max={100} unit="%" onChange={(value) => setValue('lensVignette', value)} />
@@ -401,7 +407,7 @@ export function Inspector() {
           <div className="bokeh-blade-readout"><span>{t('lens.blades')}</span><b>{lensProfile.blades}</b><small>{lensProfile.blades >= 11 ? 'ROUND' : 'DEFINED'}</small></div>
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-color" title={t('color.title')} meta="RAW / COLOR PIPELINE" className="camera-controls">
+      <InspectorDrawer key="camera-color" title={t('color.title')} meta={meta.color} className="camera-controls">
         <div className="color-science-block">
           <div className="image-format-control" role="group" aria-label={t('color.formatAria')}>
             <button className={state.imageFormat === 'raw' ? 'active' : ''} onClick={() => setValue('imageFormat', 'raw')}><b>RAW</b><small>{t('color.raw.sub')}</small></button>
@@ -417,7 +423,7 @@ export function Inspector() {
           <div className="raw-pipeline-note"><i /><span>{state.imageFormat === 'raw' ? t('color.note.raw') : t('color.note.baked', { code: COLOR_PROFILES[state.colorProfileId].code })}</span></div>
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-sensor" title={t('sensor.title')} meta="SENSOR / SHUTTER" className="camera-controls">
+      <InspectorDrawer key="camera-sensor" title={t('sensor.title')} meta={meta.sensor} className="camera-controls">
         <div className="sensor-simulation-block">
           <div className="sensor-spec-strip"><span>BASE ISO <b>{cameraBody.nativeIso}</b></span><span>DR <b>{cameraBody.dynamicRange} STOPS</b></span><span>READOUT <b>{cameraBody.readoutMs} MS</b></span></div>
           <button className={state.sensorSimulationEnabled ? 'sensor-master active' : 'sensor-master'} onClick={() => setValue('sensorSimulationEnabled', !state.sensorSimulationEnabled)}><i />{t(state.sensorSimulationEnabled ? 'sensor.simOn' : 'sensor.simOff')}</button>
@@ -430,7 +436,7 @@ export function Inspector() {
           <div className={`sensor-warning ${state.shutterMode === 'electronic' && state.rollingShutter > 60 ? 'warning' : ''}`}><i /><span>{state.shutterMode === 'electronic' ? t('sensor.rollingWarn', { ms: cameraBody.readoutMs }) : t('sensor.mechNote')}</span></div>
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-frame" title={t('guide.composition')} meta="FRAME / EXPOSURE" className="camera-controls" action={<button onClick={state.openCameraView}>{t('cam.enterView')}</button>}>
+      <InspectorDrawer key="camera-frame" title={t('guide.composition')} meta={meta.frame} className="camera-controls" action={<button onClick={state.openCameraView}>{t('cam.enterView')}</button>}>
         <div className="composition-guide-control"><span>{t('guide.composition')}</span><div role="group" aria-label={t('guide.compositionAria')}>{(['none','thirds','golden','safe'] as const).map((guide) => <button key={guide} className={state.compositionGuide === guide ? 'active' : ''} onClick={() => setValue('compositionGuide', guide)}>{t(`guide.${guide}`)}</button>)}</div></div>
         <div className="optics-status">
           <div><span>NEAR</span><strong>{depth.near.toFixed(2)} m</strong></div>
@@ -442,7 +448,7 @@ export function Inspector() {
           <button className={state.focusGuide ? 'active' : ''} onClick={() => setValue('focusGuide', !state.focusGuide)}><i />{t('optics.focusGuide')}</button>
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-ambient" title={t('ambient.title')} meta="AMBIENT / FLASH SYNC" className="camera-controls">
+      <InspectorDrawer key="camera-ambient" title={t('ambient.title')} meta={meta.ambient} className="camera-controls">
         <div className="ambient-control-block">
           <Range label={t('ambient.level')} value={state.ambientLevel} min={0} max={100} step={1} unit="%" onChange={(value) => setValue('ambientLevel', value)} />
           <Range label={t('ambient.temperature')} value={state.ambientTemperature} min={2200} max={7500} step={100} unit=" K" onChange={(value) => setValue('ambientTemperature', value)} />
@@ -450,7 +456,7 @@ export function Inspector() {
           {state.lights.some((item) => item.enabled && item.operationMode === 'flash') && <div className={state.shutter > state.syncSpeed && state.lights.some((item) => item.enabled && item.operationMode === 'flash' && !item.hssEnabled) ? 'global-sync-status error' : 'global-sync-status'}><i /><span>{t(state.shutter > state.syncSpeed ? 'sync.over' : 'sync.ok')}</span><b>1/{state.shutter}s</b></div>}
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-exposure" title={t('cam.section')} meta="CAMERA / EXPOSURE" className="camera-controls">
+      <InspectorDrawer key="camera-exposure" title={t('cam.section')} meta={meta.cameraExposure} className="camera-controls">
         <div className="sub-control sensor-control">
           <span>{t('sensor.override')}</span>
           <div className="segmented-control" role="group" aria-label={t('sensor.formatAria')}>
@@ -480,6 +486,7 @@ export function Inspector() {
         </div>
         <Range label="ISO" value={state.iso} min={100} max={12800} step={100} onChange={(value) => setValue('iso', value)} />
       </InspectorDrawer>
+      {footer}
     </aside>
   )
 }

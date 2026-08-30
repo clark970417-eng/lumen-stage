@@ -64,7 +64,7 @@ main.app-shell {
   main.app-shell.left-panel-hidden.right-panel-hidden,
   main.app-shell.bottom-panel-hidden {
     grid-template-columns: 0 minmax(0, 1fr) 0;
-    grid-template-rows: 148px minmax(250px, 1fr) 124px;
+    grid-template-rows: 148px minmax(250px, 1fr) 0;
   }
 
   main.app-shell.bottom-panel-hidden {
@@ -72,7 +72,7 @@ main.app-shell {
   }
 
   main.app-shell.top-panel-hidden {
-    grid-template-rows: 0 minmax(250px, 1fr) 124px;
+    grid-template-rows: 0 minmax(250px, 1fr) 0;
   }
 
   main.app-shell.top-panel-hidden.bottom-panel-hidden {
@@ -173,7 +173,7 @@ main.app-shell {
 
   header.topbar .workflow-navigation {
     overflow-x: auto;
-    grid-template-columns: repeat(5, minmax(68px, 1fr));
+    grid-template-columns: repeat(3, minmax(82px, 1fr));
   }
 
   .professional-panel {
@@ -190,15 +190,15 @@ main.app-shell {
 
   main.app-shell,
   main.app-shell.bottom-panel-hidden {
-    grid-template-rows: 104px minmax(230px, 1fr) 112px;
+    grid-template-rows: 72px minmax(230px, 1fr) 0;
   }
 
   main.app-shell.bottom-panel-hidden {
-    grid-template-rows: 104px minmax(230px, 1fr) 0;
+    grid-template-rows: 72px minmax(230px, 1fr) 0;
   }
 
   main.app-shell.top-panel-hidden {
-    grid-template-rows: 0 minmax(230px, 1fr) 112px;
+    grid-template-rows: 0 minmax(230px, 1fr) 0;
   }
 
   .control-drawer > .control-drawer-heading {
@@ -271,7 +271,7 @@ main.app-shell {
   }
 
   .m-shell .m-tabs {
-    grid-template-columns: repeat(5, minmax(0, 1fr)) 44px;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) 44px;
     overflow-x: hidden;
   }
 

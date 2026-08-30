@@ -15,7 +15,7 @@ import { LOCALES, useLocaleStore, useT, type Locale } from './i18n'
 import { useStudio } from './store'
 import { buildShareLink, copyToClipboard } from './share'
 import { COLOR_PROFILES } from './colorScience'
-import { automaticLensProfileId, CAMERA_BODIES, LENS_PROFILES } from './cameraProfiles'
+import { CAMERA_BODIES } from './cameraProfiles'
 import { MAX_PROJECT_FILE_BYTES, readTextFileWithinLimit } from './security'
 import { BrandMark } from './components/BrandMark'
 import { CanvasHealth } from './components/CanvasHealth'
@@ -23,16 +23,14 @@ import { useDialogFocus } from './components/DialogFocus'
 import { OnboardingTour, shouldShowOnboarding } from './components/OnboardingTour'
 import { AssetDrawer, BlueprintPanel, ContinuityGuardPanel, DecisionConsole, ReferenceMatchPanel, ViewModeDock, WorkflowNavigation } from './components/WorkflowShell'
 import { useUiModeStore } from './uiMode'
-import { useWorkflow, type WorkflowStage } from './workflow'
 
 let hintSequence = 0
 
-const SENSOR_LABELS = { 'full-frame': 'FULL FRAME', 'aps-c': 'APS-C', mft: 'MFT' } as const
 const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
 const GUIDE_CHAPTERS: Record<Locale, readonly string[]> = {
-  en: ['Start here', 'Five-stage workflow', 'Define', 'Block', 'Shape', 'Frame', 'Verify', 'Shoot Blueprint', 'Selected Decision', 'Finish and export'],
-  zh: ['從這裡開始', '五步拍攝流程', '定調', '走位', '塑光', '取景', '驗證', '拍攝藍圖', '目前決策', '完成與輸出'],
-  ja: ['ここから開始', '5 段階のフロー', '方向', '配置', '光作り', '構図', '検証', '撮影ブループリント', '現在の判断', '完了と出力'],
+  en: ['Start here', 'Three-stage workflow', 'Define', 'Block', 'Shape', 'Frame', 'Verify', 'Shoot Blueprint', 'Selected Decision', 'Finish and export'],
+  zh: ['從這裡開始', '三階段拍攝流程', '定調', '走位', '塑光', '取景', '驗證', '拍攝藍圖', '目前決策', '完成與輸出'],
+  ja: ['ここから開始', '3 段階のフロー', '方向', '配置', '光作り', '構図', '検証', '撮影ブループリント', '現在の判断', '完了と出力'],
 }
 
 function ViewfinderOverlay() {
@@ -45,6 +43,12 @@ function ViewfinderOverlay() {
   const sensorFormat = useStudio((state) => state.sensorFormat)
   const frameAspect = useStudio((state) => state.frameAspect)
   const frameOrientation = useStudio((state) => state.frameOrientation)
+  const locale = useLocaleStore((state) => state.locale)
+  const overlayCopy = locale === 'zh'
+    ? { depth: '景深', landscape: '橫幅', portrait: '直幅' }
+    : locale === 'ja'
+      ? { depth: '被写界深度', landscape: '横位置', portrait: '縦位置' }
+      : { depth: 'DOF', landscape: 'Landscape', portrait: 'Portrait' }
   const compositionGuide = useStudio((state) => state.compositionGuide)
   const shutter = useStudio((state) => state.shutter)
   const cameraMode = useStudio((state) => state.cameraMode)
@@ -65,12 +69,12 @@ function ViewfinderOverlay() {
         <span className="frame-corner top-right" />
         <span className="frame-corner bottom-left" />
         <span className="frame-corner bottom-right" />
-        {focusGuide && renderMode === 'preview' && <span className="focus-point"><i /><b>AF-S · {focusDistance.toFixed(2)} M</b><small>DOF {depth.range.toFixed(2)} M</small></span>}
+        {focusGuide && renderMode === 'preview' && <span className="focus-point"><i /><b>AF-S · {focusDistance.toFixed(2)} m</b><small>{overlayCopy.depth} {depth.range.toFixed(2)} m</small></span>}
         {compositionGuide === 'thirds' && <><div className="thirds vertical one" /><div className="thirds vertical two" /><div className="thirds horizontal one" /><div className="thirds horizontal two" /></>}
         {compositionGuide === 'golden' && <><div className="guide-line vertical golden-one" /><div className="guide-line vertical golden-two" /><div className="guide-line horizontal golden-one" /><div className="guide-line horizontal golden-two" /></>}
         {compositionGuide === 'safe' && <div className="safe-area-guide"><span>SAFE AREA</span></div>}
       </div>
-      <span className="frame-format-label">{frameAspect} · {frameOrientation === 'landscape' ? 'LANDSCAPE' : 'PORTRAIT'}</span>
+      <span className="frame-format-label">{frameAspect} · {frameOrientation === 'landscape' ? overlayCopy.landscape : overlayCopy.portrait}</span>
       {cameraMode === 'cinema' && <><span className="cinema-frame-line top" /><span className="cinema-frame-line bottom" /><span className="cinema-status">REC FORMAT · {frameRate} FPS · {shutterAngle}°</span></>}
       {syncError && <div className="sync-curtain-warning" style={{ '--curtain-height': `${Math.round((1 - syncSpeed / shutter) * 100)}%` } as React.CSSProperties}><i /><span>FLASH SYNC LIMIT · 1/{syncSpeed}s</span></div>}
     </div>
@@ -139,29 +143,19 @@ function SetupSheetHost() {
   return open ? <SetupSheet /> : null
 }
 
-const MORE_MENU_COPY: Record<Locale, { trigger: string; title: string; workspace: string; project: string; focus: string; showPanels: string; pro: string }> = {
-  en: { trigger: 'More', title: 'Workspace and project tools', workspace: 'Workspace', project: 'Project', focus: 'Focus view', showPanels: 'Show panels', pro: 'Professional controls' },
-  zh: { trigger: '更多', title: '工作區與專案工具', workspace: '工作區', project: '專案', focus: '專注檢視', showPanels: '顯示面板', pro: '專業控制' },
-  ja: { trigger: 'その他', title: 'ワークスペースとプロジェクト', workspace: 'ワークスペース', project: 'プロジェクト', focus: '集中表示', showPanels: 'パネル表示', pro: 'プロ設定' },
-}
-
-const WORKFLOW_ACTION_COPY: Record<Locale, Record<WorkflowStage, string>> = {
-  en: { intent: 'Next: Block', blocking: 'Next: Shape', lighting: 'Next: Frame', framing: 'Next: Verify', verify: 'Run preflight' },
-  zh: { intent: '下一步：走位', blocking: '下一步：塑光', lighting: '下一步：取景', framing: '下一步：驗證', verify: '開始拍攝前檢查' },
-  ja: { intent: '次へ：配置', blocking: '次へ：光作り', lighting: '次へ：構図', framing: '次へ：検証', verify: '撮影前確認' },
-}
-
-const NEXT_WORKFLOW_STAGE: Partial<Record<WorkflowStage, WorkflowStage>> = {
-  intent: 'blocking',
-  blocking: 'lighting',
-  lighting: 'framing',
-  framing: 'verify',
+const MORE_MENU_COPY: Record<Locale, { trigger: string; title: string; history: string; undo: string; redo: string; workspace: string; project: string; focus: string; showPanels: string; pro: string; presets: string; on: string; off: string; mobile: string; export: string }> = {
+  en: { trigger: 'More', title: 'Workspace and project tools', history: 'History', undo: 'Undo', redo: 'Redo', workspace: 'Workspace', project: 'Project', focus: 'Focus view', showPanels: 'Show panels', pro: 'Professional controls', presets: 'Presets', on: 'On', off: 'Off', mobile: 'Mobile', export: 'Export' },
+  zh: { trigger: '更多', title: '工作區與專案工具', history: '操作紀錄', undo: '復原', redo: '重做', workspace: '工作區', project: '專案', focus: '專注檢視', showPanels: '顯示面板', pro: '專業控制', presets: '預設', on: '開啟', off: '關閉', mobile: '手機', export: '匯出' },
+  ja: { trigger: 'その他', title: 'ワークスペースとプロジェクト', history: '履歴', undo: '元に戻す', redo: 'やり直す', workspace: 'ワークスペース', project: 'プロジェクト', focus: '集中表示', showPanels: 'パネル表示', pro: 'プロ設定', presets: 'プリセット', on: 'オン', off: 'オフ', mobile: 'モバイル', export: '書き出す' },
 }
 
 /** Keep the header focused on one primary action; occasional tools live here. */
 function MoreMenu({
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
   onImport,
-  onExport,
   onSave,
   onTogglePanels,
   panelsHidden,
@@ -172,8 +166,11 @@ function MoreMenu({
   onOpenGuide,
   onOpenMobile,
 }: {
+  onUndo: () => void
+  onRedo: () => void
+  canUndo: boolean
+  canRedo: boolean
   onImport: () => void
-  onExport: () => void
   onSave: () => void
   onTogglePanels: () => void
   panelsHidden: boolean
@@ -220,17 +217,19 @@ function MoreMenu({
       </button>
       {open && (
         <div className="file-menu-list more-menu-list" role="menu">
+          <span className="file-menu-group">{copy.history}</span>
+          <button role="menuitem" disabled={!canUndo} onClick={pick(onUndo)}>{copy.undo}<small>⌘Z</small></button>
+          <button role="menuitem" disabled={!canRedo} onClick={pick(onRedo)}>{copy.redo}<small>⇧⌘Z</small></button>
           <span className="file-menu-group">{copy.workspace}</span>
           <button role="menuitem" onClick={pick(onTogglePanels)}>{panelsHidden ? copy.showPanels : copy.focus}<small>Tab</small></button>
-          <button role="menuitem" onClick={pick(onOpenSetups)}>{t('setups.launcher')}<small>PRESETS</small></button>
+          <button role="menuitem" onClick={pick(onOpenSetups)}>{t('setups.launcher')}<small>{copy.presets}</small></button>
           <button role="menuitem" onClick={pick(onOpenSheet)}>{t('topbar.setupSheet')}<small>PDF</small></button>
-          <button role="menuitem" onClick={pick(onTogglePro)}>{copy.pro}<small>{proOpen ? 'ON' : 'OFF'}</small></button>
+          <button role="menuitem" onClick={pick(onTogglePro)}>{copy.pro}<small>{proOpen ? copy.on : copy.off}</small></button>
           <button role="menuitem" onClick={pick(onOpenGuide)}>{t('topbar.guide')}<small>?</small></button>
-          <button role="menuitem" onClick={pick(onOpenMobile)}>{t('mobile.compact')}<small>MOBILE</small></button>
+          <button role="menuitem" onClick={pick(onOpenMobile)}>{t('mobile.compact')}<small>{copy.mobile}</small></button>
           <span className="file-menu-group">{copy.project}</span>
           <button role="menuitem" onClick={pick(onSave)}>{t('topbar.save')}<small>⌘S</small></button>
           <button role="menuitem" onClick={pick(onImport)}>{t('file.import')}<small>.json</small></button>
-          <button role="menuitem" onClick={pick(onExport)}>{t('file.export')}<small>⌘E</small></button>
           <ShareLinkItem onDone={() => setOpen(false)} />
         </div>
       )}
@@ -291,7 +290,7 @@ function LanguageSwitch() {
   )
 }
 
-function TopBar({ onOpenGuide, panelsHidden, onTogglePanels }: { onOpenGuide: () => void; panelsHidden: boolean; onTogglePanels: () => void }) {
+function TopBar({ onOpenGuide, onOpenAbout, panelsHidden, onTogglePanels }: { onOpenGuide: () => void; onOpenAbout: () => void; panelsHidden: boolean; onTogglePanels: () => void }) {
   const t = useT()
   const locale = useLocaleStore((state) => state.locale)
   const saveProject = useStudio((state) => state.saveProject)
@@ -306,27 +305,7 @@ function TopBar({ onOpenGuide, panelsHidden, onTogglePanels }: { onOpenGuide: ()
   const canUndo = useStudio((state) => state.undoStack.length > 0)
   const canRedo = useStudio((state) => state.redoStack.length > 0)
   const setUiMode = useUiModeStore((state) => state.setMode)
-  const workflowStage = useWorkflow((state) => state.stage)
-  const setWorkflowStage = useWorkflow((state) => state.setStage)
-  const lights = useStudio((state) => state.lights)
-  const selectObject = useStudio((state) => state.selectObject)
-  const openStudioView = useStudio((state) => state.openStudioView)
-  const openCameraView = useStudio((state) => state.openCameraView)
   const projectInput = useRef<HTMLInputElement>(null)
-
-  const continueWorkflow = () => {
-    if (workflowStage === 'verify') {
-      setValue('analysisOpen', true)
-      return
-    }
-    const next = NEXT_WORKFLOW_STAGE[workflowStage]
-    if (!next) return
-    setWorkflowStage(next)
-    if (next === 'blocking') { selectObject('model'); openStudioView() }
-    if (next === 'lighting') { const light = lights.find((item) => item.enabled) ?? lights[0]; if (light) selectObject(light.id); openStudioView() }
-    if (next === 'framing') { selectObject('camera'); openCameraView() }
-    if (next === 'verify') openCameraView()
-  }
 
   return (
     <header className="topbar simplified-topbar">
@@ -348,8 +327,11 @@ function TopBar({ onOpenGuide, panelsHidden, onTogglePanels }: { onOpenGuide: ()
           event.target.value = ''
         }} />
         <MoreMenu
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
           onImport={() => projectInput.current?.click()}
-          onExport={exportProject}
           onSave={saveProject}
           onTogglePanels={onTogglePanels}
           panelsHidden={panelsHidden}
@@ -360,7 +342,8 @@ function TopBar({ onOpenGuide, panelsHidden, onTogglePanels }: { onOpenGuide: ()
           onOpenGuide={onOpenGuide}
           onOpenMobile={() => setUiMode('mobile')}
         />
-        <button className="workflow-next-button" onClick={continueWorkflow}>{WORKFLOW_ACTION_COPY[locale][workflowStage]} <span>→</span></button>
+        <button className="topbar-export-button" onClick={exportProject} title={t('file.export')}>{MORE_MENU_COPY[locale].export}</button>
+        <CopyrightMark onOpen={onOpenAbout} />
       </div>
     </header>
   )
@@ -540,42 +523,6 @@ function SceneToolbar() {
   )
 }
 
-function DrawerRange({ label, value, min, max, step = 1, suffix = '', disabled = false, onChange }: { label: string; value: number; min: number; max: number; step?: number; suffix?: string; disabled?: boolean; onChange: (value: number) => void }) {
-  const progress = ((value - min) / Math.max(0.001, max - min)) * 100
-  return <label className={`drawer-control ${disabled ? 'is-fixed' : ''}`}><span>{label}</span><output>{value}{suffix}</output><input aria-label={label} disabled={disabled} type="range" min={min} max={max} step={step} value={value} style={{ '--progress': `${progress}%` } as React.CSSProperties} onChange={(event) => onChange(Number(event.target.value))} /></label>
-}
-
-function BottomControlDrawer({ onOpenAbout }: { onOpenAbout: () => void }) {
-  const state = useStudio()
-  const locale = useLocaleStore((item) => item.locale)
-  const lens = LENS_PROFILES[state.lensProfileId]
-  const ev = Math.log2((state.aperture * state.aperture * 100) / (1 / state.shutter * state.iso)).toFixed(1)
-  const copy = locale === 'zh'
-    ? { title: '相機 / 即時讀值', direct: '焦段與曝光同步顯示', focus: '對焦距離' }
-    : locale === 'ja'
-      ? { title: 'カメラ / 読み取り', direct: '焦点距離と露出を同期表示', focus: '焦点距離' }
-      : { title: 'Camera / Readout', direct: 'Focal length and exposure stay in sync', focus: 'Focus distance' }
-
-  const setFocalLength = (value: number) => {
-    const profileId = automaticLensProfileId(value)
-    if (profileId !== state.lensProfileId) state.selectLensProfile(profileId)
-    state.setValue('focalLength', value)
-  }
-
-  return <footer className="readout control-drawer">
-    <header className="control-drawer-heading"><span>{copy.title}</span><small>{copy.direct}</small></header>
-    <div className="control-drawer-body">
-      <DrawerRange label="FOCAL" value={state.focalLength} min={12} max={200} suffix=" mm" onChange={setFocalLength} />
-      <DrawerRange label="APERTURE" value={state.aperture} min={lens.maxAperture} max={16} step={0.1} suffix="" onChange={(value) => state.setValue('aperture', Number(value.toFixed(1)))} />
-      <label className="drawer-select"><span>SHUTTER</span><select aria-label="Shutter speed" value={state.shutter} onChange={(event) => state.setValue('shutter', Number(event.target.value))}>{[8,15,30,60,125,250,500,1000,2000].map((value) => <option key={value} value={value}>1/{value} s</option>)}</select></label>
-      <DrawerRange label="ISO" value={state.iso} min={100} max={12800} step={100} onChange={(value) => state.setValue('iso', value)} />
-      <DrawerRange label={copy.focus} value={state.focusDistance} min={1} max={10} step={0.05} suffix=" m" onChange={(value) => { if (state.cameraAutoFocus) state.setCameraAutoFocus(false); state.setValue('focusDistance', Number(value.toFixed(2))) }} />
-      <div className="drawer-meter scene-ev"><span>SCENE EV</span><strong>{ev}</strong><i style={{ '--meter': `${Math.min(100, Number(ev) * 7)}%` } as React.CSSProperties} /></div>
-    </div>
-    <CopyrightMark onOpen={onOpenAbout} />
-  </footer>
-}
-
 export default function App() {
   const view = useStudio((state) => state.view)
   const renderMode = useStudio((state) => state.renderMode)
@@ -602,12 +549,20 @@ export default function App() {
 
   const t = useT()
   const locale = useLocaleStore((state) => state.locale)
-  const panelSideLabel = locale === 'zh'
-    ? { hideLeft: '收起左側面板', showLeft: '顯示左側面板', hideRight: '收起右側面板', showRight: '顯示右側面板', hideTop: '收起上方功能列', showTop: '顯示上方功能列', hideBottom: '收起下方資訊列', showBottom: '顯示下方資訊列' }
+  const viewportCopy = locale === 'zh'
+    ? { buildingStudio: '建立攝影棚', interrupted: '3D 畫面已中斷', safe: '專案仍已儲存，重新載入即可重建攝影棚。', reload: '重新載入', buildingScene: '建立場景', pathTracing: '路徑追蹤', liveLighting: '即時佈光', studio: '攝影棚', topPlan: '俯視圖', meters: '公尺', camera: '相機', fullFrame: '全片幅', portrait: '直幅', landscape: '橫幅', photo: '照片', cinema: '電影' }
     : locale === 'ja'
-      ? { hideLeft: '左パネルを隠す', showLeft: '左パネルを表示', hideRight: '右パネルを隠す', showRight: '右パネルを表示', hideTop: '上部バーを隠す', showTop: '上部バーを表示', hideBottom: '下部バーを隠す', showBottom: '下部バーを表示' }
-      : { hideLeft: 'Hide left panel', showLeft: 'Show left panel', hideRight: 'Hide right panel', showRight: 'Show right panel', hideTop: 'Hide top bar', showTop: 'Show top bar', hideBottom: 'Hide bottom bar', showBottom: 'Show bottom bar' }
-  const panelSideName = locale === 'zh' ? { left: '左欄', right: '右欄', top: '上欄', bottom: '下欄' } : locale === 'ja' ? { left: '左', right: '右', top: '上', bottom: '下' } : { left: 'LEFT', right: 'RIGHT', top: 'TOP', bottom: 'BOTTOM' }
+      ? { buildingStudio: 'スタジオを構築中', interrupted: '3D 表示が中断しました', safe: 'プロジェクトは保存されています。再読み込みしてスタジオを再構築してください。', reload: '再読み込み', buildingScene: 'シーンを構築中', pathTracing: 'パストレーシング', liveLighting: 'ライブ照明', studio: 'スタジオ', topPlan: '平面図', meters: 'メートル', camera: 'カメラ', fullFrame: 'フルサイズ', portrait: '縦位置', landscape: '横位置', photo: '写真', cinema: 'シネマ' }
+      : { buildingStudio: 'Building studio', interrupted: '3D renderer interrupted', safe: 'Your project is still saved. Reload to rebuild the studio.', reload: 'Reload studio', buildingScene: 'Building scene', pathTracing: 'Path tracing', liveLighting: 'Live lighting', studio: 'Studio', topPlan: 'Top plan', meters: 'Meters', camera: 'Camera', fullFrame: 'Full frame', portrait: 'Portrait', landscape: 'Landscape', photo: 'Photo', cinema: 'Cinema' }
+  const sensorLabel = sensorFormat === 'full-frame' ? viewportCopy.fullFrame : sensorFormat === 'aps-c' ? 'APS-C' : 'MFT'
+  const selectedCameraName = cameras.find((camera) => camera.id === activeCameraId)?.name
+  const cameraLabel = !selectedCameraName || /^camera\s*a$/i.test(selectedCameraName) ? `${viewportCopy.camera} A` : selectedCameraName
+  const panelSideLabel = locale === 'zh'
+    ? { hideLeft: '收起左側面板', showLeft: '顯示左側面板', hideRight: '收起右側面板', showRight: '顯示右側面板', hideTop: '收起上方功能列', showTop: '顯示上方功能列' }
+    : locale === 'ja'
+      ? { hideLeft: '左パネルを隠す', showLeft: '左パネルを表示', hideRight: '右パネルを隠す', showRight: '右パネルを表示', hideTop: '上部バーを隠す', showTop: '上部バーを表示' }
+      : { hideLeft: 'Hide left panel', showLeft: 'Show left panel', hideRight: 'Hide right panel', showRight: 'Show right panel', hideTop: 'Hide top bar', showTop: 'Show top bar' }
+  const panelSideName = locale === 'zh' ? { left: '左欄', right: '右欄', top: '上欄' } : locale === 'ja' ? { left: '左', right: '右', top: '上' } : { left: 'LEFT', right: 'RIGHT', top: 'TOP' }
   const [sceneReady, setSceneReady] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [tourOpen, setTourOpen] = useState(false)
@@ -617,23 +572,23 @@ export default function App() {
     try {
       const currentSaved = window.localStorage.getItem('lumen-stage:workspace-panels:v3')
       const saved = currentSaved ?? window.localStorage.getItem('lumen-stage:workspace-panels:v2')
-      const parsed = saved ? JSON.parse(saved) as Partial<{ left: boolean; right: boolean; top: boolean; bottom: boolean }> : {}
-      return { left: parsed.left ?? true, right: currentSaved ? parsed.right ?? true : true, top: parsed.top ?? true, bottom: parsed.bottom ?? true }
+      const parsed = saved ? JSON.parse(saved) as Partial<{ left: boolean; right: boolean; top: boolean }> : {}
+      return { left: parsed.left ?? true, right: currentSaved ? parsed.right ?? true : true, top: parsed.top ?? true }
     } catch {
-      return { left: true, right: true, top: true, bottom: true }
+      return { left: true, right: true, top: true }
     }
   })
   const onWebglLost = useCallback(() => setWebglLost(true), [])
   const onWebglRestored = useCallback(() => setWebglLost(false), [])
   const [hint, setHint] = useState<{ id: number; text: string } | null>(null)
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const allPanelsHidden = !workspacePanels.left && !workspacePanels.right && !workspacePanels.top && !workspacePanels.bottom
-  const anyPanelHidden = !workspacePanels.left || !workspacePanels.right || !workspacePanels.top || !workspacePanels.bottom
+  const allPanelsHidden = !workspacePanels.left && !workspacePanels.right && !workspacePanels.top
+  const anyPanelHidden = !workspacePanels.left || !workspacePanels.right || !workspacePanels.top
 
   const toggleAllPanels = useCallback(() => {
-    setWorkspacePanels((current) => !current.left || !current.right || !current.top || !current.bottom
-      ? { left: true, right: true, top: true, bottom: true }
-      : { left: false, right: false, top: false, bottom: false })
+    setWorkspacePanels((current) => !current.left || !current.right || !current.top
+      ? { left: true, right: true, top: true }
+      : { left: false, right: false, top: false })
   }, [])
 
   useEffect(() => {
@@ -670,8 +625,8 @@ export default function App() {
   }, [sceneReady])
 
   return (
-    <main className={`app-shell ${workspacePanels.left ? '' : 'left-panel-hidden'} ${workspacePanels.right ? '' : 'right-panel-hidden'} ${workspacePanels.top ? '' : 'top-panel-hidden'} ${workspacePanels.bottom ? '' : 'bottom-panel-hidden'}`}>
-      <TopBar onOpenGuide={() => setGuideOpen(true)} panelsHidden={anyPanelHidden} onTogglePanels={toggleAllPanels} />
+    <main className={`app-shell ${workspacePanels.left ? '' : 'left-panel-hidden'} ${workspacePanels.right ? '' : 'right-panel-hidden'} ${workspacePanels.top ? '' : 'top-panel-hidden'}`}>
+      <TopBar onOpenGuide={() => setGuideOpen(true)} onOpenAbout={() => setAboutOpen(true)} panelsHidden={anyPanelHidden} onTogglePanels={toggleAllPanels} />
       <BlueprintPanel />
       <section className={`viewport ${renderMode === 'path' ? 'path-color-science' : ''}`} aria-label={t('viewport.aria')} style={{ '--path-saturation': pathSaturation, '--path-contrast': pathContrast, '--path-sepia': pathSepia } as React.CSSProperties}>
         <Canvas
@@ -688,12 +643,12 @@ export default function App() {
           <div className="viewport-loading" role="status">
             <span className="viewport-loading-mark"><i /></span>
             <strong>{t('viewport.loading')}</strong>
-            <small>BUILDING STUDIO · WEBGL</small>
+            <small>{viewportCopy.buildingStudio} · WebGL</small>
           </div>
         )}
-        {webglLost && <div className="webgl-notice" role="alert"><strong>3D renderer interrupted</strong><span>Your project is still saved. Reload to rebuild the studio.</span><button onClick={() => location.reload()}>Reload studio</button></div>}
-        <div className={`viewport-label ${renderMode === 'path' ? 'rendering' : ''}`}><span className="status-dot" /> {renderMode === 'path' ? (pathStatus === 'building' ? 'BUILDING SCENE' : `PATH TRACING · ${Math.floor(pathSamples)} SPP`) : 'LIVE LIGHTING'} <b>{renderMode === 'path' ? 'HQ' : '60 FPS'}</b></div>
-        <div className="axis-label">{renderMode === 'path' ? `${cameraMode.toUpperCase()} · ${SENSOR_LABELS[sensorFormat]} · ${frameAspect}` : view === 'camera' ? `${cameras.find((camera) => camera.id === activeCameraId)?.name.toUpperCase() ?? 'CAMERA'} · ${SENSOR_LABELS[sensorFormat]} · ${frameAspect} ${frameOrientation === 'portrait' ? 'V' : 'H'}` : view === 'top' ? 'TOP PLAN · METERS' : `STUDIO · ${roomWidth} × ${roomDepth} M`}</div>
+        {webglLost && <div className="webgl-notice" role="alert"><strong>{viewportCopy.interrupted}</strong><span>{viewportCopy.safe}</span><button onClick={() => location.reload()}>{viewportCopy.reload}</button></div>}
+        <div className={`viewport-label ${renderMode === 'path' ? 'rendering' : ''}`}><span className="status-dot" /> {renderMode === 'path' ? (pathStatus === 'building' ? viewportCopy.buildingScene : `${viewportCopy.pathTracing} · ${Math.floor(pathSamples)} SPP`) : viewportCopy.liveLighting} <b>{renderMode === 'path' ? 'HQ' : '60 FPS'}</b></div>
+        <div className="axis-label">{renderMode === 'path' ? `${cameraMode === 'cinema' ? viewportCopy.cinema : viewportCopy.photo} · ${sensorLabel} · ${frameAspect}` : view === 'camera' ? `${cameraLabel} · ${sensorLabel} · ${frameAspect} · ${frameOrientation === 'portrait' ? viewportCopy.portrait : viewportCopy.landscape}` : view === 'top' ? `${viewportCopy.topPlan} · ${viewportCopy.meters}` : `${viewportCopy.studio} · ${roomWidth} × ${roomDepth} m`}</div>
         <ViewModeDock />
         <SceneToolbar />
         <RenderToolbar />
@@ -708,11 +663,9 @@ export default function App() {
         <button className={`workspace-panel-tab left ${workspacePanels.left ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, left: !current.left }))} aria-label={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft} title={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft}><span aria-hidden="true">{panelSideName.left}</span><i aria-hidden="true" /></button>
         <button className={`workspace-panel-tab right ${workspacePanels.right ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, right: !current.right }))} aria-label={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight} title={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight}><span aria-hidden="true">{panelSideName.right}</span><i aria-hidden="true" /></button>
         <button className={`workspace-panel-tab top ${workspacePanels.top ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, top: !current.top }))} aria-label={workspacePanels.top ? panelSideLabel.hideTop : panelSideLabel.showTop} title={workspacePanels.top ? panelSideLabel.hideTop : panelSideLabel.showTop}><span aria-hidden="true">{panelSideName.top}</span><i aria-hidden="true" /></button>
-        <button className={`workspace-panel-tab bottom ${workspacePanels.bottom ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, bottom: !current.bottom }))} aria-label={workspacePanels.bottom ? panelSideLabel.hideBottom : panelSideLabel.showBottom} title={workspacePanels.bottom ? panelSideLabel.hideBottom : panelSideLabel.showBottom}><span aria-hidden="true">{panelSideName.bottom}</span><i aria-hidden="true" /></button>
       </section>
       <DecisionConsole />
       <ProfessionalPanel />
-      <BottomControlDrawer onOpenAbout={() => setAboutOpen(true)} />
       <ShortcutHelp />
       <SetupLibraryHost />
       <SetupSheetHost />

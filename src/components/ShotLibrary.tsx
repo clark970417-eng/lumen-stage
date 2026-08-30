@@ -3,7 +3,7 @@ import { useStudio, type FrameAspect, type FrameOrientation, type MakeupStyle, t
 import { CAMERA_BODIES, LENS_PROFILES, type CameraBodyId, type LensProfileId } from '../cameraProfiles'
 import { COLOR_PROFILES, type ColorProfileId, type ImageFormat } from '../colorScience'
 import { type ShutterMode } from '../sensorProcessing'
-import { useT } from '../i18n'
+import { useLocaleStore, useT } from '../i18n'
 import { captureCurrentShot, captureThumbnail } from '../shotCapture'
 import { openSetupSheetForShot } from './SetupSheet'
 import { getBackdrop } from '../backdrops'
@@ -136,6 +136,8 @@ export function ShotLibrary() {
   const frameOrientation = useStudio((state) => state.frameOrientation)
   const state = useStudio()
   const t = useT()
+  const locale = useLocaleStore((item) => item.locale)
+  const shortShot = locale === 'zh' ? '鏡位' : locale === 'ja' ? 'ショット' : 'Shot'
   const [compareIds, setCompareIds] = useState<string[]>([])
   const thumbnail = () => captureThumbnail(frameAspect, frameOrientation)
   const toggleCompare = (id: string) => setCompareIds((current) =>
@@ -148,21 +150,21 @@ export function ShotLibrary() {
   return <>
     <div className="shot-launcher">
       <button className={open ? 'active' : ''} onClick={() => state.setValue('shotPanelOpen', !open)}>{t('shots.launcher')} <b>{String(shots.length).padStart(2, '0')}</b></button>
-      <button className="capture-shot-button" onClick={captureCurrent}>＋ SHOT</button>
+      <button className="capture-shot-button" onClick={captureCurrent}>＋ {shortShot}</button>
     </div>
     {open && <aside className="shot-panel" aria-label={t('shots.launcher')}>
-      <header><span>SHOT LIBRARY</span><button aria-label={t('shots.close')} onClick={() => state.setValue('shotPanelOpen', false)}>×</button></header>
+      <header><span>{t('shots.launcher')}</span><button aria-label={t('shots.close')} onClick={() => state.setValue('shotPanelOpen', false)}>×</button></header>
       <div className="shot-panel-actions"><span>{t('shots.count', { count: shots.length })}</span><button onClick={captureCurrent}>{t('shots.capture')}</button></div>
       {compareIds.length === 1 && <p className="compare-hint">{t('compare.hint')}</p>}
       {comparePair.length === 2 && <ShotCompare a={comparePair[0]} b={comparePair[1]} onClose={() => setCompareIds([])} />}
       <div className="shot-list">
-        {!shots.length && <div className="empty-shots"><b>NO SHOTS</b><span>{t('shots.emptyHint')}</span></div>}
+        {!shots.length && <div className="empty-shots"><b>{t('shots.count', { count: 0 })}</b><span>{t('shots.emptyHint')}</span></div>}
         {shots.map((shot, index) => {
           const scene = sceneFromShot(shot)
           return <article key={shot.id} className={activeShotId === shot.id ? 'active' : ''}>
             <img src={shot.thumbnail} alt={t('shots.preview', { name: shot.name })} />
             <div className="shot-card-body">
-              <span>SHOT {String(index + 1).padStart(2, '0')}{activeShotId === shot.id ? ' · ACTIVE' : ''}</span>
+              <span>{shortShot} {String(index + 1).padStart(2, '0')}{activeShotId === shot.id ? ` · ${locale === 'zh' ? '目前使用' : locale === 'ja' ? '使用中' : 'Active'}` : ''}</span>
               <input aria-label={t('shots.nameAria', { name: shot.name })} defaultValue={shot.name} onBlur={(event) => state.updateShot(shot.id, event.target.value)} />
               <small>{scene ? `${cameraLabel(scene)} · ${lensLabel(scene)} @ ${scene.focalLength}mm · ${scene.imageFormat?.toUpperCase() ?? 'JPEG'} / ${COLOR_PROFILES[scene.colorProfileId ?? 'neutral'].code} · LOOK ${(scene.makeupStyle ?? 'natural').toUpperCase()} / ${(scene.outfitFabric ?? 'cotton').toUpperCase()} · ISO ${scene.iso} · ${scene.lights.length} LIGHTS · ${(scene.modifiers ?? []).length} GRIP · ${(scene.studioObjects ?? []).length} SET · ${getBackdrop(scene.backdropId ?? 'studio-grey').label.toUpperCase()}` : 'SCENE DATA ERROR'}</small>
             </div>

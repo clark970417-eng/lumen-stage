@@ -878,7 +878,7 @@ const DICT = {
   'tour.beforeAlt': { en: 'Before using {title}', zh: '操作「{title}」之前的真實畫面', ja: '「{title}」操作前の実画面' },
   'tour.afterAlt': { en: 'After using {title}', zh: '操作「{title}」之後的真實畫面', ja: '「{title}」操作後の実画面' },
   'tour.desktop.1.title': { en: 'Top: move through the shoot workflow', zh: '上方：依拍攝流程推進', ja: '上部：撮影フローに沿って進める' },
-  'tour.desktop.1.body': { en: 'Set the intent, block the subject, shape the light, frame the camera, then validate. Each stage surfaces only the decisions needed at that moment.', zh: '依序完成「定調、走位、塑光、取景、驗證」；每個階段只顯示當下真正需要決定的內容。', ja: '方向、配置、光作り、構図、検証の順に進みます。各段階には、その時に必要な判断だけが表示されます。' },
+  'tour.desktop.1.body': { en: 'Move through Plan, Light and Shoot. Each stage groups the related intent, blocking, lighting, framing and validation decisions.', zh: '依序完成「規劃、佈光、拍攝」；定調與走位、塑光、取景與驗證會收在對應階段裡。', ja: '計画、照明、撮影の順に進みます。方向と配置、光作り、構図と検証を対応する段階にまとめています。' },
   'tour.desktop.2.title': { en: 'Left: organise the shooting blueprint', zh: '左側：整理拍攝藍圖', ja: '左側：撮影ブループリントを整理' },
   'tour.desktop.2.body': { en: 'The blueprint follows the active stage. Lighting shows Key and Fill roles; Framing switches the same area to camera and shot plans, as shown in the real before/after.', zh: '拍攝藍圖會跟著流程切換：塑光時整理主光與補光，取景時改成相機與鏡位計畫；上方是真實操作前後。', ja: 'ブループリントは工程に連動します。光作りではキーとフィル、構図ではカメラとショット計画に切り替わります。' },
   'tour.desktop.3.title': { en: 'Centre: move, rotate and aim in 3D', zh: '中央：直接移動、旋轉與瞄準', ja: '中央：3D で移動・回転・照射する' },
