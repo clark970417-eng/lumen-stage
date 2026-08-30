@@ -73,6 +73,9 @@
 .demo-controls button span { color: var(--site-cyan); font-size: 12px; }
 .demo-controls input { width: 100%; accent-color: var(--site-cyan); cursor: ew-resize; }
 .demo-controls output { padding-inline: 7px; color: #8ca0a9; font: 8px var(--mono); white-space: nowrap; }
+.demo-screen video { cursor: pointer; }
+.demo-screen:focus-visible { outline: 2px solid var(--site-cyan); outline-offset: 4px; }
+.demo-shortcuts { grid-column: 1 / -1; padding: 2px 4px 0; color: #718892; font: 7px var(--mono); letter-spacing: .08em; text-align: center; }
 
 .mode-gate {
   position: fixed;
@@ -175,6 +178,7 @@
   .demo-controls button:not(:focus-visible) { font-size: 0; }
   .demo-controls button span { font-size: 12px; }
   .demo-controls output { padding-inline: 2px; font-size: 7px; }
+  .demo-shortcuts { font-size: 6px; letter-spacing: .04em; }
   .demo-console li > button { min-height: 72px; }
   .mode-gate { padding: 10px; }
   .mode-gate-panel { max-height: calc(100svh - 20px); border-radius: 16px; }
@@ -273,4 +277,66 @@
   .workflow li picture { margin-bottom: 16px; border-radius: 9px; }
   .site-outcomes picture { aspect-ratio: 4 / 3; }
   .site-outcomes img { object-fit: cover; object-position: center; }
+}
+
+/* Keep the homepage cover fully inside the viewport at every breakpoint. */
+.hero-instrument { max-width: 100%; }
+
+@media (min-width: 1201px) {
+  .hero-instrument { width: 100%; }
+}
+
+@media (max-width: 620px) {
+  .hero-instrument { width: 100%; margin-inline: 0; }
+  .hero-instrument picture { aspect-ratio: auto; }
+  .hero-instrument picture img { height: auto; object-fit: contain; object-position: center; }
+}
+
+/* Match the workflow chapter to the rest of the dark product story. */
+.workflow {
+  background: radial-gradient(circle at 8% 92%, rgba(116, 221, 255, .08), transparent 30%), #071015;
+  color: #edf4f6;
+}
+.workflow::before { border-color: rgba(116, 221, 255, .12); box-shadow: 0 0 0 9vw rgba(116, 221, 255, .025), 0 0 0 18vw rgba(116, 221, 255, .015); }
+.workflow-heading > span { color: var(--site-cyan); }
+.workflow-heading > p { color: #78909a; }
+.workflow li { border-color: var(--site-line); }
+.workflow li:last-child { border-color: var(--site-line); }
+.workflow li > span { color: var(--site-amber); }
+.workflow h3 { color: #edf4f6; }
+.workflow p { color: #879aa3; }
+
+.site-header-shell > nav { gap: clamp(10px, 1.35vw, 20px); }
+@media (max-width: 1120px) {
+  .site-header nav a { font-size: 9px; }
+}
+
+@media (max-width: 980px) {
+  .site-header-shell { position: relative; }
+  .site-header-shell > nav {
+    position: absolute;
+    top: 66px;
+    left: 0;
+    right: 0;
+    height: 40px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    border: 1px solid rgba(181, 217, 232, .16);
+    border-radius: 999px;
+    background: rgba(8, 14, 18, .88);
+    backdrop-filter: blur(18px);
+  }
+  .site-header-shell > nav::-webkit-scrollbar { display: none; }
+  .site-header-shell > nav a { flex: 0 0 auto; min-height: 36px; display: inline-flex; align-items: center; }
+  html.public-site-root .site-hero { padding-top: 142px; }
+  html.public-site-root .legal-page { padding-top: 150px; }
+}
+
+@media (max-width: 620px) {
+  .site-header-shell > nav { top: 60px; }
 }

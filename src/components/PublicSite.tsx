@@ -8,7 +8,7 @@ import '../site-demo-video.css'
 import '../site-interactions.css'
 
 type Copy = {
-  nav: [string, string, string, string]
+  nav: [string, string, string, string, string, string, string]
   open: string
   eyebrow: string
   title: [string, string, string]
@@ -18,14 +18,14 @@ type Copy = {
   demoTitle: string
   demoBody: string
   demoSteps: Array<[string, string]>
-  demoControls: { play: string; pause: string; replay: string; progress: string }
+  demoControls: { play: string; pause: string; replay: string; progress: string; shortcuts: string }
   mode: { title: string; body: string; close: string; simpleTitle: string; simpleBody: string; simpleCta: string; proTitle: string; proBody: string; proCta: string }
   compareTitle: string
   compareBody: string
   compareBefore: string
   compareAfter: string
   compareHint: string
-  release: { title: string; status: string; statusBody: string; updated: string; updatedBody: string; included: string; includedBody: string; continuity: string; continuityBody: string }
+  release: { title: string; status: string; statusBody: string; updated: string; updatedBody: string; included: string; includedBody: string; showcase: string; showcaseBody: string }
   audienceTitle: string
   audienceBody: string
   audiences: Array<[string, string]>
@@ -69,16 +69,16 @@ type Copy = {
 
 const COPY: Record<Locale, Copy> = {
   zh: {
-    nav: ['功能', '範例', '常見問題', '支援'], open: '免費開啟攝影棚', eyebrow: '給攝影師與攝影學習者的 3D 攝影棚',
+    nav: ['功能', '流程', '成果', '最新', '範例', '常見問題', '支援'], open: '免費開啟攝影棚', eyebrow: '給攝影師與攝影學習者的 3D 攝影棚',
     title: ['進棚拍攝前', '先排好燈位', '再決定畫面'],
     intro: 'LUMEN STAGE 讓你在瀏覽器裡安排燈位、相機、人物與背景，用真實距離與鏡頭參數預演下一次拍攝。',
     proof: ['免安裝', '免帳號', '場景留在你的裝置'], instrument: '不是示意圖，是可以工作的攝影工具。',
     demoLink: '觀看 15 秒操作流程', demoTitle: '十五秒，從空白想法到可拍攝的方案。', demoBody: '同一個即時場景裡完成佈光、取景、比較與輸出，不用在紙上猜測每一次調整。',
     demoSteps: [['選擇配置', '從經典布光開始。'], ['安排主體', '確認人物位置與姿勢。'], ['移動燈位', '調整距離、角度與功率。'], ['確認相機', '檢查焦段、光圈與取景。'], ['檢視平面配置', '從上方確認人、燈與相機位置。'], ['匯出到現場', '儲存並輸出燈位工作表。']],
-    demoControls: { play: '播放', pause: '暫停', replay: '重新播放', progress: '操作影片進度' },
+    demoControls: { play: '播放', pause: '暫停', replay: '重新播放', progress: '操作影片進度', shortcuts: '快捷鍵：左右箭頭前後移動，空白鍵播放或暫停' },
     mode: { title: '選擇你的工作方式', body: '兩種模式使用同一個場景格式，隨時可以切換。', close: '關閉模式選擇', simpleTitle: '簡易模式', simpleBody: '適合第一次使用與攝影學習，只保留人物、燈光、相機與配置的必要控制。', simpleCta: '開啟簡易版', proTitle: '專業模式', proBody: '完整燈光、相機、測光、連戲、預設與匯出控制。', proCta: '開啟專業版' },
     compareTitle: '不只看介面，直接比較畫面結果。', compareBody: '拖曳分隔線，比較即時取景與高畫質算圖的曝光、陰影與細節。', compareBefore: '即時取景', compareAfter: '高畫質算圖', compareHint: '拖曳以比較調整前後',
-    release: { title: '現在就能使用，也會持續改善。', status: '公開測試中', statusBody: '網站可直接開啟，不需申請邀請。', updated: '最近更新', updatedBody: '2026.08.31 · 首頁流程案例、受眾與模擬說明。', included: '免費版包含', includedBody: '15 組配置、簡易／專業工作區、本機儲存、備份與分享。', continuity: '持續更新', continuityBody: '依實際攝影工作流程改善操作、相容性與輸出。' },
+    release: { title: '現在就能使用，也會持續改善。', status: '公開測試中', statusBody: '網站可直接開啟，不需申請邀請。', updated: '最近更新', updatedBody: '2026.08.31 · 首頁流程案例、受眾與模擬說明。', included: '免費版包含', includedBody: '15 組配置、簡易／專業工作區、本機儲存、備份與分享。', showcase: '產品展示 Repo', showcaseBody: '查看英文產品介紹、功能重點與精選畫面，不包含原始碼。' },
     audienceTitle: '給需要在開拍前先把決定說清楚的人。', audienceBody: '不論你是在學習佈光、準備個人拍攝，或需要讓團隊看懂同一份計畫，都可以從相同場景開始。', audiences: [['攝影師', '在進棚前確認燈位、鏡頭與構圖。'], ['攝影助理', '把距離、方向與器材配置整理成可執行資訊。'], ['攝影學習者', '用即時畫面理解每次調整如何改變結果。'], ['前期製作團隊', '在拍攝前共享一致的視覺與空間方案。']],
     methodTitle: '它是規劃工具，不是假裝取代現場。', methodBody: 'LUMEN STAGE 使用攝影常用的距離、焦段、光圈、照度與色溫建立可比較的預演；最終曝光、顏色與安全仍以現場器材和測量為準。', methodPoints: [['物理估算', '距離、光線衰減、鏡頭與景深用一致的參數關係計算。'], ['視覺預覽', '算圖用來比較方向、比例與相對差異，不是校色或測光證明。'], ['現場確認', '正式拍攝仍需使用實際燈具、相機、測光表與安全規範。']],
     midCtaTitle: '先載入一組配置，再把它改成你的拍攝。', midCtaBody: '不用從空白場景開始；選擇簡易或專業模式，所有範例都能繼續調整。',
@@ -99,14 +99,14 @@ const COPY: Record<Locale, Copy> = {
     supportTitle: '支援與回報', supportBody: ['遇到載入、儲存、算圖或裝置相容問題時，請先重新載入網站，並確認瀏覽器已更新。', '回報問題時，請附上裝置、瀏覽器版本、畫面尺寸、重現步驟與截圖；不要附上私人照片或未公開專案檔。', 'LUMEN STAGE 目前由 YuYing 維護。你可以從 GitHub 個人主頁查看公開資訊，或透過 X 聯絡。'], issues: '前往 YuYing 的 GitHub', back: '返回首頁',
   },
   en: {
-    nav: ['Capabilities', 'Setups', 'FAQ', 'Support'], open: 'Open the studio free', eyebrow: 'A 3D studio for photographers and learners',
+    nav: ['Capabilities', 'Workflow', 'Outcomes', 'Latest', 'Setups', 'FAQ', 'Support'], open: 'Open the studio free', eyebrow: 'A 3D studio for photographers and learners',
     title: ['Plan the lights, lens', 'and frame before', 'you enter the studio.'], intro: 'LUMEN STAGE lets you arrange lights, camera, subject and backdrop with real distances and lens settings—right in your browser.',
     proof: ['No install', 'No account', 'Scenes stay on your device'], instrument: 'Not a mock-up. A working photographic instrument.', instrumentBody: 'Person, Light, Camera and Layout share one live scene. Desktop adds precise control and preset management; phone keeps the essential subject, lighting, framing and object-position tools.',
     demoLink: 'Watch the 15-second workflow', demoTitle: 'From a blank idea to a shootable plan in fifteen seconds.', demoBody: 'Light, frame, compare and hand off from one live scene instead of guessing what every adjustment will do.', demoSteps: [['Choose a setup', 'Start with a classic lighting pattern.'], ['Place the subject', 'Confirm position and pose.'], ['Move the lights', 'Tune distance, angle and output.'], ['Confirm the camera', 'Check focal length, aperture and frame.'], ['Review the layout', 'See subject, lights and camera from above.'], ['Export for set', 'Save and export a setup sheet.']],
-    demoControls: { play: 'Play', pause: 'Pause', replay: 'Replay', progress: 'Demo video progress' },
+    demoControls: { play: 'Play', pause: 'Pause', replay: 'Replay', progress: 'Demo video progress', shortcuts: 'Shortcuts: left and right arrows to seek, Space to play or pause' },
     mode: { title: 'Choose your workspace', body: 'Both modes use the same scene format, so you can switch at any time.', close: 'Close mode chooser', simpleTitle: 'Simple mode', simpleBody: 'For first-time users and photography learners. Keeps only the essential subject, light, camera and layout controls.', simpleCta: 'Open simple mode', proTitle: 'Professional mode', proBody: 'Complete lighting, camera, metering, continuity, preset and export controls.', proCta: 'Open professional mode' },
     compareTitle: 'Compare the picture, not just the interface.', compareBody: 'Drag the split to compare the live view and high-quality render for exposure, shadow and detail.', compareBefore: 'Live view', compareAfter: 'High-quality render', compareHint: 'Drag to compare before and after',
-    release: { title: 'Ready to use, and still improving.', status: 'Public beta', statusBody: 'Open the site directly. No invitation or application required.', updated: 'Latest update', updatedBody: '2026.08.31 · Homepage workflow case, audience and simulation notes.', included: 'Free version includes', includedBody: '15 setups, simple and pro workspaces, local saves, backups and sharing.', continuity: 'Ongoing updates', continuityBody: 'Workflow, compatibility and output improve through practical photography use.' },
+    release: { title: 'Ready to use, and still improving.', status: 'Public beta', statusBody: 'Open the site directly. No invitation or application required.', updated: 'Latest update', updatedBody: '2026.08.31 · Homepage workflow case, audience and simulation notes.', included: 'Free version includes', includedBody: '15 setups, simple and pro workspaces, local saves, backups and sharing.', showcase: 'Product showcase', showcaseBody: 'View the English product overview, feature highlights and selected visuals. Source code is not included.' },
     audienceTitle: 'For anyone who needs the decisions clear before call time.', audienceBody: 'Learn light, prepare a personal shoot, or align a crew around one shared scene before equipment reaches the set.', audiences: [['Photographers', 'Confirm lighting, lens and composition before entering the studio.'], ['Photo assistants', 'Turn distance, direction and equipment placement into an actionable plan.'], ['Photography learners', 'See how each adjustment changes the image in real time.'], ['Pre-production teams', 'Share one visual and spatial plan before the shoot.']],
     methodTitle: 'A planning instrument, not a substitute for the set.', methodBody: 'LUMEN STAGE uses photographic distance, focal length, aperture, illuminance and colour temperature for consistent previews. Final exposure, colour and safety still depend on real equipment and on-set measurement.', methodPoints: [['Physical estimates', 'Distance, falloff, lens and depth of field follow a consistent parameter model.'], ['Visual preview', 'Renders compare direction, proportion and relative change; they are not a colour or meter certificate.'], ['On-set verification', 'Confirm the final setup with real lights, camera, meter and safety practice.']],
     midCtaTitle: 'Load a proven setup, then make it yours.', midCtaBody: 'Skip the empty scene. Choose Simple or Professional mode and keep adjusting every example.',
@@ -124,14 +124,14 @@ const COPY: Record<Locale, Copy> = {
     supportTitle: 'Support', supportBody: ['For loading, storage, rendering or compatibility problems, reload first and confirm your browser is current.', 'Include device, browser version, viewport, reproduction steps and a screenshot. Do not attach private photographs or unreleased project files.', 'LUMEN STAGE is maintained by YuYing. Visit the GitHub profile for public information or get in touch on X.'], issues: "Open YuYing's GitHub", back: 'Back to home',
   },
   ja: {
-    nav: ['機能', 'セット例', 'よくある質問', 'サポート'], open: '無料でスタジオを開く', eyebrow: '撮影者と学習者のための 3D スタジオ',
+    nav: ['機能', '工程', '成果', '更新', 'セット例', 'FAQ', 'サポート'], open: '無料でスタジオを開く', eyebrow: '撮影者と学習者のための 3D スタジオ',
     title: ['スタジオに入る前に、', 'ライト、レンズ、', '画づくりを決める。'], intro: 'LUMEN STAGE はライト、カメラ、人物、背景を、実際の距離とレンズ設定でブラウザ上に組み立てる撮影設計ツールです。',
     proof: ['インストール不要', 'アカウント不要', 'シーンは端末内に保存'], instrument: 'イメージ図ではなく、実際に操作できる撮影ツール。', instrumentBody: '人物、照明、カメラ、配置の 4 モードが 1 つのライブシーンを共有。デスクトップは精密操作とプリセット管理、スマートフォンは人物・照明・構図・位置の中核操作に対応します。',
     demoLink: '15 秒の操作を見る', demoTitle: '十五秒で、アイデアを撮影可能なプランへ。', demoBody: '1 つのライブシーンで照明、構図、比較、書き出しまで行い、調整の結果を画面で確認できます。', demoSteps: [['セットを選ぶ', '定番の照明から開始。'], ['主体を配置', '位置とポーズを確認。'], ['ライトを動かす', '距離、角度、出力を調整。'], ['カメラを確認', '焦点距離、絞り、フレームを確認。'], ['レイアウトを確認', '主体、ライト、カメラを上から確認。'], ['現場用に書き出す', '保存してセットアップ表を書き出し。']],
-    demoControls: { play: '再生', pause: '一時停止', replay: '最初から再生', progress: 'デモ動画の進行' },
+    demoControls: { play: '再生', pause: '一時停止', replay: '最初から再生', progress: 'デモ動画の進行', shortcuts: 'ショートカット：左右矢印で移動、Space で再生／一時停止' },
     mode: { title: 'ワークスペースを選ぶ', body: 'どちらも同じシーン形式を使い、いつでも切り替えられます。', close: 'モード選択を閉じる', simpleTitle: 'シンプルモード', simpleBody: '初めての方と写真学習向け。主体、ライト、カメラ、配置の必要な操作だけを表示。', simpleCta: 'シンプル版を開く', proTitle: 'プロモード', proBody: '照明、カメラ、測光、連続性、プリセット、書き出しの全操作。', proCta: 'プロ版を開く' },
     compareTitle: 'インターフェースではなく、写真の結果を比較。', compareBody: '分割線をドラッグし、ライブ表示と高品質レンダーの露出、影、ディテールを比較。', compareBefore: 'ライブ表示', compareAfter: '高品質レンダー', compareHint: 'ドラッグして前後を比較',
-    release: { title: '今すぐ使え、継続して改善中。', status: '公開ベータ', statusBody: '招待や申請なしで直接開けます。', updated: '最終更新', updatedBody: '2026.08.31 · ホームの工程例、対象者、シミュレーション説明。', included: '無料版に含まれるもの', includedBody: '15 セット、シンプル／プロ画面、ローカル保存、バックアップ、共有。', continuity: '継続アップデート', continuityBody: '実際の撮影フローを基準に、操作性、互換性、出力を改善します。' },
+    release: { title: '今すぐ使え、継続して改善中。', status: '公開ベータ', statusBody: '招待や申請なしで直接開けます。', updated: '最終更新', updatedBody: '2026.08.31 · ホームの工程例、対象者、シミュレーション説明。', included: '無料版に含まれるもの', includedBody: '15 セット、シンプル／プロ画面、ローカル保存、バックアップ、共有。', showcase: '製品ショーケース', showcaseBody: '英語の製品紹介、機能概要、選定ビジュアルを掲載。ソースコードは含みません。' },
     audienceTitle: '撮影前に判断を明確にしたいすべての人へ。', audienceBody: '照明を学ぶ人、個人撮影を準備する人、同じプランを共有するチームが、1 つのシーンから始められます。', audiences: [['フォトグラファー', 'スタジオ入り前に照明、レンズ、構図を確認。'], ['撮影アシスタント', '距離、方向、機材配置を実行可能な情報に整理。'], ['写真学習者', '各調整が画像をどう変えるかリアルタイムで理解。'], ['プリプロダクション', '撮影前に共通の視覚・空間プランを共有。']],
     methodTitle: '現場を置き換えるのではなく、準備を強くする道具。', methodBody: 'LUMEN STAGE は距離、焦点距離、絞り、照度、色温度で一貫したプレビューを作ります。最終露出、色、安全性は実機材と現場測定で確認してください。', methodPoints: [['物理的な推定', '距離、減衰、レンズ、被写界深度を一貫したパラメータで計算。'], ['視覚プレビュー', '方向、比率、相対変化を比較するための表示で、測光・色校正の証明ではありません。'], ['現場での確認', '実際のライト、カメラ、露出計、安全基準で最終セットを確認。']],
     midCtaTitle: '定番セットを読み込み、自分の撮影へ。', midCtaBody: '空のシーンから始めず、シンプル／プロを選び、すべての例をそのまま調整できます。',
@@ -200,7 +200,8 @@ function LocaleSwitch() {
 
 function SiteHeader({ copy, onOpenStudio }: { copy: Copy; onOpenStudio?: () => void }) {
   const home = routeHref('home')
-  return <header className="site-header"><div className="site-header-shell"><a className="site-brand" href={home} aria-label="Lumen Stage home"><BrandMark /><span><b>LUMEN</b><small>STAGE / WEB</small></span></a><nav aria-label="Primary"><a href={`${home}#capabilities`}>{copy.nav[0]}</a><a href={`${home}#setups`}>{copy.nav[1]}</a><a href={`${home}#faq`}>{copy.nav[2]}</a><a href={routeHref('support')}>{copy.nav[3]}</a></nav><div className="site-actions"><LocaleSwitch />{onOpenStudio ? <button className="site-cta compact" type="button" onClick={onOpenStudio}><span>{copy.open}</span><b aria-hidden="true">↗</b></button> : <a className="site-cta compact" href={studioHref()}><span>{copy.open}</span><b aria-hidden="true">↗</b></a>}</div></div></header>
+  const sectionHref = (id: string) => onOpenStudio ? `#${id}` : `${home}#${id}`
+  return <header className="site-header"><div className="site-header-shell"><a className="site-brand" href={home} aria-label="Lumen Stage home"><BrandMark /><span><b>LUMEN</b><small>STAGE / WEB</small></span></a><nav aria-label="Primary"><a href={sectionHref('capabilities')}>{copy.nav[0]}</a><a href={sectionHref('workflow')}>{copy.nav[1]}</a><a href={sectionHref('outcomes')}>{copy.nav[2]}</a><a href={sectionHref('release')}>{copy.nav[3]}</a><a href={sectionHref('setups')}>{copy.nav[4]}</a><a href={sectionHref('faq')}>{copy.nav[5]}</a><a href={routeHref('support')}>{copy.nav[6]}</a></nav><div className="site-actions"><LocaleSwitch />{onOpenStudio ? <button className="site-cta compact" type="button" onClick={onOpenStudio}><span>{copy.open}</span><b aria-hidden="true">↗</b></button> : <a className="site-cta compact" href={studioHref()}><span>{copy.open}</span><b aria-hidden="true">↗</b></a>}</div></div></header>
 }
 
 function SiteFooter({ copy }: { copy: Copy }) {
@@ -251,7 +252,6 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
   const [modeOpen, setModeOpen] = useState(false)
   const heroStage = useRef<HTMLDivElement>(null)
   const demoRef = useRef<HTMLVideoElement>(null)
-  const resumeAfterHover = useRef(false)
   useEffect(() => {
     const titles = { home: 'Lumen Stage — Virtual Photography Studio', privacy: `${copy.privacyTitle} — Lumen Stage`, terms: `${copy.termsTitle} — Lumen Stage`, support: `${copy.supportTitle} — Lumen Stage` }
     document.title = titles[route]
@@ -295,18 +295,32 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
   const toggleDemo = () => {
     const video = demoRef.current
     if (!video) return
-    resumeAfterHover.current = false
     if (video.paused) void video.play()
     else video.pause()
   }
   const replayDemo = () => {
     const video = demoRef.current
     if (!video) return
-    resumeAfterHover.current = false
     video.currentTime = 0
     setDemoStep(0)
     setDemoProgress(0)
     void video.play()
+  }
+  const handleDemoKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return
+    if (event.key === ' ') {
+      event.preventDefault()
+      toggleDemo()
+      return
+    }
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    const video = demoRef.current
+    if (!video) return
+    const nextTime = Math.min(video.duration || 15, Math.max(0, video.currentTime + (event.key === 'ArrowRight' ? 2.5 : -2.5)))
+    video.currentTime = nextTime
+    setDemoStep(demoStepAt(nextTime))
+    setDemoProgress((nextTime / (video.duration || 15)) * 100)
   }
   if (route !== 'home') return <LegalPage route={route} copy={copy} />
   return <><SiteHeader copy={copy} onOpenStudio={() => setModeOpen(true)} />{modeOpen && <ModeChooser copy={copy} onClose={() => setModeOpen(false)} />}<main className="landing">
@@ -338,20 +352,9 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     <section className="site-demo" id="demo" data-reveal>
       <header><span>01 / QUICK DEMO</span><h2>{copy.demoTitle}</h2><p>{copy.demoBody}</p></header>
       <div className="demo-console">
-        <div className="demo-screen">
+        <div className="demo-screen" tabIndex={0} aria-label={copy.demoControls.shortcuts} onKeyDown={handleDemoKeys}>
           <video ref={demoRef} key={locale} autoPlay muted loop playsInline preload="metadata" poster={demoVideo.poster} aria-label={studioPreview.alt}
-            onMouseEnter={() => {
-              const video = demoRef.current
-              if (!video || video.paused) return
-              resumeAfterHover.current = true
-              video.pause()
-            }}
-            onMouseLeave={() => {
-              const video = demoRef.current
-              if (!video || !resumeAfterHover.current) return
-              resumeAfterHover.current = false
-              void video.play()
-            }}
+            onClick={toggleDemo}
             onTimeUpdate={(event) => {
               const video = event.currentTarget
               setDemoStep(demoStepAt(video.currentTime))
@@ -382,6 +385,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
               setDemoProgress(Number(event.currentTarget.value))
             }} />
             <output>{Math.floor((demoProgress / 100) * 15).toString().padStart(2, '0')} / 15s</output>
+            <span className="demo-shortcuts" aria-hidden="true">← −2.5s · → +2.5s · SPACE</span>
           </div>
         </div>
         <ol>{copy.demoSteps.map(([title, body], index) => <li key={title} className={index === demoStep ? 'active' : ''}><button type="button" onClick={() => seekDemo(index)} aria-current={index === demoStep ? 'step' : undefined}><span>0{index + 1}</span><div><strong>{title}</strong><small>{body}</small></div></button></li>)}</ol>
@@ -419,14 +423,14 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     </section>
     <section className="mid-cta" data-reveal><div><span>START FROM A WORKING LIGHT</span><h2>{copy.midCtaTitle}</h2><p>{copy.midCtaBody}</p></div><button className="site-cta" type="button" onClick={() => setModeOpen(true)}><span>{copy.open}</span><b aria-hidden="true">↗</b></button></section>
     <section className="workflow" id="workflow"><div className="workflow-heading" data-reveal><span>05 / WORKFLOW</span><h2>{copy.workflowTitle}</h2><p>PLAN · PREVIEW · SHOOT</p></div><ol>{copy.workflow.map(([title, body], index) => <li key={title} data-reveal><span>0{index + 1}</span><div><picture><img src={assetHref(index === 0 ? `onboarding/${locale}/desktop-3.png` : index === 1 ? 'onboarding/render-after.webp' : `site-detail/${locale}/handoff.png`)} alt={`${title} — ${body}`} width="960" height="540" loading="lazy" decoding="async" /></picture><h3>{title}</h3><p>{body}</p></div></li>)}</ol></section>
-    <section className="site-outcomes">
+    <section className="site-outcomes" id="outcomes">
       <header data-reveal><span>06 / FROM PLAN TO SET</span><h2>{copy.outcomeTitle}</h2><p>{copy.outcomeBody}</p></header>
       <div>{copy.outcomes.map(([title, body], index) => <figure key={title} data-reveal><picture><img src={assetHref(`site-detail/${locale}/${['light', 'camera', 'handoff'][index]}.png`)} alt={`${title} — ${body}`} width="780" height="438" loading="lazy" decoding="async" /></picture><figcaption><span>0{index + 1}</span><h3>{title}</h3><p>{body}</p></figcaption></figure>)}</div>
     </section>
     <ResultCompare copy={copy} />
     <section className="simulation-method" data-reveal><header><span>SIMULATION / REALITY</span><h2>{copy.methodTitle}</h2><p>{copy.methodBody}</p></header><div>{copy.methodPoints.map(([title, body], index) => <article key={title}><b>0{index + 1}</b><h3>{title}</h3><p>{body}</p></article>)}</div></section>
     <section className="site-trust" data-reveal><header><span>08 / BUILT-IN PROOF</span><h2>{copy.trustTitle}</h2></header><div>{copy.trust.map(([title, body], index) => <article key={title}><b>{TRUST_MARKS[index]}</b><h3>{title}</h3><p>{body}</p></article>)}</div></section>
-    <section className="release-proof" data-reveal><header><span>09 / RELEASE STATUS</span><h2>{copy.release.title}</h2></header><div><article><i /><span>STATUS</span><h3>{copy.release.status}</h3><p>{copy.release.statusBody}</p></article><article><span>UPDATED</span><h3>{copy.release.updated}</h3><p>{copy.release.updatedBody}</p></article><article><span>INCLUDED</span><h3>{copy.release.included}</h3><p>{copy.release.includedBody}</p></article><article><span>CONTINUITY</span><h3>{copy.release.continuity}</h3><p>{copy.release.continuityBody}</p></article></div></section>
+    <section className="release-proof" id="release" data-reveal><header><span>09 / RELEASE STATUS</span><h2>{copy.release.title}</h2></header><div><article><i /><span>STATUS</span><h3>{copy.release.status}</h3><p>{copy.release.statusBody}</p></article><article><span>UPDATED</span><h3>{copy.release.updated}</h3><p>{copy.release.updatedBody}</p></article><article><span>INCLUDED</span><h3>{copy.release.included}</h3><p>{copy.release.includedBody}</p></article><a href="https://github.com/clark970417-eng/lumen-stage-showcase" target="_blank" rel="noreferrer"><span>SHOWCASE</span><h3>{copy.release.showcase}</h3><p>{copy.release.showcaseBody}</p><b aria-hidden="true">↗</b></a></div></section>
     <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>10 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
     <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>11 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
     <section className="final-cta" data-reveal><span>READY / SET / LIGHT</span><h2>{copy.finalTitle}</h2><p>{copy.finalBody}</p><button className="site-cta" type="button" onClick={() => setModeOpen(true)}><span>{copy.open}</span><b aria-hidden="true">↗</b></button></section>
