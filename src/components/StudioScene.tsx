@@ -5,6 +5,7 @@ import { Effect, ToneMappingMode } from 'postprocessing'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js'
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
 import { IESLoader } from 'three/addons/loaders/IESLoader.js'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
@@ -14,7 +15,7 @@ import { useStudio, type OutfitFabric, type StudioLight, type StudioModifier, ty
 import { Figure, type FigureAppearance } from './Figure'
 import type { ModelPose } from '../pose'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { STUDIO_HAIR_CAP, studioEyeAnchor, studioHairAnchor } from '../studioHumanDetails'
+import { STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -603,8 +604,8 @@ function attachHeadDetail(model: THREE.Group, head: THREE.Bone, detail: THREE.Gr
   head.attach(detail)
 }
 
-/** Rounded short hair with a curved hairline, temple volume and visible strands. */
-function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3) {
+/** Fits the CC0 MakeHuman short04 mesh to this normalized actor's real head. */
+function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, source: THREE.Group) {
   const canvas = document.createElement('canvas')
   canvas.width = 512
   canvas.height = 512
@@ -647,50 +648,19 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     side: THREE.DoubleSide,
   })
 
-  const radius = STUDIO_HAIR_CAP.radius
-  // Stop the cap above the forehead. Extending it to the equator creates the
-  // blunt helmet edge that is especially obvious from profile.
-  const geometry = new THREE.SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, STUDIO_HAIR_CAP.thetaLength)
-  const positions = geometry.getAttribute('position') as THREE.BufferAttribute
-  for (let index = 0; index < positions.count; index += 1) {
-    const x = positions.getX(index)
-    const y = positions.getY(index)
-    const z = positions.getZ(index)
-    const nx = x / radius
-    const nz = z / radius
-    const ripple = 1 + Math.sin(nx * 17 + nz * 5) * 0.004 + Math.sin(nx * 7 - nz * 13) * 0.003
-    positions.setXYZ(index, x * ripple, y * (1 + Math.abs(nx) * 0.025), z * ripple)
-    // This asset faces -Z. Raise and vary only that front edge so the hairline
-    // curves over the temples instead of reading as a horizontal bowl cut.
-    if (nz < -0.10 && y < 0.045) {
-      const templeLift = Math.pow(Math.abs(nx), 1.5) * 0.018
-      const sidePartDip = Math.exp(-Math.pow((nx + 0.18) * 5.2, 2)) * -0.006
-      positions.setY(index, positions.getY(index) + 0.006 + templeLift + sidePartDip)
-    }
-  }
-  positions.needsUpdate = true
-  geometry.computeVertexNormals()
-
   const hairstyle = new THREE.Group()
-  hairstyle.name = 'studio-rounded-short-hair'
-  const cap = new THREE.Mesh(geometry, material)
-  // The source head is much narrower than it is tall. A near-spherical cap
-  // reads as a helmet, so hug the measured scalp width and depth instead.
-  cap.scale.copy(STUDIO_HAIR_CAP.scale)
-  cap.castShadow = true
-  cap.receiveShadow = true
-  hairstyle.add(cap)
-
-  // Small temple pieces cover the side scalp while leaving the forehead open.
-  const templeGeometry = new THREE.SphereGeometry(0.017, 20, 14)
-  for (const side of [-1, 1] as const) {
-    const temple = new THREE.Mesh(templeGeometry, material)
-    temple.position.set(side * 0.082, 0.018, -0.006)
-    temple.scale.set(0.52, 1.12, 0.74)
-    temple.rotation.z = side * -0.10
-    temple.castShadow = true
-    hairstyle.add(temple)
-  }
+  hairstyle.name = 'studio-short04-hair'
+  const sourceBox = new THREE.Box3().setFromObject(source)
+  const sourceCenter = sourceBox.getCenter(new THREE.Vector3())
+  source.scale.setScalar(STUDIO_HAIR_SOURCE_SCALE)
+  source.position.copy(sourceCenter).multiplyScalar(-STUDIO_HAIR_SOURCE_SCALE)
+  source.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return
+    child.material = material
+    child.castShadow = true
+    child.receiveShadow = true
+  })
+  hairstyle.add(source)
   attachHeadDetail(model, head, hairstyle, studioHairAnchor(headPosition, box.max.y))
 }
 
@@ -820,8 +790,19 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       if (shippedHuman && map.head) {
         const normalizedBox = new THREE.Box3().setFromObject(model)
         const headPosition = map.head.getWorldPosition(new THREE.Vector3())
-        addStudioHair(model, map.head, normalizedBox, headPosition)
         addStudioEyes(model, map.head, normalizedBox, headPosition)
+        new OBJLoader().load(STUDIO_HAIR_SOURCE_URL, (hair) => {
+          if (!active) {
+            hair.traverse((child) => {
+              if (!(child instanceof THREE.Mesh)) return
+              child.geometry.dispose()
+              const materials = Array.isArray(child.material) ? child.material : [child.material]
+              materials.forEach((material) => material.dispose())
+            })
+            return
+          }
+          addStudioHair(model, map.head!, normalizedBox, headPosition, hair)
+        })
       }
 
       // This source is authored in a wide A-stance. Lower only its upper arms
