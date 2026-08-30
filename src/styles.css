@@ -330,7 +330,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .viewport-label, .axis-label { position: absolute; top: 14px; padding: 8px 10px; background: rgba(17,19,17,.76); backdrop-filter: blur(8px); }
 .viewport-label { left: 14px; color: #c7cbc3; }
 .viewport-label b { margin-left: 12px; color: #7f857b; font-weight: 400; }
-.axis-label { right: 14px; }
+.axis-label { right: 14px; top: 52px; }
 .scene-toolbar { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); height: 34px; padding: 3px; display: flex; align-items: center; gap: 3px; border: 1px solid rgba(78,84,76,.84); background: rgba(17,19,17,.88); backdrop-filter: blur(10px); }
 .scene-toolbar > span { min-width: 0; padding: 0 10px 0 7px; overflow: hidden; color: #7e847b; font: 10px var(--mono); letter-spacing: .1em; text-overflow: ellipsis; white-space: nowrap; }
 .scene-toolbar button { height: 26px; padding: 0 8px; display: flex; flex: 0 0 auto; align-items: center; gap: 6px; border: 0; background: transparent; color: #8b9188; font-size: 10.5px; white-space: nowrap; word-break: keep-all; cursor: pointer; }
@@ -824,7 +824,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 }
 .view-switch button.active kbd, .render-toolbar .export-button kbd { opacity: .6; }
 
-.shortcut-launcher { position: absolute; right: 14px; top: 52px; z-index: 5; }
+.shortcut-launcher { position: absolute; right: 14px; top: 14px; z-index: 5; }
 .shortcut-launcher button {
   height: 26px; padding: 0 9px; display: flex; align-items: center; gap: 6px;
   border: 1px solid rgba(76,82,74,.9); background: rgba(15,17,15,.86); color: #9aa096;
@@ -1803,6 +1803,7 @@ button, input, select { transition: border-color .16s ease, background-color .16
   color: #c7d2d9;
   box-shadow: 0 8px 24px rgba(0,0,0,.18);
 }
+.axis-label { top: 52px; }
 .status-dot { background: var(--signal-cool); box-shadow: 0 0 9px rgba(103,216,255,.75); }
 .scene-toolbar {
   top: auto;
