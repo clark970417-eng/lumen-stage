@@ -14,6 +14,7 @@ import { useStudio, type OutfitFabric, type StudioLight, type StudioModifier, ty
 import { Figure, type FigureAppearance } from './Figure'
 import type { ModelPose } from '../pose'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
+import { STUDIO_HAIR_CAP, studioEyeAnchor, studioHairAnchor } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -646,8 +647,10 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     side: THREE.DoubleSide,
   })
 
-  const radius = 0.142
-  const geometry = new THREE.SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, Math.PI * 0.515)
+  const radius = STUDIO_HAIR_CAP.radius
+  // Stop the cap above the forehead. Extending it to the equator creates the
+  // blunt helmet edge that is especially obvious from profile.
+  const geometry = new THREE.SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, STUDIO_HAIR_CAP.thetaLength)
   const positions = geometry.getAttribute('position') as THREE.BufferAttribute
   for (let index = 0; index < positions.count; index += 1) {
     const x = positions.getX(index)
@@ -657,12 +660,12 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     const nz = z / radius
     const ripple = 1 + Math.sin(nx * 17 + nz * 5) * 0.004 + Math.sin(nx * 7 - nz * 13) * 0.003
     positions.setXYZ(index, x * ripple, y * (1 + Math.abs(nx) * 0.025), z * ripple)
-    // At the face, turn the circular cut edge into a soft widow's peak with
-    // higher temples. This removes the single triangular flap seen before.
-    if (nz > 0.10 && y < 0.024) {
-      const temple = Math.pow(Math.abs(nx), 1.5) * 0.034
-      const centreDip = Math.exp(-Math.pow((nx + 0.16) * 4.6, 2)) * -0.007
-      positions.setY(index, Math.max(positions.getY(index), -0.003 + temple + centreDip))
+    // This asset faces -Z. Raise and vary only that front edge so the hairline
+    // curves over the temples instead of reading as a horizontal bowl cut.
+    if (nz < -0.10 && y < 0.045) {
+      const templeLift = Math.pow(Math.abs(nx), 1.5) * 0.018
+      const sidePartDip = Math.exp(-Math.pow((nx + 0.18) * 5.2, 2)) * -0.006
+      positions.setY(index, positions.getY(index) + 0.006 + templeLift + sidePartDip)
     }
   }
   positions.needsUpdate = true
@@ -671,33 +674,24 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
   const hairstyle = new THREE.Group()
   hairstyle.name = 'studio-rounded-short-hair'
   const cap = new THREE.Mesh(geometry, material)
-  cap.scale.set(0.94, 1.04, 1.03)
+  // The source head is much narrower than it is tall. A near-spherical cap
+  // reads as a helmet, so hug the measured scalp width and depth instead.
+  cap.scale.copy(STUDIO_HAIR_CAP.scale)
   cap.castShadow = true
   cap.receiveShadow = true
   hairstyle.add(cap)
 
-  // Small temple pieces close the cap without turning it into a low bowl cut.
-  const templeGeometry = new THREE.SphereGeometry(0.025, 20, 14)
+  // Small temple pieces cover the side scalp while leaving the forehead open.
+  const templeGeometry = new THREE.SphereGeometry(0.017, 20, 14)
   for (const side of [-1, 1] as const) {
     const temple = new THREE.Mesh(templeGeometry, material)
-    temple.position.set(side * 0.114, -0.024, 0.012)
-    temple.scale.set(0.48, 0.88, 0.68)
+    temple.position.set(side * 0.082, 0.018, -0.006)
+    temple.scale.set(0.52, 1.12, 0.74)
     temple.rotation.z = side * -0.10
     temple.castShadow = true
     hairstyle.add(temple)
   }
-  // A few thin swept strands break the edge without covering the forehead.
-  const lockGeometry = new THREE.CapsuleGeometry(0.0045, 0.020, 5, 10)
-  ;[-0.040, -0.015, 0.012].forEach((x, index) => {
-    const lock = new THREE.Mesh(lockGeometry, material)
-    lock.position.set(x, -0.012 + Math.abs(x) * 0.12, 0.124)
-    lock.rotation.set(0.30, 0, -0.62 + index * 0.12)
-    lock.scale.set(0.64, 1 + index * 0.08, 0.52)
-    lock.castShadow = true
-    hairstyle.add(lock)
-  })
-
-  attachHeadDetail(model, head, hairstyle, new THREE.Vector3(headPosition.x, box.max.y - 0.088, headPosition.z))
+  attachHeadDetail(model, head, hairstyle, studioHairAnchor(headPosition, box.max.y))
 }
 
 /** Adds real sclera, iris, pupil and catchlight geometry to the shipped human. */
@@ -721,18 +715,23 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     white.castShadow = true
     eye.add(white)
     const irisMesh = new THREE.Mesh(irisGeometry, iris)
-    irisMesh.position.z = 0.0108
+    irisMesh.position.z = -0.0108
+    irisMesh.rotation.y = Math.PI
     eye.add(irisMesh)
     const pupilMesh = new THREE.Mesh(pupilGeometry, pupil)
-    pupilMesh.position.z = 0.01115
+    pupilMesh.position.z = -0.01115
+    pupilMesh.rotation.y = Math.PI
     eye.add(pupilMesh)
     const glint = new THREE.Mesh(catchlightGeometry, catchlight)
-    glint.position.set(-0.0018, 0.0020, 0.0115)
+    glint.position.set(-0.0018, 0.0020, -0.0115)
+    glint.rotation.y = Math.PI
     eye.add(glint)
     eyes.add(eye)
   }
 
-  attachHeadDetail(model, head, eyes, new THREE.Vector3(headPosition.x, box.max.y - 0.126, headPosition.z + 0.190))
+  // The shipped human faces -Z. Keep the sphere centres inside the sockets;
+  // only the iris/pupil surfaces sit just ahead of the face.
+  attachHeadDetail(model, head, eyes, studioEyeAnchor(headPosition, box.max.y))
 }
 
 /**
