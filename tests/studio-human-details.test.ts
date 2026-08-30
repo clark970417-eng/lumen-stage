@@ -4,15 +4,25 @@ import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
 import { STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor } from '../src/studioHumanDetails.ts'
 
-test('shipped human face details use its real -Z forward axis', () => {
-  const head = new THREE.Vector3(0, 1.672, -0.090)
-  const eyes = studioEyeAnchor(head, 1.82)
-  const hair = studioHairAnchor(head, 1.82)
+test('shipped human eyeballs sit behind the measured eyelid, not in front of it', () => {
+  // Both shipped actors, as measured from their meshes: the male's eyelid sits
+  // at z -0.124 and the female's at -0.168, while their head bones are 3 cm
+  // apart in depth. One offset from the bone could not place both.
+  const male = studioEyeAnchor(-0.124, 1.82)
+  const female = studioEyeAnchor(-0.168, 1.82)
 
-  assert.ok(eyes.z < head.z, 'eyeballs must sit toward the face, not behind the skull')
-  assert.ok(Math.abs(eyes.z - -0.225) < 1e-9, 'eyeballs must reach the authored eye-socket surface')
-  assert.ok(Math.abs(eyes.y - 1.694) < 1e-9)
-  assert.ok(hair.z > head.z, 'hair cap centre follows the rearward scalp centre')
+  assert.ok(male.z > -0.124, 'the eyeball centre is behind the eyelid, not out in front of the nose')
+  assert.ok(female.z > -0.168, 'the eyeball centre is behind the eyelid, not out in front of the nose')
+  assert.ok(male.z - -0.124 < 0.02, 'and only just behind it, or the iris never reaches the socket')
+  assert.ok(female.z - -0.168 < 0.02, 'and only just behind it, or the iris never reaches the socket')
+  // A deeper-set face pushes its eyes further forward, one for one.
+  assert.ok(Math.abs((male.z - female.z) - 0.044) < 1e-9, 'the anchor tracks the face it measured')
+  assert.ok(Math.abs(male.y - 1.694) < 1e-9)
+})
+
+test('shipped human hair still follows the rearward scalp centre', () => {
+  const head = new THREE.Vector3(0, 1.672, -0.090)
+  assert.ok(studioHairAnchor(head, 1.82).z > head.z)
 })
 
 test('runtime hair is a compact CC0 MakeHuman mesh, not a procedural helmet', () => {

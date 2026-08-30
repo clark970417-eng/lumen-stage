@@ -17,7 +17,7 @@ import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjec
 import { Figure, type FigureAppearance } from './Figure'
 import type { ModelPose } from '../pose'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor } from '../studioHumanDetails'
+import { EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_SAMPLE_X, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -25,7 +25,7 @@ import { getBackdrop, type BackdropProfile } from '../backdrops'
 import { FOOTPRINT, seatHeightOf } from '../layout'
 import { PoseRig } from './PoseRig'
 import { applyGelTint, geledTemperature, getGel } from '../gels'
-import { brickNormalMap, canvasNormalMap, concreteNormalMap, fabricNormalMap, fabricRoughnessMap, mottleMap, paperNormalMap, plasterNormalMap, woodNormalMap } from '../textures'
+import { brickNormalMap, canvasNormalMap, concreteNormalMap, fabricNormalMap, fabricRoughnessMap, mottleMap, paperNormalMap, plasterNormalMap, skinNormalMap, skinRoughnessMap, woodNormalMap } from '../textures'
 import { shippedHumanFor } from '../characterAssets'
 import { useWorkflow } from '../workflow'
 import { canControlInWorkflow, workflowModeForStage } from '../workflowControl'
@@ -725,6 +725,11 @@ function attachHeadDetail(model: THREE.Group, head: THREE.Bone, detail: THREE.Gr
   head.attach(detail)
 }
 
+/** Material names the appearance pass looks for on a loaded actor. */
+const STUDIO_HAIR_MATERIAL = 'studio-hair-material'
+const ACTOR_IRIS_MATERIAL = 'lumen-actor-iris'
+const ACTOR_EYE_MATERIAL = 'lumen-actor-eye'
+
 /** Maps the appearance controls to a physically plausible hair response. */
 function applyStudioHairAppearance(material: THREE.MeshPhysicalMaterial, hairColor: string, hairGloss: number) {
   const gloss = THREE.MathUtils.clamp(hairGloss / 100, 0, 1)
@@ -801,7 +806,7 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     envMapIntensity: 0.68,
     side: THREE.DoubleSide,
   })
-  material.name = 'studio-hair-material'
+  material.name = STUDIO_HAIR_MATERIAL
   applyStudioHairAppearance(material, hairColor, hairGloss)
 
   const hairstyle = new THREE.Group()
@@ -820,18 +825,232 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
   attachHeadDetail(model, head, hairstyle, studioHairAnchor(headPosition, box.max.y))
 }
 
-/** Adds real sclera, iris, pupil and catchlight geometry to the shipped human. */
-function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3) {
+/*
+ * Dressing the shipped actors.
+ *
+ * The two exports are not equally finished. The female bodies ship with a
+ * normal map and a metallic-roughness map; the male body ships with a colour
+ * map and nothing else, so his forehead, his forearm and his knuckles all had
+ * one roughness — which is most of why he read as a mannequin standing next to
+ * her. And both were being handed to MeshStandard, which has no sheen and no
+ * clearcoat: no way to say "light goes a few millimetres into this and comes
+ * back warm", which is the rest of what separates skin from painted plastic.
+ *
+ * Everything below is applied to whatever the file already carries rather than
+ * over the top of it. A baked map an artist authored beats a procedural one; a
+ * missing map is the only thing worth filling in.
+ */
+
+/** MakeHuman names the body material `Human.body`; everything else is worn. */
+function isActorSkin(material: THREE.Material) {
+  return /(^|[.\s_-])(body|skin)$/i.test(material.name)
+}
+
+/**
+ * Re-hosts a baked glTF material on MeshPhysical, carrying its maps across.
+ *
+ * Constructed field by field rather than through copy(): MeshPhysicalMaterial's
+ * copy reads clearcoat, sheen and the rest off the source, and a MeshStandard
+ * source has none of them, so the result is a material full of undefined.
+ */
+function toActorPhysical(source: THREE.MeshStandardMaterial) {
+  const material = new THREE.MeshPhysicalMaterial({
+    color: source.color.clone(),
+    map: source.map,
+    normalMap: source.normalMap,
+    normalScale: source.normalScale.clone(),
+    roughnessMap: source.roughnessMap,
+    metalnessMap: source.metalnessMap,
+    aoMap: source.aoMap,
+    aoMapIntensity: source.aoMapIntensity,
+    emissiveMap: source.emissiveMap,
+    displacementMap: source.displacementMap,
+    roughness: source.roughness,
+    metalness: 0,
+    side: source.side,
+    flatShading: source.flatShading,
+    vertexColors: source.vertexColors,
+  })
+  material.name = source.name
+  // The source marks every surface as alpha-blended even though the baked
+  // textures are opaque. Opaque depth writing keeps hair, eyes, mouth and
+  // jacket layers from sorting into black cut-outs.
+  material.transparent = false
+  material.opacity = 1
+  material.alphaTest = 0
+  material.depthWrite = true
+  return material
+}
+
+/**
+ * The colour light is when it comes back out of skin, whatever went in.
+ *
+ * Muted rather than the pure haemoglobin red the procedural figure lerps
+ * toward, because that figure lerps it against a skin colour the user picked
+ * and these actors carry a baked one. Applied neat it turned them orange.
+ */
+const SUBSURFACE_COLOR = '#d99a86'
+
+/**
+ * The skin response, driven by the same controls as the procedural figure.
+ *
+ * Matching the formulas in Figure.tsx is the point: a roughness slider that
+ * means one thing on the fallback body and another on the actor you actually
+ * render is worse than no slider.
+ */
+function applyActorSkin(material: THREE.MeshPhysicalMaterial, appearance: FigureAppearance) {
+  const age = THREE.MathUtils.clamp(((appearance.physique.age ?? 28) - 18) / 62, 0, 1)
+  const rough = appearance.skinRoughness / 100
+  if (!material.normalMap) {
+    // Pores. This is the male body's missing map, and the difference between
+    // a broken highlight and one flat specular blob across a whole cheek.
+    material.normalMap = skinNormalMap()
+    material.normalScale = new THREE.Vector2(0.3, 0.3)
+  }
+  // Whose map is in play decides what the roughness number means. Ours is
+  // authored against an absolute value; the file's is authored against the
+  // glTF default factor of 1, so imposing an absolute number on it made the
+  // female actors a stop glossier than their artist intended — wet-looking,
+  // with hard specular streaks down the arms.
+  const ourMap = !material.roughnessMap || material.userData.lumenSkinRoughness === true
+  if (!material.roughnessMap) {
+    material.roughnessMap = skinRoughnessMap()
+    material.userData.lumenSkinRoughness = true
+  }
+  material.metalness = 0
+  material.roughness = ourMap
+    ? THREE.MathUtils.clamp(THREE.MathUtils.lerp(0.42, 0.92, rough) + age * 0.05, 0.36, 0.96)
+    : THREE.MathUtils.clamp(THREE.MathUtils.lerp(0.78, 1, rough) + age * 0.02, 0.7, 1)
+  // Sebum, which is a coat over the skin rather than a property of it.
+  material.clearcoat = (appearance.skinOil / 100) * 0.22
+  material.clearcoatRoughness = THREE.MathUtils.lerp(0.24, 0.56, rough)
+  // Scatter, twice over: a warm sheen at grazing angles for the rim, and a
+  // trace of emission so the shadow terminator stays warm instead of going
+  // straight to black the way paint does. Both kept small — this is meant to
+  // read as skin, not as a lit surface the meter never accounted for.
+  material.sheen = (appearance.subsurface / 100) * 0.32
+  material.sheenColor = new THREE.Color(SUBSURFACE_COLOR)
+  material.sheenRoughness = 0.85
+  material.emissive = new THREE.Color(SUBSURFACE_COLOR).multiplyScalar(0.09)
+  material.emissiveIntensity = (appearance.subsurface / 100) * 0.04
+  material.envMapIntensity = 0.5
+  material.needsUpdate = true
+}
+
+/** The worn response: weave, sheen and how wet the fabric reads. */
+function applyActorGarment(material: THREE.MeshPhysicalMaterial, fabric: OutfitFabric) {
+  const shiny = fabric === 'silk' || fabric === 'satin'
+  // Only maps this code supplied get swapped when the fabric changes; a normal
+  // map that came out of the file is the garment's own and stays.
+  if (!material.normalMap || material.userData.lumenFabricMaps) {
+    material.userData.lumenFabricMaps = true
+    material.normalMap = fabricNormalMap(fabric)
+    material.roughnessMap = fabricRoughnessMap(fabric)
+  }
+  material.normalScale = new THREE.Vector2(shiny ? 0.35 : 0.8, shiny ? 0.35 : 0.8)
+  material.metalness = 0
+  material.roughness = shiny ? 0.36 : fabric === 'leather' ? 0.44 : fabric === 'velvet' ? 0.86 : 0.82
+  material.sheen = shiny ? 0.75 : fabric === 'velvet' ? 0.95 : fabric === 'cotton' ? 0.2 : 0.1
+  material.sheenColor = material.color.clone().lerp(new THREE.Color('#ffffff'), fabric === 'velvet' ? 0.5 : 0.34)
+  material.sheenRoughness = shiny ? 0.22 : 0.7
+  material.clearcoat = fabric === 'leather' ? 0.48 : 0
+  material.clearcoatRoughness = 0.32
+  material.envMapIntensity = 0.7
+  material.needsUpdate = true
+}
+
+/** Walks a loaded actor and re-applies everything the controls drive. */
+function applyActorAppearance(model: THREE.Object3D, appearance: FigureAppearance) {
+  model.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return
+    const materials = Array.isArray(child.material) ? child.material : [child.material]
+    materials.forEach((material) => {
+      if (!(material instanceof THREE.MeshPhysicalMaterial)) return
+      if (material.name === ACTOR_EYE_MATERIAL) return
+      if (material.name === STUDIO_HAIR_MATERIAL) applyStudioHairAppearance(material, appearance.hairColor, appearance.hairGloss)
+      else if (material.name === ACTOR_IRIS_MATERIAL) { material.color.set(appearance.eyeColor); material.needsUpdate = true }
+      else if (isActorSkin(material)) applyActorSkin(material, appearance)
+      else applyActorGarment(material, appearance.outfitFabric)
+    })
+  })
+}
+
+/**
+ * The eye surface on a closed face.
+ *
+ * These bodies have no eye sockets to drop an eyeball into: the only boundary
+ * loop anywhere in the head is the neck opening, and the eyes are painted onto
+ * closed geometry. So the eyeballs are prosthetics — they sit on the face, and
+ * what matters is finding the face.
+ *
+ * Sampled in a band at eye height and out on the eyelid rather than on the
+ * nose bridge, and taken as the median rather than the frontmost point so one
+ * stray vertex cannot throw it. The head bone is not consulted at all: the two
+ * shipped actors carry theirs three centimetres apart in depth, so no offset
+ * from it could ever place both.
+ */
+function measureEyeSurface(model: THREE.Object3D, modelTop: number) {
+  const point = new THREE.Vector3()
+  const depths: number[] = []
+  model.updateMatrixWorld(true)
+  model.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return
+    const position = child.geometry.getAttribute('position')
+    if (!position) return
+    for (let index = 0; index < position.count; index += 1) {
+      point.fromBufferAttribute(position as THREE.BufferAttribute, index).applyMatrix4(child.matrixWorld)
+      if (Math.abs(modelTop - point.y - EYE_DEPTH_BELOW_CROWN) > EYE_BAND_HALF_HEIGHT) continue
+      const offset = Math.abs(point.x)
+      if (offset < EYE_SAMPLE_X.min || offset > EYE_SAMPLE_X.max) continue
+      depths.push(point.z)
+    }
+  })
+  if (depths.length < 8) return null
+  depths.sort((a, b) => a - b)
+  return depths[Math.floor(depths.length * 0.25)]
+}
+
+/**
+ * Real sclera, iris, limbus, pupil and cornea for the shipped actor.
+ *
+ * The catchlight used to be painted on: a white disc, fixed in the corner of
+ * every eye, pointing at a key light that might be anywhere. In a tool whose
+ * job is to tell you where your key is, that is a lie drawn at the one place a
+ * portrait photographer looks first. It is gone. In its place the eye has a
+ * cornea — a clear dome over the iris — so the catchlight is a real specular
+ * off the real lights, and it moves when you move them.
+ */
+function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, eyeColor: string) {
   const eyes = new THREE.Group()
   eyes.name = 'studio-eyeballs'
-  const scleraGeometry = new THREE.SphereGeometry(0.0124, 28, 18)
-  const irisGeometry = new THREE.CircleGeometry(0.0054, 28)
-  const pupilGeometry = new THREE.CircleGeometry(0.00245, 24)
-  const catchlightGeometry = new THREE.CircleGeometry(0.00105, 12)
-  const sclera = new THREE.MeshPhysicalMaterial({ color: '#e6e2d8', roughness: 0.30, clearcoat: 0.48, clearcoatRoughness: 0.12 })
-  const iris = new THREE.MeshPhysicalMaterial({ color: '#5b4934', roughness: 0.24, clearcoat: 0.62 })
+  const scleraGeometry = new THREE.SphereGeometry(0.0124, 40, 26)
+  const irisGeometry = new THREE.CircleGeometry(0.0054, 40)
+  const limbusGeometry = new THREE.RingGeometry(0.00485, 0.0056, 40)
+  const pupilGeometry = new THREE.CircleGeometry(0.00245, 32)
+  // A shallow cap, not a full sphere: only the front of an eye bulges.
+  const corneaGeometry = new THREE.SphereGeometry(0.0072, 28, 20, 0, Math.PI * 2, 0, Math.PI / 2.5)
+
+  const sclera = new THREE.MeshPhysicalMaterial({ color: '#e8e4da', roughness: 0.26, clearcoat: 0.5, clearcoatRoughness: 0.1 })
+  sclera.name = ACTOR_EYE_MATERIAL
+  const iris = new THREE.MeshPhysicalMaterial({ color: eyeColor, roughness: 0.22, clearcoat: 0.62, clearcoatRoughness: 0.08 })
+  iris.name = ACTOR_IRIS_MATERIAL
+  // The limbal ring. Its darkness around the iris edge is a large part of why
+  // an eye reads as young, and as an eye at all.
+  const limbus = new THREE.MeshBasicMaterial({ color: '#1d1712', transparent: true, opacity: 0.72, depthWrite: false })
   const pupil = new THREE.MeshBasicMaterial({ color: '#08090a' })
-  const catchlight = new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false })
+  const cornea = new THREE.MeshPhysicalMaterial({
+    name: ACTOR_EYE_MATERIAL,
+    color: '#ffffff',
+    roughness: 0.02,
+    metalness: 0,
+    transmission: 0.94,
+    thickness: 0.0016,
+    ior: 1.376,
+    clearcoat: 1,
+    clearcoatRoughness: 0.02,
+    transparent: true,
+    depthWrite: false,
+  })
 
   for (const side of [-1, 1] as const) {
     const eye = new THREE.Group()
@@ -844,20 +1063,31 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     irisMesh.position.z = -0.0108
     irisMesh.rotation.y = Math.PI
     eye.add(irisMesh)
+    const limbusMesh = new THREE.Mesh(limbusGeometry, limbus)
+    limbusMesh.position.z = -0.01087
+    limbusMesh.rotation.y = Math.PI
+    limbusMesh.renderOrder = 1
+    eye.add(limbusMesh)
     const pupilMesh = new THREE.Mesh(pupilGeometry, pupil)
     pupilMesh.position.z = -0.01115
     pupilMesh.rotation.y = Math.PI
     eye.add(pupilMesh)
-    const glint = new THREE.Mesh(catchlightGeometry, catchlight)
-    glint.position.set(-0.0018, 0.0020, -0.0115)
-    glint.rotation.y = Math.PI
-    eye.add(glint)
+    const corneaMesh = new THREE.Mesh(corneaGeometry, cornea)
+    // The cap's axis is +Y; the face is -Z, so it is tipped forward onto it.
+    corneaMesh.rotation.x = -Math.PI / 2
+    corneaMesh.position.z = -0.0088
+    corneaMesh.scale.set(1, 0.62, 1)
+    corneaMesh.renderOrder = 2
+    eye.add(corneaMesh)
     eyes.add(eye)
   }
 
   // The shipped human faces -Z. Keep the sphere centres inside the sockets;
   // only the iris/pupil surfaces sit just ahead of the face.
-  attachHeadDetail(model, head, eyes, studioEyeAnchor(headPosition, box.max.y))
+  // Measured off this actor's own face.
+  const surface = measureEyeSurface(model, box.max.y)
+  const anchor = studioEyeAnchor(surface ?? headPosition.z - 0.12, box.max.y, headPosition.x)
+  attachHeadDetail(model, head, eyes, anchor)
 }
 
 /**
@@ -867,10 +1097,12 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
  * onto the bones. If the file has no recognisable humanoid skeleton the model
  * still renders — it just stands in its rest pose, and the inspector says so.
  */
-function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOverride, reportStatus = true, onRigReady }: {
+function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOverride, appearance: appearanceOverride, reportStatus = true, onRigReady }: {
   url: string
   pose?: ModelPose
   lookAtCamera?: boolean
+  /** A standalone figure carries its own look; the main subject reads the store. */
+  appearance?: FigureAppearance
   reportStatus?: boolean
   onRigReady?: (map: BoneMap | null) => void
 }) {
@@ -880,14 +1112,44 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   const setRigStatus = useStudio((state) => state.setModelRigStatus)
   const mainPose = useStudio((state) => state.modelPose)
   const mainLookAtCamera = useStudio((state) => state.modelLookAtCamera)
+  const eyesAtCamera = useStudio((state) => state.modelEyesAtCamera)
   const cameraPosition = useStudio((state) => state.cameraPosition)
   const modelPosition = useStudio((state) => state.modelPosition)
   const modelRotation = useStudio((state) => state.modelRotation)
-  const hairColor = useStudio((state) => state.hairColor)
-  const hairGloss = useStudio((state) => state.hairGloss)
+  const mainSkinRoughness = useStudio((state) => state.skinRoughness)
+  const mainSkinOil = useStudio((state) => state.skinOil)
+  const mainSubsurface = useStudio((state) => state.skinSubsurface)
+  const mainMakeup = useStudio((state) => state.makeupStyle)
+  const mainEyeColor = useStudio((state) => state.eyeColor)
+  const mainHairColor = useStudio((state) => state.hairColor)
+  const mainHairGloss = useStudio((state) => state.hairGloss)
+  const mainOutfitFabric = useStudio((state) => state.outfitFabric)
+  const mainPhysique = useStudio((state) => state.physique)
+  const mainHairStyle = useStudio((state) => state.hairStyle)
+  const mainOutfitStyle = useStudio((state) => state.outfitStyle)
   const rig = useRef<{ map: BoneMap; rest: RestPose } | null>(null)
   const pose = poseOverride ?? mainPose
   const lookAtCamera = lookAtCameraOverride ?? mainLookAtCamera
+
+  // Every extra subject used to render with the main subject's hair colour,
+  // because that was the only appearance value this component read.
+  const appearance: FigureAppearance = useMemo(() => appearanceOverride ?? {
+    skinRoughness: mainSkinRoughness,
+    skinOil: mainSkinOil,
+    subsurface: mainSubsurface,
+    makeup: mainMakeup,
+    eyeColor: mainEyeColor,
+    hairColor: mainHairColor,
+    hairGloss: mainHairGloss,
+    outfitFabric: mainOutfitFabric,
+    physique: mainPhysique,
+    hairStyle: mainHairStyle,
+    outfit: mainOutfitStyle,
+  }, [appearanceOverride, mainEyeColor, mainHairColor, mainHairGloss, mainHairStyle, mainMakeup, mainOutfitFabric, mainOutfitStyle, mainPhysique, mainSkinOil, mainSkinRoughness, mainSubsurface])
+  // The loader must not restart when a slider moves, so it reads the current
+  // look through a ref and a separate effect keeps the live materials in step.
+  const appearanceRef = useRef(appearance)
+  appearanceRef.current = appearance
 
   useEffect(() => {
     let active = true
@@ -907,21 +1169,19 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
           // pose only; without this they vanish the moment a limb moves out of it.
           if ((child as THREE.SkinnedMesh).isSkinnedMesh) child.frustumCulled = false
           if (shippedHuman) {
+            // Skin and cloth are re-hosted on MeshPhysical and then treated
+            // apart. One blanket pass over every material gave a cheek and a
+            // shoe the same answer, and pinned skin to a single roughness.
             const materials = Array.isArray(child.material) ? child.material : [child.material]
-            materials.forEach((material) => {
-              if (!(material instanceof THREE.MeshStandardMaterial)) return
-              material.metalness = 0
-              material.roughness = Math.max(0.48, material.roughness)
-              material.envMapIntensity = 0.72
-              // The source marks every surface as alpha-blended even though the
-              // baked textures are opaque. Opaque depth writing prevents hair,
-              // eyes, mouth and jacket layers from sorting into black cut-outs.
-              material.transparent = false
-              material.opacity = 1
-              material.alphaTest = 0
-              material.depthWrite = true
-              material.needsUpdate = true
+            const upgraded = materials.map((material) => {
+              if (!(material instanceof THREE.MeshStandardMaterial)) return material
+              const physical = material instanceof THREE.MeshPhysicalMaterial ? material : toActorPhysical(material)
+              if (physical !== material) material.dispose()
+              if (isActorSkin(physical)) applyActorSkin(physical, appearanceRef.current)
+              else applyActorGarment(physical, appearanceRef.current.outfitFabric)
+              return physical
             })
+            child.material = upgraded.length === 1 ? upgraded[0] : upgraded
           }
         }
       })
@@ -948,7 +1208,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       if (shippedHuman && map.head) {
         const normalizedBox = new THREE.Box3().setFromObject(model)
         const headPosition = map.head.getWorldPosition(new THREE.Vector3())
-        addStudioEyes(model, map.head, normalizedBox, headPosition)
+        addStudioEyes(model, map.head, normalizedBox, headPosition, appearanceRef.current.eyeColor)
         new OBJLoader().load(STUDIO_HAIR_SOURCE_URL, (hair) => {
           if (!active) {
             hair.traverse((child) => {
@@ -959,8 +1219,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
             })
             return
           }
-          const currentAppearance = useStudio.getState()
-          addStudioHair(model, map.head!, normalizedBox, headPosition, hair, currentAppearance.hairColor, currentAppearance.hairGloss)
+          addStudioHair(model, map.head!, normalizedBox, headPosition, hair, appearanceRef.current.hairColor, appearanceRef.current.hairGloss)
         })
       }
 
@@ -1009,20 +1268,14 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     }
   }, [onRigReady, reportStatus, setRigStatus, setStatus, url])
 
-  // Colour and gloss update live without reloading the actor or rebuilding its rig.
+  // Skin, cloth, hair and iris all update live, without reloading the actor or
+  // rebuilding its rig. The hair arrives on its own schedule, so this runs
+  // again once the object it is parented to changes.
   useEffect(() => {
-    const hairstyle = object?.getObjectByName('studio-short04-hair')
-    if (!hairstyle) return
-    hairstyle.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) return
-      const materials = Array.isArray(child.material) ? child.material : [child.material]
-      materials.forEach((material) => {
-        if (material instanceof THREE.MeshPhysicalMaterial && material.name === 'studio-hair-material') {
-          applyStudioHairAppearance(material, hairColor, hairGloss)
-        }
-      })
-    })
-  }, [hairColor, hairGloss, object])
+    if (!object) return
+    applyActorAppearance(object, appearance)
+  }, [appearance, object])
+
 
   // The imported figure gets the same head-tracking behaviour as the built-in one.
   const cameraYaw = THREE.MathUtils.radToDeg(Math.atan2(cameraPosition[0] - modelPosition[0], cameraPosition[2] - modelPosition[2]) - modelRotation)
@@ -1030,6 +1283,24 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     () => lookAtCamera ? { ...pose, headYaw: THREE.MathUtils.clamp(cameraYaw, -72, 72) } : pose,
     [cameraYaw, lookAtCamera, pose],
   )
+
+  // Eyes track the lens independently of the head — chin down, eyes up — the
+  // same as the procedural figure. Until now the actor's eyeballs never moved,
+  // and eyes that never move are most of what reads as "not a person".
+  const gazeYaw = !poseOverride && eyesAtCamera
+    ? THREE.MathUtils.clamp(cameraYaw - effectivePose.headYaw, -35, 35)
+    : effectivePose.gazeYaw
+  const gazePitch = !poseOverride && eyesAtCamera ? -effectivePose.headTilt : effectivePose.gazePitch
+
+  useEffect(() => {
+    const eyes = object?.getObjectByName('studio-eyeballs')
+    if (!eyes) return
+    // The actor faces -Z, so looking toward the subject's own +X is a negative
+    // turn about Y from where the eye is standing.
+    eyes.children.forEach((eye) => {
+      eye.rotation.set(THREE.MathUtils.degToRad(gazePitch), THREE.MathUtils.degToRad(-gazeYaw), 0)
+    })
+  }, [gazePitch, gazeYaw, object])
 
   useEffect(() => {
     if (!object || !rig.current) return
@@ -1142,6 +1413,19 @@ function StandaloneFigure({ object }: { object: StudioObject }) {
         url={shippedHumanFor(object.subjectPhysique, object.subjectOutfitStyle)}
         pose={object.subjectPose}
         lookAtCamera={false}
+        appearance={{
+          skinRoughness: object.subjectSkinRoughness,
+          skinOil: object.subjectSkinOil,
+          subsurface: object.subjectSubsurface,
+          makeup: object.subjectMakeup,
+          eyeColor: object.subjectEyeColor,
+          hairColor: object.subjectHairColor,
+          hairGloss: object.subjectHairGloss,
+          outfitFabric: object.subjectOutfitFabric,
+          physique: object.subjectPhysique,
+          hairStyle: object.subjectHairStyle,
+          outfit: object.subjectOutfitStyle,
+        }}
         reportStatus={false}
         onRigReady={setBoneMap}
       />
@@ -2260,6 +2544,7 @@ export function StudioScene() {
   const tStop = useStudio((state) => state.tStop)
   const ndStops = useStudio((state) => state.ndStops)
   const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
+  const view = useStudio((state) => state.view)
   const ambientColor = useMemo(() => kelvinColor(ambientTemperature), [ambientTemperature])
 
   useEffect(() => {
@@ -2296,7 +2581,9 @@ export function StudioScene() {
       {lights.map((light) => <Softbox key={light.id} light={light} />)}
       {modifiers.map((modifier) => <GripModifier key={modifier.id} modifier={modifier} />)}
       {studioObjects.map((object) => <MovableStudioObject key={object.id} object={object} />)}
-      {renderMode !== 'path' && <CameraProp />}
+      {/* Not through its own lens. The prop sits exactly at the viewpoint, so
+          with a real lens barrel on it the body now filled its own frame. */}
+      {renderMode !== 'path' && view !== 'camera' && <CameraProp />}
       {renderMode !== 'path' && <Grid position={[0, 0.006, 1.5]} args={[10, 10]} cellSize={0.5} cellThickness={0.4} cellColor="#747872" sectionSize={2} sectionThickness={0.75} sectionColor="#9ba197" fadeDistance={12} fadeStrength={1.8} infiniteGrid />}
       {renderMode !== 'path' && <MeasureTool />}
       <CameraImaging />
