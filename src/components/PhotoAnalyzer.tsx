@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react'
 import '../photo-analyzer.css'
+import { buildPhotoAnalysisPrompt } from '../photoAnalysisPrompt'
+import { copyToClipboard } from '../share'
 
 type AnalysisResult = {
   styleLabel: string
   diagnosis: string
   confidence: '高' | '中' | '低'
+  limitations: string[]
   evidence: Array<{ observation: string; inference: string; alternative: string; confidence: string }>
   editStack: string[]
   lightroom: Array<{ control: string; range: string; purpose: string }>
@@ -50,6 +53,10 @@ function ResultPanel({ result }: { result: AnalysisResult }) {
         <div><span>STYLE DIAGNOSIS</span><h2>{result.styleLabel}</h2></div>
         <p>{result.diagnosis}</p>
         <small>整體信心：{result.confidence}</small>
+        <div className="report-limitations">
+          <b>判讀限制</b>
+          <ul>{result.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
       </header>
 
       <section>
@@ -107,6 +114,9 @@ export default function PhotoAnalyzer() {
   const [dragging, setDragging] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<AnalysisResult | null>(null)
+  const [apiUnavailable, setApiUnavailable] = useState(false)
+  const [handoffMessage, setHandoffMessage] = useState('')
+  const [handoffError, setHandoffError] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -129,6 +139,8 @@ export default function PhotoAnalyzer() {
   const selectFile = async (file: File) => {
     setError('')
     setResult(null)
+    setApiUnavailable(false)
+    setHandoffMessage('')
     if (!ACCEPTED.includes(file.type)) return setError('請使用 JPG、PNG 或 WebP 圖片。')
     if (file.size > MAX_BYTES) return setError('圖片超過 18 MB，請先縮小後再試。')
     try {
@@ -150,10 +162,36 @@ export default function PhotoAnalyzer() {
     if (file) void selectFile(file)
   }
 
+  const handoffToChatGPT = async () => {
+    setHandoffMessage('')
+    setHandoffError(false)
+    const prompt = buildPhotoAnalysisPrompt({
+      notes,
+      sourceKind: remoteUrl ? 'social' : 'upload',
+      dimensions
+    })
+    const copied = await copyToClipboard(prompt)
+    setHandoffError(!copied)
+    setHandoffMessage(copied
+      ? '分析提示已複製。請在剛開啟的 ChatGPT 上傳、拖入或貼上同一張照片，再按 ⌘V 貼上提示並送出。'
+      : 'ChatGPT 已開啟，但瀏覽器沒有允許複製提示；請上傳照片後，手動說明想分析的後期風格。')
+  }
+
+  const onChatGPTHandoff = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (busy) return event.preventDefault()
+    if (!preview) {
+      event.preventDefault()
+      input.current?.click()
+      return
+    }
+    void handoffToChatGPT()
+  }
+
   const analyze = async () => {
     if (!dataUrl && !remoteUrl) return input.current?.click()
     setBusy(true)
     setError('')
+    setApiUnavailable(false)
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -161,13 +199,20 @@ export default function PhotoAnalyzer() {
         body: JSON.stringify(dataUrl ? { imageData: dataUrl, notes } : { imageUrl: remoteUrl, notes })
       })
       const raw = await response.text()
-      let payload: AnalysisResult & { error?: string }
+      let payload: AnalysisResult & { error?: string; code?: string }
       try {
-        payload = JSON.parse(raw) as AnalysisResult & { error?: string }
+        payload = JSON.parse(raw) as AnalysisResult & { error?: string; code?: string }
       } catch {
         throw new Error(response.status === 404 ? '本機預覽尚未啟動分析後端；部署並設定 API 金鑰後即可使用。' : '分析服務回傳了無法辨識的內容。')
       }
+      if (response.status === 503 && payload.code === 'OPENAI_API_KEY_MISSING') {
+        setApiUnavailable(true)
+        setHandoffError(false)
+        setHandoffMessage('網站 API 尚未啟用。請按「用 ChatGPT 分析」，不需要 API 金鑰。')
+        return
+      }
       if (!response.ok) throw new Error(payload.error || '分析服務暫時無法使用')
+      setApiUnavailable(false)
       setResult(payload)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '分析失敗')
@@ -183,7 +228,7 @@ export default function PhotoAnalyzer() {
   }, [autoStart, remoteUrl])
 
   const reset = () => {
-    setPreview(null); setDataUrl(null); setRemoteUrl(null); setResult(null); setError(''); setFileName(''); setDimensions('')
+    setPreview(null); setDataUrl(null); setRemoteUrl(null); setResult(null); setError(''); setFileName(''); setDimensions(''); setApiUnavailable(false); setHandoffMessage(''); setHandoffError(false)
     if (input.current) input.current.value = ''
   }
 
@@ -191,7 +236,7 @@ export default function PhotoAnalyzer() {
     <main className="trace-shell">
       <header className="trace-topbar">
         <a href="/" className="trace-brand" aria-label="返回 Lumen Stage"><span><i /></span><div><b>LUMEN TRACE</b><small>POST-PROCESS FORENSICS</small></div></a>
-        <div className="privacy-mark"><i /> 圖片僅用於本次分析</div>
+        <div className="privacy-mark"><i /> 本站不會自動上傳圖片</div>
         <a className="studio-link" href="/">LIGHTING STUDIO ↗</a>
       </header>
 
@@ -227,11 +272,18 @@ export default function PhotoAnalyzer() {
 
           <label className="analysis-notes"><span>分析重點 <small>選填</small></span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="例如：特別判斷柔光插件、膚色處理，並給 Lightroom 參數…" /></label>
           {error && <div className="trace-error" role="alert">{error}</div>}
+          {apiUnavailable && <div className="handoff-callout" role="status"><i />目前未設定 API，但可以直接使用你已登入的 ChatGPT。</div>}
           <div className="analysis-actions">
             {preview && <button className="clear-button" onClick={reset}>清除</button>}
-            <button className="analyze-button" disabled={busy} onClick={() => void analyze()}>{busy ? <><i /> 正在拆解影像…</> : '開始專業分析 →'}</button>
+            <a className="chatgpt-button" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer" aria-disabled={busy} onClick={onChatGPTHandoff}>
+              <span><small>免 API · 推薦</small><b>用 ChatGPT 分析</b></span><i aria-hidden="true">↗</i>
+            </a>
+            <button className="analyze-button" disabled={busy} onClick={() => void analyze()}>
+              {busy ? <><i /> 正在拆解影像…</> : <span><small>API 模式</small><b>網站自動分析</b></span>}
+            </button>
           </div>
-          <p className="truth-note">分析會提供可驗證的推論與信心程度，不會把無法從成品證明的預設或插件名稱說成事實。</p>
+          {handoffMessage && <p className={`handoff-status ${handoffError ? 'is-error' : ''}`} role="status">{handoffMessage}</p>}
+          <p className="truth-note">免 API 模式只會複製專業提示並開啟 ChatGPT；照片必須由你確認後貼上或上傳，之後依你的 ChatGPT 資料設定處理。</p>
         </section>
       </section>
 
