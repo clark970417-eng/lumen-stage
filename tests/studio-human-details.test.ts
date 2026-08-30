@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
-import { STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor } from '../src/studioHumanDetails.ts'
+import { EYE_DEPTH_BELOW_CROWN, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor } from '../src/studioHumanDetails.ts'
 
 test('shipped human eyeballs sit behind the measured eyelid, not in front of it', () => {
   // Both shipped actors, as measured from their meshes: the male's eyelid sits
@@ -17,7 +17,8 @@ test('shipped human eyeballs sit behind the measured eyelid, not in front of it'
   assert.ok(female.z - -0.168 < 0.02, 'and only just behind it, or the iris never reaches the socket')
   // A deeper-set face pushes its eyes further forward, one for one.
   assert.ok(Math.abs((male.z - female.z) - 0.044) < 1e-9, 'the anchor tracks the face it measured')
-  assert.ok(Math.abs(male.y - 1.694) < 1e-9)
+  assert.ok(Math.abs(male.y - (1.82 - EYE_DEPTH_BELOW_CROWN)) < 1e-9, 'eye height is the calibrated depth below the crown')
+  assert.ok(male.y > 1.68 && male.y < 1.73, 'and stays somewhere a pupil could plausibly be')
 })
 
 test('shipped human hair still follows the rearward scalp centre', () => {

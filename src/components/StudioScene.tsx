@@ -17,7 +17,7 @@ import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjec
 import { Figure, type FigureAppearance } from './Figure'
 import type { ModelPose } from '../pose'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_SAMPLE_X, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor } from '../studioHumanDetails'
+import { EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_SAMPLE_X, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -1054,7 +1054,7 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
 
   for (const side of [-1, 1] as const) {
     const eye = new THREE.Group()
-    eye.position.x = side * 0.0335
+    eye.position.x = side * EYE_HALF_SEPARATION
     const white = new THREE.Mesh(scleraGeometry, sclera)
     white.scale.set(1.12, 0.72, 0.84)
     white.castShadow = true

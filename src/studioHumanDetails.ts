@@ -3,8 +3,18 @@ import * as THREE from 'three'
 export const STUDIO_HAIR_SOURCE_URL = '/models/lumen-human/hair/short04.obj'
 export const STUDIO_HAIR_SOURCE_SCALE = 0.12
 
-/** Where an adult's pupils sit below the crown, on a 1.82 m actor. */
-export const EYE_DEPTH_BELOW_CROWN = 0.126
+/**
+ * Where the pupils sit below the crown, on a 1.82 m actor.
+ *
+ * Both shipped actors are the same MakeHuman base topology normalised to the
+ * same height, so one figure serves both. Measured against the sockets in the
+ * render rather than reasoned from proportion, because the proportion was what
+ * put the eyeballs on the cheekbones.
+ */
+export const EYE_DEPTH_BELOW_CROWN = 0.1126
+
+/** Half the interpupillary distance on that same normalised head. */
+export const EYE_HALF_SEPARATION = 0.0311
 
 /**
  * How far the eyeball centre sits behind the measured face surface.
