@@ -32,8 +32,8 @@ function Range({ label, value, min, max, step = 1, unit = '', displayValue, disa
   )
 }
 
-function InspectorDrawer({ title, meta, action, className = '', defaultOpen = false, children }: { title: string; meta?: string; action?: ReactNode; className?: string; defaultOpen?: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen)
+function InspectorDrawer({ title, meta, action, className = '', children }: { title: string; meta?: string; action?: ReactNode; className?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
   return <section className={`inspector-section inspector-drawer ${open ? 'is-open' : 'is-collapsed'} ${className}`}>
     <div className="section-title inspector-drawer-heading">
       <button className="inspector-drawer-toggle" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
@@ -153,7 +153,7 @@ export function Inspector() {
     <aside className="inspector panel">
       <div className="panel-heading"><span>{t('inspector.title')}</span><b>{selectionLabel}</b></div>
       {isLight && light && <>
-        <InspectorDrawer key="light-output" title={t('light.section')} meta="LIGHT / OUTPUT" defaultOpen action={<button onClick={state.resetLighting}>{t('light.resetAll')}</button>}>
+        <InspectorDrawer key="light-output" title={t('light.section')} meta="LIGHT / OUTPUT" action={<button onClick={state.resetLighting}>{t('light.resetAll')}</button>}>
           {state.selectedIds.length > 1 && <div className="multi-selection-note"><b>{state.selectedIds.length}</b><span>{t('light.multiNote')}</span></div>}
           <div className="object-management">
             <input aria-label={t('light.name')} value={light.name} maxLength={32} onChange={(event) => state.updateLight(light.id, { name: event.target.value || 'Untitled light' })} />
@@ -247,7 +247,7 @@ export function Inspector() {
         </InspectorDrawer>
       </>}
 
-      {modifier && <InspectorDrawer key="grip" title={t('library.grip')} meta="GRIP" className="grip-inspector" defaultOpen>
+      {modifier && <InspectorDrawer key="grip" title={t('library.grip')} meta="GRIP" className="grip-inspector">
         <div className="object-management">
           <input aria-label={t('grip.name')} value={modifier.name} maxLength={32} onChange={(event) => state.updateModifier(modifier.id, { name: event.target.value || 'Untitled grip' })} />
           <button onClick={() => state.duplicateModifier(modifier.id)}>{t('common.duplicate')}</button>
@@ -273,7 +273,7 @@ export function Inspector() {
         <p className="grip-note">{t('grip.note')}</p>
       </InspectorDrawer>}
 
-      {studioObject && <InspectorDrawer key="object" title={t('object.section')} meta={studioObject.type.toUpperCase()} className="studio-object-inspector" defaultOpen>
+      {studioObject && <InspectorDrawer key="object" title={t('object.section')} meta={studioObject.type.toUpperCase()} className="studio-object-inspector">
         <div className="object-management"><input aria-label={t('object.name')} value={studioObject.name} maxLength={32} onChange={(event) => state.updateStudioObject(studioObject.id, { name: event.target.value || 'Untitled object' })} /><button onClick={() => state.duplicateStudioObject(studioObject.id)}>{t('common.duplicate')}</button><button className="danger" onClick={() => state.deleteStudioObject(studioObject.id)}>{t('common.delete')}</button></div>
         <div className="lock-row"><span>{t(studioObject.type === 'subject' ? 'object.subjectRig' : 'object.setPiece')}</span><button className={studioObject.locked ? 'locked' : ''} onClick={() => state.updateStudioObject(studioObject.id, { locked: !studioObject.locked })}>{t(studioObject.locked ? 'common.unlock' : 'common.lock')}</button></div>
         <div className="object-type-grid" role="group" aria-label={t('object.typeAria')}>{(['subject','dog','cat','product','chair','table','plinth','cube','sphere'] as const).map((type) => <button key={type} className={studioObject.type === type ? 'active' : ''} onClick={() => state.updateStudioObject(studioObject.id, { type })}>{t(`object.${type}`)}</button>)}</div>
@@ -315,7 +315,7 @@ export function Inspector() {
         <Range label={t('axis.rotY')} disabled={studioObject.locked} value={Math.round(THREE_RAD_TO_DEG * studioObject.rotationY)} min={-180} max={180} step={5} unit="°" onChange={(value) => state.setStudioObjectTransform(studioObject.id, studioObject.position, value / THREE_RAD_TO_DEG)} />
       </InspectorDrawer>}
 
-      {state.selected === 'model' && <InspectorDrawer key="model" title={t('model.section')} meta="SUBJECT / POSE" className="model-inspector" defaultOpen>
+      {state.selected === 'model' && <InspectorDrawer key="model" title={t('model.section')} meta="SUBJECT / POSE" className="model-inspector">
         <div className="selection-chip"><span className="model-silhouette" /><div><strong>{state.modelAssetName || DEFAULT_HUMAN_NAME}</strong><small>{state.modelImportStatus === 'ready' ? 'Rigged human · 1.82 m normalized' : state.modelImportStatus === 'error' ? 'Model failed · procedural fallback' : 'Loading realistic human…'}</small></div><b>SELECTED</b></div>
         <Range label={t('axis.x')} value={state.modelPosition[0]} min={-3} max={3} step={0.05} onChange={(value) => state.setModelTransform([value, 0, state.modelPosition[2]])} />
         <Range label={t('axis.z')} value={state.modelPosition[2]} min={-1} max={4} step={0.05} onChange={(value) => state.setModelTransform([state.modelPosition[0], 0, value])} />
@@ -357,7 +357,7 @@ export function Inspector() {
         </>}
       </InspectorDrawer>}
 
-      {state.selected === 'camera' && <InspectorDrawer key="camera-position" title={t('camera.section')} meta={state.cameraTargetSubjectId ? 'SUBJECT TRACKING' : 'MANUAL'} className="camera-body-controls" defaultOpen>
+      {state.selected === 'camera' && <InspectorDrawer key="camera-position" title={t('camera.section')} meta={state.cameraTargetSubjectId ? 'SUBJECT TRACKING' : 'MANUAL'} className="camera-body-controls">
         <div className="target-binding-panel camera-target-panel">
           <label><span>{t('beam.follow')}</span><select aria-label={t('camera.followAria')} value={state.cameraTargetSubjectId ?? 'manual'} onChange={(event) => state.bindCameraToSubject(event.target.value === 'manual' ? null : event.target.value, state.cameraTargetZone)}>
             <option value="manual">{t('camera.manual')}</option>
@@ -430,7 +430,7 @@ export function Inspector() {
           <div className={`sensor-warning ${state.shutterMode === 'electronic' && state.rollingShutter > 60 ? 'warning' : ''}`}><i /><span>{state.shutterMode === 'electronic' ? t('sensor.rollingWarn', { ms: cameraBody.readoutMs }) : t('sensor.mechNote')}</span></div>
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-frame" title={t('guide.composition')} meta="FRAME / EXPOSURE" className="camera-controls" defaultOpen action={<button onClick={state.openCameraView}>{t('cam.enterView')}</button>}>
+      <InspectorDrawer key="camera-frame" title={t('guide.composition')} meta="FRAME / EXPOSURE" className="camera-controls" action={<button onClick={state.openCameraView}>{t('cam.enterView')}</button>}>
         <div className="composition-guide-control"><span>{t('guide.composition')}</span><div role="group" aria-label={t('guide.compositionAria')}>{(['none','thirds','golden','safe'] as const).map((guide) => <button key={guide} className={state.compositionGuide === guide ? 'active' : ''} onClick={() => setValue('compositionGuide', guide)}>{t(`guide.${guide}`)}</button>)}</div></div>
         <div className="optics-status">
           <div><span>NEAR</span><strong>{depth.near.toFixed(2)} m</strong></div>
@@ -450,7 +450,7 @@ export function Inspector() {
           {state.lights.some((item) => item.enabled && item.operationMode === 'flash') && <div className={state.shutter > state.syncSpeed && state.lights.some((item) => item.enabled && item.operationMode === 'flash' && !item.hssEnabled) ? 'global-sync-status error' : 'global-sync-status'}><i /><span>{t(state.shutter > state.syncSpeed ? 'sync.over' : 'sync.ok')}</span><b>1/{state.shutter}s</b></div>}
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-exposure" title={t('cam.section')} meta="CAMERA / EXPOSURE" className="camera-controls" defaultOpen>
+      <InspectorDrawer key="camera-exposure" title={t('cam.section')} meta="CAMERA / EXPOSURE" className="camera-controls">
         <div className="sub-control sensor-control">
           <span>{t('sensor.override')}</span>
           <div className="segmented-control" role="group" aria-label={t('sensor.formatAria')}>
