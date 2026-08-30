@@ -52,7 +52,7 @@ type Copy = {
 const COPY: Record<Locale, Copy> = {
   zh: {
     nav: ['功能', '範例', '常見問題', '支援'], open: '免費開啟攝影棚', eyebrow: '給攝影師與攝影學習者的 3D 攝影棚',
-    title: ['拍攝進棚前，', '先把燈位、鏡頭', '與畫面排好。'],
+    title: ['進棚拍攝前，', '先排好燈位', '再決定畫面。'],
     intro: 'LUMEN STAGE 讓你在瀏覽器裡安排燈位、相機、人物與背景，用真實距離與鏡頭參數預演下一次拍攝。',
     proof: ['免安裝', '免帳號', '場景留在你的裝置'], instrument: '不是示意圖，是可以工作的攝影工具。',
     demoLink: '觀看 15 秒操作流程', demoTitle: '十五秒，從空白想法到可拍攝的方案。', demoBody: '同一個即時場景裡完成佈光、取景、比較與輸出，不用在紙上猜測每一次調整。',
@@ -190,7 +190,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
   }
   if (route !== 'home') return <LegalPage route={route} copy={copy} />
   return <><SiteHeader copy={copy} /><main className="landing">
-    <section className="site-hero" onPointerMove={moveHeroLight} ref={heroStage}>
+    <section className="site-hero" data-locale={locale} onPointerMove={moveHeroLight} ref={heroStage}>
       <div className="hero-glow" aria-hidden="true" />
       <div className="hero-copy">
         <span className="hero-eyebrow"><i /> {copy.eyebrow}</span>
