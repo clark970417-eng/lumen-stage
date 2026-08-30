@@ -132,7 +132,9 @@ function CameraRig() {
     perspective.updateProjectionMatrix()
   }, [anamorphic, camera, imagingFocalLength, sensorFormat, view])
 
-  return <OrbitControls enabled={view === 'studio' && !layoutOnly} enableRotate={!layoutOnly} makeDefault target={[0, 1.15, 0]} minDistance={3.5} maxDistance={13} maxPolarAngle={Math.PI / 2.02} />
+  // OrbitControls still owns the camera target while input is disabled. Leaving
+  // its studio target here pulled a 200 mm viewfinder down from the eyes to the chest.
+  return <OrbitControls enabled={view === 'studio' && !layoutOnly} enableRotate={!layoutOnly} makeDefault target={view === 'camera' ? cameraTarget : [0, 1.15, 0]} minDistance={3.5} maxDistance={13} maxPolarAngle={Math.PI / 2.02} />
 }
 
 const LENS_CHARACTER_FRAGMENT = `
@@ -984,10 +986,10 @@ function applyActorAppearance(model: THREE.Object3D, appearance: FigureAppearanc
  * what matters is finding the face.
  *
  * Sampled in a band at eye height and out on the eyelid rather than on the
- * nose bridge, and taken as the median rather than the frontmost point so one
- * stray vertex cannot throw it. The head bone is not consulted at all: the two
- * shipped actors carry theirs three centimetres apart in depth, so no offset
- * from it could ever place both.
+ * nose bridge, and taken from the forward quartile rather than the frontmost
+ * point so one stray vertex cannot throw it. The head bone is not consulted at
+ * all: the two shipped actors carry theirs three centimetres apart in depth,
+ * so no offset from it could ever place both.
  */
 function measureEyeSurface(model: THREE.Object3D, modelTop: number) {
   const point = new THREE.Vector3()
@@ -1023,7 +1025,12 @@ function measureEyeSurface(model: THREE.Object3D, modelTop: number) {
 function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, eyeColor: string) {
   const eyes = new THREE.Group()
   eyes.name = 'studio-eyeballs'
-  const scleraGeometry = new THREE.SphereGeometry(0.0124, 40, 26)
+  // Head-detail attachment preserves world rotation, so the optical face has
+  // to be turned toward the rendered face or the camera sees only rear sclera.
+  eyes.rotation.y = Math.PI
+  // The previous 27.8 mm width covered the painted eyelids. This 24.2 mm width
+  // stays inside both shipped socket textures without making the iris smaller.
+  const scleraGeometry = new THREE.SphereGeometry(0.0112, 40, 26)
   const irisGeometry = new THREE.CircleGeometry(0.0054, 40)
   const limbusGeometry = new THREE.RingGeometry(0.00485, 0.0056, 40)
   const pupilGeometry = new THREE.CircleGeometry(0.00245, 32)
@@ -1056,26 +1063,26 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     const eye = new THREE.Group()
     eye.position.x = side * EYE_HALF_SEPARATION
     const white = new THREE.Mesh(scleraGeometry, sclera)
-    white.scale.set(1.12, 0.72, 0.84)
+    white.scale.set(1.08, 0.64, 0.84)
     white.castShadow = true
     eye.add(white)
     const irisMesh = new THREE.Mesh(irisGeometry, iris)
-    irisMesh.position.z = -0.0108
+    irisMesh.position.z = -0.00975
     irisMesh.rotation.y = Math.PI
     eye.add(irisMesh)
     const limbusMesh = new THREE.Mesh(limbusGeometry, limbus)
-    limbusMesh.position.z = -0.01087
+    limbusMesh.position.z = -0.00982
     limbusMesh.rotation.y = Math.PI
     limbusMesh.renderOrder = 1
     eye.add(limbusMesh)
     const pupilMesh = new THREE.Mesh(pupilGeometry, pupil)
-    pupilMesh.position.z = -0.01115
+    pupilMesh.position.z = -0.01005
     pupilMesh.rotation.y = Math.PI
     eye.add(pupilMesh)
     const corneaMesh = new THREE.Mesh(corneaGeometry, cornea)
     // The cap's axis is +Y; the face is -Z, so it is tipped forward onto it.
     corneaMesh.rotation.x = -Math.PI / 2
-    corneaMesh.position.z = -0.0088
+    corneaMesh.position.z = -0.0078
     corneaMesh.scale.set(1, 0.62, 1)
     corneaMesh.renderOrder = 2
     eye.add(corneaMesh)
