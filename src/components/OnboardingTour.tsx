@@ -34,6 +34,7 @@ const STEPS: Record<OnboardingScope, TourStep[]> = {
 
 const MOBILE_TABS = ['#m-tab-planning', '#m-tab-lighting', '#m-tab-shooting', '#m-tab-layout']
 const DESKTOP_MODES = [0, 0, 1, 2, 3]
+const DESKTOP_VIDEO_STARTS = [2.5, 5, 7.5, 10, 12.5]
 
 export function shouldShowOnboarding(scope: OnboardingScope) {
   try { return localStorage.getItem(`${STORAGE_PREFIX}${scope}`) !== 'done' } catch { return true }
@@ -216,7 +217,14 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
       {highlightRect && <div className="onboarding-highlight" aria-hidden="true" style={highlightRect} />}
       <article ref={cardRef} className="onboarding-card" role="dialog" aria-modal="false" aria-label={t('tour.aria')} style={cardStyle}>
         {media.kind === 'image'
-          ? <div className={`onboarding-media onboarding-media--${step.aspect}`}><img src={assetHref(`onboarding/${locale}/${media.src}`)} alt={t(step.title)} /></div>
+          ? <div className={`onboarding-media onboarding-media--${step.aspect}`}>
+              {scope === 'desktop'
+                ? <video key={`${locale}-${stepIndex}`} autoPlay muted loop playsInline preload="metadata" poster={assetHref(`site-demo/${locale}.jpg`)} aria-label={t(step.title)} onLoadedMetadata={(event) => { event.currentTarget.currentTime = DESKTOP_VIDEO_STARTS[stepIndex] }} onTimeUpdate={(event) => {
+                    const start = DESKTOP_VIDEO_STARTS[stepIndex]
+                    if (event.currentTarget.currentTime >= start + 2.95 || event.currentTarget.currentTime < start) event.currentTarget.currentTime = start
+                  }}><source src={assetHref(`site-demo/${locale}.mp4`)} type="video/mp4" /></video>
+                : <img src={assetHref(`onboarding/${locale}/${media.src}`)} alt={t(step.title)} />}
+            </div>
           : <div className={`onboarding-media onboarding-media--${step.aspect} onboarding-compare${showAfter ? ' is-after' : ''}`}>
               <img className="before" src={media.before} alt={t('tour.beforeAlt', { title: t(step.title) })} />
               <img className="after" src={media.after} alt={t('tour.afterAlt', { title: t(step.title) })} />

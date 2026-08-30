@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { LOCALES, useLocaleStore, type Locale } from '../i18n'
 import { assetHref, routeHref, studioHref, type PublicRoute } from '../routing'
 import { SETUP_LIBRARY } from '../setups'
@@ -57,11 +57,11 @@ const COPY: Record<Locale, Copy> = {
     intro: 'LUMEN STAGE 讓你在瀏覽器裡安排燈位、相機、人物與背景，用真實距離與鏡頭參數預演下一次拍攝。',
     proof: ['免安裝', '免帳號', '場景留在你的裝置'], instrument: '不是示意圖，是可以工作的攝影工具。',
     demoLink: '觀看 15 秒操作流程', demoTitle: '十五秒，從空白想法到可拍攝的方案。', demoBody: '同一個即時場景裡完成佈光、取景、比較與輸出，不用在紙上猜測每一次調整。',
-    demoSteps: [['選擇配置', '從經典布光開始，不必面對空白場景。'], ['移動燈位', '即時調整距離、角度、功率與塑光附件。'], ['確認鏡頭', '用焦段、光圈與取景框檢查最後畫面。'], ['帶到現場', '儲存場景，輸出燈位工作表給拍攝團隊。']],
+    demoSteps: [['選擇配置', '從經典布光開始。'], ['安排主體', '確認人物位置與姿勢。'], ['移動燈位', '調整距離、角度與功率。'], ['確認相機', '檢查焦段、光圈與取景。'], ['檢視平面配置', '從上方確認人、燈與相機位置。'], ['匯出到現場', '儲存並輸出燈位工作表。']],
     setupsTitle: '不要從零開始。先點亮一組經典配置。', setupsBody: '每組範例都會直接載入人物、燈光、相機與背景；你可以從可工作的基礎上繼續調整。', setupCta: '載入這組燈位',
     setupNames: { rembrandt: ['林布蘭光', '45° 高位主光，在遠側臉頰留下標誌性的光三角。'], 'three-point': ['三點布光', '主光、補光與逆光組成清楚、可靠的訪談配置。'], clamshell: ['蚌殼光', '鏡頭軸線上下各一盞光，適合美容與妝髮畫面。'] },
     outcomeTitle: '一個場景，留下三種能帶走的成果。', outcomeBody: '規劃不只停在畫面裡。從空間配置到最後取景，再把有效決策整理成現場可讀的資料。', outcomes: [['燈位配置', '看清人物、燈具、相機與背景之間的空間關係。'], ['畫面預演', '在拍攝前確認光線方向、景深與構圖。'], ['拍攝交接', '保存、分享並輸出燈位工作表，讓團隊照著執行。']],
-    trustTitle: '為真正的拍攝準備，而不是只做漂亮示意圖。', trust: [['內建經典配置', '以可直接調整的燈位、相機與背景參數建立。'], ['真實攝影語言', '支援距離、焦段、光圈、照度、色溫與塑光附件。'], ['Local-first', '免帳號、無廣告追蹤，專案預設留在你的瀏覽器。']],
+    trustTitle: '為真正的拍攝準備，而不是只做漂亮示意圖。', trust: [['內建經典配置', '以可直接調整的燈位、相機與背景參數建立。'], ['真實攝影語言', '支援距離、焦段、光圈、照度、色溫與塑光附件。'], ['本機優先', '免帳號、無廣告追蹤；專案預設留在你的瀏覽器。'], ['免費使用', '不需信用卡，開啟網站即可開始規劃。'], ['簡易與專業模式', '可從簡易介面開始，也能切換完整專業控制。']],
     instrumentBody: '人物、佈光、相機、配置四個模式共用同一個即時場景。桌機負責精準控制與預設管理，手機保留人物、燈光、取景與物件定位的核心操作。',
     capabilities: [['把抽象燈位變成空間', '以公尺、角度、照度與塑光附件建立可重現的配置。'], ['在拍攝前確認鏡頭', '切換片幅、焦段、光圈、景深與構圖，降低現場試錯。'], ['把方案帶到片場', '儲存、備份、分享場景並輸出燈位工作表與成品預覽。']],
     galleryTitle: '每一個決定，都看得到它對畫面的影響。', galleryBody: '介面會跟著目前工作切換，但燈光、相機與空間位置始終留在同一個場景中。',
@@ -78,10 +78,10 @@ const COPY: Record<Locale, Copy> = {
     nav: ['Capabilities', 'Setups', 'FAQ', 'Support'], open: 'Open the studio free', eyebrow: 'A 3D studio for photographers and learners',
     title: ['Plan the lights, lens', 'and frame before', 'you enter the studio.'], intro: 'LUMEN STAGE lets you arrange lights, camera, subject and backdrop with real distances and lens settings—right in your browser.',
     proof: ['No install', 'No account', 'Scenes stay on your device'], instrument: 'Not a mock-up. A working photographic instrument.', instrumentBody: 'Person, Light, Camera and Layout share one live scene. Desktop adds precise control and preset management; phone keeps the essential subject, lighting, framing and object-position tools.',
-    demoLink: 'Watch the 15-second workflow', demoTitle: 'From a blank idea to a shootable plan in fifteen seconds.', demoBody: 'Light, frame, compare and hand off from one live scene instead of guessing what every adjustment will do.', demoSteps: [['Choose a setup', 'Start with a classic pattern, not an empty scene.'], ['Move the lights', 'Tune distance, angle, output and modifiers live.'], ['Confirm the lens', 'Check focal length, aperture and the final frame.'], ['Take it to set', 'Save the scene and export a setup sheet for the crew.']],
+    demoLink: 'Watch the 15-second workflow', demoTitle: 'From a blank idea to a shootable plan in fifteen seconds.', demoBody: 'Light, frame, compare and hand off from one live scene instead of guessing what every adjustment will do.', demoSteps: [['Choose a setup', 'Start with a classic lighting pattern.'], ['Place the subject', 'Confirm position and pose.'], ['Move the lights', 'Tune distance, angle and output.'], ['Confirm the camera', 'Check focal length, aperture and frame.'], ['Review the layout', 'See subject, lights and camera from above.'], ['Export for set', 'Save and export a setup sheet.']],
     setupsTitle: 'Do not start from zero. Light a proven pattern first.', setupsBody: 'Each example loads its subject, lights, camera and backdrop so you can begin with a working foundation.', setupCta: 'Load this setup', setupNames: { rembrandt: ['Rembrandt light', 'A high 45° key leaves the signature triangle on the far cheek.'], 'three-point': ['Three-point light', 'Key, fill and back light form a clear, dependable interview setup.'], clamshell: ['Clamshell beauty', 'Two sources on the lens axis create clean beauty and makeup light.'] },
     outcomeTitle: 'One scene. Three useful outcomes.', outcomeBody: 'The plan does not stay trapped on screen. Move from spatial layout to the final frame, then package the decisions for set.', outcomes: [['Lighting layout', 'Understand the spatial relationship between subject, lights, camera and backdrop.'], ['Frame preview', 'Confirm direction, depth of field and composition before the shoot.'], ['Crew handoff', 'Save, share and export a setup sheet the crew can follow.']],
-    trustTitle: 'Built for real shoot preparation, not just a pretty diagram.', trust: [['Classic setups included', 'Every pattern comes with editable light, camera and backdrop settings.'], ['Photographic language', 'Work with distance, focal length, aperture, illuminance, colour and modifiers.'], ['Local-first', 'No account or ad tracking; projects stay in your browser by default.']],
+    trustTitle: 'Built for real shoot preparation, not just a pretty diagram.', trust: [['Classic setups included', 'Every pattern comes with editable light, camera and backdrop settings.'], ['Photographic language', 'Work with distance, focal length, aperture, illuminance, colour and modifiers.'], ['Local-first', 'No account or ad tracking; projects stay in your browser by default.'], ['Free to use', 'No credit card required. Open the site and start planning.'], ['Simple and Pro modes', 'Start with a simple interface, then switch to full professional controls.']],
     capabilities: [['Turn diagrams into space', 'Build repeatable setups with metres, angles, illuminance and real modifiers.'], ['Confirm the lens before call time', 'Compare sensor, focal length, aperture, depth of field and composition before the shoot.'], ['Carry the plan to set', 'Save, back up and share scenes, then export a lighting sheet and frame preview.']],
     galleryTitle: 'See what every decision changes.', galleryBody: 'The controls change with the job at hand, while light, camera and spatial placement remain in one continuous scene.',
     gallery: [['Light', 'Tune output, angle, distance, colour and modifiers one light at a time.'], ['Camera', 'Confirm the photograph with real focal length, exposure and framing controls.'], ['Layout', 'Place subject, lights, camera and backdrop precisely from the plan view.']],
@@ -96,10 +96,10 @@ const COPY: Record<Locale, Copy> = {
     nav: ['機能', 'セット例', 'よくある質問', 'サポート'], open: '無料でスタジオを開く', eyebrow: '撮影者と学習者のための 3D スタジオ',
     title: ['スタジオに入る前に、', 'ライト、レンズ、', '画づくりを決める。'], intro: 'LUMEN STAGE はライト、カメラ、人物、背景を、実際の距離とレンズ設定でブラウザ上に組み立てる撮影設計ツールです。',
     proof: ['インストール不要', 'アカウント不要', 'シーンは端末内に保存'], instrument: 'イメージ図ではなく、実際に操作できる撮影ツール。', instrumentBody: '人物、照明、カメラ、配置の 4 モードが 1 つのライブシーンを共有。デスクトップは精密操作とプリセット管理、スマートフォンは人物・照明・構図・位置の中核操作に対応します。',
-    demoLink: '15 秒の操作を見る', demoTitle: '十五秒で、アイデアを撮影可能なプランへ。', demoBody: '1 つのライブシーンで照明、構図、比較、書き出しまで行い、調整の結果を画面で確認できます。', demoSteps: [['セットを選ぶ', '空のシーンではなく、定番の照明から始めます。'], ['ライトを動かす', '距離、角度、出力、モディファイアをリアルタイム調整。'], ['レンズを確認', '焦点距離、絞り、最終フレームを確認します。'], ['現場へ持ち出す', '保存して、撮影チーム向けの照明シートを書き出します。']],
+    demoLink: '15 秒の操作を見る', demoTitle: '十五秒で、アイデアを撮影可能なプランへ。', demoBody: '1 つのライブシーンで照明、構図、比較、書き出しまで行い、調整の結果を画面で確認できます。', demoSteps: [['セットを選ぶ', '定番の照明から開始。'], ['主体を配置', '位置とポーズを確認。'], ['ライトを動かす', '距離、角度、出力を調整。'], ['カメラを確認', '焦点距離、絞り、フレームを確認。'], ['レイアウトを確認', '主体、ライト、カメラを上から確認。'], ['現場用に書き出す', '保存してセットアップ表を書き出し。']],
     setupsTitle: 'ゼロから始めず、定番の照明を点ける。', setupsBody: '人物、ライト、カメラ、背景をまとめて読み込み、すぐに調整できる状態から始められます。', setupCta: 'このセットを読み込む', setupNames: { rembrandt: ['レンブラント光', '45° の高いキーで、反対側の頬に特徴的な三角形を作ります。'], 'three-point': ['三点照明', 'キー、フィル、バックライトによる安定したインタビュー照明。'], clamshell: ['クラムシェル', 'レンズ軸の上下 2 灯で、美容・メイク向けの光を作ります。'] },
     outcomeTitle: '1 つのシーンから、3 つの成果を持ち出す。', outcomeBody: '空間配置から最終フレームを確認し、撮影現場で使える情報として整理できます。', outcomes: [['照明配置', '人物、ライト、カメラ、背景の空間関係を確認。'], ['画面プレビュー', '撮影前に光の方向、被写界深度、構図を確認。'], ['チーム共有', '保存、共有、照明シートの書き出しで現場へ引き継ぎ。']],
-    trustTitle: '美しい図ではなく、本番の準備のために。', trust: [['定番セットを収録', 'ライト、カメラ、背景の値をすべて編集できます。'], ['写真の実用単位', '距離、焦点距離、絞り、照度、色温度、モディファイアに対応。'], ['Local-first', 'アカウントも広告追跡もなく、プロジェクトは端末内に保存。']],
+    trustTitle: '美しい図ではなく、本番の準備のために。', trust: [['定番セットを収録', 'ライト、カメラ、背景の値をすべて編集できます。'], ['写真の実用単位', '距離、焦点距離、絞り、照度、色温度、モディファイアに対応。'], ['Local-first', 'アカウント・広告追跡なし。プロジェクトはブラウザ内に保存。'], ['無料で利用', 'クレジットカード不要。サイトを開いてすぐ開始。'], ['シンプル・プロ両対応', 'シンプル表示から始め、必要に応じてプロ向け操作へ切り替え。']],
     capabilities: [['照明図を空間にする', '距離、角度、照度、モディファイアで再現可能なセットを設計。'], ['撮影前にレンズを決める', 'センサー、焦点距離、絞り、被写界深度、構図を比較。'], ['プランを現場へ持ち出す', 'シーンを保存、バックアップ、共有し、照明シートを出力。']],
     galleryTitle: 'すべての判断を、画で確認。', galleryBody: '作業に合わせて操作は変わっても、光、カメラ、空間配置は 1 つのシーンに残ります。',
     gallery: [['照明', 'ライトごとに出力、角度、距離、色、モディファイアを調整。'], ['カメラ', '実際の焦点距離、露出、フレームで最終写真を確認。'], ['配置', '俯視表示から人物、ライト、カメラ、背景を正確に配置。']],
@@ -142,6 +142,10 @@ const DEMO_LIVE_LABEL: Record<Locale, string> = {
   ja: 'ライブシーン',
 }
 
+const demoStepAt = (time: number) => time < 2.5 ? 0 : time < 5 ? 1 : time < 7.5 ? 2 : time < 10 ? 3 : time < 12.5 ? 4 : 5
+
+const TRUST_MARKS = ['15', '01:1', 'LOCAL', 'FREE', '2 MODES'] as const
+
 const FEATURED_SETUP_IDS = ['rembrandt', 'three-point', 'clamshell'] as const
 
 function setupHref(id: string) {
@@ -175,6 +179,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
   const copy = COPY[locale]
   const studioPreview = STUDIO_PREVIEWS[locale]
   const demoVideo = DEMO_VIDEOS[locale]
+  const [demoStep, setDemoStep] = useState(0)
   const heroStage = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const titles = { home: 'Lumen Stage — Virtual Photography Studio', privacy: `${copy.privacyTitle} — Lumen Stage`, terms: `${copy.termsTitle} — Lumen Stage`, support: `${copy.supportTitle} — Lumen Stage` }
@@ -233,12 +238,22 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
       <header><span>01 / QUICK DEMO</span><h2>{copy.demoTitle}</h2><p>{copy.demoBody}</p></header>
       <div className="demo-console">
         <div className="demo-screen">
-          <video key={locale} autoPlay muted loop playsInline preload="metadata" poster={demoVideo.poster} aria-label={studioPreview.alt}>
+          <video key={locale} autoPlay muted loop playsInline preload="metadata" poster={demoVideo.poster} aria-label={studioPreview.alt}
+            onTimeUpdate={(event) => setDemoStep(demoStepAt(event.currentTarget.currentTime))}
+            onPlay={(event) => {
+              const video = event.currentTarget
+              if (!video.requestVideoFrameCallback) return
+              const syncToFrame = (_now: number, metadata: VideoFrameCallbackMetadata) => {
+                setDemoStep(demoStepAt(metadata.mediaTime))
+                if (!video.paused && !video.ended) video.requestVideoFrameCallback(syncToFrame)
+              }
+              video.requestVideoFrameCallback(syncToFrame)
+            }}>
             <source src={demoVideo.src} type="video/mp4" />
           </video>
           <span className="demo-live"><i /> {DEMO_LIVE_LABEL[locale]}</span>
         </div>
-        <ol>{copy.demoSteps.map(([title, body], index) => <li key={title} style={{ '--demo-delay': `${index * 3}s` } as React.CSSProperties}><span>0{index + 1}</span><div><strong>{title}</strong><small>{body}</small></div></li>)}</ol>
+        <ol>{copy.demoSteps.map(([title, body], index) => <li key={title} className={index === demoStep ? 'active' : ''}><span>0{index + 1}</span><div><strong>{title}</strong><small>{body}</small></div></li>)}</ol>
       </div>
     </section>
     <section className="site-intro" id="capabilities" data-reveal><span>02 / THE INSTRUMENT</span><h2>{copy.instrument}</h2><p>{copy.instrumentBody}</p></section>
@@ -275,7 +290,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
       <header data-reveal><span>06 / FROM PLAN TO SET</span><h2>{copy.outcomeTitle}</h2><p>{copy.outcomeBody}</p></header>
       <div>{copy.outcomes.map(([title, body], index) => <figure key={title} data-reveal><picture><img src={assetHref(`site-detail/${locale}/${['light', 'camera', 'handoff'][index]}.png`)} alt={`${title} — ${body}`} width="780" height="438" loading="lazy" decoding="async" /></picture><figcaption><span>0{index + 1}</span><h3>{title}</h3><p>{body}</p></figcaption></figure>)}</div>
     </section>
-    <section className="site-trust" data-reveal><header><span>07 / BUILT-IN PROOF</span><h2>{copy.trustTitle}</h2></header><div>{copy.trust.map(([title, body], index) => <article key={title}><b>{index === 0 ? SETUP_LIBRARY.length : index === 1 ? '01:1' : 'LOCAL'}</b><h3>{title}</h3><p>{body}</p></article>)}</div></section>
+    <section className="site-trust" data-reveal><header><span>07 / BUILT-IN PROOF</span><h2>{copy.trustTitle}</h2></header><div>{copy.trust.map(([title, body], index) => <article key={title}><b>{TRUST_MARKS[index]}</b><h3>{title}</h3><p>{body}</p></article>)}</div></section>
     <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>08 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
     <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>09 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
     <section className="final-cta" data-reveal><span>READY / SET / LIGHT</span><h2>{copy.finalTitle}</h2><p>{copy.finalBody}</p><a className="site-cta" href={studioHref()}><span>{copy.open}</span><b aria-hidden="true">↗</b></a></section>

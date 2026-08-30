@@ -6,7 +6,8 @@
 .onboarding-media--wide { aspect-ratio: 16 / 9; }
 .onboarding-media--panel { aspect-ratio: 4 / 3; }
 .onboarding-media--strip { aspect-ratio: 4 / 1; }
-.onboarding-media > img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; image-rendering: auto; }
+.onboarding-desktop .onboarding-media--wide { aspect-ratio: 4 / 3; }
+.onboarding-media > img, .onboarding-media > video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; image-rendering: auto; }
 .onboarding-compare > img { transition: opacity .3s ease; }
 .onboarding-compare > img.after { opacity: 0; }
 .onboarding-compare.is-after > img.before { opacity: 0; }
