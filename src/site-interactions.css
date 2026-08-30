@@ -306,6 +306,10 @@
 .workflow h3 { color: #edf4f6; }
 .workflow p { color: #879aa3; }
 
+@media (min-width: 981px) {
+  .workflow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 .site-header-shell > nav { gap: clamp(10px, 1.35vw, 20px); }
 @media (max-width: 1120px) {
   .site-header nav a { font-size: 9px; }
