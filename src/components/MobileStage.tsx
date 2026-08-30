@@ -41,7 +41,7 @@ export default function MobileStage({
         camera={{ position: [6.8, 4.8, 7.2], fov: 42, near: 0.05, far: 100 }}
       >
         <CanvasHealth onLost={onWebglLost} onRestored={onWebglRestored} />
-        <Suspense fallback={null}><StudioScene /></Suspense>
+        <Suspense fallback={null}><StudioScene horizontalLayoutOnly /></Suspense>
       </Canvas>
 
       {!sceneReady && (

@@ -4,7 +4,7 @@ import type { ColorProfileId, HistogramMode, ImageFormat } from './colorScience'
 import type { ShutterMode } from './sensorProcessing'
 import { DEFAULT_HEAD_ID, getModifier, LIGHT_HEADS, MODIFIERS } from './gear'
 import { getPoseEntry, NEUTRAL_POSE, normalizePose, type ModelPose } from './pose'
-import { DEFAULT_PHYSIQUE, PHYSIQUE_PRESETS, type Physique } from './physique'
+import { DEFAULT_PHYSIQUE, PHYSIQUE_PRESETS, type FigureSex, type Physique } from './physique'
 import { asFabric, asHairStyle, asOutfit, DEFAULT_HAIR_STYLE, DEFAULT_OUTFIT, type FabricKind, type HairStyle, type OutfitStyle } from './wardrobe'
 import { BACKDROPS, DEFAULT_BACKDROP_ID, getBackdrop } from './backdrops'
 import { GELS } from './gels'
@@ -137,7 +137,7 @@ export type StudioObject = {
 }
 
 type SceneSnapshot = {
-  schemaVersion: 23
+  schemaVersion: 24
   projectName: string
   backdrop: Backdrop
   backdropId: string
@@ -402,7 +402,7 @@ export type StudioState = {
   addMeasurePoint: (point: [number, number, number]) => void
   clearMeasure: () => void
   moveMeterToSubject: (subjectId: string, zone?: LightTargetZone) => void
-  addStudioObject: (type: SceneObjectType) => void
+  addStudioObject: (type: SceneObjectType, subjectSex?: Exclude<FigureSex, 'neutral'>) => void
   updateStudioObject: (id: string, patch: Partial<Omit<StudioObject, 'id'>>) => void
   applyStudioSubjectPose: (id: string, preset: PosePreset) => void
   updateStudioSubjectPose: (id: string, patch: Partial<ModelPose>) => void
@@ -538,7 +538,7 @@ const syncCameraTracking = (state: TargetableState & { cameraPosition: [number, 
 }
 
 const snapshotFrom = (state: StudioState, includeShots = false): SceneSnapshot => ({
-  schemaVersion: 23,
+  schemaVersion: 24,
   projectName: state.projectName,
   backdrop: state.backdrop,
   backdropId: state.backdropId,
@@ -875,6 +875,8 @@ const normalizeStudioObject = (object: Partial<StudioObject>, index: number): St
 const normalizeSnapshot = (value: unknown): SceneSnapshot => {
   if (!value || typeof value !== 'object') throw new Error('Invalid project')
   const raw = value as Record<string, unknown>
+  const storedSchemaVersion = Number(raw.schemaVersion)
+  const needsNeutralActorMigration = !Number.isFinite(storedSchemaVersion) || storedSchemaVersion < 24
   const lights = Array.isArray(raw.lights)
     ? raw.lights.map((light, index) => normalizeLight(light as Partial<StudioLight>, index))
     : [
@@ -884,7 +886,7 @@ const normalizeSnapshot = (value: unknown): SceneSnapshot => {
   if (!Array.isArray(raw.modelPosition)) throw new Error('Invalid project scene')
   const vector = (value: unknown, fallback: [number, number, number]): [number, number, number] => Array.isArray(value) && value.length === 3 && value.every((item) => Number.isFinite(Number(item))) ? value.map(Number) as [number, number, number] : fallback
   return {
-    schemaVersion: 23,
+    schemaVersion: 24,
     projectName: typeof raw.projectName === 'string' ? raw.projectName : 'Portrait study',
     backdrop: 'paper',
     backdropId: BACKDROPS.some((item) => item.id === raw.backdropId) ? String(raw.backdropId) : DEFAULT_BACKDROP_ID,
@@ -931,12 +933,21 @@ const normalizeSnapshot = (value: unknown): SceneSnapshot => {
     frameOrientation: raw.frameOrientation === 'portrait' ? 'portrait' : 'landscape',
     lights,
     modifiers: Array.isArray(raw.modifiers) ? raw.modifiers.map((modifier, index) => normalizeModifier(modifier as Partial<StudioModifier>, index)) : [],
-    studioObjects: Array.isArray(raw.studioObjects) ? raw.studioObjects.map((object, index) => normalizeStudioObject(object as Partial<StudioObject>, index)) : [],
+    studioObjects: Array.isArray(raw.studioObjects)
+      ? raw.studioObjects.map((object, index) => {
+          const normalized = normalizeStudioObject(object as Partial<StudioObject>, index)
+          return needsNeutralActorMigration && normalized.type === 'subject'
+            ? { ...normalized, position: [normalized.position[0], 0, normalized.position[2]], subjectPosePreset: 'neutral', subjectPose: { ...NEUTRAL_POSE } }
+            : normalized
+        })
+      : [],
     meterPosition: vector(raw.meterPosition, [0, 1.45, 0.15]),
     syncSpeed: Number.isFinite(Number(raw.syncSpeed)) ? Math.min(500, Math.max(60, Number(raw.syncSpeed))) : 200,
     ambientLevel: Number.isFinite(Number(raw.ambientLevel)) ? Math.min(100, Math.max(0, Number(raw.ambientLevel))) : 12,
     ambientTemperature: Number.isFinite(Number(raw.ambientTemperature)) ? Math.min(7500, Math.max(2200, Number(raw.ambientTemperature))) : 4300,
-    modelPosition: raw.modelPosition.map(Number) as [number, number, number],
+    modelPosition: needsNeutralActorMigration
+      ? [Number(raw.modelPosition[0]) || 0, 0, Number(raw.modelPosition[2]) || 0]
+      : raw.modelPosition.map(Number) as [number, number, number],
     modelRotation: Number(raw.modelRotation) || 0,
     modelHeight: Number.isFinite(Number(raw.modelHeight)) ? Math.min(2.2, Math.max(1.45, Number(raw.modelHeight))) : 1.82,
     skinColor: typeof raw.skinColor === 'string' && /^#[0-9a-f]{6}$/i.test(raw.skinColor) ? raw.skinColor : '#ad7962',
@@ -984,8 +995,8 @@ const normalizeSnapshot = (value: unknown): SceneSnapshot => {
       const keyframe = item as Record<string, unknown>
       return [{ id: typeof keyframe.id === 'string' ? keyframe.id : `keyframe-${index}`, frame: Math.max(0, Number(keyframe.frame) || 0), cameraPosition: vector(keyframe.cameraPosition, [0, 1.56, 5.8]), cameraTarget: vector(keyframe.cameraTarget, [0, 1.45, 0]), lightPowers: keyframe.lightPowers && typeof keyframe.lightPowers === 'object' ? { ...(keyframe.lightPowers as Record<string, number>) } : {} }]
     }) : [],
-    posePreset: typeof raw.posePreset === 'string' ? raw.posePreset : 'neutral',
-    modelPose: normalizePose(raw.modelPose as Partial<ModelPose> | undefined),
+    posePreset: needsNeutralActorMigration ? 'neutral' : typeof raw.posePreset === 'string' ? raw.posePreset : 'neutral',
+    modelPose: needsNeutralActorMigration ? { ...NEUTRAL_POSE } : normalizePose(raw.modelPose as Partial<ModelPose> | undefined),
     physique: normalizePhysique(raw.physique),
     hairStyle: asHairStyle(raw.hairStyle),
     outfitStyle: asOutfit(raw.outfitStyle),
@@ -1366,7 +1377,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     const point = subjectTargetPoint(state, subjectId, zone)
     return point ? { meterPosition: point, selected: 'meter', selectedIds: [], undoStack: withUndo(state), redoStack: [] } : state
   }),
-  addStudioObject: (type) => set((state) => {
+  addStudioObject: (type, subjectSex) => set((state) => {
     const id = `object-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
     const index = state.studioObjects.length + 1
     const subjectCount = state.studioObjects.filter((object) => object.type === 'subject').length
@@ -1383,11 +1394,10 @@ export const useStudio = create<StudioState>((set, get) => ({
       sphere: { position: [0.85, 0.5, 0.2], scale: 0.7, color: '#b58b52', material: 'metal' },
     }
     const appearanceDefaults = { subjectSkinRoughness: 55, subjectSkinOil: 22, subjectSubsurface: 45, subjectMakeup: 'natural' as MakeupStyle, subjectEyeColor: '#4b372b', subjectHairColor: '#211815', subjectHairGloss: 35, subjectOutfitFabric: 'cotton' as OutfitFabric, subjectPhysique: { ...PHYSIQUE_PRESETS.average }, subjectHairStyle: 'long' as HairStyle, subjectOutfitStyle: 'tshirt' as OutfitStyle }
-    const subjectDefaults = index % 3 === 1
-      ? { ...appearanceDefaults, subjectHeight: 1.74, subjectSkinColor: '#b9826b', subjectOutfitColor: '#343c48', subjectPosePreset: 'contrapposto' as PosePreset, subjectPose: { ...(getPoseEntry('contrapposto')?.pose ?? NEUTRAL_POSE) }, subjectPhysique: { ...PHYSIQUE_PRESETS.editorial }, subjectHairStyle: 'bob' as HairStyle, subjectOutfitStyle: 'dress' as OutfitStyle }
-      : index % 3 === 2
-        ? { ...appearanceDefaults, subjectHeight: 1.86, subjectSkinColor: '#805542', subjectOutfitColor: '#5b4339', subjectHairColor: '#15120f', subjectOutfitFabric: 'leather' as OutfitFabric, subjectPosePreset: 'profile' as PosePreset, subjectPose: { ...(getPoseEntry('profile')?.pose ?? NEUTRAL_POSE) }, subjectPhysique: { ...PHYSIQUE_PRESETS.athletic }, subjectHairStyle: 'short' as HairStyle, subjectOutfitStyle: 'suit' as OutfitStyle }
-        : { ...appearanceDefaults, subjectHeight: 1.68, subjectSkinColor: '#d0a083', subjectOutfitColor: '#38443b', subjectHairColor: '#3b241b', subjectOutfitFabric: 'silk' as OutfitFabric, subjectPosePreset: 'editorial' as PosePreset, subjectPose: { ...(getPoseEntry('editorial')?.pose ?? NEUTRAL_POSE) }, subjectPhysique: { ...PHYSIQUE_PRESETS.curvy }, subjectHairStyle: 'curly' as HairStyle, subjectOutfitStyle: 'gown' as OutfitStyle }
+    const resolvedSubjectSex = subjectSex ?? (index % 3 === 2 ? 'masculine' : 'feminine')
+    const subjectDefaults = resolvedSubjectSex === 'masculine'
+      ? { ...appearanceDefaults, subjectHeight: 1.86, subjectSkinColor: '#805542', subjectOutfitColor: '#5b4339', subjectHairColor: '#15120f', subjectOutfitFabric: 'leather' as OutfitFabric, subjectPosePreset: 'neutral' as PosePreset, subjectPose: { ...NEUTRAL_POSE }, subjectPhysique: { ...PHYSIQUE_PRESETS.athletic }, subjectHairStyle: 'short' as HairStyle, subjectOutfitStyle: 'suit' as OutfitStyle }
+      : { ...appearanceDefaults, subjectHeight: 1.74, subjectSkinColor: '#b9826b', subjectOutfitColor: '#343c48', subjectPosePreset: 'neutral' as PosePreset, subjectPose: { ...NEUTRAL_POSE }, subjectPhysique: { ...PHYSIQUE_PRESETS.editorial }, subjectHairStyle: 'bob' as HairStyle, subjectOutfitStyle: 'dress' as OutfitStyle }
     const object: StudioObject = { id, name: `${labels[type]} ${type === 'subject' ? subjectCount + 1 : index}`, type, rotationY: 0, locked: false, ...defaults[type], ...subjectDefaults }
     return { studioObjects: [...state.studioObjects, object], selected: id, selectedIds: [], undoStack: withUndo(state), redoStack: [] }
   }),

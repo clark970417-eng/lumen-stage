@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import { useStudio, type MakeupStyle, type OutfitFabric, type PosePreset, type StudioLight } from '../store'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useStudio, type MakeupStyle, type OutfitFabric, type PosePreset, type StudioLight, type StudioObject, type StudioState } from '../store'
 import { calculateDepthOfField } from '../optics'
 import { effectiveLightOutput, flashSyncFactor, lightWattage, opticTransmission, percentForWattage, wattageLimit } from '../lightProfiles'
 import { automaticLensProfileId, CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
@@ -10,7 +10,7 @@ import { PhysiquePanel, PoseControls, PoseLibraryPanel, WardrobePanel } from './
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
 import { DEFAULT_HUMAN_NAME } from '../characterAssets'
 import { useWorkflow } from '../workflow'
-import { workflowModeForStage } from '../workflowControl'
+import { workflowModeForStage, type WorkflowMode } from '../workflowControl'
 
 type RangeProps = {
   label: string
@@ -34,17 +34,182 @@ function Range({ label, value, min, max, step = 1, unit = '', displayValue, disa
   )
 }
 
-function InspectorDrawer({ title, meta, action, className = '', children }: { title: string; meta?: string; action?: ReactNode; className?: string; children: ReactNode }) {
+type DrawerComparison<T> = { capture: () => T; apply: (snapshot: T) => void }
+
+function InspectorDrawer<T>({ title, meta, action, comparison, className = '', children }: { title: string; meta?: string; action?: ReactNode; comparison?: DrawerComparison<T>; className?: string; children: ReactNode }) {
   const [open, setOpen] = useState(false)
+  const locale = useLocaleStore((state) => state.locale)
+  const baseline = useRef<T | null>(null)
+  const current = useRef<T | null>(null)
+  const labels = locale === 'zh'
+    ? { compare: '前後', compareAria: '按住查看調整前', reset: '重設' }
+    : locale === 'ja'
+      ? { compare: '前後', compareAria: '長押しで調整前を表示', reset: 'リセット' }
+      : { compare: 'Before', compareAria: 'Hold to preview before', reset: 'Reset' }
+  const toggle = () => {
+    if (!open && comparison) baseline.current = comparison.capture()
+    setOpen((value) => !value)
+  }
+  const showBefore = () => {
+    if (!comparison || baseline.current === null || current.current !== null) return
+    current.current = comparison.capture()
+    comparison.apply(baseline.current)
+  }
+  const showAfter = () => {
+    if (!comparison || current.current === null) return
+    comparison.apply(current.current)
+    current.current = null
+  }
+  const resetSection = () => {
+    showAfter()
+    if (comparison && baseline.current !== null) comparison.apply(baseline.current)
+  }
   return <section className={`inspector-section inspector-drawer ${open ? 'is-open' : 'is-collapsed'} ${className}`}>
     <div className="section-title inspector-drawer-heading">
-      <button className="inspector-drawer-toggle" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+      <button className="inspector-drawer-toggle" aria-expanded={open} onClick={toggle}>
         <i aria-hidden="true" /><span>{title}</span>{meta && <small>{meta}</small>}
       </button>
-      {action && <div className="inspector-drawer-action">{action}</div>}
+      {(action || comparison) && <div className="inspector-drawer-action">
+        {comparison && <div className="inspector-drawer-tools">
+          <button disabled={baseline.current === null} title={labels.compareAria} aria-label={labels.compareAria}
+            onPointerDown={(event) => { event.preventDefault(); showBefore() }} onPointerUp={showAfter} onPointerCancel={showAfter} onPointerLeave={showAfter}
+            onKeyDown={(event) => { if (event.key === ' ' || event.key === 'Enter') showBefore() }} onKeyUp={showAfter}>{labels.compare}</button>
+          <button disabled={baseline.current === null} onClick={resetSection}>{labels.reset}</button>
+        </div>}
+        {action}
+      </div>}
     </div>
     {open && <div className="inspector-drawer-content">{children}</div>}
   </section>
+}
+
+function captureStudio<K extends keyof StudioState>(state: StudioState, keys: readonly K[]): Pick<StudioState, K> {
+  return Object.fromEntries(keys.map((key) => [key, structuredClone(state[key])])) as Pick<StudioState, K>
+}
+
+function applyStudio(snapshot: Partial<StudioState>) {
+  useStudio.setState(snapshot)
+}
+
+function captureLight<K extends keyof StudioLight>(light: StudioLight, keys: readonly K[]): Pick<StudioLight, K> {
+  return Object.fromEntries(keys.map((key) => [key, structuredClone(light[key])])) as Pick<StudioLight, K>
+}
+
+function applyLight(id: string, snapshot: Partial<StudioLight>) {
+  useStudio.setState((state) => ({ lights: state.lights.map((item) => item.id === id ? { ...item, ...snapshot } : item) }))
+}
+
+function InspectorFooter({ mode }: { mode: WorkflowMode }) {
+  const state = useStudio()
+  const locale = useLocaleStore((item) => item.locale)
+  const [saved, setSaved] = useState(false)
+  const [presetOpen, setPresetOpen] = useState(false)
+  const storageKey = `lumen-stage:${mode}-preset`
+  const [hasPreset, setHasPreset] = useState(() => Boolean(localStorage.getItem(storageKey)))
+  const copy = locale === 'zh'
+    ? { reset: '重設', presets: '預設', save: '儲存預設', saved: '預設已儲存', title: '目前模式的預設', current: '已儲存的預設', empty: '尚未儲存預設', apply: '套用', remove: '刪除' }
+    : locale === 'ja'
+      ? { reset: 'リセット', presets: 'プリセット', save: 'プリセットを保存', saved: '保存しました', title: '現在のモードのプリセット', current: '保存済みプリセット', empty: 'プリセットはまだありません', apply: '適用', remove: '削除' }
+      : { reset: 'Reset', presets: 'Presets', save: 'Save preset', saved: 'Preset saved', title: 'Preset for this mode', current: 'Saved preset', empty: 'No preset saved yet', apply: 'Apply', remove: 'Delete' }
+  useEffect(() => {
+    setPresetOpen(false)
+    setHasPreset(Boolean(localStorage.getItem(storageKey)))
+  }, [storageKey])
+  const readPreset = (): { savedAt: number; value: unknown } | null => {
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as { savedAt?: unknown; value?: unknown }
+      return typeof parsed.savedAt === 'number' && 'value' in parsed
+        ? { savedAt: parsed.savedAt, value: parsed.value }
+        : { savedAt: 0, value: parsed }
+    } catch {
+      return null
+    }
+  }
+  const reset = () => {
+    if (mode === 'lighting') {
+      state.resetLighting()
+      return
+    }
+    if (mode === 'person') {
+      const selectedObject = state.studioObjects.find((item) => item.id === state.selected)
+      if (selectedObject) {
+        if (selectedObject.type === 'subject') state.applyStudioSubjectPose(selectedObject.id, 'neutral')
+        state.updateStudioObject(selectedObject.id, {
+          rotationY: 0,
+          ...(selectedObject.type === 'subject' ? { position: [selectedObject.position[0], 0, selectedObject.position[2]] as [number, number, number] } : {}),
+        })
+      } else {
+        state.applyPosePreset('neutral')
+        state.setModelTransform([state.modelPosition[0], 0, state.modelPosition[2]], 0)
+      }
+      return
+    }
+    if (mode === 'layout') {
+      useStudio.setState({ roomWidth: 8, roomDepth: 10, roomHeight: 4.5, backdropWidth: 2.72, backdropDistance: 1.6, wallColor: '#8f8d86', floorColor: '#6d6f68', windowEnabled: false, sunEnabled: false, haze: 0 })
+      return
+    }
+    useStudio.setState({
+      focalLength: 50, aperture: 4, iso: 100, shutter: 125, focusDistance: 5.5,
+      dofEnabled: true, focusGuide: true, cameraPosition: [0, 1.56, 5.8], cameraTarget: [0, 1.45, 0],
+      cameraTargetSubjectId: undefined, cameraTargetZone: 'face', cameraAutoFocus: false, cameraFramingPreset: 'full',
+      cameraBodyId: 'generic-ff', lensProfileId: 'zoom-24-70', compositionGuide: 'thirds', lensOpticsEnabled: true,
+      lensVignette: 18, lensDistortion: -8, lensChromaticAberration: 9, lensBreathing: 8, imageFormat: 'jpeg',
+      whiteBalance: 5600, whiteBalanceTint: 0, colorProfileId: 'neutral', highlightRolloff: 55, toneCurve: 58,
+      lutIntensity: 100, sensorSimulationEnabled: true, shutterMode: 'mechanical', sensorDynamicRange: 14,
+      noiseReduction: 35, colorNoise: 35, motionBlur: 55, rollingShutter: 50, sensorFormat: 'full-frame',
+      frameAspect: '3:2', frameOrientation: 'landscape', syncSpeed: 200, ambientLevel: 12, ambientTemperature: 4300,
+    })
+  }
+  const savePreset = () => {
+    const value = mode === 'lighting'
+      ? { lights: state.lights }
+      : mode === 'camera'
+        ? captureStudio(state, ['focalLength', 'aperture', 'iso', 'shutter', 'focusDistance', 'dofEnabled', 'focusGuide', 'cameraPosition', 'cameraTarget', 'cameraTargetSubjectId', 'cameraTargetZone', 'cameraAutoFocus', 'cameraFramingPreset', 'cameraBodyId', 'lensProfileId', 'compositionGuide', 'lensOpticsEnabled', 'lensVignette', 'lensDistortion', 'lensChromaticAberration', 'lensBreathing', 'imageFormat', 'whiteBalance', 'whiteBalanceTint', 'colorProfileId', 'highlightRolloff', 'toneCurve', 'lutIntensity', 'sensorSimulationEnabled', 'shutterMode', 'sensorDynamicRange', 'noiseReduction', 'colorNoise', 'motionBlur', 'rollingShutter', 'sensorFormat', 'frameAspect', 'frameOrientation', 'syncSpeed', 'ambientLevel', 'ambientTemperature'] as const)
+        : mode === 'layout'
+          ? captureStudio(state, ['roomWidth', 'roomDepth', 'roomHeight', 'backdropId', 'backdropWidth', 'backdropDistance', 'wallColor', 'floorColor', 'windowEnabled', 'sunEnabled', 'sunAzimuth', 'sunElevation', 'sunIntensity', 'haze'] as const)
+          : state.selected === 'model'
+            ? captureStudio(state, ['modelPosition', 'modelRotation', 'modelHeight', 'skinColor', 'outfitColor', 'skinRoughness', 'skinOil', 'skinSubsurface', 'makeupStyle', 'eyeColor', 'hairColor', 'hairGloss', 'outfitFabric', 'posePreset', 'physique', 'hairStyle', 'outfitStyle', 'modelPose'] as const)
+            : structuredClone(state.studioObjects.find((item) => item.id === state.selected) ?? {})
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ savedAt: Date.now(), value }))
+      setHasPreset(true)
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 1600)
+    } catch {
+      setSaved(false)
+    }
+  }
+  const applyPreset = () => {
+    const stored = readPreset()
+    if (!stored || !stored.value || typeof stored.value !== 'object') return
+    if (mode === 'lighting' && 'lights' in stored.value && Array.isArray(stored.value.lights)) {
+      useStudio.setState({ lights: structuredClone(stored.value.lights) as StudioLight[] })
+    } else if (mode === 'person' && state.selected !== 'model' && 'id' in stored.value) {
+      const { id: _id, name: _name, ...patch } = stored.value as StudioObject
+      state.updateStudioObject(state.selected, patch)
+    } else {
+      useStudio.setState(structuredClone(stored.value) as Partial<StudioState>)
+    }
+    setPresetOpen(false)
+  }
+  const removePreset = () => {
+    localStorage.removeItem(storageKey)
+    setHasPreset(false)
+    setPresetOpen(false)
+  }
+  const stored = presetOpen ? readPreset() : null
+  return <footer className="inspector-footer-actions">
+    {presetOpen && <section className="inspector-preset-popover" role="dialog" aria-label={copy.title}>
+      <header><span>{copy.title}</span><button aria-label="Close" onClick={() => setPresetOpen(false)}>×</button></header>
+      {hasPreset ? <div className="inspector-preset-entry"><div><strong>{copy.current}</strong>{stored?.savedAt ? <small>{new Date(stored.savedAt).toLocaleString(locale === 'zh' ? 'zh-TW' : locale === 'ja' ? 'ja-JP' : 'en-US')}</small> : null}</div><button onClick={applyPreset}>{copy.apply}</button><button className="danger" onClick={removePreset}>{copy.remove}</button></div>
+        : <p>{copy.empty}</p>}
+    </section>}
+    <button onClick={reset}>{copy.reset}</button>
+    <button className="preset-toggle" aria-expanded={presetOpen} onClick={() => setPresetOpen((open) => !open)}>{copy.presets}</button>
+    <button className={saved ? 'saved' : ''} onClick={savePreset}>{saved ? copy.saved : copy.save}</button>
+  </footer>
 }
 
 type AppearancePanelProps = {
@@ -162,8 +327,41 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
   return (
     <aside className={`inspector panel workflow-mode-${mode}`}>
       <div className="panel-heading"><span>{t('inspector.title')}</span><b>{selectionLabel}</b></div>
+      <div className="inspector-scroll-region">
+      {mode === 'layout' && <section className="inspector-section layout-position-inspector">
+        <div className="pose-heading"><span>{t('axis.section')}</span><small>{meta.meters}</small></div>
+        {state.selected === 'model' && <>
+          <Range label={t('axis.x')} value={state.modelPosition[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setModelTransform([value, state.modelPosition[1], state.modelPosition[2]])} />
+          <Range label={t('axis.y')} value={state.modelPosition[1]} min={0} max={3} step={0.05} unit=" m" onChange={(value) => state.setModelTransform([state.modelPosition[0], value, state.modelPosition[2]])} />
+          <Range label={t('axis.z')} value={state.modelPosition[2]} min={-1.5} max={5} step={0.05} onChange={(value) => state.setModelTransform([state.modelPosition[0], state.modelPosition[1], value])} />
+        </>}
+        {light && <>
+          <Range label={t('axis.x')} disabled={light.locked} value={light.position[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setLightAxis(light.id, 0, value)} />
+          <Range label={t('axis.y')} disabled={light.locked} value={light.position[1]} min={0.8} max={4.5} step={0.05} unit=" m" onChange={(value) => state.setLightAxis(light.id, 1, value)} />
+          <Range label={t('axis.z')} disabled={light.locked} value={light.position[2]} min={-2} max={5} step={0.05} onChange={(value) => state.setLightAxis(light.id, 2, value)} />
+        </>}
+        {modifier && <>
+          <Range label={t('axis.x')} disabled={modifier.locked} value={modifier.position[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setModifierTransform(modifier.id, [value, modifier.position[1], modifier.position[2]])} />
+          <Range label={t('axis.y')} disabled={modifier.locked} value={modifier.position[1]} min={0.3} max={3.5} step={0.05} unit=" m" onChange={(value) => state.setModifierTransform(modifier.id, [modifier.position[0], value, modifier.position[2]])} />
+          <Range label={t('axis.z')} disabled={modifier.locked} value={modifier.position[2]} min={-2} max={5} step={0.05} onChange={(value) => state.setModifierTransform(modifier.id, [modifier.position[0], modifier.position[1], value])} />
+        </>}
+        {studioObject && <>
+          <Range label={t('axis.x')} disabled={studioObject.locked} value={studioObject.position[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setStudioObjectTransform(studioObject.id, [value, studioObject.position[1], studioObject.position[2]])} />
+          <Range label={t('axis.y')} disabled={studioObject.locked} value={studioObject.position[1]} min={0} max={3} step={0.05} unit=" m" onChange={(value) => state.setStudioObjectTransform(studioObject.id, [studioObject.position[0], value, studioObject.position[2]])} />
+          <Range label={t('axis.z')} disabled={studioObject.locked} value={studioObject.position[2]} min={-1.5} max={5} step={0.05} onChange={(value) => state.setStudioObjectTransform(studioObject.id, [studioObject.position[0], studioObject.position[1], value])} />
+        </>}
+        {state.selected === 'camera' && <>
+          <Range label={t('camera.x')} value={state.cameraPosition[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setCameraPosition([value, state.cameraPosition[1], state.cameraPosition[2]])} />
+          <Range label={t('camera.y')} value={state.cameraPosition[1]} min={0.35} max={3.5} step={0.05} unit=" m" onChange={(value) => state.setCameraPosition([state.cameraPosition[0], value, state.cameraPosition[2]])} />
+          <Range label={t('camera.z')} value={state.cameraPosition[2]} min={1.2} max={9} step={0.05} onChange={(value) => state.setCameraPosition([state.cameraPosition[0], state.cameraPosition[1], value])} />
+        </>}
+      </section>}
       {mode === 'lighting' && isLight && light && <>
-        <InspectorDrawer key="light-output" title={t('light.section')} meta={meta.lightOutput} action={<button onClick={state.resetLighting}>{t('light.resetAll')}</button>}>
+        <InspectorDrawer key="light-output" title={t('light.section')} meta={meta.lightOutput}
+          comparison={{
+            capture: () => captureLight(light, ['name', 'enabled', 'powerPercent', 'profileId', 'headType', 'temperature', 'shape', 'softbox', 'grid', 'colorMode', 'rgb', 'beamAngle', 'feather', 'modifierWidth', 'modifierHeight', 'optic', 'modifierId', 'gelId', 'gridDegrees', 'barnDoorAngle', 'goboPattern', 'goboRotation', 'goboScale', 'operationMode', 'hssEnabled', 'flashDuration', 'locked', 'groupId'] as const),
+            apply: (snapshot) => applyLight(light.id, snapshot),
+          }}>
           {state.selectedIds.length > 1 && <div className="multi-selection-note"><b>{state.selectedIds.length}</b><span>{t('light.multiNote')}</span></div>}
           <div className="object-management">
             <input aria-label={t('light.name')} value={light.name} maxLength={32} onChange={(event) => state.updateLight(light.id, { name: event.target.value || 'Untitled light' })} />
@@ -228,12 +426,18 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             <label className="rgb-control"><span>{t('light.rgbColor')}</span><input aria-label={t('light.rgbColor')} type="color" value={light.rgb} onChange={(event) => state.updateLight(light.id, { rgb: event.target.value })} /><output>{light.rgb.toUpperCase()}</output></label>
           )}
         </InspectorDrawer>
-        <InspectorDrawer key="light-position" title={t('axis.section')} meta={meta.meters}>
+        <InspectorDrawer key="light-position" title={t('axis.section')} meta={meta.meters} comparison={{
+          capture: () => captureLight(light, ['position'] as const),
+          apply: (snapshot) => applyLight(light.id, snapshot),
+        }}>
           <Range label={t('axis.x')} disabled={light.locked} value={light.position[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setLightAxis(light.id, 0, value)} />
           <Range label={t('axis.y')} disabled={light.locked} value={light.position[1]} min={0.8} max={4.5} step={0.05} onChange={(value) => state.setLightAxis(light.id, 1, value)} />
           <Range label={t('axis.z')} disabled={light.locked} value={light.position[2]} min={-2} max={5} step={0.05} onChange={(value) => state.setLightAxis(light.id, 2, value)} />
         </InspectorDrawer>
-        <InspectorDrawer key="light-aim" title={t('beam.title')} meta={light.targetSubjectId ? meta.tracking : meta.manual} className="beam-controls">
+        <InspectorDrawer key="light-aim" title={t('beam.title')} meta={light.targetSubjectId ? meta.tracking : meta.manual} className="beam-controls" comparison={{
+          capture: () => captureLight(light, ['target', 'targetSubjectId', 'targetZone', 'beamAngle', 'feather'] as const),
+          apply: (snapshot) => applyLight(light.id, snapshot),
+        }}>
           <div className="target-binding-panel">
             <label><span>{t('beam.follow')}</span><select aria-label={t('beam.follow.aria')} value={light.targetSubjectId ?? 'manual'} onChange={(event) => state.bindLightToSubject(light.id, event.target.value === 'manual' ? null : event.target.value, light.targetZone ?? 'face')}>
               <option value="manual">{t('beam.manual')}</option>
@@ -257,7 +461,10 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
         </InspectorDrawer>
       </>}
 
-      {mode === 'lighting' && modifier && <InspectorDrawer key="grip" title={t('library.grip')} meta={meta.grip} className="grip-inspector">
+      {mode === 'lighting' && modifier && <InspectorDrawer key="grip" title={t('library.grip')} meta={meta.grip} className="grip-inspector" comparison={{
+        capture: () => structuredClone(modifier),
+        apply: (snapshot) => useStudio.setState((current) => ({ modifiers: current.modifiers.map((item) => item.id === modifier.id ? snapshot : item) })),
+      }}>
         <div className="object-management">
           <input aria-label={t('grip.name')} value={modifier.name} maxLength={32} onChange={(event) => state.updateModifier(modifier.id, { name: event.target.value || 'Untitled grip' })} />
           <button onClick={() => state.duplicateModifier(modifier.id)}>{t('common.duplicate')}</button>
@@ -286,7 +493,6 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
       {mode === 'person' && studioObject && <InspectorDrawer key="object" title={t('object.section')} meta={studioObject.type.toUpperCase()} className="studio-object-inspector">
         <div className="object-management"><input aria-label={t('object.name')} value={studioObject.name} maxLength={32} onChange={(event) => state.updateStudioObject(studioObject.id, { name: event.target.value || 'Untitled object' })} /><button onClick={() => state.duplicateStudioObject(studioObject.id)}>{t('common.duplicate')}</button><button className="danger" onClick={() => state.deleteStudioObject(studioObject.id)}>{t('common.delete')}</button></div>
         <div className="lock-row"><span>{t(studioObject.type === 'subject' ? 'object.subjectRig' : 'object.setPiece')}</span><button className={studioObject.locked ? 'locked' : ''} onClick={() => state.updateStudioObject(studioObject.id, { locked: !studioObject.locked })}>{t(studioObject.locked ? 'common.unlock' : 'common.lock')}</button></div>
-        <div className="object-type-grid" role="group" aria-label={t('object.typeAria')}>{(['subject','dog','cat','product','chair','table','plinth','cube','sphere'] as const).map((type) => <button key={type} className={studioObject.type === type ? 'active' : ''} onClick={() => state.updateStudioObject(studioObject.id, { type })}>{t(`object.${type}`)}</button>)}</div>
         {studioObject.type !== 'subject' ? <>
           <div className="sub-control"><span>{t('grip.surface')}</span><div className="segmented-control" role="group" aria-label={t('object.materialAria')}>{(['matte','glossy','metal'] as const).map((material) => <button key={material} className={studioObject.material === material ? 'active' : ''} onClick={() => state.updateStudioObject(studioObject.id, { material })}>{t(`material.${material}`)}</button>)}</div></div>
           <label className="object-color-control"><span>{t('object.color')}</span><input aria-label={t('object.colorAria')} type="color" value={studioObject.color} onChange={(event) => state.updateStudioObject(studioObject.id, { color: event.target.value })} /><output>{studioObject.color.toUpperCase()}</output></label>
@@ -325,10 +531,11 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
         <Range label={t('axis.rotY')} disabled={studioObject.locked} value={Math.round(THREE_RAD_TO_DEG * studioObject.rotationY)} min={-180} max={180} step={5} unit="°" onChange={(value) => state.setStudioObjectTransform(studioObject.id, studioObject.position, value / THREE_RAD_TO_DEG)} />
       </InspectorDrawer>}
 
-      {state.selected === 'model' && <InspectorDrawer key="model" title={t('model.section')} meta={meta.subjectPose} className="model-inspector">
+      {mode === 'person' && state.selected === 'model' && <section className="inspector-section model-inspector model-inspector-direct">
         <div className="selection-chip"><span className="model-silhouette" /><div><strong>{state.modelAssetName || DEFAULT_HUMAN_NAME}</strong><small>{state.modelImportStatus === 'ready' ? 'Rigged human · 1.82 m normalized' : state.modelImportStatus === 'error' ? 'Model failed · procedural fallback' : 'Loading realistic human…'}</small></div><b>SELECTED</b></div>
-        <Range label={t('axis.x')} value={state.modelPosition[0]} min={-3} max={3} step={0.05} onChange={(value) => state.setModelTransform([value, 0, state.modelPosition[2]])} />
-        <Range label={t('axis.z')} value={state.modelPosition[2]} min={-1} max={4} step={0.05} onChange={(value) => state.setModelTransform([state.modelPosition[0], 0, value])} />
+        <Range label={t('axis.x')} value={state.modelPosition[0]} min={-3} max={3} step={0.05} onChange={(value) => state.setModelTransform([value, state.modelPosition[1], state.modelPosition[2]])} />
+        <Range label={t('axis.y')} value={state.modelPosition[1]} min={0} max={3} step={0.05} unit=" m" onChange={(value) => state.setModelTransform([state.modelPosition[0], value, state.modelPosition[2]])} />
+        <Range label={t('axis.z')} value={state.modelPosition[2]} min={-1} max={4} step={0.05} onChange={(value) => state.setModelTransform([state.modelPosition[0], state.modelPosition[1], value])} />
         <Range label={t('model.facing')} value={Math.round(THREE_RAD_TO_DEG * state.modelRotation)} min={-180} max={180} step={5} unit="°" onChange={(value) => state.setModelTransform(state.modelPosition, value / THREE_RAD_TO_DEG)} />
         <Range label={t('subject.height')} value={state.modelHeight} min={1.45} max={2.2} step={0.01} unit=" m" onChange={(value) => setValue('modelHeight', Number(value.toFixed(2)))} />
         <div className="pose-heading">
@@ -364,9 +571,13 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             if (patch.fabric) setValue('outfitFabric', patch.fabric)
           }} />
         </>}
-      </InspectorDrawer>}
+      </section>}
 
-      {state.selected === 'camera' && <InspectorDrawer key="camera-position" title={t('camera.section')} meta={state.cameraTargetSubjectId ? meta.tracking : meta.manual} className="camera-body-controls">
+      {mode === 'camera' && <>
+      {state.selected === 'camera' && <InspectorDrawer key="camera-position" title={t('camera.section')} meta={state.cameraTargetSubjectId ? meta.tracking : meta.manual} className="camera-body-controls" comparison={{
+        capture: () => captureStudio(state, ['cameraPosition', 'cameraTarget', 'cameraTargetSubjectId', 'cameraTargetZone', 'cameraAutoFocus', 'cameraFramingPreset', 'focusDistance'] as const),
+        apply: applyStudio,
+      }}>
         <div className="target-binding-panel camera-target-panel">
           <label><span>{t('beam.follow')}</span><select aria-label={t('camera.followAria')} value={state.cameraTargetSubjectId ?? 'manual'} onChange={(event) => state.bindCameraToSubject(event.target.value === 'manual' ? null : event.target.value, state.cameraTargetZone)}>
             <option value="manual">{t('camera.manual')}</option>
@@ -393,13 +604,19 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
         <Range label={t('camera.aimZ')} value={state.cameraTarget[2]} min={-1.5} max={4} step={0.05} onChange={(value) => state.setCameraTarget([state.cameraTarget[0], state.cameraTarget[1], value])} />
       </InspectorDrawer>}
 
-      <InspectorDrawer key="camera-body" title={t('camera.section')} meta={meta.cameraBody} className="camera-controls">
+      <InspectorDrawer key="camera-body" title={t('camera.section')} meta={meta.cameraBody} className="camera-controls" comparison={{
+        capture: () => captureStudio(state, ['cameraBodyId', 'sensorFormat', 'sensorDynamicRange'] as const),
+        apply: applyStudio,
+      }}>
         <div className="camera-gear-block">
           <label><span>{t('cam.body')}</span><select aria-label={t('cam.body')} value={state.cameraBodyId} onChange={(event) => state.selectCameraBody(event.target.value as keyof typeof CAMERA_BODIES)}>{Object.values(CAMERA_BODIES).map((body) => <option key={body.id} value={body.id}>{body.brand} · {body.model}</option>)}</select></label>
           <div><span>{cameraBody.sensor === 'full-frame' ? meta.fullFrame : cameraBody.sensor === 'aps-c' ? 'APS-C' : 'MFT'}</span><b>{cameraBody.megapixels} MP</b><small>12–200 mm · ƒ/{lensProfile.maxAperture}</small></div>
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-optics" title={t('lens.character')} meta={meta.optical} className="camera-controls">
+      <InspectorDrawer key="camera-optics" title={t('lens.character')} meta={meta.optical} className="camera-controls" comparison={{
+        capture: () => captureStudio(state, ['lensProfileId', 'lensOpticsEnabled', 'lensVignette', 'lensDistortion', 'lensChromaticAberration', 'lensBreathing'] as const),
+        apply: applyStudio,
+      }}>
         <div className="lens-character-block">
           <div className="lens-optics-switch-row"><button className={state.lensOpticsEnabled ? 'active' : ''} onClick={() => setValue('lensOpticsEnabled', !state.lensOpticsEnabled)}><i />{t(state.lensOpticsEnabled ? 'lens.opticsOn' : 'lens.opticsOff')}</button><button onClick={() => { setValue('lensVignette', lensProfile.vignette); setValue('lensDistortion', lensProfile.distortion); setValue('lensChromaticAberration', lensProfile.chromaticAberration); setValue('lensBreathing', lensProfile.breathing) }}>{t('lens.preset')}</button></div>
           <Range label={t('lens.vignette')} disabled={!state.lensOpticsEnabled} value={state.lensVignette} min={0} max={100} unit="%" onChange={(value) => setValue('lensVignette', value)} />
@@ -410,7 +627,10 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
           <div className="bokeh-blade-readout"><span>{t('lens.blades')}</span><b>{lensProfile.blades}</b><small>{lensProfile.blades >= 11 ? 'ROUND' : 'DEFINED'}</small></div>
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-color" title={t('color.title')} meta={meta.color} className="camera-controls">
+      <InspectorDrawer key="camera-color" title={t('color.title')} meta={meta.color} className="camera-controls" comparison={{
+        capture: () => captureStudio(state, ['imageFormat', 'whiteBalance', 'whiteBalanceTint', 'colorProfileId', 'highlightRolloff', 'toneCurve', 'lutIntensity'] as const),
+        apply: applyStudio,
+      }}>
         <div className="color-science-block">
           <div className="image-format-control" role="group" aria-label={t('color.formatAria')}>
             <button className={state.imageFormat === 'raw' ? 'active' : ''} onClick={() => setValue('imageFormat', 'raw')}><b>RAW</b><small>{t('color.raw.sub')}</small></button>
@@ -426,7 +646,10 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
           <div className="raw-pipeline-note"><i /><span>{state.imageFormat === 'raw' ? t('color.note.raw') : t('color.note.baked', { code: COLOR_PROFILES[state.colorProfileId].code })}</span></div>
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-sensor" title={t('sensor.title')} meta={meta.sensor} className="camera-controls">
+      <InspectorDrawer key="camera-sensor" title={t('sensor.title')} meta={meta.sensor} className="camera-controls" comparison={{
+        capture: () => captureStudio(state, ['sensorSimulationEnabled', 'shutterMode', 'sensorDynamicRange', 'noiseReduction', 'colorNoise', 'motionBlur', 'rollingShutter'] as const),
+        apply: applyStudio,
+      }}>
         <div className="sensor-simulation-block">
           <div className="sensor-spec-strip"><span>BASE ISO <b>{cameraBody.nativeIso}</b></span><span>DR <b>{cameraBody.dynamicRange} STOPS</b></span><span>READOUT <b>{cameraBody.readoutMs} MS</b></span></div>
           <button className={state.sensorSimulationEnabled ? 'sensor-master active' : 'sensor-master'} onClick={() => setValue('sensorSimulationEnabled', !state.sensorSimulationEnabled)}><i />{t(state.sensorSimulationEnabled ? 'sensor.simOn' : 'sensor.simOff')}</button>
@@ -439,7 +662,10 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
           <div className={`sensor-warning ${state.shutterMode === 'electronic' && state.rollingShutter > 60 ? 'warning' : ''}`}><i /><span>{state.shutterMode === 'electronic' ? t('sensor.rollingWarn', { ms: cameraBody.readoutMs }) : t('sensor.mechNote')}</span></div>
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-frame" title={t('guide.composition')} meta={meta.frame} className="camera-controls" action={<button onClick={state.openCameraView}>{t('cam.enterView')}</button>}>
+      <InspectorDrawer key="camera-frame" title={t('guide.composition')} meta={meta.frame} className="camera-controls" action={<button onClick={state.openCameraView}>{t('cam.enterView')}</button>} comparison={{
+        capture: () => captureStudio(state, ['compositionGuide', 'dofEnabled', 'focusGuide'] as const),
+        apply: applyStudio,
+      }}>
         <div className="composition-guide-control"><span>{t('guide.composition')}</span><div role="group" aria-label={t('guide.compositionAria')}>{(['none','thirds','golden','safe'] as const).map((guide) => <button key={guide} className={state.compositionGuide === guide ? 'active' : ''} onClick={() => setValue('compositionGuide', guide)}>{t(`guide.${guide}`)}</button>)}</div></div>
         <div className="optics-status">
           <div><span>NEAR</span><strong>{depth.near.toFixed(2)} m</strong></div>
@@ -451,7 +677,10 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
           <button className={state.focusGuide ? 'active' : ''} onClick={() => setValue('focusGuide', !state.focusGuide)}><i />{t('optics.focusGuide')}</button>
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-ambient" title={t('ambient.title')} meta={meta.ambient} className="camera-controls">
+      <InspectorDrawer key="camera-ambient" title={t('ambient.title')} meta={meta.ambient} className="camera-controls" comparison={{
+        capture: () => captureStudio(state, ['ambientLevel', 'ambientTemperature', 'syncSpeed'] as const),
+        apply: applyStudio,
+      }}>
         <div className="ambient-control-block">
           <Range label={t('ambient.level')} value={state.ambientLevel} min={0} max={100} step={1} unit="%" onChange={(value) => setValue('ambientLevel', value)} />
           <Range label={t('ambient.temperature')} value={state.ambientTemperature} min={2200} max={7500} step={100} unit=" K" onChange={(value) => setValue('ambientTemperature', value)} />
@@ -459,7 +688,10 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
           {state.lights.some((item) => item.enabled && item.operationMode === 'flash') && <div className={state.shutter > state.syncSpeed && state.lights.some((item) => item.enabled && item.operationMode === 'flash' && !item.hssEnabled) ? 'global-sync-status error' : 'global-sync-status'}><i /><span>{t(state.shutter > state.syncSpeed ? 'sync.over' : 'sync.ok')}</span><b>1/{state.shutter}s</b></div>}
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-exposure" title={t('cam.section')} meta={meta.cameraExposure} className="camera-controls">
+      <InspectorDrawer key="camera-exposure" title={t('cam.section')} meta={meta.cameraExposure} className="camera-controls" comparison={{
+        capture: () => captureStudio(state, ['sensorFormat', 'frameAspect', 'frameOrientation', 'cameraAutoFocus', 'focusDistance', 'focalLength', 'lensProfileId', 'aperture', 'shutter', 'iso'] as const),
+        apply: applyStudio,
+      }}>
         <div className="sub-control sensor-control">
           <span>{t('sensor.override')}</span>
           <div className="segmented-control" role="group" aria-label={t('sensor.formatAria')}>
@@ -489,7 +721,10 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
         </div>
         <Range label="ISO" value={state.iso} min={100} max={12800} step={100} onChange={(value) => setValue('iso', value)} />
       </InspectorDrawer>
+      </>}
       {footer}
+      </div>
+      <InspectorFooter mode={mode} />
     </aside>
   )
 }

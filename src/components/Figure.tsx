@@ -20,6 +20,7 @@ import {
 } from '../anatomy'
 import { faceColorMap, faceRoughnessMap, fabricNormalMap, fabricRoughnessMap, hairNormalMap, skinColorMap, skinNormalMap, skinRoughnessMap } from '../textures'
 import type { HandPose, ModelPose } from '../pose'
+import { studioHairResponse, studioSkinResponse } from '../studioHumanDetails'
 import type { FabricKind, HairStyle, OutfitStyle } from '../wardrobe'
 
 export type MakeupStyle = 'none' | 'natural' | 'editorial'
@@ -70,24 +71,26 @@ const CLOTH_OFFSET = 1.045
 function useFigureMaterials(skinColor: string, outfitColor: string, appearance: FigureAppearance) {
   const skin = useMemo(() => {
     const base = new THREE.Color(skinColor)
-    const age = clamp(((appearance.physique.age ?? 28) - 18) / 62, 0, 1)
+    const response = studioSkinResponse(appearance.skinRoughness, appearance.skinOil, appearance.subsurface, appearance.physique.age)
     return new THREE.MeshPhysicalMaterial({
       color: base,
       map: skinColorMap(),
-      roughness: clamp(lerp(0.42, 0.94, appearance.skinRoughness / 100) + age * 0.06, 0.34, 0.98),
+      roughness: response.roughness,
       roughnessMap: skinRoughnessMap(),
       normalMap: skinNormalMap(),
-      normalScale: new THREE.Vector2(0.42, 0.42),
+      normalScale: new THREE.Vector2(response.normalScale, response.normalScale),
       metalness: 0,
-      clearcoat: (appearance.skinOil / 100) * 0.24,
-      clearcoatRoughness: lerp(0.24, 0.56, appearance.skinRoughness / 100),
-      sheen: (appearance.subsurface / 100) * 0.7,
+      clearcoat: response.clearcoat,
+      clearcoatRoughness: response.clearcoatRoughness,
+      sheen: response.sheen,
       sheenColor: base.clone().lerp(new THREE.Color('#ff8a76'), 0.4),
-      sheenRoughness: 0.8,
-      // Stand-in for subsurface transport: a touch of the skin's own colour
-      // leaking back out, which is what keeps a shadow terminator warm.
-      emissive: base.clone().multiplyScalar(0.09),
-      emissiveIntensity: (appearance.subsurface / 100) * 0.055,
+      sheenRoughness: response.sheenRoughness,
+      emissive: '#000000',
+      emissiveIntensity: 0,
+      transmission: 0,
+      iridescence: 0,
+      specularIntensity: response.specularIntensity,
+      envMapIntensity: response.envMapIntensity,
     })
   }, [appearance.physique.age, appearance.skinOil, appearance.skinRoughness, appearance.subsurface, skinColor])
 
@@ -118,21 +121,27 @@ function useFigureMaterials(skinColor: string, outfitColor: string, appearance: 
     return material
   }, [skin])
 
-  const hair = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color: appearance.hairColor,
-    roughness: lerp(0.74, 0.16, appearance.hairGloss / 100),
-    normalMap: hairNormalMap(),
-    normalScale: new THREE.Vector2(0.9, 0.9),
-    sheen: appearance.hairGloss / 100,
-    sheenColor: new THREE.Color(appearance.hairColor).lerp(new THREE.Color('#ffffff'), 0.3),
-    sheenRoughness: 0.22,
-    anisotropy: clamp(appearance.hairGloss / 100 * 0.86, 0, 0.86),
-    anisotropyRotation: Math.PI / 2,
-    clearcoat: (appearance.hairGloss / 100) * 0.35,
-    // The shell is an open surface bounded by the hairline, so the inside of
-    // the far side is visible through the gap around the face.
-    side: THREE.DoubleSide,
-  }), [appearance.hairColor, appearance.hairGloss])
+  const hair = useMemo(() => {
+    const response = studioHairResponse(appearance.hairGloss)
+    return new THREE.MeshPhysicalMaterial({
+      color: appearance.hairColor,
+      metalness: 0,
+      roughness: response.roughness,
+      normalMap: hairNormalMap(),
+      normalScale: new THREE.Vector2(0.45, 0.45),
+      sheen: response.sheen,
+      sheenColor: new THREE.Color(appearance.hairColor).lerp(new THREE.Color('#d8c7b8'), 0.12),
+      sheenRoughness: response.sheenRoughness,
+      anisotropy: response.anisotropy,
+      anisotropyRotation: Math.PI / 2,
+      clearcoat: 0,
+      specularIntensity: response.specularIntensity,
+      envMapIntensity: response.envMapIntensity,
+      // The shell is an open surface bounded by the hairline, so the inside of
+      // the far side is visible through the gap around the face.
+      side: THREE.DoubleSide,
+    })
+  }, [appearance.hairColor, appearance.hairGloss])
 
   const nail = useMemo(() => {
     const tone = new THREE.Color(skinColor).lerp(new THREE.Color('#f4d4cb'), 0.28)

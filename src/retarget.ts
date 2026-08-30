@@ -15,7 +15,7 @@
 
 import * as THREE from 'three'
 import { NEUTRAL_POSE, type HandPose, type ModelPose } from './pose'
-import { applyWorldPoseDelta } from './retargetDelta'
+import { applyFingerCurlDelta, applyWorldPoseDelta } from './retargetDelta'
 
 /** Every joint the rig can drive. Anything else in the skeleton is left alone. */
 export type HumanoidBone =
@@ -257,14 +257,14 @@ function accumulate(pose: ModelPose, stanceSplay: number): Partial<Record<Humano
   }
 }
 
-/** Finger curl per hand pose, matching the procedural rig's hand shapes. */
+/** Finger deltas layered over the imported hand's authored rest shape. */
 const HAND_CURL: Record<HandPose, { fingers: number; index: number; thumb: number }> = {
-  relaxed: { fingers: 38, index: 32, thumb: 22 },
-  open: { fingers: 6, index: 4, thumb: 10 },
-  fist: { fingers: 96, index: 96, thumb: 62 },
-  point: { fingers: 98, index: 5, thumb: 44 },
-  pocket: { fingers: 62, index: 58, thumb: 40 },
-  grip: { fingers: 78, index: 74, thumb: 58 },
+  relaxed: { fingers: 0, index: 0, thumb: 0 },
+  open: { fingers: -8, index: -8, thumb: -4 },
+  fist: { fingers: 30, index: 30, thumb: 18 },
+  point: { fingers: 30, index: -8, thumb: 12 },
+  pocket: { fingers: 18, index: 16, thumb: 10 },
+  grip: { fingers: 24, index: 22, thumb: 14 },
 }
 
 const FINGER_PATTERN = /(thumb|index|middle|ring|pinky|little)/
@@ -288,13 +288,12 @@ function applyFingers(hand: THREE.Bone | undefined, pose: HandPose, rest: RestPo
     if (!match) return
     const isThumb = match[1] === 'thumb'
     const isIndex = match[1] === 'index'
-    const degrees = isThumb ? curl.thumb * 0.6 : isIndex ? curl.index * 0.6 : curl.fingers * 0.6
+    const degrees = isThumb ? curl.thumb : isIndex ? curl.index : curl.fingers
     const restLocal = rest.localQuaternion.get(bone)
     if (!restLocal) return
-    // The bone points along its own +X in most exporters; bending happens about
-    // the axis perpendicular to both that and the palm normal, which for a hand
-    // in rest is the local Z.
-    bone.quaternion.copy(restLocal).multiply(axis(Z, isThumb ? -degrees : -degrees))
+    // MPFB exports already carry a relaxed finger arc. Treating that authored
+    // arc as zero prevents every pose from curling it a second time into a hook.
+    applyFingerCurlDelta(bone.quaternion, restLocal, degrees)
   })
 }
 

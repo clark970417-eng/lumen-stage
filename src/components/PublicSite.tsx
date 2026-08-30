@@ -14,6 +14,9 @@ type Copy = {
   instrument: string
   instrumentBody: string
   capabilities: Array<[string, string]>
+  galleryTitle: string
+  galleryBody: string
+  gallery: Array<[string, string]>
   workflowTitle: string
   workflow: Array<[string, string]>
   localTitle: string
@@ -37,9 +40,11 @@ const COPY: Record<Locale, Copy> = {
     title: ['在燈亮起以前，', '先把畫面', '拍完一遍。'],
     intro: 'LUMEN STAGE 讓攝影師在瀏覽器裡安排燈位、相機、人物與背景，先看懂光線，再走進真正的棚。',
     proof: ['免安裝', '免帳號', '場景留在你的裝置'], instrument: '不是示意圖，是可以工作的攝影工具。',
-    instrumentBody: '從林布蘭光到多燈商業棚拍，調整真實器材、曝光、色溫、鏡頭與姿勢；桌機負責精準控制，手機負責快速排光與取景。',
+    instrumentBody: '人物、佈光、相機、配置四個模式共用同一個即時場景。桌機負責精準控制與預設管理，手機保留人物、燈光、取景與物件定位的核心操作。',
     capabilities: [['把抽象燈位變成空間', '以公尺、角度、照度與塑光附件建立可重現的配置。'], ['在拍攝前確認鏡頭', '切換片幅、焦段、光圈、景深與構圖，降低現場試錯。'], ['把方案帶到片場', '儲存、備份、分享場景並輸出燈位工作表與成品預覽。']],
-    workflowTitle: '從想法到燈位，只要三個動作。', workflow: [['選一個起點', '使用經典燈位預設，或從空棚開始。'], ['調整畫面', '移動燈、人物與相機，查看曝光與景深。'], ['帶走方案', '分享連結、匯出專案，或下載燈位工作表。']],
+    galleryTitle: '每一個決定，都看得到它對畫面的影響。', galleryBody: '介面會跟著目前工作切換，但燈光、相機與空間位置始終留在同一個場景中。',
+    gallery: [['佈光', '逐盞調整功率、角度、距離、色溫與塑光附件。'], ['相機', '用實際焦段、曝光與取景框確認最終照片。'], ['配置', '從俯視畫面精確安排人物、燈具、相機與背景。']],
+    workflowTitle: '從想法到可重現的拍攝方案。', workflow: [['建立場景', '選擇人物與舞台物件，安排高度、姿勢與空間位置。'], ['完成光線與取景', '逐盞調整燈光，再用實際相機設定確認最終裁切。'], ['保存有效決策', '比較前後、儲存預設，並匯出專案或燈位工作表。']],
     localTitle: 'Local-first，不把你的場景當成資料來源。', localBody: '專案預設儲存在你的瀏覽器，沒有帳號、廣告或行為追蹤。只有匿名技術錯誤會送出，且不包含場景與照片。',
     finalTitle: '下一次拍攝，先在 LUMEN STAGE 裡亮燈。', faqTitle: '正式開拍前，先回答幾個問題。',
     faq: [['需要安裝嗎？', '不用。現代瀏覽器與支援 WebGL 的裝置即可使用。'], ['手機和桌機一樣嗎？', '共用同一種場景格式；手機保留排光、人物、相機與拍照的核心流程，桌機提供完整控制。'], ['場景會上傳嗎？', '不會。場景與匯入素材預設留在你的瀏覽器。'], ['可以分享嗎？', '可以。分享連結會把壓縮後的場景放在網址中，不需要帳號。'], ['能取代現場測光嗎？', '不能。它是規劃與溝通工具；正式拍攝仍應以現場器材與測光為準。'], ['需要付費嗎？', '目前公開版本可直接使用，不需要信用卡。']],
@@ -50,9 +55,11 @@ const COPY: Record<Locale, Copy> = {
   en: {
     nav: ['Capabilities', 'Workflow', 'FAQ', 'Support'], open: 'Open the studio', eyebrow: 'A virtual photography studio in your browser',
     title: ['Make the photograph', 'before the lights', ' turn on.'], intro: 'LUMEN STAGE lets photographers arrange lights, camera, subject and backdrop in the browser—so the light makes sense before the real studio clock starts.',
-    proof: ['No install', 'No account', 'Scenes stay on your device'], instrument: 'Not a mock-up. A working photographic instrument.', instrumentBody: 'Build anything from Rembrandt light to a multi-light commercial set with real gear, exposure, colour, lenses and posing. Desktop delivers precision; phone delivers fast planning and framing.',
+    proof: ['No install', 'No account', 'Scenes stay on your device'], instrument: 'Not a mock-up. A working photographic instrument.', instrumentBody: 'Person, Light, Camera and Layout share one live scene. Desktop adds precise control and preset management; phone keeps the essential subject, lighting, framing and object-position tools.',
     capabilities: [['Turn diagrams into space', 'Build repeatable setups with metres, angles, illuminance and real modifiers.'], ['Confirm the lens before call time', 'Compare sensor, focal length, aperture, depth of field and composition before the shoot.'], ['Carry the plan to set', 'Save, back up and share scenes, then export a lighting sheet and frame preview.']],
-    workflowTitle: 'From idea to lighting plan in three moves.', workflow: [['Choose a starting point', 'Use a classic lighting setup or begin with an empty studio.'], ['Shape the frame', 'Move lights, subject and camera while checking exposure and depth.'], ['Take the plan with you', 'Share a link, export the project or download a setup sheet.']],
+    galleryTitle: 'See what every decision changes.', galleryBody: 'The controls change with the job at hand, while light, camera and spatial placement remain in one continuous scene.',
+    gallery: [['Light', 'Tune output, angle, distance, colour and modifiers one light at a time.'], ['Camera', 'Confirm the photograph with real focal length, exposure and framing controls.'], ['Layout', 'Place subject, lights, camera and backdrop precisely from the plan view.']],
+    workflowTitle: 'From an idea to a repeatable shoot plan.', workflow: [['Build the scene', 'Choose a subject and stage objects, then set height, pose and spatial position.'], ['Shape light and frame', 'Tune one light at a time, then confirm the final crop with real camera settings.'], ['Keep the decisions', 'Compare before and after, save a preset, then export the project or setup sheet.']],
     localTitle: 'Local-first. Your scene is not our dataset.', localBody: 'Projects stay in your browser by default. There are no accounts, ads or behaviour analytics. Anonymous technical errors may be sent without scene or photo data.', finalTitle: 'Light your next shoot in LUMEN STAGE first.', faqTitle: 'A few answers before call time.',
     faq: [['Do I install anything?', 'No. Use a modern browser on a device that supports WebGL.'], ['Are phone and desktop the same?', 'They share the same scene format. Phone keeps the essential lighting and framing flow; desktop provides complete control.'], ['Are scenes uploaded?', 'No. Scenes and imported assets stay in your browser by default.'], ['Can I share a setup?', 'Yes. A compressed scene travels inside the share URL, with no account required.'], ['Does it replace a light meter?', 'No. It is a planning and communication tool; use real equipment and measurements on set.'], ['Does it cost anything?', 'The current public release is available without a card.']],
     privacyTitle: 'Privacy', privacyBody: ['LUMEN STAGE requires no account and uses no advertising trackers, behaviour analytics or analytics cookies.', 'Scenes, preferences, imported assets and photos stay in your browser by default. Clearing site data can remove them, so export important backups.', 'To detect crashes, anonymous technical errors may include an error message, code location, route and release. They exclude scenes, photos, project names and imported files.', 'Vercel and GitHub provide hosting and source services and may process necessary network and deployment logs under their own policies.'],
@@ -62,9 +69,11 @@ const COPY: Record<Locale, Copy> = {
   ja: {
     nav: ['機能', '流れ', 'よくある質問', 'サポート'], open: 'スタジオを開く', eyebrow: 'ブラウザで動くバーチャル撮影スタジオ',
     title: ['ライトを点ける', '前に、一度、', '撮り終える。'], intro: 'LUMEN STAGE はライト、カメラ、人物、背景をブラウザ上で組み立て、本番前に光を理解するための撮影設計ツールです。',
-    proof: ['インストール不要', 'アカウント不要', 'シーンは端末内に保存'], instrument: 'イメージ図ではなく、実際に操作できる撮影ツール。', instrumentBody: 'レンブラントから多灯の商品撮影まで、実在機材、露出、色温度、レンズ、ポーズを調整。デスクトップは精密操作、スマートフォンは素早いライティングとフレーミングに対応します。',
+    proof: ['インストール不要', 'アカウント不要', 'シーンは端末内に保存'], instrument: 'イメージ図ではなく、実際に操作できる撮影ツール。', instrumentBody: '人物、照明、カメラ、配置の 4 モードが 1 つのライブシーンを共有。デスクトップは精密操作とプリセット管理、スマートフォンは人物・照明・構図・位置の中核操作に対応します。',
     capabilities: [['照明図を空間にする', '距離、角度、照度、モディファイアで再現可能なセットを設計。'], ['撮影前にレンズを決める', 'センサー、焦点距離、絞り、被写界深度、構図を比較。'], ['プランを現場へ持ち出す', 'シーンを保存、バックアップ、共有し、照明シートを出力。']],
-    workflowTitle: 'アイデアから照明プランまで、3 ステップ。', workflow: [['起点を選ぶ', '定番ライティング、または空のスタジオから開始。'], ['画を整える', 'ライト、人物、カメラを動かし露出と被写界深度を確認。'], ['プランを持ち出す', 'リンク共有、プロジェクト書き出し、照明シートを利用。']],
+    galleryTitle: 'すべての判断を、画で確認。', galleryBody: '作業に合わせて操作は変わっても、光、カメラ、空間配置は 1 つのシーンに残ります。',
+    gallery: [['照明', 'ライトごとに出力、角度、距離、色、モディファイアを調整。'], ['カメラ', '実際の焦点距離、露出、フレームで最終写真を確認。'], ['配置', '俯視表示から人物、ライト、カメラ、背景を正確に配置。']],
+    workflowTitle: 'アイデアから再現できる撮影プランへ。', workflow: [['シーンを作る', '人物と舞台オブジェクトを選び、身長、ポーズ、空間位置を設定。'], ['光と構図を整える', 'ライトを 1 灯ずつ調整し、実際のカメラ設定で最終クロップを確認。'], ['判断を保存する', '前後比較、プリセット保存、プロジェクトまたは照明シートの書き出し。']],
     localTitle: 'Local-first。シーンを学習データにしません。', localBody: 'プロジェクトはブラウザ内に保存され、アカウント、広告、行動解析はありません。匿名の技術エラーのみ、シーンや写真を含めず送信される場合があります。', finalTitle: '次の撮影は、まず LUMEN STAGE で点灯。', faqTitle: '撮影前によくある質問。',
     faq: [['インストールは必要ですか？', '不要です。WebGL 対応のモダンブラウザで利用できます。'], ['スマホとデスクトップは同じですか？', '同じシーン形式を使います。スマホは中核フロー、デスクトップは全機能を提供します。'], ['シーンはアップロードされますか？', 'いいえ。シーンと素材は既定でブラウザ内に残ります。'], ['共有できますか？', 'はい。圧縮シーンを URL に含めるため、アカウント不要です。'], ['露出計の代わりになりますか？', 'いいえ。計画と共有のためのツールです。本番では実機で確認してください。'], ['料金はかかりますか？', '現在の公開版はカードなしで利用できます。']],
     privacyTitle: 'プライバシー', privacyBody: ['LUMEN STAGE はアカウント不要で、広告追跡、行動解析、解析 Cookie を使用しません。', 'シーン、設定、素材、写真は既定でブラウザ内に保存されます。サイトデータを削除すると失われるため、重要なデータは書き出してください。', '障害検知のため、エラー内容、コード位置、ページ、版を含む匿名技術エラーを送る場合があります。シーン、写真、プロジェクト名、素材は含みません。', 'Vercel と GitHub がサービスを提供し、各ポリシーに従って必要なネットワーク・配備ログを処理する場合があります。'],
@@ -75,19 +84,19 @@ const COPY: Record<Locale, Copy> = {
 
 const STUDIO_PREVIEWS: Record<Locale, { desktop: string; mobile: string; alt: string }> = {
   zh: {
-    desktop: '/site-preview/zh.jpg',
-    mobile: '/site-preview/zh-mobile.jpg',
-    alt: 'Lumen Stage 繁體中文虛擬攝影棚，顯示定調到驗證流程、拍攝藍圖與目前決策',
+    desktop: '/site-preview/zh.png',
+    mobile: '/site-preview/zh-mobile.png',
+    alt: 'Lumen Stage 繁體中文虛擬攝影棚，顯示人物、佈光、相機與配置四個模式',
   },
   en: {
-    desktop: '/site-preview/en.jpg',
-    mobile: '/site-preview/en-mobile.jpg',
-    alt: 'Lumen Stage virtual studio showing the five-step workflow, shoot blueprint and selected decision',
+    desktop: '/site-preview/en.png',
+    mobile: '/site-preview/en-mobile.png',
+    alt: 'Lumen Stage virtual studio showing the Person, Light, Camera and Layout modes',
   },
   ja: {
-    desktop: '/site-preview/ja.jpg',
-    mobile: '/site-preview/ja-mobile.jpg',
-    alt: '5 段階のワークフロー、撮影ブループリント、現在の決定を表示する Lumen Stage 日本語版',
+    desktop: '/site-preview/ja.png',
+    mobile: '/site-preview/ja-mobile.png',
+    alt: '人物、照明、カメラ、配置の 4 モードを表示する Lumen Stage 日本語版',
   },
 }
 
@@ -153,13 +162,13 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
       </div>
       <div className="hero-instrument">
         <picture key={locale}>
-          <source media="(max-width: 620px)" srcSet={studioPreview.mobile} type="image/jpeg" width="1240" height="2200" />
+          <source media="(max-width: 620px)" srcSet={studioPreview.mobile} type="image/png" width="780" height="844" />
           <img
             src={studioPreview.desktop}
             alt={studioPreview.alt}
-            width="1905"
-            height="1152"
-            sizes="(max-width: 620px) 360px, (max-width: 980px) 96vw, 940px"
+            width="1920"
+            height="1080"
+            sizes="(max-width: 620px) 100vw, (max-width: 900px) 96vw, 60vw"
             loading="eager"
             decoding="async"
             fetchPriority="high"
@@ -170,10 +179,26 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
       <a className="scroll-cue" href="#capabilities"><span>SCROLL TO FOCUS</span><i /></a>
     </section>
     <section className="site-intro" id="capabilities" data-reveal><span>01 / THE INSTRUMENT</span><h2>{copy.instrument}</h2><p>{copy.instrumentBody}</p></section>
-    <section className="capability-grid" data-reveal>{copy.capabilities.map(([title, body], index) => <article key={title}><div><span>0{index + 1}</span><i aria-hidden="true" /></div><h3>{title}</h3><p>{body}</p></article>)}</section>
-    <section className="workflow" id="workflow"><div className="workflow-heading" data-reveal><span>02 / WORKFLOW</span><h2>{copy.workflowTitle}</h2><p>PLAN · SHAPE · CAPTURE</p></div><ol>{copy.workflow.map(([title, body], index) => <li key={title} data-reveal><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></li>)}</ol></section>
-    <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>03 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
-    <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>04 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
+    <section className="capability-grid" data-reveal>{copy.capabilities.map(([title, body], index) => <article key={title}>
+      <div><span>0{index + 1}</span><i aria-hidden="true" /></div>
+      <picture>
+        <img src={`/site-detail/${locale}/${['light', 'camera', 'handoff'][index]}.png`} alt={`${title} — ${body}`} width="1200" height="675" loading="lazy" decoding="async" />
+      </picture>
+      <h3>{title}</h3><p>{body}</p>
+    </article>)}</section>
+    <section className="site-proof" aria-labelledby="site-proof-title" data-reveal>
+      <header><span>02 / LIVE WORKSPACE</span><h2 id="site-proof-title">{copy.galleryTitle}</h2><p>{copy.galleryBody}</p></header>
+      <div className="site-proof-grid">{copy.gallery.map(([title, body], index) => <figure key={title} className={index === 0 ? 'feature' : ''}>
+        <picture>
+          <source media="(max-width: 620px)" srcSet={`/onboarding/${locale}/mobile-${index + 1}.png`} type="image/png" width="780" height="438" />
+          <img src={`/onboarding/${locale}/desktop-${index + 1}.png`} alt={`${title} — ${body}`} width="1920" height="1080" loading="lazy" decoding="async" />
+        </picture>
+        <figcaption><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></figcaption>
+      </figure>)}</div>
+    </section>
+    <section className="workflow" id="workflow"><div className="workflow-heading" data-reveal><span>03 / WORKFLOW</span><h2>{copy.workflowTitle}</h2><p>PLAN · SHAPE · CAPTURE</p></div><ol>{copy.workflow.map(([title, body], index) => <li key={title} data-reveal><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></li>)}</ol></section>
+    <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>04 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
+    <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>05 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
     <section className="final-cta" data-reveal><span>READY / SET / LIGHT</span><h2>{copy.finalTitle}</h2><a className="site-cta" href="/studio"><span>{copy.open}</span><b aria-hidden="true">↗</b></a></section>
   </main><SiteFooter copy={copy} /></>
 }

@@ -50,7 +50,20 @@
 .guide-page-stage > figure { width: min(100%, 1040px); margin: 0; flex: 0 0 auto; scroll-snap-align: start; }
 .guide-page-stage.is-zoomed { align-items: flex-start; scroll-snap-type: none; }
 .guide-page-stage.is-zoomed > figure { width: min(150%, 1420px); }
-.guide-page-stage > figure img { width: 100%; height: auto; aspect-ratio: 841.89 / 595.276; object-fit: contain; display: block; border: 1px solid #354957; border-radius: 3px; background: #080b0f; box-shadow: 0 18px 46px rgba(0, 0, 0, .46); }
+.guide-slide {
+  min-height: 560px; display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(286px, .8fr); overflow: hidden;
+  border: 1px solid #354957; border-radius: 4px; background: #0b1117; box-shadow: 0 18px 46px rgba(0, 0, 0, .46);
+}
+.guide-slide-visual { min-width: 0; display: grid; place-items: center; overflow: hidden; border-right: 1px solid #2d414e; background: radial-gradient(circle at 50% 25%, #182630, #080d11 68%); }
+.guide-slide-visual img { width: 100%; height: 100%; max-height: 620px; display: block; object-fit: contain; object-position: center; }
+.guide-slide.is-mobile .guide-slide-visual img { width: auto; max-width: 100%; }
+.guide-slide-copy { padding: clamp(24px, 3vw, 42px); display: flex; flex-direction: column; justify-content: center; }
+.guide-slide-copy > span { color: var(--signal-cool); font: 9px var(--mono); letter-spacing: .14em; }
+.guide-slide-copy h2 { margin: 14px 0 16px; color: #f4f8fa; font-size: clamp(24px, 2.3vw, 36px); line-height: 1.15; letter-spacing: -.025em; }
+.guide-slide-copy p { margin: 0; color: #b5c2ca; font-size: 13px; line-height: 1.75; }
+.guide-slide-copy ul { margin: 24px 0 0; padding: 20px 0 0; display: grid; gap: 12px; border-top: 1px solid #2a3d49; list-style: none; }
+.guide-slide-copy li { position: relative; padding-left: 16px; color: #8fa2ae; font-size: 11px; line-height: 1.55; }
+.guide-slide-copy li::before { content: ''; position: absolute; left: 0; top: .65em; width: 5px; height: 5px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 8px rgba(255,180,84,.4); }
 .guide-page-stage > figure figcaption { min-height: 38px; padding: 0 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #2c3e49; border-top: 0; color: #9db0bb; background: #111a21; font-size: 10px; }
 .guide-page-stage > figure figcaption span { color: var(--signal-cool); font: 9px var(--mono); }
 
@@ -81,6 +94,13 @@
   .guide-chapters button { width: auto; min-width: 122px; padding-inline: 10px; }
   .guide-page-stage { padding: 14px 12px 28px; gap: 18px; scroll-padding-top: 14px; }
   .guide-page-stage > figure { min-width: 0; }
+  .guide-slide { min-height: 0; grid-template-columns: 1fr; }
+  .guide-slide-visual { aspect-ratio: 16 / 9; border-right: 0; border-bottom: 1px solid #2d414e; }
+  .guide-slide.is-mobile .guide-slide-visual { aspect-ratio: 4 / 5; }
+  .guide-slide-copy { padding: 22px 20px 26px; }
+  .guide-slide-copy h2 { margin-block: 10px 12px; font-size: 24px; }
+  .guide-slide-copy p { font-size: 12px; line-height: 1.65; }
+  .guide-slide-copy ul { margin-top: 16px; padding-top: 15px; }
   .guide-page-stage.is-zoomed > figure { width: 760px; max-width: none; }
   .guide-footer { padding: 0 8px; justify-content: flex-end; }
   .guide-footer > span { display: none; }
@@ -98,4 +118,22 @@
 @media (prefers-reduced-motion: reduce) {
   .guide-page-stage { scroll-behavior: auto; }
   .guide-progress i::after { transition: none; }
+}
+
+@media print {
+  @page { size: A4 landscape; margin: 0; }
+  html, body, #root, .app-shell { width: 297mm; height: auto !important; min-height: 210mm; margin: 0; overflow: visible !important; background: #0b1117 !important; }
+  .app-shell { min-width: 0 !important; min-height: 0 !important; display: block !important; }
+  body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .app-shell > :not(.guide-overlay) { display: none !important; }
+  .guide-overlay { position: static; inset: auto; z-index: auto; width: 297mm; height: auto !important; padding: 0; display: block; overflow: visible !important; background: #0b1117 !important; backdrop-filter: none; }
+  .guide-dialog { width: 297mm; height: auto; display: block; overflow: visible; border: 0; border-radius: 0; box-shadow: none; }
+  .guide-dialog > header, .guide-chapters, .guide-footer { display: none !important; }
+  .guide-workspace { display: block; overflow: visible; }
+  .guide-page-stage { width: 297mm; padding: 0; display: block; overflow: visible; background: #0b1117 !important; scroll-snap-type: none; }
+  .guide-page-stage > figure { width: 297mm; height: 210mm; margin: 0; break-after: page; page-break-after: always; }
+  .guide-page-stage > figure:last-child { break-after: auto; page-break-after: auto; }
+  .guide-page-stage > figure figcaption { display: none; }
+  .guide-slide { width: 297mm; height: 210mm; min-height: 0; border: 0; border-radius: 0; box-shadow: none; }
+  .guide-slide-visual img { max-height: 210mm; }
 }

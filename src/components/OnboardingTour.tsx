@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { useT, type MessageKey } from '../i18n'
+import { useLocaleStore, useT, type MessageKey } from '../i18n'
 import '../onboarding.css'
 
 export type OnboardingScope = 'desktop' | 'mobile'
@@ -13,29 +13,26 @@ type TourStep = {
   placement: 'below' | 'left' | 'above' | 'right'
 }
 
-const STORAGE_PREFIX = 'lumen-stage:onboarding:v1:'
+const STORAGE_PREFIX = 'lumen-stage:onboarding:v2:'
 
 const STEPS: Record<OnboardingScope, TourStep[]> = {
   desktop: [
-    { target: '.workflow-navigation', title: 'tour.desktop.1.title', body: 'tour.desktop.1.body', media: { kind: 'image', src: '/onboarding/desktop-workflow.webp' }, aspect: 'strip', placement: 'below' },
-    { target: '.blueprint-panel', title: 'tour.desktop.2.title', body: 'tour.desktop.2.body', media: { kind: 'compare', before: '/onboarding/blueprint-before.webp', after: '/onboarding/blueprint-after.webp' }, aspect: 'panel', placement: 'right' },
-    { target: '.scene-toolbar', title: 'tour.desktop.3.title', body: 'tour.desktop.3.body', media: { kind: 'image', src: '/onboarding/desktop-stage.webp' }, aspect: 'wide', placement: 'above' },
-    { target: '.decision-console', title: 'tour.desktop.4.title', body: 'tour.desktop.4.body', media: { kind: 'image', src: '/onboarding/desktop-decision.webp' }, aspect: 'panel', placement: 'left' },
-    { target: '.exposure-launcher', title: 'tour.desktop.5.title', body: 'tour.desktop.5.body', media: { kind: 'image', src: '/onboarding/exposure-after.webp' }, aspect: 'panel', placement: 'above' },
-    { target: '.readout', title: 'tour.desktop.6.title', body: 'tour.desktop.6.body', media: { kind: 'image', src: '/onboarding/desktop-readout.webp' }, aspect: 'strip', placement: 'above' },
-    { target: '.view-mode-dock', title: 'tour.desktop.7.title', body: 'tour.desktop.7.body', media: { kind: 'compare', before: '/onboarding/render-before.webp', after: '/onboarding/render-after.webp' }, aspect: 'wide', placement: 'below' },
-    { target: ['.workflow-next-button', '.file-menu', '.project-actions'], title: 'tour.desktop.8.title', body: 'tour.desktop.8.body', media: { kind: 'image', src: '/onboarding/desktop-save.webp' }, aspect: 'panel', placement: 'below' },
+    { target: '.workflow-navigation', title: 'tour.desktop.1.title', body: 'tour.desktop.1.body', media: { kind: 'image', src: 'desktop-0.png' }, aspect: 'wide', placement: 'below' },
+    { target: '.blueprint-panel', title: 'tour.desktop.2.title', body: 'tour.desktop.2.body', media: { kind: 'image', src: 'desktop-0.png' }, aspect: 'wide', placement: 'right' },
+    { target: '.decision-console', title: 'tour.desktop.3.title', body: 'tour.desktop.3.body', media: { kind: 'image', src: 'desktop-1.png' }, aspect: 'wide', placement: 'left' },
+    { target: '.decision-console', title: 'tour.desktop.4.title', body: 'tour.desktop.4.body', media: { kind: 'image', src: 'desktop-2.png' }, aspect: 'wide', placement: 'left' },
+    { target: ['.inspector-footer-actions', '.project-actions'], title: 'tour.desktop.5.title', body: 'tour.desktop.5.body', media: { kind: 'image', src: 'desktop-3.png' }, aspect: 'wide', placement: 'left' },
   ],
   mobile: [
-    { target: '#m-tab-intent', title: 'tour.mobile.1.title', body: 'tour.mobile.1.body', media: { kind: 'image', src: '/onboarding/mobile-setup.webp' }, aspect: 'wide', placement: 'above' },
-    { target: '#m-tab-blocking', title: 'tour.mobile.2.title', body: 'tour.mobile.2.body', media: { kind: 'image', src: '/onboarding/mobile-subject.webp' }, aspect: 'wide', placement: 'above' },
-    { target: '#m-tab-lighting', title: 'tour.mobile.3.title', body: 'tour.mobile.3.body', media: { kind: 'image', src: '/onboarding/mobile-light.webp' }, aspect: 'wide', placement: 'above' },
-    { target: '#m-tab-framing', title: 'tour.mobile.4.title', body: 'tour.mobile.4.body', media: { kind: 'image', src: '/onboarding/mobile-camera.webp' }, aspect: 'wide', placement: 'above' },
-    { target: '#m-tab-verify', title: 'tour.mobile.5.title', body: 'tour.mobile.5.body', media: { kind: 'image', src: '/onboarding/mobile-project.webp' }, aspect: 'wide', placement: 'above' },
+    { target: '#m-tab-planning', title: 'tour.mobile.1.title', body: 'tour.mobile.1.body', media: { kind: 'image', src: 'mobile-0.png' }, aspect: 'wide', placement: 'above' },
+    { target: '#m-tab-lighting', title: 'tour.mobile.2.title', body: 'tour.mobile.2.body', media: { kind: 'image', src: 'mobile-1.png' }, aspect: 'wide', placement: 'above' },
+    { target: '#m-tab-shooting', title: 'tour.mobile.3.title', body: 'tour.mobile.3.body', media: { kind: 'image', src: 'mobile-2.png' }, aspect: 'wide', placement: 'above' },
+    { target: '#m-tab-layout', title: 'tour.mobile.4.title', body: 'tour.mobile.4.body', media: { kind: 'image', src: 'mobile-3.png' }, aspect: 'wide', placement: 'above' },
   ],
 }
 
-const MOBILE_TABS = ['#m-tab-intent', '#m-tab-blocking', '#m-tab-lighting', '#m-tab-framing', '#m-tab-verify']
+const MOBILE_TABS = ['#m-tab-planning', '#m-tab-lighting', '#m-tab-shooting', '#m-tab-layout']
+const DESKTOP_MODES = [0, 0, 1, 2, 3]
 
 export function shouldShowOnboarding(scope: OnboardingScope) {
   try { return localStorage.getItem(`${STORAGE_PREFIX}${scope}`) !== 'done' } catch { return true }
@@ -76,6 +73,7 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
   onOpenGuide?: () => void
 }) {
   const t = useT()
+  const locale = useLocaleStore((state) => state.locale)
   const [stepIndex, setStepIndex] = useState(0)
   const [showAfter, setShowAfter] = useState(false)
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
@@ -107,6 +105,12 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
     update()
     const delayed = window.setTimeout(update, 140)
     return () => window.clearTimeout(delayed)
+  }, [open, scope, stepIndex])
+
+  useEffect(() => {
+    if (!open || scope !== 'desktop') return
+    const button = document.querySelectorAll<HTMLButtonElement>('.workflow-navigation button')[DESKTOP_MODES[stepIndex]]
+    if (button && !button.classList.contains('active')) button.click()
   }, [open, scope, stepIndex])
 
   useEffect(() => {
@@ -211,7 +215,7 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
       {highlightRect && <div className="onboarding-highlight" aria-hidden="true" style={highlightRect} />}
       <article ref={cardRef} className="onboarding-card" role="dialog" aria-modal="false" aria-label={t('tour.aria')} style={cardStyle}>
         {media.kind === 'image'
-          ? <div className={`onboarding-media onboarding-media--${step.aspect}`}><img src={media.src} alt={t(step.title)} /></div>
+          ? <div className={`onboarding-media onboarding-media--${step.aspect}`}><img src={`/onboarding/${locale}/${media.src}`} alt={t(step.title)} /></div>
           : <div className={`onboarding-media onboarding-media--${step.aspect} onboarding-compare${showAfter ? ' is-after' : ''}`}>
               <img className="before" src={media.before} alt={t('tour.beforeAlt', { title: t(step.title) })} />
               <img className="after" src={media.after} alt={t('tour.afterAlt', { title: t(step.title) })} />

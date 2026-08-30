@@ -1,7 +1,34 @@
 import * as THREE from 'three'
 
 export const STUDIO_HAIR_SOURCE_URL = '/models/lumen-human/hair/short04.obj'
-export const STUDIO_HAIR_SOURCE_SCALE = 0.12
+export const STUDIO_HAIR_SOURCE_SCALE = 0.108
+
+export function studioSkinResponse(skinRoughness: number, skinOil: number, subsurface: number, age = 28) {
+  const rough = THREE.MathUtils.clamp(skinRoughness / 100, 0, 1)
+  const ageFactor = THREE.MathUtils.clamp((age - 18) / 62, 0, 1)
+  return {
+    roughness: THREE.MathUtils.clamp(THREE.MathUtils.lerp(0.62, 0.86, rough) + ageFactor * 0.03, 0.58, 0.9),
+    normalScale: 0.2,
+    specularIntensity: 0.32,
+    clearcoat: THREE.MathUtils.clamp(skinOil / 100, 0, 1) * 0.04,
+    clearcoatRoughness: THREE.MathUtils.lerp(0.62, 0.82, rough),
+    sheen: THREE.MathUtils.clamp(subsurface / 100, 0, 1) * 0.08,
+    sheenRoughness: 0.88,
+    envMapIntensity: 0.16,
+  }
+}
+
+export function studioHairResponse(hairGloss: number) {
+  const gloss = THREE.MathUtils.clamp(hairGloss / 100, 0, 1)
+  return {
+    roughness: THREE.MathUtils.lerp(0.78, 0.5, gloss),
+    sheen: THREE.MathUtils.lerp(0.14, 0.38, gloss),
+    sheenRoughness: THREE.MathUtils.lerp(0.8, 0.54, gloss),
+    anisotropy: THREE.MathUtils.lerp(0.1, 0.38, gloss),
+    specularIntensity: THREE.MathUtils.lerp(0.22, 0.36, gloss),
+    envMapIntensity: 0.24,
+  }
+}
 
 /**
  * Where the pupils sit below the crown, on a 1.82 m actor.
@@ -23,7 +50,7 @@ export const EYE_HALF_SEPARATION = 0.0311
  * geometry with no socket to sink into, so the eyeball is a prosthetic that
  * has to stand slightly proud to be seen at all.
  */
-export const EYEBALL_SET_BACK = 0.005
+export const EYEBALL_SET_BACK = 0.012
 
 /** The band of head, measured down from the crown, that the eyes occupy. */
 export const EYE_BAND_HALF_HEIGHT = 0.022
@@ -59,5 +86,5 @@ export function studioEyeAnchor(faceZ: number, modelTop: number, centreX = 0) {
 }
 
 export function studioHairAnchor(headPosition: THREE.Vector3, modelTop: number) {
-  return new THREE.Vector3(headPosition.x, modelTop - 0.105, headPosition.z + 0.005)
+  return new THREE.Vector3(headPosition.x, modelTop - 0.105, headPosition.z - 0.035)
 }

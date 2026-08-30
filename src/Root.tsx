@@ -48,10 +48,13 @@ function StudioShell() {
     Promise.all([import('./store'), import('./share'), import('./persistence'), shell]).then(async ([store, share, persistence]) => {
       const shared = await share.readSceneFromLocation()
       if (shared) store.useStudio.getState().importProject(shared)
+      else if (persistence.hasLocalProject()) store.useStudio.getState().loadProject()
       else {
+        // localStorage is written synchronously before the IndexedDB mirror.
+        // Prefer it when both exist so a quick shell switch cannot restore an
+        // older mirrored actor, camera or light state over the latest edit.
         const backup = await persistence.readMirroredProject()
         if (backup) store.useStudio.getState().importProject(backup)
-        else if (persistence.hasLocalProject()) store.useStudio.getState().loadProject()
       }
       void persistence.requestDurableStorage()
     }).finally(() => { if (active) setReady(true) })

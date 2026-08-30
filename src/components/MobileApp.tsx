@@ -193,19 +193,20 @@ function usePageVisible() {
   return useSyncExternalStore(subscribeToVisibility, () => !document.hidden, () => true)
 }
 
-function Dial({ label, value, min, max, step = 1, readout, onChange }: {
+function Dial({ label, value, min, max, step = 1, readout, disabled = false, onChange }: {
   label: string
   value: number
   min: number
   max: number
   step?: number
   readout: string
+  disabled?: boolean
   onChange: (value: number) => void
 }) {
   return (
     <label className="m-dial">
       <span>{label}<b>{readout}</b></span>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
+      <input type="range" min={min} max={max} step={step} value={value} disabled={disabled} onChange={(event) => onChange(Number(event.target.value))} />
     </label>
   )
 }
@@ -705,6 +706,25 @@ function MobileLayoutTab() {
     ...state.studioObjects.map((object) => ({ id: object.id, label: object.name })),
     { id: 'camera', label: t('mobile.tab.camera') },
   ]
+  const selectedItem = items.find((item) => item.id === state.selected) ?? items[0]
+  const selectedLight = state.lights.find((light) => light.id === selectedItem.id)
+  const selectedModifier = state.modifiers.find((modifier) => modifier.id === selectedItem.id)
+  const selectedStudioObject = state.studioObjects.find((object) => object.id === selectedItem.id)
+  const selectedPosition = selectedItem.id === 'model'
+    ? state.modelPosition
+    : selectedItem.id === 'camera'
+      ? state.cameraPosition
+      : selectedLight?.position ?? selectedModifier?.position ?? selectedStudioObject?.position ?? [0, 0, 0]
+  const locked = selectedLight?.locked ?? selectedModifier?.locked ?? selectedStudioObject?.locked ?? false
+  const horizontalLimit = Math.max(1, state.roomWidth / 2 - 0.45)
+  const moveHorizontally = (value: number) => {
+    const x = Number(value.toFixed(2))
+    if (selectedItem.id === 'model') state.setModelTransform([x, state.modelPosition[1], state.modelPosition[2]])
+    else if (selectedItem.id === 'camera') state.setCameraPosition([x, state.cameraPosition[1], state.cameraPosition[2]], 'X')
+    else if (selectedLight) state.setLightPosition(selectedLight.id, [x, selectedLight.position[1], selectedLight.position[2]], 'X')
+    else if (selectedModifier) state.setModifierTransform(selectedModifier.id, [x, selectedModifier.position[1], selectedModifier.position[2]], selectedModifier.rotationY, 'X')
+    else if (selectedStudioObject) state.setStudioObjectTransform(selectedStudioObject.id, [x, selectedStudioObject.position[1], selectedStudioObject.position[2]], selectedStudioObject.rotationY, 'X')
+  }
   return <div className="m-tab">
     <h2>{t('mobile.layout.title')}</h2>
     <p className="m-note">{t('mobile.layout.note')}</p>
@@ -712,6 +732,16 @@ function MobileLayoutTab() {
       {items.map((item) => <button key={item.id} className={state.selected === item.id ? 'active' : ''} onClick={() => state.selectObject(item.id)}>{item.label}</button>)}
       <button className="m-chip-add" onClick={() => state.addLight()}>＋ {t('mobile.light.add')}</button>
     </div>
+    <Dial
+      label={`${selectedItem.label} · ${t('mobile.layout.horizontal')}`}
+      value={selectedPosition[0]}
+      min={-horizontalLimit}
+      max={horizontalLimit}
+      step={0.05}
+      readout={`${selectedPosition[0].toFixed(2)} m`}
+      disabled={locked}
+      onChange={moveHorizontally}
+    />
   </div>
 }
 
@@ -726,7 +756,6 @@ export function MobileApp() {
   const pathSamples = useStudio((state) => state.pathTracingSamples)
   const openStudioView = useStudio((state) => state.openStudioView)
   const openCameraView = useStudio((state) => state.openCameraView)
-  const openTopView = useStudio((state) => state.openTopView)
   const setWorkflowStage = useWorkflow((state) => state.setStage)
   const [tab, setTab] = useState<Tab>('planning')
   const [appliedSetup, setAppliedSetup] = useState<string | null>(null)
@@ -751,14 +780,15 @@ export function MobileApp() {
 
   useEffect(() => {
     setWorkflowStage(tabStage[tab])
+    const studio = useStudio.getState()
     if (tab === 'layout') {
-      const studio = useStudio.getState()
       studio.setValue('transformMode', 'translate')
       studio.setValue('lightAimMode', false)
       studio.setValue('poseHandles', false)
-      openTopView()
-    }
-  }, [openTopView, setWorkflowStage, tab])
+      studio.openTopView()
+    } else if (tab === 'shooting') studio.openCameraView()
+    else studio.openStudioView()
+  }, [setWorkflowStage, tab])
 
   useEffect(() => {
     const compactLandscape = window.matchMedia('(orientation: landscape) and (max-height: 520px)')

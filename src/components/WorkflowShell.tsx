@@ -18,7 +18,7 @@ const COPY = {
     noProps: 'No supporting objects yet', tracked: 'tracking subject', manual: 'manual aim', selected: 'Adjusting now', desired: 'Desired effect', desiredLight: 'Light / look', desiredFrame: 'Frame / subject', desiredPose: 'Subject / pose', impact: 'Current impact', advanced: 'Advanced controls',
     soften: 'Soften light', deepen: 'Deepen shadow', trackFace: 'Track face', headshot: 'Headshot', half: 'Half body', full: 'Full body', exposureCheck: 'Exposure check', shotCompare: 'Compare shots', compareNeedTwo: 'Save 2 shots to compare',
     assetTitle: 'Add to the stage', lights: 'Lights', people: 'People & set', grip: 'Light control', backdrops: 'Backdrops', close: 'Close',
-    square: 'Soft key', round: 'Round source', strip: 'Strip source', person: 'Person', product: 'Product', chair: 'Chair', table: 'Table', reflector: 'Reflector', flag: 'Black flag', vflat: 'V-Flat',
+    square: 'Soft key', round: 'Round source', strip: 'Strip source', person: 'Person', dog: 'Dog', cat: 'Cat', product: 'Product', chair: 'Chair', table: 'Table', plinth: 'Product plinth', cube: 'Cube', sphere: 'Sphere', choosePerson: 'Choose a person', choosePersonHint: 'Select the starting body frame. You can refine appearance later.', female: 'Woman', male: 'Man', back: 'Back', reflector: 'Reflector', flag: 'Black flag', vflat: 'V-Flat',
     referenceTitle: 'Reference → starting light', referenceIntro: 'A local luminance read suggests a conservative starting point. It does not claim to identify hidden gear.',
     choosePhoto: 'Choose a reference photo', replacePhoto: 'Replace photo', applyStart: 'Build this starting light', direction: 'Probable key direction', ratio: 'Starting key : fill', confidence: 'Confidence',
     left: 'camera left', right: 'camera right', front: 'frontal / even', low: 'low', medium: 'medium', high: 'high',
@@ -34,7 +34,7 @@ const COPY = {
     noProps: '尚未加入其他人物或道具', tracked: '跟隨人物', manual: '手動瞄準', selected: '正在調整', desired: '想得到的效果', desiredLight: '燈光／畫面效果', desiredFrame: '構圖／人物', desiredPose: '人物／姿勢', impact: '當前影響', advanced: '進階器材參數',
     soften: '柔化光線', deepen: '加深陰影', trackFace: '鎖定臉部', headshot: '臉部近景', half: '半身構圖', full: '全身構圖', exposureCheck: '檢查曝光', shotCompare: '比較鏡位', compareNeedTwo: '儲存 2 個鏡位後比較',
     assetTitle: '加入拍攝舞台', lights: '燈光', people: '人物與佈景', grip: '控光附件', backdrops: '背景', close: '關閉',
-    square: '柔光主燈', round: '圓形光源', strip: '條形光源', person: '人物', product: '商品', chair: '椅子', table: '桌子', reflector: '反光板', flag: '黑旗', vflat: 'V-Flat',
+    square: '柔光主燈', round: '圓形光源', strip: '條形光源', person: '人物', dog: '狗狗', cat: '貓咪', product: '商品', chair: '椅子', table: '桌子', plinth: '商品台', cube: '方塊', sphere: '球體', choosePerson: '選擇人物', choosePersonHint: '先選擇起始骨架，加入後仍可調整外觀。', female: '女性', male: '男性', back: '返回', reflector: '反光板', flag: '黑旗', vflat: 'V-Flat',
     referenceTitle: '參考照片 → 起始燈位', referenceIntro: '只在本機讀取大範圍明暗分布，提供保守的起始推測，不會宣稱辨識出照片外的器材。',
     choosePhoto: '選擇參考照片', replacePhoto: '更換照片', applyStart: '建立這組起始燈位', direction: '推測主光方向', ratio: '起始主補光比', confidence: '推測信心',
     left: '鏡頭左側', right: '鏡頭右側', front: '正面／平均', low: '低', medium: '中', high: '高',
@@ -50,7 +50,7 @@ const COPY = {
     noProps: '人物や小道具はまだありません', tracked: '人物を追従', manual: '手動照準', selected: '調整中', desired: '目指す効果', desiredLight: '照明／ルック', desiredFrame: '構図／人物', desiredPose: '人物／ポーズ', impact: '現在の影響', advanced: '詳細機材設定',
     soften: '光を柔らかく', deepen: '影を深く', trackFace: '顔を追従', headshot: 'ヘッドショット', half: '上半身', full: '全身', exposureCheck: '露出を確認', shotCompare: 'ショット比較', compareNeedTwo: '2 件保存後に比較',
     assetTitle: 'ステージに追加', lights: 'ライト', people: '人物とセット', grip: '遮光・反射', backdrops: '背景', close: '閉じる',
-    square: 'ソフトキー', round: '円形光源', strip: 'ストリップ', person: '人物', product: '商品', chair: '椅子', table: 'テーブル', reflector: 'レフ板', flag: '黒旗', vflat: 'V-Flat',
+    square: 'ソフトキー', round: '円形光源', strip: 'ストリップ', person: '人物', dog: '犬', cat: '猫', product: '商品', chair: '椅子', table: 'テーブル', plinth: '展示台', cube: 'キューブ', sphere: '球体', choosePerson: '人物を選択', choosePersonHint: '最初の体型を選びます。外観は追加後も調整できます。', female: '女性', male: '男性', back: '戻る', reflector: 'レフ板', flag: '黒旗', vflat: 'V-Flat',
     referenceTitle: '参照写真 → 初期ライティング', referenceIntro: '端末内で明暗分布だけを読み、控えめな開始点を提案します。写っていない機材は断定しません。',
     choosePhoto: '参照写真を選択', replacePhoto: '写真を変更', applyStart: 'この初期配光を作成', direction: '推定キー方向', ratio: 'キー：フィル', confidence: '信頼度',
     left: 'カメラ左', right: 'カメラ右', front: '正面／均等', low: '低', medium: '中', high: '高',
@@ -122,7 +122,7 @@ export function WorkflowNavigation() {
       : stage === id
 
   return <nav className="workflow-navigation" aria-label="Shoot workflow">
-    {copy.stages.map(([id, label], index) => <button key={id} className={isActive(id) ? 'active' : ''} aria-current={isActive(id) ? 'step' : undefined} onClick={() => chooseStage(id)}><i>{index + 1}</i><span>{label}</span></button>)}
+    {copy.stages.map(([id, label]) => <button key={id} className={isActive(id) ? 'active' : ''} aria-current={isActive(id) ? 'step' : undefined} onClick={() => chooseStage(id)}><span>{label}</span></button>)}
   </nav>
 }
 
@@ -204,6 +204,7 @@ export function AssetDrawer() {
   const stage = useWorkflow((state) => state.stage)
   const studio = useStudio()
   const [tab, setTab] = useState<'lights' | 'people' | 'grip' | 'backdrops'>('lights')
+  const [personPicker, setPersonPicker] = useState(false)
   const mode = workflowModeForStage(stage)
   const tabs: ReadonlyArray<'lights' | 'people' | 'grip' | 'backdrops'> = mode === 'layout'
     ? ['lights', 'people', 'grip', 'backdrops']
@@ -211,6 +212,9 @@ export function AssetDrawer() {
   useEffect(() => {
     if (!tabs.includes(tab)) setTab(tabs[0])
   }, [stage])
+  useEffect(() => {
+    if (!open || tab !== 'people') setPersonPicker(false)
+  }, [open, tab])
   useEffect(() => {
     if (!open) return
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
@@ -222,10 +226,12 @@ export function AssetDrawer() {
   const finish = (action: () => void) => { action(); setOpen(false) }
   return <div className="workspace-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false) }}><section className="asset-drawer" role="dialog" aria-modal="true" aria-label={copy.assetTitle}>
     <header><div><span>STAGE LIBRARY</span><h2>{copy.assetTitle}</h2></div><button onClick={() => setOpen(false)} aria-label={copy.close}>×</button></header>
-    <nav>{tabs.map((id) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{copy[id]}</button>)}</nav>
+    <nav>{tabs.map((id) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => { setTab(id); setPersonPicker(false) }}>{copy[id]}</button>)}</nav>
+    {tab === 'people' && personPicker && <div className="asset-person-step"><button onClick={() => setPersonPicker(false)}>← {copy.back}</button><div><strong>{copy.choosePerson}</strong><small>{copy.choosePersonHint}</small></div></div>}
     <div className="asset-drawer-grid">
       {tab === 'lights' && <><button onClick={() => finish(() => studio.addLight('square'))}><i className="light-icon square" /><strong>{copy.square}</strong><small>SOFT / PORTRAIT</small></button><button onClick={() => finish(() => studio.addLight('round'))}><i className="light-icon round" /><strong>{copy.round}</strong><small>BEAUTY / OPEN</small></button><button onClick={() => finish(() => studio.addLight('strip'))}><i className="light-icon strip" /><strong>{copy.strip}</strong><small>EDGE / SEPARATION</small></button></>}
-      {tab === 'people' && <>{([['subject', copy.person], ['product', copy.product], ['chair', copy.chair], ['table', copy.table]] as const).map(([id, label]) => <button key={id} onClick={() => finish(() => studio.addStudioObject(id))}><i className={`studio-object-icon ${id}`} /><strong>{label}</strong><small>STAGE OBJECT</small></button>)}</>}
+      {tab === 'people' && !personPicker && <>{([['subject', copy.person], ['dog', copy.dog], ['cat', copy.cat], ['product', copy.product], ['chair', copy.chair], ['table', copy.table], ['plinth', copy.plinth], ['cube', copy.cube], ['sphere', copy.sphere]] as const).map(([id, label]) => <button key={id} onClick={() => id === 'subject' ? setPersonPicker(true) : finish(() => studio.addStudioObject(id))}><i className={`studio-object-icon ${id}`} /><strong>{label}</strong><small>STAGE OBJECT</small></button>)}</>}
+      {tab === 'people' && personPicker && <><button className="person-choice female" onClick={() => finish(() => studio.addStudioObject('subject', 'feminine'))}><i className="studio-object-icon subject" /><strong>{copy.female}</strong><small>FEMININE FRAME</small></button><button className="person-choice male" onClick={() => finish(() => studio.addStudioObject('subject', 'masculine'))}><i className="studio-object-icon subject" /><strong>{copy.male}</strong><small>MASCULINE FRAME</small></button></>}
       {tab === 'grip' && <>{([['reflector', copy.reflector], ['flag', copy.flag], ['vflat', copy.vflat]] as const).map(([id, label]) => <button key={id} onClick={() => finish(() => studio.addModifier(id))}><i className={`grip-icon ${id}`} /><strong>{label}</strong><small>LIGHT CONTROL</small></button>)}</>}
       {tab === 'backdrops' && BACKDROPS.filter((item) => item.family === 'paper').slice(0, 12).map((item) => <button key={item.id} className={studio.backdropId === item.id ? 'active' : ''} onClick={() => finish(() => studio.selectBackdrop(item.id))}><i className="backdrop-dot" style={{ background: item.color }} /><strong>{item.label}</strong><small>{Math.round(item.reflectance * 100)}% REFLECTANCE</small></button>)}
     </div>
@@ -235,16 +241,18 @@ export function AssetDrawer() {
 export function DecisionConsole() {
   const copy = useCopy()
   const state = useStudio()
+  const mode = useWorkflow((workflow) => workflowModeForStage(workflow.stage))
   const [desiredOpen, setDesiredOpen] = useState(false)
-  const light = state.lights.find((item) => item.id === state.selected)
+  const light = mode === 'lighting' ? state.lights.find((item) => item.id === state.selected) : undefined
+  const showDesiredEffect = mode === 'lighting' || mode === 'camera'
 
   return <aside className="decision-console advanced-open">
-    <Inspector footer={
+    <Inspector footer={showDesiredEffect ?
       <div className={`decision-effects decision-effects-drawer ${desiredOpen ? 'is-open' : 'is-collapsed'}`}>
-        <button className="decision-effects-toggle" aria-expanded={desiredOpen} onClick={() => setDesiredOpen((open) => !open)}><i aria-hidden="true" /><span>{copy.desired}</span><small>{light ? copy.desiredLight : state.selected === 'camera' ? copy.desiredFrame : copy.desiredPose}</small></button>
-        {desiredOpen && <div className="decision-actions">{light ? <><button onClick={() => state.updateLight(light.id, { modifierWidth: Math.min(2.4, light.modifierWidth + 0.2), modifierHeight: Math.min(2.4, light.modifierHeight + 0.2), feather: Math.min(100, light.feather + 6) })}>{copy.soften}</button><button onClick={() => { const fill = state.lights[1]; if (fill) state.updateLight(fill.id, { powerPercent: Math.max(1, fill.powerPercent - 2) }) }}>{copy.deepen}</button><button className={light.targetSubjectId === 'model' ? 'active' : ''} onClick={() => state.bindLightToSubject(light.id, 'model', 'face')}>{copy.trackFace}</button></> : state.selected === 'camera' ? <><button onClick={() => state.frameCameraSubject('model', 'headshot')}>{copy.headshot}</button><button onClick={() => state.frameCameraSubject('model', 'half')}>{copy.half}</button><button onClick={() => state.frameCameraSubject('model', 'full')}>{copy.full}</button></> : null}</div>}
+        <button className="decision-effects-toggle" aria-expanded={desiredOpen} onClick={() => setDesiredOpen((open) => !open)}><i aria-hidden="true" /><span>{copy.desired}</span><small>{mode === 'lighting' ? copy.desiredLight : mode === 'camera' ? copy.desiredFrame : copy.desiredPose}</small></button>
+        {desiredOpen && <div className="decision-actions">{light ? <><button onClick={() => state.updateLight(light.id, { modifierWidth: Math.min(2.4, light.modifierWidth + 0.2), modifierHeight: Math.min(2.4, light.modifierHeight + 0.2), feather: Math.min(100, light.feather + 6) })}>{copy.soften}</button><button onClick={() => { const fill = state.lights[1]; if (fill) state.updateLight(fill.id, { powerPercent: Math.max(1, fill.powerPercent - 2) }) }}>{copy.deepen}</button><button className={light.targetSubjectId === 'model' ? 'active' : ''} onClick={() => state.bindLightToSubject(light.id, 'model', 'face')}>{copy.trackFace}</button></> : mode === 'camera' ? <><button onClick={() => state.frameCameraSubject('model', 'headshot')}>{copy.headshot}</button><button onClick={() => state.frameCameraSubject('model', 'half')}>{copy.half}</button><button onClick={() => state.frameCameraSubject('model', 'full')}>{copy.full}</button></> : null}</div>}
       </div>
-    } />
+      : null} />
   </aside>
 }
 

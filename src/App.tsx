@@ -30,11 +30,68 @@ import { workflowModeForStage } from './workflowControl'
 let hintSequence = 0
 
 const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
-const GUIDE_CHAPTERS: Record<Locale, readonly string[]> = {
-  en: ['Start here', 'Three-stage workflow', 'Define', 'Block', 'Shape', 'Frame', 'Verify', 'Shoot Blueprint', 'Selected Decision', 'Finish and export'],
-  zh: ['從這裡開始', '三階段拍攝流程', '定調', '走位', '塑光', '取景', '驗證', '拍攝藍圖', '目前決策', '完成與輸出'],
-  ja: ['ここから開始', '3 段階のフロー', '方向', '配置', '光作り', '構図', '検証', '撮影ブループリント', '現在の判断', '完了と出力'],
+type GuideLocaleText = Record<Locale, string>
+type GuideSlide = {
+  chapter: GuideLocaleText
+  kicker: GuideLocaleText
+  body: GuideLocaleText
+  points: [GuideLocaleText, GuideLocaleText]
+  image: 'desktop-0.png' | 'desktop-1.png' | 'desktop-2.png' | 'desktop-3.png' | 'mobile.png'
 }
+
+const guideText = (en: string, zh: string, ja: string): GuideLocaleText => ({ en, zh, ja })
+const GUIDE_SLIDES: readonly GuideSlide[] = [
+  {
+    chapter: guideText('Start here', '從這裡開始', 'ここから開始'), kicker: guideText('ONE SCENE · FOUR MODES', '一個場景 · 四個模式', '1 シーン · 4 モード'),
+    body: guideText('LUMEN STAGE keeps the subject, lights, camera and stage in one live scene. Change the controls without losing what you have already arranged.', 'LUMEN STAGE 把人物、燈光、相機與舞台放在同一個即時場景。切換控制模式時，已經安排好的內容不會消失。', '人物、ライト、カメラ、舞台を 1 つのライブシーンで管理。操作モードを変えても配置は失われません。'),
+    points: [guideText('Work left to right: Person → Light → Camera → Layout.', '建議依序操作：人物 → 佈光 → 相機 → 配置。', '人物 → 照明 → カメラ → 配置の順がおすすめ。'), guideText('Use the shelf view to arrange; use Viewfinder to judge the crop.', '棚內視角負責安排；鏡頭畫面負責確認裁切。', '棚内表示で配置し、ファインダーでクロップを確認。')], image: 'desktop-0.png',
+  },
+  {
+    chapter: guideText('The workspace', '認識工作區', 'ワークスペース'), kicker: guideText('LEFT · CENTRE · RIGHT', '左 · 中 · 右', '左 · 中央 · 右'),
+    body: guideText('The left side lists the shoot and stage objects, the centre is the live 3D studio, and the right side changes with the selected mode and object.', '左側整理鏡位與舞台物件，中間是即時 3D 攝影棚，右側則依目前模式與選取物件顯示控制。', '左はショットと舞台オブジェクト、中央はライブ 3D スタジオ、右はモードと選択対象に応じた操作です。'),
+    points: [guideText('Select an object before editing it.', '先選物件，再進行調整。', '編集前に対象を選択。'), guideText('The bottom tools move, rotate, aim and measure.', '下方工具可移動、旋轉、瞄準與測量。', '下部ツールで移動、回転、照射、測定。')], image: 'desktop-0.png',
+  },
+  {
+    chapter: guideText('Person', '人物', '人物'), kicker: guideText('SUBJECT · HEIGHT · POSE', '人物 · 高度 · 姿勢', '人物 · 身長 · ポーズ'),
+    body: guideText('Choose feminine, masculine or neutral, then set height, vertical position, age, body preset, pose and appearance from one place.', '選擇女性、男性或中性骨架，再集中調整身高、垂直位置、年齡、體型、姿勢與外觀。', '女性、男性、中性を選び、身長、高さ位置、年齢、体格、ポーズ、外観をまとめて調整します。'),
+    points: [guideText('Vertical position places feet on platforms or lower floors.', '垂直位置可讓人物站上平台或較低地面。', '高さ位置で台や低い床に立たせます。'), guideText('The model shown here is a working placeholder and can be replaced later.', '目前人物是操作用暫定模型，之後可只替換人物素材。', '現在の人物は操作用の仮モデルで、後から差し替え可能です。')], image: 'desktop-0.png',
+  },
+  {
+    chapter: guideText('Add to stage', '加入舞台', 'ステージに追加'), kicker: guideText('BUILD ONLY WHAT THE SHOT NEEDS', '只加入畫面需要的物件', '必要なものだけ追加'),
+    body: guideText('Use Add to stage at the lower left for people, products, chairs, tables and backdrops. Type-specific choices happen while adding—not again in the inspector.', '使用左下「加入舞台」新增人物、商品、椅子、桌子與背景。物件類型在加入時決定，不必在右側重複選一次。', '左下の「ステージに追加」から人物、商品、椅子、テーブル、背景を追加。種類は追加時に選び、右側で重複選択しません。'),
+    points: [guideText('Choose the person type before it enters the scene.', '人物加入場景前即可選擇性別骨架。', 'シーンへ追加する前に人物タイプを選択。'), guideText('Keep the stage list short so selection stays fast.', '舞台清單保持精簡，選取會更快。', '舞台リストを短く保つと選択が速くなります。')], image: 'desktop-0.png',
+  },
+  {
+    chapter: guideText('Light', '佈光', '照明'), kicker: guideText('ONE LIGHT AT A TIME', '一次處理一盞燈', '1 灯ずつ調整'),
+    body: guideText('Select a light, then adjust output, distance, angle, colour and modifier. Move, rotate or aim it directly in the scene when a slider is not enough.', '選擇燈具後調整功率、距離、角度、色溫與塑光附件；需要空間操作時，可直接在場景中移動、旋轉或瞄準。', 'ライトを選び、出力、距離、角度、色、モディファイアを調整。必要ならシーン上で直接移動、回転、照射します。'),
+    points: [guideText('Name lights by role: Key, Fill, Rim or Background.', '依用途命名：主光、補光、輪廓光或背景光。', 'キー、フィル、リム、背景など役割で命名。'), guideText('Use exposure analysis for clipping and balance—not as a real meter replacement.', '測光分析用來檢查剪裁與平衡，不取代現場測光表。', '露出分析はクリップとバランス確認用。実測の代わりではありません。')], image: 'desktop-1.png',
+  },
+  {
+    chapter: guideText('Camera', '相機', 'カメラ'), kicker: guideText('FRAME WITH REAL VALUES', '用實際數值完成構圖', '実際の数値で構図'),
+    body: guideText('Set focal length, aperture, shutter, ISO, focus and frame format. Switch to Viewfinder above the scene to confirm the exact camera crop.', '設定焦段、光圈、快門、ISO、對焦與畫面比例，再用場景上方的「鏡頭畫面」確認相機實際裁切。', '焦点距離、絞り、シャッター、ISO、フォーカス、画面比率を設定し、ファインダーで実際のクロップを確認します。'),
+    points: [guideText('Shelf view explains the setup; Viewfinder judges the photograph.', '棚內視角解釋配置；鏡頭畫面判斷照片。', '棚内表示は配置、ファインダーは写真の判断。'), guideText('Save useful camera combinations as presets.', '常用相機組合可儲存成預設。', 'よく使うカメラ設定はプリセット保存。')], image: 'desktop-2.png',
+  },
+  {
+    chapter: guideText('Layout', '配置', '配置'), kicker: guideText('PLACE EVERY OBJECT PRECISELY', '精確安排每個物件', 'すべてを正確に配置'),
+    body: guideText('Select an object in the stage list, then set horizontal, height and depth position precisely. Layout is for placement, so creative person controls stay out of the way.', '先在舞台清單選取物件，再精確調整水平、高度與深度位置。配置模式專心處理空間，不混入人物外觀設定。', '舞台リストで対象を選び、水平、高さ、奥行きを正確に設定。配置モードでは人物の外観操作を分離しています。'),
+    points: [guideText('Use vertical position to put people or products on platforms.', '用垂直位置讓人物或商品站上平台。', '高さ位置で人物や商品を台に載せます。'), guideText('Lock a finished position before adjusting another object.', '位置完成後先鎖定，再調整其他物件。', '配置が決まったらロックして次へ。')], image: 'desktop-3.png',
+  },
+  {
+    chapter: guideText('Compare and reset', '比較與重設', '比較とリセット'), kicker: guideText('CHECK BEFORE YOU COMMIT', '確認差異再決定', '決定前に比較'),
+    body: guideText('Each major settings group can compare before and after or reset independently. Use the fixed footer for a full reset, opening presets or saving the current setup.', '每個主要設定群組都能獨立查看前後差異或重設；右下固定功能列則提供重設全部、開啟預設與儲存目前設定。', '各設定グループで前後比較と個別リセットが可能。右下の固定バーで全体リセット、プリセット表示、現在設定の保存を行います。'),
+    points: [guideText('Reset one section when the rest of the scene is already good.', '其他設定已完成時，只重設目前區塊。', '他が完成している時はセクションだけリセット。'), guideText('Preset names should describe the result, not the slider values.', '預設名稱描述效果，不要只寫數值。', 'プリセット名は数値より結果を表す名前に。')], image: 'desktop-3.png',
+  },
+  {
+    chapter: guideText('Save and hand off', '儲存與交付', '保存と引き継ぎ'), kicker: guideText('LOCAL FIRST · BACK UP OFTEN', '本機優先 · 定期備份', 'ローカル優先 · 定期バックアップ'),
+    body: guideText('The scene is saved in this browser. Use More to import or export a portable project, copy a review link, open the setup sheet or change language.', '場景預設儲存在目前瀏覽器。透過「更多」可匯入／匯出可攜專案、複製分享連結、開啟燈位工作表或切換語言。', 'シーンはこのブラウザに保存。「その他」からプロジェクトの読み書き、共有リンク、照明シート、言語変更を行います。'),
+    points: [guideText('Export before clearing browser data or changing devices.', '清除瀏覽器資料或換裝置前，務必先匯出。', 'ブラウザデータ削除や端末変更前に書き出し。'), guideText('The setup sheet is the crew-friendly version of the scene.', '燈位工作表是方便交付現場團隊的版本。', '照明シートは現場チーム向けの形式です。')], image: 'desktop-0.png',
+  },
+  {
+    chapter: guideText('Phone and simple UI', '手機與簡易版', 'スマホと簡易 UI'), kicker: guideText('SAME SCENE · FEWER CONTROLS', '同一場景 · 更少控制', '同じシーン · 少ない操作'),
+    body: guideText('Phone and simple UI use the same four modes and scene data. They keep the controls needed on set while leaving dense desktop-only options behind.', '手機與簡易版沿用相同四模式與場景資料，只保留現場常用控制，省略桌機才需要的密集選項。', 'スマホと簡易 UI は同じ 4 モードとシーンデータを使用。現場で必要な操作だけを残します。'),
+    points: [guideText('Use the large shutter control for a quick frame capture.', '使用大型快門按鈕快速擷取畫面。', '大きなシャッターで素早く画面を保存。'), guideText('Return to desktop for detailed gear and preset management.', '需要精細器材與預設管理時，再回到桌機版。', '詳細機材とプリセット管理はデスクトップで。')], image: 'mobile.png',
+  },
+]
 
 function ViewfinderOverlay() {
   const view = useStudio((state) => state.view)
@@ -371,10 +428,11 @@ export function GuideModal({ open, onClose, onStartTour }: { open: boolean; onCl
   const stageRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(1)
   const [zoomed, setZoomed] = useState(false)
-  const pageCount = 10
   const locale = useLocaleStore((state) => state.locale)
   const t = useT()
-  const chapters = GUIDE_CHAPTERS[locale]
+  const slides = GUIDE_SLIDES
+  const pageCount = slides.length
+  const chapters = slides.map((slide) => slide.chapter[locale])
 
   const goToPage = useCallback((nextPage: number, behavior: ScrollBehavior = 'smooth') => {
     const targetPage = Math.max(1, Math.min(pageCount, nextPage))
@@ -439,7 +497,22 @@ export function GuideModal({ open, onClose, onStartTour }: { open: boolean; onCl
             })
             setPage((current) => current === nearest ? current : nearest)
           }}>
-            {chapters.map((chapter, index) => <figure key={`${locale}-${index + 1}`} data-guide-page={index + 1}><img loading={index < 2 ? 'eager' : 'lazy'} src={`/guide-pages/${locale}/page-${String(index + 1).padStart(2, '0')}.png`} alt={t('guide.pageNamed', { n: index + 1, title: chapter })} /><figcaption><span>{String(index + 1).padStart(2, '0')}</span>{chapter}</figcaption></figure>)}
+            {slides.map((slide, index) => {
+              const chapter = slide.chapter[locale]
+              const image = slide.image === 'mobile.png' ? `/site-preview/${locale}-mobile.png` : `/onboarding/${locale}/${slide.image}`
+              return <figure key={`${locale}-${index + 1}`} data-guide-page={index + 1}>
+                <article className={`guide-slide${slide.image === 'mobile.png' ? ' is-mobile' : ''}`}>
+                  <div className="guide-slide-visual"><img loading={index < 2 ? 'eager' : 'lazy'} src={image} alt={t('guide.pageNamed', { n: index + 1, title: chapter })} /></div>
+                  <div className="guide-slide-copy">
+                    <span>{slide.kicker[locale]}</span>
+                    <h2>{chapter}</h2>
+                    <p>{slide.body[locale]}</p>
+                    <ul><li>{slide.points[0][locale]}</li><li>{slide.points[1][locale]}</li></ul>
+                  </div>
+                </article>
+                <figcaption><span>{String(index + 1).padStart(2, '0')}</span>{chapter}</figcaption>
+              </figure>
+            })}
           </div>
         </div>
         <footer className="guide-footer">
@@ -541,7 +614,6 @@ function SceneToolbar() {
 }
 
 export default function App() {
-  const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const view = useStudio((state) => state.view)
   const renderMode = useStudio((state) => state.renderMode)
   const pathStatus = useStudio((state) => state.pathTracingStatus)
@@ -586,6 +658,7 @@ export default function App() {
   const [tourOpen, setTourOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [webglLost, setWebglLost] = useState(false)
+  const [pageVisible, setPageVisible] = useState(() => !document.hidden)
   const [workspacePanels, setWorkspacePanels] = useState(() => {
     try {
       const currentSaved = window.localStorage.getItem('lumen-stage:workspace-panels:v3')
@@ -612,6 +685,12 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem('lumen-stage:workspace-panels:v3', JSON.stringify(workspacePanels))
   }, [workspacePanels])
+
+  useEffect(() => {
+    const updateVisibility = () => setPageVisible(!document.hidden)
+    document.addEventListener('visibilitychange', updateVisibility)
+    return () => document.removeEventListener('visibilitychange', updateVisibility)
+  }, [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -643,15 +722,16 @@ export default function App() {
   }, [sceneReady])
 
   return (
-    <main className={`app-shell ${workspacePanels.left ? '' : 'left-panel-hidden'} ${workspacePanels.right && !layoutOnly ? '' : 'right-panel-hidden'} ${workspacePanels.top ? '' : 'top-panel-hidden'}`}>
+    <main className={`app-shell ${workspacePanels.left ? '' : 'left-panel-hidden'} ${workspacePanels.right ? '' : 'right-panel-hidden'} ${workspacePanels.top ? '' : 'top-panel-hidden'}`}>
       <TopBar onOpenGuide={() => setGuideOpen(true)} onOpenAbout={() => setAboutOpen(true)} panelsHidden={anyPanelHidden} onTogglePanels={toggleAllPanels} />
       <BlueprintPanel />
       <section className={`viewport ${renderMode === 'path' ? 'path-color-science' : ''}`} aria-label={t('viewport.aria')} style={{ '--path-saturation': pathSaturation, '--path-contrast': pathContrast, '--path-sepia': pathSepia } as React.CSSProperties}>
         <Canvas
           onCreated={() => setSceneReady(true)}
+          frameloop={pageVisible ? 'always' : 'never'}
           shadows="percentage"
           dpr={[1, 1.75]}
-          gl={{ antialias: true, preserveDrawingBuffer: true }}
+          gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' }}
           camera={{ position: [6.8, 6, 7.2], fov: 42, near: 0.05, far: 100 }}
         >
           <CanvasHealth onLost={onWebglLost} onRestored={onWebglRestored} />
@@ -679,7 +759,7 @@ export default function App() {
         <ShortcutLauncher />
         <ShortcutHint hint={hint} />
         <button className={`workspace-panel-tab left ${workspacePanels.left ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, left: !current.left }))} aria-label={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft} title={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft}><span aria-hidden="true">{panelSideName.left}</span><i aria-hidden="true" /></button>
-        {!layoutOnly && <button className={`workspace-panel-tab right ${workspacePanels.right ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, right: !current.right }))} aria-label={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight} title={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight}><span aria-hidden="true">{panelSideName.right}</span><i aria-hidden="true" /></button>}
+        <button className={`workspace-panel-tab right ${workspacePanels.right ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, right: !current.right }))} aria-label={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight} title={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight}><span aria-hidden="true">{panelSideName.right}</span><i aria-hidden="true" /></button>
         <button className={`workspace-panel-tab top ${workspacePanels.top ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, top: !current.top }))} aria-label={workspacePanels.top ? panelSideLabel.hideTop : panelSideLabel.showTop} title={workspacePanels.top ? panelSideLabel.hideTop : panelSideLabel.showTop}><span aria-hidden="true">{panelSideName.top}</span><i aria-hidden="true" /></button>
       </section>
       <DecisionConsole />

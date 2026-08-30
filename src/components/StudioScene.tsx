@@ -2,7 +2,7 @@ import { Grid, Html, Line, OrbitControls, RoundedBox, TransformControls } from '
 import { BrightnessContrast, DepthOfField, EffectComposer, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Effect, ToneMappingMode } from 'postprocessing'
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js'
@@ -17,7 +17,7 @@ import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjec
 import { Figure, type FigureAppearance } from './Figure'
 import type { ModelPose } from '../pose'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_SAMPLE_X, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor } from '../studioHumanDetails'
+import { EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_SAMPLE_X, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairResponse, studioSkinResponse } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -25,7 +25,7 @@ import { getBackdrop, type BackdropProfile } from '../backdrops'
 import { FOOTPRINT, seatHeightOf } from '../layout'
 import { PoseRig } from './PoseRig'
 import { applyGelTint, geledTemperature, getGel } from '../gels'
-import { brickNormalMap, canvasNormalMap, concreteNormalMap, fabricNormalMap, fabricRoughnessMap, mottleMap, paperNormalMap, plasterNormalMap, skinNormalMap, skinRoughnessMap, woodNormalMap } from '../textures'
+import { brickNormalMap, canvasNormalMap, concreteNormalMap, fabricNormalMap, fabricRoughnessMap, hairNormalMap, mottleMap, paperNormalMap, plasterNormalMap, skinNormalMap, skinRoughnessMap, woodNormalMap } from '../textures'
 import { shippedHumanFor } from '../characterAssets'
 import { useWorkflow } from '../workflow'
 import { canControlInWorkflow, workflowModeForStage } from '../workflowControl'
@@ -34,6 +34,8 @@ import { canControlInWorkflow, workflowModeForStage } from '../workflowControl'
 // panel and the window are rect-area sources, so this has to run before the
 // first frame or half the scene's light silently contributes nothing.
 RectAreaLightUniformsLib.init()
+
+const HorizontalLayoutContext = createContext(false)
 
 const SENSOR_WIDTH = { 'full-frame': 36, 'aps-c': 23.5, mft: 17.3 } as const
 const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
@@ -734,78 +736,71 @@ const ACTOR_EYE_MATERIAL = 'lumen-actor-eye'
 
 /** Maps the appearance controls to a physically plausible hair response. */
 function applyStudioHairAppearance(material: THREE.MeshPhysicalMaterial, hairColor: string, hairGloss: number) {
-  const gloss = THREE.MathUtils.clamp(hairGloss / 100, 0, 1)
+  const response = studioHairResponse(hairGloss)
   const color = new THREE.Color(hairColor)
-  material.color.copy(color)
-  material.roughness = THREE.MathUtils.lerp(0.72, 0.22, gloss)
-  material.sheen = THREE.MathUtils.lerp(0.28, 0.92, gloss)
-  material.sheenColor.copy(color).lerp(new THREE.Color('#fff4e8'), 0.22 + gloss * 0.18)
-  material.sheenRoughness = THREE.MathUtils.lerp(0.58, 0.20, gloss)
-  material.anisotropy = THREE.MathUtils.lerp(0.22, 0.84, gloss)
-  material.clearcoat = gloss * 0.18
-  material.clearcoatRoughness = THREE.MathUtils.lerp(0.48, 0.20, gloss)
+  // The colour control tints the photographed strands instead of multiplying
+  // a dark texture by another dark colour, which crushed every strand to black.
+  material.color.copy(color).lerp(new THREE.Color('#ffffff'), 0.18)
+  material.metalness = 0
+  material.metalnessMap = null
+  material.roughness = response.roughness
+  material.sheen = response.sheen
+  material.sheenColor.copy(color).lerp(new THREE.Color('#d8c7b8'), 0.12)
+  material.sheenRoughness = response.sheenRoughness
+  material.anisotropy = response.anisotropy
+  material.clearcoat = 0
+  material.clearcoatMap = null
+  material.clearcoatNormalMap = null
+  material.clearcoatRoughnessMap = null
+  material.specularIntensity = response.specularIntensity
+  material.envMapIntensity = response.envMapIntensity
   material.needsUpdate = true
 }
 
-/** Gives the source hairstyle fine, directional fibres without baking in one hair colour. */
+/** Gives the complete scalp shell fine fibres without cutting holes in it. */
 function createStudioHairTexture() {
   const canvas = document.createElement('canvas')
-  canvas.width = 512
-  canvas.height = 512
+  canvas.width = 256
+  canvas.height = 256
   const context = canvas.getContext('2d')!
-  const base = context.createLinearGradient(0, 0, 0, 512)
-  base.addColorStop(0, '#707070')
-  base.addColorStop(0.22, '#aaaaaa')
-  base.addColorStop(1, '#868686')
-  context.fillStyle = base
-  context.fillRect(0, 0, 512, 512)
-  let seed = 117
-  const random = () => {
-    seed = (seed * 16807) % 2147483647
-    return (seed - 1) / 2147483646
-  }
-  context.lineCap = 'round'
-  for (let index = 0; index < 1350; index += 1) {
-    const x = random() * 512
-    const y = random() * 512
-    const length = 24 + random() * 68
-    context.strokeStyle = random() > 0.58 ? 'rgba(255,255,255,.20)' : 'rgba(18,18,18,.24)'
-    context.lineWidth = 0.35 + random() * 0.85
+  context.fillStyle = '#b0aaa5'
+  context.fillRect(0, 0, 256, 256)
+  for (let x = 0; x < 256; x += 2) {
+    const shade = 92 + (x * 37 % 70)
+    context.strokeStyle = `rgb(${shade},${shade},${shade})`
+    context.lineWidth = x % 6 === 0 ? 0.8 : 0.35
     context.beginPath()
-    context.moveTo(x, y)
-    context.bezierCurveTo(
-      x + length * 0.10,
-      y - length * 0.30,
-      x - length * 0.08,
-      y - length * 0.72,
-      x + length * 0.03,
-      y - length,
-    )
+    context.moveTo(x, 0)
+    context.bezierCurveTo(x + 5, 70, x - 4, 180, x + 2, 256)
     context.stroke()
   }
-  // A soft root shadow keeps the scalp from reading as a uniformly coloured cap.
-  const rootShade = context.createLinearGradient(0, 0, 0, 150)
-  rootShade.addColorStop(0, 'rgba(20,20,20,.34)')
-  rootShade.addColorStop(1, 'rgba(20,20,20,0)')
-  context.fillStyle = rootShade
-  context.fillRect(0, 0, 512, 150)
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
-  texture.repeat.set(2.4, 1.7)
+  texture.repeat.set(2.2, 1.5)
   texture.anisotropy = 8
   return texture
 }
 
-/** Fits the CC0 MakeHuman short04 mesh to this normalized actor's real head. */
-function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, source: THREE.Group, hairColor: string, hairGloss: number) {
+/** Fits the CC0 MakeHuman strand mesh to this normalized actor's real head. */
+function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group, hairColor: string, hairGloss: number) {
+  // Hair loads asynchronously, often after the actor has already been placed
+  // in the scene. Re-measure its live transform instead of using coordinates
+  // captured before the actor's outer transform was applied.
+  model.updateWorldMatrix(true, true)
+  const box = new THREE.Box3().setFromObject(model)
+  const headPosition = head.getWorldPosition(new THREE.Vector3())
   const texture = createStudioHairTexture()
   const material = new THREE.MeshPhysicalMaterial({
     map: texture,
+    normalMap: hairNormalMap(),
+    normalScale: new THREE.Vector2(0.4, 0.4),
     metalness: 0,
     anisotropyRotation: Math.PI / 2,
-    envMapIntensity: 0.68,
+    transparent: false,
+    depthWrite: true,
+    envMapIntensity: 0.24,
     side: THREE.DoubleSide,
   })
   material.name = STUDIO_HAIR_MATERIAL
@@ -901,8 +896,7 @@ const SUBSURFACE_COLOR = '#d99a86'
  * render is worse than no slider.
  */
 function applyActorSkin(material: THREE.MeshPhysicalMaterial, appearance: FigureAppearance) {
-  const age = THREE.MathUtils.clamp(((appearance.physique.age ?? 28) - 18) / 62, 0, 1)
-  const rough = appearance.skinRoughness / 100
+  const response = studioSkinResponse(appearance.skinRoughness, appearance.skinOil, appearance.subsurface, appearance.physique.age)
   if (!material.normalMap) {
     // Pores. This is the male body's missing map, and the difference between
     // a broken highlight and one flat specular blob across a whole cheek.
@@ -914,28 +908,42 @@ function applyActorSkin(material: THREE.MeshPhysicalMaterial, appearance: Figure
   // glTF default factor of 1, so imposing an absolute number on it made the
   // female actors a stop glossier than their artist intended — wet-looking,
   // with hard specular streaks down the arms.
-  const ourMap = !material.roughnessMap || material.userData.lumenSkinRoughness === true
-  if (!material.roughnessMap) {
-    material.roughnessMap = skinRoughnessMap()
-    material.userData.lumenSkinRoughness = true
-  }
+  // The MakeHuman packed roughness texture contains large UV islands with
+  // very different values. Under a studio key that made one arm and the neck
+  // look chrome while the face stayed matte. Use one restrained pore-scale
+  // response across every exposed skin island instead.
+  material.roughnessMap = skinRoughnessMap()
+  material.userData.lumenSkinRoughness = true
+  material.normalScale.setScalar(response.normalScale)
   material.metalness = 0
-  material.roughness = ourMap
-    ? THREE.MathUtils.clamp(THREE.MathUtils.lerp(0.42, 0.92, rough) + age * 0.05, 0.36, 0.96)
-    : THREE.MathUtils.clamp(THREE.MathUtils.lerp(0.78, 1, rough) + age * 0.02, 0.7, 1)
+  material.metalnessMap = null
+  material.roughness = response.roughness
   // Sebum, which is a coat over the skin rather than a property of it.
-  material.clearcoat = (appearance.skinOil / 100) * 0.22
-  material.clearcoatRoughness = THREE.MathUtils.lerp(0.24, 0.56, rough)
+  material.clearcoat = response.clearcoat
+  material.clearcoatMap = null
+  material.clearcoatNormalMap = null
+  material.clearcoatRoughness = response.clearcoatRoughness
+  material.clearcoatRoughnessMap = null
   // Scatter, twice over: a warm sheen at grazing angles for the rim, and a
   // trace of emission so the shadow terminator stays warm instead of going
   // straight to black the way paint does. Both kept small — this is meant to
   // read as skin, not as a lit surface the meter never accounted for.
-  material.sheen = (appearance.subsurface / 100) * 0.32
+  material.sheen = response.sheen
   material.sheenColor = new THREE.Color(SUBSURFACE_COLOR)
-  material.sheenRoughness = 0.85
-  material.emissive = new THREE.Color(SUBSURFACE_COLOR).multiplyScalar(0.09)
-  material.emissiveIntensity = (appearance.subsurface / 100) * 0.04
-  material.envMapIntensity = 0.5
+  material.sheenRoughness = response.sheenRoughness
+  material.emissive.set('#000000')
+  material.emissiveIntensity = 0
+  material.iridescence = 0
+  material.iridescenceMap = null
+  material.iridescenceThicknessMap = null
+  material.transmission = 0
+  material.transmissionMap = null
+  material.thickness = 0
+  material.thicknessMap = null
+  material.ior = 1.4
+  material.specularIntensity = response.specularIntensity
+  material.specularIntensityMap = null
+  material.envMapIntensity = response.envMapIntensity
   material.needsUpdate = true
 }
 
@@ -1025,9 +1033,9 @@ function measureEyeSurface(model: THREE.Object3D, modelTop: number) {
 function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, eyeColor: string) {
   const eyes = new THREE.Group()
   eyes.name = 'studio-eyeballs'
-  // Head-detail attachment preserves world rotation, so the optical face has
-  // to be turned toward the rendered face or the camera sees only rear sclera.
-  eyes.rotation.y = Math.PI
+  // Keep the group in model space. Each iris already faces -Z; rotating the
+  // whole group as well put the iris and pupil behind the sclera on the female
+  // actors, leaving only the baked red eye sockets visible.
   // The previous 27.8 mm width covered the painted eyelids. This 24.2 mm width
   // stays inside both shipped socket textures without making the iris smaller.
   const scleraGeometry = new THREE.SphereGeometry(0.0112, 40, 26)
@@ -1063,26 +1071,23 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     const eye = new THREE.Group()
     eye.position.x = side * EYE_HALF_SEPARATION
     const white = new THREE.Mesh(scleraGeometry, sclera)
-    white.scale.set(1.08, 0.64, 0.84)
+    white.scale.set(1.08, 0.68, 0.84)
     white.castShadow = true
     eye.add(white)
     const irisMesh = new THREE.Mesh(irisGeometry, iris)
-    irisMesh.position.z = -0.00975
-    irisMesh.rotation.y = Math.PI
+    irisMesh.position.z = 0.00975
     eye.add(irisMesh)
     const limbusMesh = new THREE.Mesh(limbusGeometry, limbus)
-    limbusMesh.position.z = -0.00982
-    limbusMesh.rotation.y = Math.PI
+    limbusMesh.position.z = 0.00982
     limbusMesh.renderOrder = 1
     eye.add(limbusMesh)
     const pupilMesh = new THREE.Mesh(pupilGeometry, pupil)
-    pupilMesh.position.z = -0.01005
-    pupilMesh.rotation.y = Math.PI
+    pupilMesh.position.z = 0.01005
     eye.add(pupilMesh)
     const corneaMesh = new THREE.Mesh(corneaGeometry, cornea)
-    // The cap's axis is +Y; the face is -Z, so it is tipped forward onto it.
-    corneaMesh.rotation.x = -Math.PI / 2
-    corneaMesh.position.z = -0.0078
+    // The cap's axis is +Y; tip it toward the camera-facing side of the actor.
+    corneaMesh.rotation.x = Math.PI / 2
+    corneaMesh.position.z = 0.0078
     corneaMesh.scale.set(1, 0.62, 1)
     corneaMesh.renderOrder = 2
     eye.add(corneaMesh)
@@ -1161,6 +1166,12 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   useEffect(() => {
     let active = true
     let loadedObject: THREE.Group | null = null
+    // A physique or wardrobe change may point at a different shipped actor.
+    // Do not keep rendering the previous actor while that file loads: opening
+    // the viewfinder during this window otherwise appears to change a woman
+    // back into the previously loaded man. The procedural figure below keeps
+    // the stage occupied with the current appearance until the GLB is ready.
+    setObject(null)
     setLoadError(false)
     if (reportStatus) setStatus('loading')
     const loader = new GLTFLoader()
@@ -1226,7 +1237,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
             })
             return
           }
-          addStudioHair(model, map.head!, normalizedBox, headPosition, hair, appearanceRef.current.hairColor, appearanceRef.current.hairGloss)
+          addStudioHair(model, map.head!, hair, appearanceRef.current.hairColor, appearanceRef.current.hairGloss)
         })
       }
 
@@ -1317,10 +1328,11 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   }, [effectivePose, object])
 
   if (object) return <primitive object={object} rotation={url.startsWith('/models/lumen-human/') ? [0, 0, 0] : undefined} />
-  return loadError ? <DefaultMannequin pose={poseOverride} /> : null
+  return url.startsWith('/models/lumen-human/') || loadError ? <DefaultMannequin pose={poseOverride} appearance={appearance} /> : null
 }
 
 function Mannequin() {
+  const horizontalLayoutOnly = useContext(HorizontalLayoutContext)
   const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'person'))
   const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const selectObject = useStudio((state) => state.selectObject)
@@ -1348,9 +1360,17 @@ function Mannequin() {
   // no handles rather than handles that quietly do nothing.
   const effectiveTransformMode = layoutOnly ? 'translate' : transformMode
   const showHandles = !layoutOnly && canControl && poseHandles && selected && view !== 'camera' && modelRigStatus === 'rigged'
+  // TransformControls owns the group while it is being dragged. Stable tuple
+  // identities keep unrelated store renders from writing the old coordinates
+  // back into the group between pointer events, which presented as shaking.
+  const renderedPosition = useMemo<[number, number, number]>(
+    () => [position[0], position[1] + seatedLift, position[2]],
+    [position, seatedLift],
+  )
+  const renderedRotation = useMemo<[number, number, number]>(() => [0, rotation, 0], [rotation])
 
   const model = (
-    <group ref={group} position={[position[0], position[1] + seatedLift, position[2]]} rotation={[0, rotation, 0]} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('model') }}>
+    <group ref={group} position={renderedPosition} rotation={renderedRotation} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('model') }}>
       <ImportedModel url={activeModelUrl} onRigReady={setBoneMap} />
       {showHandles && (
         <PoseRig
@@ -1377,9 +1397,9 @@ function Mannequin() {
         size={0.72}
         translationSnap={0.05}
         rotationSnap={THREE.MathUtils.degToRad(5)}
-        showY
+        showY={!horizontalLayoutOnly}
         showX={effectiveTransformMode === 'translate'}
-        showZ={effectiveTransformMode === 'translate'}
+        showZ={!horizontalLayoutOnly && effectiveTransformMode === 'translate'}
         onMouseUp={() => {
           if (!group.current) return
           const nextPosition: [number, number, number] = [
@@ -1690,6 +1710,7 @@ function StudioObjectMesh({ object }: { object: StudioObject }) {
 }
 
 function MovableStudioObject({ object }: { object: StudioObject }) {
+  const horizontalLayoutOnly = useContext(HorizontalLayoutContext)
   const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, object.type === 'subject' ? 'person' : 'set'))
   const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const selected = useStudio((state) => state.selected === object.id)
@@ -1706,7 +1727,7 @@ function MovableStudioObject({ object }: { object: StudioObject }) {
     {canControl && selected && view !== 'camera' && <mesh position={[0, yOffset, 0]}><boxGeometry args={outlineSize} /><meshBasicMaterial color={object.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={0.48} /></mesh>}
   </group>
   const effectiveTransformMode = layoutOnly ? 'translate' : transformMode
-  return <>{content}{canControl && selected && view !== 'camera' && !object.locked && <TransformControls ref={transformControl} object={group as RefObject<THREE.Object3D>} mode={effectiveTransformMode} size={0.7} translationSnap={0.05} rotationSnap={THREE.MathUtils.degToRad(5)} showX={effectiveTransformMode === 'translate'} showY showZ={effectiveTransformMode === 'translate'} onMouseUp={() => {
+  return <>{content}{canControl && selected && view !== 'camera' && !object.locked && <TransformControls ref={transformControl} object={group as RefObject<THREE.Object3D>} mode={effectiveTransformMode} size={0.7} translationSnap={0.05} rotationSnap={THREE.MathUtils.degToRad(5)} showX={effectiveTransformMode === 'translate'} showY={!horizontalLayoutOnly} showZ={!horizontalLayoutOnly && effectiveTransformMode === 'translate'} onMouseUp={() => {
     if (!group.current) return
     setTransform(object.id, [Number(group.current.position.x.toFixed(2)), Number(Math.max(0, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))], Number(group.current.rotation.y.toFixed(3)), effectiveTransformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined)
   }} />}</>
@@ -1866,6 +1887,7 @@ function LightStand({ height, footprint = 0.4 }: { height: number; footprint?: n
 }
 
 function Softbox({ light }: { light: StudioLight }) {
+  const horizontalLayoutOnly = useContext(HorizontalLayoutContext)
   const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'light'))
   const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const lift = useGearLift()
@@ -2098,7 +2120,9 @@ function Softbox({ light }: { light: StudioLight }) {
           size={0.7}
           translationSnap={0.05}
           rotationSnap={THREE.MathUtils.degToRad(5)}
-          showZ={effectiveAimMode || effectiveTransformMode === 'translate'}
+          showX
+          showY={!horizontalLayoutOnly}
+          showZ={!horizontalLayoutOnly && (effectiveAimMode || effectiveTransformMode === 'translate')}
           onMouseUp={() => {
             if (effectiveAimMode) {
               setLightTarget(lightId, [Number(target.position.x.toFixed(2)), Number(Math.max(0.1, target.position.y).toFixed(2)), Number(target.position.z.toFixed(2))], activeTransformAxis(transformControl.current))
@@ -2125,6 +2149,7 @@ const MODIFIER_MATERIALS = {
 } as const
 
 function GripModifier({ modifier }: { modifier: StudioModifier }) {
+  const horizontalLayoutOnly = useContext(HorizontalLayoutContext)
   const lift = useGearLift()
   const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'grip'))
   const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
@@ -2255,8 +2280,8 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
       translationSnap={0.05}
       rotationSnap={THREE.MathUtils.degToRad(5)}
       showX={layoutOnly || transformMode === 'translate'}
-      showY
-      showZ={layoutOnly || transformMode === 'translate'}
+      showY={!horizontalLayoutOnly}
+      showZ={!horizontalLayoutOnly && (layoutOnly || transformMode === 'translate')}
       onMouseUp={() => {
         if (!group.current) return
         setModifierTransform(modifier.id,
@@ -2270,6 +2295,7 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
 }
 
 function CameraProp() {
+  const horizontalLayoutOnly = useContext(HorizontalLayoutContext)
   const lift = useGearLift()
   const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'camera'))
   const selectObject = useStudio((state) => state.selectObject)
@@ -2402,6 +2428,9 @@ function CameraProp() {
         mode="translate"
         size={0.72}
         translationSnap={0.05}
+        showX
+        showY={!horizontalLayoutOnly}
+        showZ={!horizontalLayoutOnly}
         onMouseUp={() => {
           if (!group.current) return
           setCameraPosition([Number(group.current.position.x.toFixed(2)), Number(Math.max(0.35, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))], activeTransformAxis(transformControl.current))
@@ -2532,7 +2561,7 @@ function ExposureProbe() {
   return null
 }
 
-export function StudioScene() {
+export function StudioScene({ horizontalLayoutOnly = false }: { horizontalLayoutOnly?: boolean }) {
   const { gl, scene } = useThree()
   const aperture = useStudio((state) => state.aperture)
   const iso = useStudio((state) => state.iso)
@@ -2578,7 +2607,7 @@ export function StudioScene() {
   }, [aperture, cameraMode, frameRate, gl, iso, lights, ndStops, shutter, shutterAngle, tStop])
 
   return (
-    <>
+    <HorizontalLayoutContext.Provider value={horizontalLayoutOnly}>
       <CameraRig />
       <TimelinePlayback />
       <ambientLight intensity={layoutOnly ? Math.max(0.72, ambientLevel / 48) : soloLightId ? 0.015 : ambientLevel / 75} color={ambientColor} />
@@ -2596,6 +2625,6 @@ export function StudioScene() {
       <CameraImaging />
       <ExposureProbe />
       {renderMode === 'path' && <Suspense fallback={null}><PathTracingRenderer /></Suspense>}
-    </>
+    </HorizontalLayoutContext.Provider>
   )
 }
