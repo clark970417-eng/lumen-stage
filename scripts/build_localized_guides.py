@@ -1,213 +1,98 @@
-"""Build the English and Japanese LUMEN STAGE guides and web page images.
+"""Build all localized LUMEN STAGE guides from production UI captures.
 
-The Traditional Chinese guide remains the canonical original.  This builder
-keeps the two translated editions structurally identical and exports each PDF
-to both output/pdf and public, plus browser-ready JPEG pages.
+Every chapter uses a distinct capture from https://lumen-stage.vercel.app/.
+Slides are rendered as lossless 300 dpi PNG files; JPEG quality settings are
+intentionally not part of this pipeline.
 """
 
 from pathlib import Path
+import os
 import shutil
 import subprocess
 
+from PIL import Image
 from reportlab.lib.colors import HexColor
 from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
-
 ROOT = Path(__file__).resolve().parents[1]
+CAPTURES = Path(os.environ.get("LUMEN_GUIDE_CAPTURE_DIR", ROOT / "tmp" / "guide-captures"))
+PUBLIC = ROOT / "public"
+PAGES = PUBLIC / "guide-pages"
 W, H = landscape(A4)
+
 BG = HexColor("#080B0F")
 PANEL = HexColor("#111820")
-PANEL_ALT = HexColor("#18232C")
+PANEL_2 = HexColor("#18232C")
 INK = HexColor("#EDF2F5")
-MUTED = HexColor("#82909B")
-LIME = HexColor("#67D8FF")
-CYAN = HexColor("#9CCEE0")
-ORANGE = HexColor("#FFB454")
+MUTED = HexColor("#8FA3B0")
+BLUE = HexColor("#67D8FF")
 LINE = HexColor("#344755")
+EMBED_SCALE = 300 / 72
 
+SOURCES = [
+    "desktop-00-cover-focus.png", "desktop-01-tone.png", "desktop-02-blocking.png",
+    "desktop-03-shaping-before.png", "desktop-03-shaping-after.png",
+    "desktop-04-framing.png", "desktop-05-validation.png",
+    "desktop-06-shoot-blueprint.png", "desktop-07-current-decision.png",
+    "desktop-10-final-check.png", "mobile-01-tone.png", "mobile-02-blocking.png",
+    "mobile-03-shaping.png", "mobile-04-framing.png", "mobile-05-validation.png",
+]
 
 GUIDES = {
-    "en": {
-        "filename": "LUMEN_STAGE_Site_Guide_EN.pdf",
-        "label": "ENGLISH · INTERFACE GUIDE",
-        "title": "Site guide",
-        "subtitle": "Build a scene, shape light, frame the camera, check exposure and render the final image.",
-        "version": "For LUMEN STAGE / 001",
-        "footer": "LUMEN STAGE SITE GUIDE",
+    "zh": {
+        "filename": "LUMEN_STAGE_網站使用教學.pdf", "label": "繁體中文 · 正式版介面教學",
+        "title": "從決策到成片", "subtitle": "定調、走位、塑光、取景、驗證：完成一次拍攝。",
+        "footer": "LUMEN STAGE 網站使用教學",
         "pages": [
-            ("INTERFACE MAP", "Know the workspace", "One stage, three working zones. Select on the left, work in 3D, then refine on the right.", [
-                ("Scene library", "Add and select cameras, people, lights, grip and set objects. Shift-click selects multiple lights."),
-                ("3D studio", "Move, rotate and aim directly in the studio. Switch among studio, top-plan and camera views."),
-                ("Inspector", "Tune the selected light, subject, camera or grip item without leaving the scene."),
-            ], ["Top bar: project, view mode and guide", "Bottom HUD: lens, aperture, shutter, ISO and scene EV", "Shot Library stores alternate setups"]),
-            ("10-MINUTE WORKFLOW", "Your first finished image", "Work from large decisions to small ones. Position first, exposure second, rendering last.", [
-                ("01 · Build", "Add a person and any chair, table or plinth needed for the composition."),
-                ("02 · Light", "Add a light, place it around 45° from the subject and aim it at the chest or face."),
-                ("03 · Shape", "Choose a softbox, umbrella or reflector; then set power, size and color."),
-                ("04 · Camera", "Choose body and lens, then set focal length, aperture, shutter, ISO and framing."),
-                ("05 · Measure", "Open Exposure Analysis to check EV, histogram, false color and clipping."),
-                ("06 · Render", "Enter Photo Render, let samples settle and export the final PNG."),
-            ], ["Preview mode is for fast decisions", "Render mode is for final validation"]),
-            ("SCENE BUILDING", "Objects and transform tools", "The object list and 3D gizmos work together. Select an item before using a transform shortcut.", [
-                ("Move · G", "Drag the colored axes. Arrow keys nudge 0.1 m; Shift + arrows nudge 0.5 m."),
-                ("Rotate · R", "Rotate people, grip and set objects. Locked items cannot be moved accidentally."),
-                ("Aim · T", "With a light selected, drag its target or lock it to a subject's face, chest or full body."),
-            ], ["1 Studio view: judge height and shadows", "2 Top plan: judge distance and left/right placement", "Undo and redo support quick experiments"]),
-            ("LIGHTING", "From lamp to light shaper", "A believable setup depends on source power, modifier geometry, distance and direction together.", [
-                ("Emission", "Use Continuous for live feedback or Flash for duration, sync-speed and HSS behavior."),
-                ("Modifier", "Softbox, umbrellas, beauty dish, parabolic, lantern, Fresnel and projection optics shape the beam."),
-                ("Control", "Power sets strength. A larger, closer source is softer. Grid, flags and V-Flats control spill."),
-            ], ["Start the key light 45° off-axis and slightly above eye level", "Keep fill one or two stops below the key", "Use RGB only when colored light is intentional"]),
-            ("CAMERA", "Camera, lens and composition", "Treat the virtual camera like a real one: perspective comes from camera position and focal length together.", [
-                ("Lens", "50–85 mm is a useful portrait range; 24–35 mm includes more environment. Lens profiles add optical character."),
-                ("Exposure", "Start near f/4, 1/125 s and ISO 100. Keep flash shutter speed inside the sync limit unless HSS is on."),
-                ("Focus", "Set focus distance manually or track a subject zone. Use depth preview and focus assist to verify sharpness."),
-            ], ["Choose 3:2, 4:5, 1:1 or 16:9", "Switch between landscape and portrait", "Composition guides affect preview, not lighting"]),
-            ("EXPOSURE SCOPE", "Measure before you render", "Use analysis overlays to find technical problems while changes are still fast.", [
-                ("Histogram", "The left edge is deep shadow and the right edge is highlight. RGB mode reveals channel clipping."),
-                ("False color", "Maps exposure zones to colors. Clipping warning marks areas that have lost highlight detail."),
-                ("Meter probe", "Place the incident probe on a face, chest, another subject or the backdrop and compare EV readings."),
-            ], ["Solo one light to understand its contribution", "Return to All Lights after troubleshooting", "Judge the normal image after using overlays"]),
-            ("SHOT MANAGEMENT", "Shots and setup sheets", "Save meaningful alternatives instead of rebuilding a setup from memory.", [
-                ("Capture", "+ SHOT stores the current camera, lights, people, backdrop and a thumbnail."),
-                ("Load or overwrite", "Load returns to a saved version. Overwrite replaces it with the current setup."),
-                ("Setup sheet", "Generate a top-plan diagram, equipment list and camera settings for print or handoff."),
-            ], ["Name versions by camera, light angle and intent", "Example: A02_Key45_Fill-2", "Create a new Shot before risky changes"]),
-            ("PATH TRACING", "Photo render and PNG export", "Progressive sampling replaces the fast viewport with a higher-quality light simulation.", [
-                ("Start", "Choose Photo Render or press 4. SPP rises while visible noise gradually decreases."),
-                ("Control", "Space pauses or resumes. Shift + R restarts sampling after a scene change."),
-                ("Export", "After at least 1 SPP, export PNG with the chosen crop, resolution, optics, color and sensor effects."),
-            ], ["32–64 SPP is often enough to evaluate", "Dark and reflective scenes usually need more samples", "Check focus, clipping and color temperature before export"]),
-            ("PRODUCTION CONSOLE", "Advanced production tools", "Open PRO only when the shoot needs cinema parameters, multiple cameras, environments or advanced output.", [
-                ("Capture", "PHOTO / CINEMA, FPS, shutter angle, T-stop, ND and anamorphic controls."),
-                ("Stage", "Multiple camera slots, studio dimensions, window, sun, haze and subject look-at tracking."),
-                ("Pipeline", "HDRI, IES and GLB imports; quality and resolution presets; timeline, storyboard and project merge."),
-            ], ["Press P to open or close PRO", "Finish the basic studio setup first", "Use Live Denoise for cleaner previews"]),
-            ("SAVE & SHORTCUTS", "Projects and essential keys", "Browser saves are convenient; exported project files are the portable backup.", [
-                ("Save", "Save Scene or ⌘S writes the current project to this browser."),
-                ("Export", "File → Export Project or ⌘E downloads a JSON file for backup and transfer."),
-                ("Import / merge", "Import opens another project. Merge Project in PRO combines it with the current scene."),
-            ], ["1 / 2 / 3 / 4 · studio / top / camera / render", "G / R / T · move / rotate / aim", "M · exposure   B · shots   P · PRO", "⌘Z / ⇧⌘Z · undo / redo   Esc · close or cancel"]),
+            ("從這裡開始", "START HERE", "先做大決策，再進入精確器材參數。", ["頂部五階段是主流程", "左側是拍攝藍圖", "右側是目前決策"]),
+            ("五步拍攝流程", "DECISION FLOW", "手機與完整版共用同一組決策語言。", ["定調", "走位", "塑光", "取景", "驗證"]),
+            ("定調", "01 / TONE", "先定義想做出的畫面，再帶入燈位起點。", ["選擇參考照配光或視覺風格", "不用先在參數面板裡搜尋", "確認拍攝藍圖的視覺目標"]),
+            ("走位", "02 / BLOCKING", "處理人物、燈具、附件與鏡頭的空間關係。", ["棚內看高度與遮擋", "俯視看角度與距離", "用移動、旋轉、瞄準完成位置"]),
+            ("塑光", "03 / SHAPING", "同一構圖前後對照：「光線更柔」轉換成真實光源變化。", ["先選想得到的效果", "比對光源大小與陰影邊緣", "需要時再開進階器材參數"]),
+            ("取景", "04 / FRAMING", "使用鏡頭、畫面比例與方向完成構圖。", ["先決定比例與橫直幅", "再組合焦段與相機位置", "最後確認對焦、景深與安全範圍"]),
+            ("驗證", "05 / VALIDATION", "把曝光與光比問題在交付前排除。", ["檢查曝光與高光剪裁", "比較主光、補光與背景", "通過後再進入成像"]),
+            ("拍攝藍圖", "SHOOT BLUEPRINT", "左側把當前拍攝變成可讀的工作摘要。", ["專案與 SHOT 名稱", "鏡位數、畫面比例、焦段", "燈光角色或視覺目標"]),
+            ("目前決策", "CURRENT DECISION", "右側先呈現意圖與影響，再提供精確參數。", ["跟隨主光或補光切換", "快捷意圖：更柔、更深、鎖定臉部", "即時回報功率、距離與瞄準"]),
+            ("完成與輸出", "FINAL CHECK", "在同一畫面開啟測光分析，輸出前找完技術問題。", ["先看正常畫面，再開疊加分析", "修正後回到正常畫面確認", "儲存場景、備份與燈位工作表"]),
+        ],
+    },
+    "en": {
+        "filename": "LUMEN_STAGE_Site_Guide_EN.pdf", "label": "ENGLISH · PRODUCTION UI GUIDE",
+        "title": "From decisions to the frame", "subtitle": "Define, block, shape, frame and verify one complete shoot.", "footer": "LUMEN STAGE SITE GUIDE",
+        "pages": [
+            ("Start here", "START HERE", "Make the large decisions first; open exact equipment controls only when they help.", ["Five-stage header is the main flow", "Shoot Blueprint stays left", "Current Decision stays right"]),
+            ("Five-stage workflow", "DECISION FLOW", "Mobile and full mode use the same decision language.", ["Define", "Block", "Shape", "Frame", "Verify"]),
+            ("Define", "01 / DEFINE", "Define the intended image before tuning individual controls.", ["Choose reference lighting or a visual style", "Start from an authored setup", "Confirm the Blueprint target"]),
+            ("Block", "02 / BLOCKING", "Arrange the subject, lights, modifiers and camera as one spatial system.", ["Studio reveals height and occlusion", "Top view reveals angle and distance", "Use Move, Rotate and Aim"]),
+            ("Shape", "03 / SHAPING", "Same-framing comparison: Softer Light becomes a visible source change.", ["Begin with an outcome button", "Compare source size and shadow edge", "Use advanced controls only for exact values"]),
+            ("Frame", "04 / FRAMING", "Finish composition with lens, aspect ratio and orientation.", ["Choose aspect and orientation", "Combine focal length with camera position", "Verify focus, depth and safe area"]),
+            ("Verify", "05 / VERIFY", "Remove exposure and ratio problems before delivery.", ["Check exposure and highlight clipping", "Compare key, fill and background", "Move to imaging only after it passes"]),
+            ("Shoot Blueprint", "SHOOT BLUEPRINT", "The left rail keeps the working brief readable throughout the shoot.", ["Project and SHOT identity", "Shot count, aspect and focal length", "Active light roles or visual target"]),
+            ("Selected Decision", "SELECTED DECISION", "The right rail presents intent and impact before exact parameters.", ["Follows the selected light", "Softer, deeper or lock to face", "Reports power, distance and aim"]),
+            ("Finish and export", "FINAL CHECK", "Open metering over the same stage and clear technical issues before export.", ["Judge the normal image first", "Return after correcting exposure", "Save, back up and create a setup sheet"]),
         ],
     },
     "ja": {
-        "filename": "LUMEN_STAGE_サイトガイド_JA.pdf",
-        "label": "日本語 · インターフェースガイド",
-        "title": "サイトガイド",
-        "subtitle": "シーン作成、ライティング、カメラ設定、露出確認から最終レンダリングまで。",
-        "version": "LUMEN STAGE / 001 対応",
-        "footer": "LUMEN STAGE サイトガイド",
+        "filename": "LUMEN_STAGE_サイトガイド_JA.pdf", "label": "日本語 · 正式版 UI ガイド",
+        "title": "意図から完成フレームへ", "subtitle": "方向、配置、光作り、構図、検証の順で撮影を完成。", "footer": "LUMEN STAGE サイトガイド",
         "pages": [
-            ("INTERFACE MAP", "メイン画面を理解する", "左で選択、中央の 3D で配置、右で詳細調整。3 つのエリアで撮影を組み立てます。", [
-                ("シーンライブラリ", "カメラ、人物、ライト、グリップ、セットを追加・選択。Shift + クリックでライトを複数選択できます。"),
-                ("3D スタジオ", "スタジオ、俯瞰図、ファインダーを切り替え、移動・回転・照射を直接操作します。"),
-                ("インスペクター", "選択中のライト、人物、カメラ、グリップの設定をシーンを離れず調整します。"),
-            ], ["上部：プロジェクト、表示モード、ガイド", "下部 HUD：レンズ、絞り、シャッター、ISO、シーン EV", "ショットライブラリで別案を保存"]),
-            ("10-MINUTE WORKFLOW", "最初の一枚を完成させる", "大きな判断から細部へ。配置、露出、レンダリングの順に進めます。", [
-                ("01 · 構築", "人物を追加し、構図に必要な椅子、テーブル、展示台を配置します。"),
-                ("02 · 配光", "ライトを追加して人物の約 45° 前方に置き、胸元または顔へ向けます。"),
-                ("03 · 成形", "ソフトボックス、アンブレラ、レフ板を選び、出力・サイズ・色を設定します。"),
-                ("04 · カメラ", "ボディとレンズを選び、焦点距離、絞り、シャッター、ISO、フレーミングを設定します。"),
-                ("05 · 測光", "露出分析で EV、ヒストグラム、フォルスカラー、白飛びを確認します。"),
-                ("06 · 出力", "フォトレンダリングを開始し、サンプルが安定したら PNG を書き出します。"),
-            ], ["プレビューは素早い調整用", "レンダーは最終確認用"]),
-            ("SCENE BUILDING", "オブジェクトと変形ツール", "オブジェクトを選択してから、3D ギズモまたはショートカットで操作します。", [
-                ("移動 · G", "カラー軸をドラッグ。矢印キーは 0.1 m、Shift + 矢印キーは 0.5 m 移動します。"),
-                ("回転 · R", "人物、グリップ、セットを回転。ロックすると完成した配置の誤操作を防げます。"),
-                ("照射 · T", "ライト選択時に照射点を動かすか、人物の顔・胸元・全身へ追従させます。"),
-            ], ["1 スタジオ：高さ、影、遮蔽を確認", "2 俯瞰図：距離と左右位置を確認", "元に戻す／やり直すで素早く比較"]),
-            ("LIGHTING", "ライトとシェーパー", "出力、モディファイア形状、距離、方向を組み合わせてリアルな光を作ります。", [
-                ("発光モード", "定常光はリアルタイム確認、フラッシュは閃光時間、同調速度、HSS を再現します。"),
-                ("モディファイア", "ソフトボックス、アンブレラ、ビューティーディッシュ、パラボリック、フレネルなどで光束を成形します。"),
-                ("コントロール", "出力は光量、近く大きい光源ほど柔らかく、グリッドやフラッグは漏れ光を抑えます。"),
-            ], ["キーライトは人物の 45° 前方、目線より少し高く", "フィルはキーより 1-2 段低く", "RGB は色光を意図するときだけ使用"]),
-            ("CAMERA", "カメラ、レンズ、構図", "実機と同じく、パースはカメラ位置と焦点距離の組み合わせで決まります。", [
-                ("レンズ", "人物は 50〜85 mm、環境を含めるなら 24〜35 mm。プロファイルで光学特性も再現します。"),
-                ("露出", "まず f/4、1/125 秒、ISO 100。フラッシュでは HSS 以外は同調速度内にします。"),
-                ("フォーカス", "距離を手動設定するか人物エリアへ追従。被写界深度とフォーカスアシストで確認します。"),
-            ], ["3:2、4:5、1:1、16:9 から選択", "横位置／縦位置を切り替え", "構図ガイドは照明には影響しません"]),
-            ("EXPOSURE SCOPE", "レンダー前に露出を測る", "変更が速い段階で分析表示を使い、技術的な問題を見つけます。", [
-                ("ヒストグラム", "左端は暗部、右端はハイライト。RGB 表示では各チャンネルのクリップを確認できます。"),
-                ("フォルスカラー", "露出領域を色分けし、白飛び警告でハイライトのディテール消失を示します。"),
-                ("測光プローブ", "顔、胸元、別の人物、背景へ置き、EV を比較して光量比を整えます。"),
-            ], ["SOLO で各ライトの寄与を確認", "確認後は「すべてのライト」に戻す", "最後に通常画像で見た目を判断"]),
-            ("SHOT MANAGEMENT", "ショットとライト図", "意味のある別案を保存し、記憶だけでセットを作り直さないようにします。", [
-                ("取り込み", "+ SHOT でカメラ、ライト、人物、背景、サムネイルを保存します。"),
-                ("読み込み／上書き", "読み込みで保存状態へ戻り、上書きで現在の設定に置き換えます。"),
-                ("ライト図", "俯瞰配置、機材リスト、カメラ設定を作成し、印刷や引き継ぎに使えます。"),
-            ], ["カメラ、角度、意図が分かる名前を付ける", "例：A02_Key45_Fill-2", "大きな変更前は新しい Shot を作成"]),
-            ("PATH TRACING", "フォトレンダーと PNG", "プログレッシブサンプリングで、高品質な光シミュレーションへ切り替えます。", [
-                ("開始", "フォトレンダリングまたは 4。SPP が増えるほどノイズが減少します。"),
-                ("操作", "Space で一時停止／再開、Shift + R でシーン変更後に再サンプリングします。"),
-                ("書き出し", "1 SPP 以上で、比率、解像度、光学、色、センサー効果を反映した PNG を出力します。"),
-            ], ["評価は 32〜64 SPP が目安", "暗部や反射材はより多くのサンプルが必要", "出力前にピント、白飛び、色温度を確認"]),
-            ("PRODUCTION CONSOLE", "高度な制作機能", "シネマ設定、複数カメラ、環境、詳細出力が必要なときに PRO を開きます。", [
-                ("撮影", "PHOTO / CINEMA、FPS、シャッター角、T-stop、ND、アナモフィック。"),
-                ("スタジオ", "複数カメラ、スタジオ寸法、窓、太陽、霧、人物の視線追従。"),
-                ("パイプライン", "HDRI、IES、GLB、品質・解像度、タイムライン、ストーリーボード、プロジェクト結合。"),
-            ], ["P で PRO を開閉", "基本セットを先に完成させる", "Live Denoise でプレビューを整理"]),
-            ("SAVE & SHORTCUTS", "プロジェクトと基本キー", "ブラウザ保存は手軽、書き出したプロジェクトファイルは持ち運べるバックアップです。", [
-                ("保存", "「シーンを保存」または ⌘S で現在のプロジェクトをブラウザに保存します。"),
-                ("書き出し", "ファイル → プロジェクトを書き出す、または ⌘E で JSON をダウンロードします。"),
-                ("読み込み／結合", "読み込みは別プロジェクトを開き、PRO の結合は現在のシーンへ追加します。"),
-            ], ["1 / 2 / 3 / 4 · スタジオ / 俯瞰 / カメラ / レンダー", "G / R / T · 移動 / 回転 / 照射", "M · 露出   B · ショット   P · PRO", "⌘Z / ⇧⌘Z · 元に戻す / やり直す   Esc · 閉じる"]),
+            ("ここから開始", "START HERE", "大きな判断を先に行い、必要なときだけ詳細設定を開きます。", ["上部の 5 段階がメインフロー", "左は撮影ブループリント", "右は現在の判断"]),
+            ("5 段階のフロー", "DECISION FLOW", "モバイルとフル版は同じ判断言語を使います。", ["方向", "配置", "光作り", "構図", "検証"]),
+            ("方向", "01 / DIRECTION", "個別の設定より先に、作りたい画像を定義します。", ["参照画像かスタイルを選択", "配光の出発点を作成", "撮影ブループリントの目標を確認"]),
+            ("配置", "02 / BLOCKING", "人物、ライト、モディファイア、カメラを配置します。", ["高さと遮蔽を確認", "角度と距離を確認", "移動、回転、照射を使用"]),
+            ("光作り", "03 / SHAPING", "同じフレーミングの前後比較で柔らかさを確認します。", ["得たい結果から開始", "光源と影の縁を比較", "正確な値にだけ詳細設定"]),
+            ("構図", "04 / FRAMING", "レンズ、比率、縦横方向で画面を完成します。", ["比率と方向を先に決定", "焦点距離と位置を調整", "ピントと被写界深度を確認"]),
+            ("検証", "05 / VALIDATION", "納品前に露出と光量比の問題を除きます。", ["露出と白飛びを確認", "キー、フィル、背景を比較", "合格後にイメージング"]),
+            ("撮影ブループリント", "SHOOT BLUEPRINT", "左レールは撮影中も作業ブリーフを読める状態に保ちます。", ["プロジェクトと SHOT", "ショット数、比率、焦点距離", "光の役割または目標"]),
+            ("現在の判断", "CURRENT DECISION", "右レールは正確な値より先に意図と影響を示します。", ["選択した光に追従", "柔らかく、深く、顔に固定", "出力、距離、照射を表示"]),
+            ("完了と出力", "FINAL CHECK", "同じステージで測光を開き、出力前に問題を解決します。", ["通常画像を先に判断", "修正後は通常表示へ戻る", "保存、バックアップ、ライト図"]),
         ],
     },
 }
-
-
-PRACTICE_PAGES = {
-    "en": (
-        "GUIDED PRACTICE", "Build a soft-light portrait", "Finish this exercise once and the full LUMEN STAGE workflow will make sense.", [
-            ("01 · Build", "Keep one subject, add one light and choose a softbox. Turn off any other lights."),
-            ("02 · Position", "In Top Plan (2), place the key around 45° in front. In Studio (1), raise it above eye level."),
-            ("03 · Aim", "Select the key and press T. Aim at the chest, then return to Move mode."),
-            ("04 · Shape", "Start at 5600 K with a 90 × 90 cm softbox. Increase power from low to high."),
-            ("05 · Camera", "Use Camera (3), 50–85 mm, f/4, 1/125 s and ISO 100. Focus on the eyes."),
-            ("06 · Measure", "Press M, place the probe on the face and check the histogram and clipping warning."),
-            ("07 · Save", "Capture + SHOT as Portrait_Key45, save the scene and export a project backup."),
-            ("08 · Export", "Press 4, wait for clean edges and shadows, then export the final PNG."),
-        ], ["Success: sharp eyes, no facial clipping, clear light direction, shadow detail and backdrop separation", "Leave with a Shot, project backup and final PNG"]
-    ),
-    "ja": (
-        "GUIDED PRACTICE", "柔らかなポートレートを作る", "この練習を一度完了すると、LUMEN STAGE の基本ワークフローを理解できます。", [
-            ("01 · 構築", "人物を一人残し、ライトを一灯追加してソフトボックスを選択。他のライトはオフにします。"),
-            ("02 · 配置", "俯瞰図（2）で人物の前方 45°、スタジオ（1）で目線より高く配置します。"),
-            ("03 · 照射", "キーライトを選び T。胸元へ向けてから移動モードへ戻します。"),
-            ("04 · 成形", "5600 K、90 × 90 cm のソフトボックスから開始し、出力を低い値から上げます。"),
-            ("05 · カメラ", "カメラ（3）で 50〜85 mm、f/4、1/125 秒、ISO 100。目にピントを合わせます。"),
-            ("06 · 測光", "M を押し、顔へプローブを置いてヒストグラムと白飛び警告を確認します。"),
-            ("07 · 保存", "+ SHOT を Portrait_Key45 として保存し、シーン保存とバックアップ書き出しを行います。"),
-            ("08 · 出力", "4 を押し、輪郭と影が安定したら最終 PNG を書き出します。"),
-        ], ["完成基準：目が鮮明、顔に白飛びがなく、光の方向が明確で、影と背景の分離が残っている", "Shot、プロジェクトバックアップ、最終 PNG を保存"]
-    ),
-}
-
-SAVE_PAGES = {
-    "en": (
-        "SAVE, BACK UP & SHARE", "Keep the project safe", "A browser save is convenient, a project file is portable, and a share link is for review.", [
-            ("Save on this device", "Save Scene or ⌘S keeps the project in this browser. Clearing site data or changing devices can remove it."),
-            ("Export a backup", "Use File → Export Project on desktop, or Export Backup in the mobile Project tab. Download one before handoff or major changes."),
-            ("Share the scene", "The mobile Project tab can copy a link containing the scene settings. Send it only to people you trust."),
-        ], ["1 / 2 / 3 / 4 · studio / top / camera / render", "G / R / T · move / rotate / aim", "M · exposure   B · shots   P · PRO", "⌘S / ⌘E · save / export   ? · open this guide"]
-    ),
-    "ja": (
-        "SAVE, BACK UP & SHARE", "プロジェクトを安全に残す", "ブラウザ保存は手軽、プロジェクトファイルは持ち運び用、共有リンクは確認用です。", [
-            ("この端末に保存", "「シーンを保存」または ⌘S でこのブラウザに保存。サイトデータの消去や端末変更で失われる場合があります。"),
-            ("バックアップを書き出す", "デスクトップはファイル → 書き出し、モバイルはプロジェクトタブ。引き継ぎや大きな変更前に保存します。"),
-            ("シーンを共有", "モバイルのプロジェクトタブでシーン設定を含むリンクをコピー。信頼できる相手とのみ共有します。"),
-        ], ["1 / 2 / 3 / 4 · スタジオ / 俯瞰 / カメラ / レンダー", "G / R / T · 移動 / 回転 / 照射", "M · 露出   B · ショット   P · PRO", "⌘S / ⌘E · 保存 / 書き出し   ? · このガイド"]
-    ),
-}
-
-# Put the outcome-driven quick start before the interface tour and keep the
-# advanced PRO chapter out of the concise ten-page guide.
-for language, guide in GUIDES.items():
-    pages = guide["pages"]
-    guide["pages"] = [pages[1], pages[0], *pages[2:8], SAVE_PAGES[language]]
 
 
 def register_fonts():
@@ -215,31 +100,22 @@ def register_fonts():
     pdfmetrics.registerFont(TTFont("UI-B", "/System/Library/Fonts/STHeiti Medium.ttc", subfontIndex=0))
 
 
-def wrap(text, font, size, width):
-    ascii_ratio = sum(ord(character) < 128 for character in text) / max(1, len(text))
-    if ascii_ratio > 0.72 and " " in text:
-        lines = []
-        for paragraph in text.split("\n"):
-            current = ""
-            for word in paragraph.split(" "):
-                candidate = word if not current else f"{current} {word}"
-                if pdfmetrics.stringWidth(candidate, font, size) <= width:
-                    current = candidate
-                else:
-                    if current: lines.append(current)
-                    current = word
-            if current: lines.append(current)
-        return lines
-    lines, current = [], ""
-    for character in text:
-        if character == "\n":
-            lines.append(current); current = ""; continue
-        if pdfmetrics.stringWidth(current + character, font, size) <= width:
-            current += character
-        else:
-            if current: lines.append(current)
-            current = character
-    if current: lines.append(current)
+def wrap(value, font, size, width):
+    lines = []
+    for paragraph in value.split("\n"):
+        ascii_text = sum(ord(c) < 128 for c in paragraph) > len(paragraph) * .7
+        tokens, separator = (paragraph.split(" "), " ") if ascii_text else (list(paragraph), "")
+        current = ""
+        for token in tokens:
+            candidate = token if not current else current + separator + token
+            if pdfmetrics.stringWidth(candidate, font, size) <= width:
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                current = token
+        if current:
+            lines.append(current)
     return lines
 
 
@@ -247,112 +123,140 @@ def text(c, value, x, y, size=10, color=INK, bold=False, width=None, leading=Non
     font = "UI-B" if bold else "UI"
     c.setFont(font, size); c.setFillColor(color)
     lines = wrap(value, font, size, width) if width else value.split("\n")
-    leading = leading or size * 1.48
     for line in lines:
-        c.drawString(x, y, line); y -= leading
+        c.drawString(x, y, line); y -= leading or size * 1.45
     return y
 
 
-def pill(c, value, x, y, color=LIME):
-    width = pdfmetrics.stringWidth(value, "UI-B", 7.5) + 18
-    c.setFillColor(color); c.roundRect(x, y - 13, width, 18, 9, fill=1, stroke=0)
-    text(c, value, x + 9, y - 7, 7.5, BG, True)
+def image(c, locale, filename, x, y, w, h, crop=True):
+    with Image.open(CAPTURES / locale / filename) as source:
+        item = source.convert("RGB")
+        draw_x, draw_y, draw_w, draw_h = x, y, w, h
+        if crop:
+            sr, tr = item.width / item.height, w / h
+            if sr > tr:
+                nw = round(item.height * tr); left = (item.width - nw) // 2
+                item = item.crop((left, 0, left + nw, item.height))
+            else:
+                nh = round(item.width / tr); top = (item.height - nh) // 2
+                item = item.crop((0, top, item.width, top + nh))
+        else:
+            scale = min(w / item.width, h / item.height)
+            draw_w, draw_h = item.width * scale, item.height * scale
+            draw_x, draw_y = x + (w - draw_w) / 2, y + (h - draw_h) / 2
+        embed_size = (round(draw_w * EMBED_SCALE), round(draw_h * EMBED_SCALE))
+        if item.width > embed_size[0] or item.height > embed_size[1]:
+            item.thumbnail(embed_size, Image.Resampling.LANCZOS)
+        c.setFillColor(PANEL); c.roundRect(x - 5, y - 5, w + 10, h + 10, 8, fill=1, stroke=0)
+        c.drawImage(ImageReader(item), draw_x, draw_y, draw_w, draw_h, mask="auto")
 
 
-def background(c, footer, number):
+def base(c, guide, number, chapter):
+    title, kicker, lead, _ = chapter
     c.setFillColor(BG); c.rect(0, 0, W, H, fill=1, stroke=0)
-    c.setFillColor(LIME); c.rect(0, H - 6, W, 6, fill=1, stroke=0)
-    text(c, f"{footer}   {number:02d}", 36, 18, 7.2, MUTED)
+    c.setFillColor(BLUE); c.rect(0, H - 6, W, 6, fill=1, stroke=0)
+    text(c, kicker, 36, H - 34, 8, BLUE, True)
+    text(c, title, 36, H - 60, 20, INK, True, 755)
+    c.setStrokeColor(LINE); c.line(36, H - 75, W - 36, H - 75)
+    text(c, lead, 36, H - 96, 9.5, MUTED, False, 755, 13.5)
+    text(c, f"{guide['footer']}   {number:02d}", 36, 18, 7.2, MUTED)
 
 
-def cover(c, guide):
-    background(c, guide["footer"], 0)
-    c.setFillColor(PANEL); c.roundRect(405, 77, 360, 405, 18, fill=1, stroke=0)
-    c.setStrokeColor(LINE); c.setLineWidth(1)
-    for x in range(441, 751, 62): c.line(x, 104, x, 452)
-    for y in range(112, 453, 57): c.line(431, y, 740, y)
-    c.setStrokeColor(LIME); c.setLineWidth(5)
-    c.line(450, 157, 619, 377); c.line(619, 377, 714, 227)
-    c.setFillColor(CYAN); c.circle(619, 377, 13, fill=1, stroke=0)
-    c.setFillColor(ORANGE); c.circle(450, 157, 10, fill=1, stroke=0)
-    pill(c, guide["label"], 42, H - 76)
-    text(c, "LUMEN\nSTAGE", 42, H - 132, 37, INK, True, leading=42)
-    text(c, guide["title"], 42, H - 238, 25, LIME, True, width=320)
-    text(c, guide["subtitle"], 44, H - 286, 11.5, MUTED, width=315, leading=19)
-    text(c, guide["version"], 42, 44, 8, MUTED)
+def bullets(c, values, x, y, width):
+    for value in values:
+        c.setFillColor(BLUE); c.circle(x + 3, y + 3, 2.2, fill=1, stroke=0)
+        lines = wrap(value, "UI", 8.5, width - 18)
+        text(c, "\n".join(lines), x + 14, y + 7, 8.5, INK, False, None, 12.2)
+        y -= len(lines) * 12.2 + 8
+
+
+def cover(c, locale, guide):
+    c.setFillColor(BG); c.rect(0, 0, W, H, fill=1, stroke=0)
+    image(c, locale, "desktop-00-cover-focus.png", 332, 72, 470, 438)
+    c.setFillColor(BG); c.rect(309, 54, 18, 475, fill=1, stroke=0)
+    c.setFillColor(BLUE); c.roundRect(42, H - 82, 218, 22, 11, fill=1, stroke=0)
+    text(c, guide["label"], 53, H - 76, 8, BG, True)
+    text(c, "LUMEN\nSTAGE", 42, H - 128, 36, INK, True, None, 40)
+    text(c, guide["title"], 42, H - 235, 23, BLUE, True, 258, 30)
+    text(c, guide["subtitle"], 42, H - 307, 11, MUTED, False, 250, 18)
+    text(c, "Production UI capture / 2026", 42, 42, 7.5, MUTED)
     c.showPage()
 
 
-def content_page(c, guide, number, page):
-    kicker, title, intro, cards, notes = page
-    background(c, guide["footer"], number)
-    text(c, kicker, 36, H - 36, 8, LIME, True)
-    text(c, title, 36, H - 62, 20, INK, True, width=760)
-    c.setStrokeColor(LINE); c.line(36, H - 76, W - 36, H - 76)
-    text(c, intro, 36, H - 100, 10, MUTED, width=755, leading=15)
-
-    columns = 2 if len(cards) >= 7 else (3 if len(cards) <= 3 else 2)
-    gap = 18
-    card_width = (762 - gap * (columns - 1)) / columns
-    rows = (len(cards) + columns - 1) // columns
-    top = H - 147
-    card_height = 78 if len(cards) >= 7 else (120 if rows == 1 else (96 if rows >= 3 else 114))
-    row_gap = 10 if len(cards) >= 7 else (12 if rows >= 3 else 16)
-    accents = [LIME, CYAN, ORANGE, LIME, CYAN, ORANGE]
-    for index, (heading, body) in enumerate(cards):
-        col, row = index % columns, index // columns
-        x = 36 + col * (card_width + gap)
-        y = top - row * (card_height + row_gap)
-        c.setFillColor(PANEL if index % 2 == 0 else PANEL_ALT)
-        c.roundRect(x, y - card_height, card_width, card_height, 11, fill=1, stroke=0)
-        c.setFillColor(accents[index % len(accents)]); c.roundRect(x, y - card_height, 4, card_height, 2, fill=1, stroke=0)
-        text(c, heading, x + 16, y - 25, 11, INK, True, width=card_width - 32)
-        text(c, body, x + 16, y - 53, 8.5, MUTED, width=card_width - 32, leading=13.1)
-
-    notes_top = top - rows * (card_height + row_gap) - 8
-    text(c, "CHECK", 36, notes_top, 8, LIME, True)
-    for index, note in enumerate(notes):
-        y = notes_top - 25 - index * 25
-        c.setFillColor(LIME); c.circle(40, y + 3, 2.2, fill=1, stroke=0)
-        text(c, note, 51, y + 7, 8.8, INK, width=735, leading=12)
+def workflow(c, locale, guide):
+    chapter = guide["pages"][1]; base(c, guide, 2, chapter)
+    names = ["tone", "blocking", "shaping", "framing", "validation"]
+    for index, name in enumerate(names):
+        x, y = 54 + index * 149, 160
+        image(c, locale, f"mobile-0{index + 1}-{name}.png", x, y, 130, 282, crop=False)
+        c.setFillColor(PANEL_2); c.roundRect(x, y - 33, 130, 24, 4, fill=1, stroke=0)
+        text(c, f"0{index + 1}", x + 10, y - 25, 8, BLUE, True)
+        text(c, chapter[3][index], x + 38, y - 25, 7.4, INK, False, 82)
     c.showPage()
 
 
-def build_one(locale, guide):
-    output_dir = ROOT / "output" / "pdf"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_pdf = output_dir / guide["filename"]
-    c = canvas.Canvas(str(output_pdf), pagesize=(W, H), pageCompression=1)
-    c.setTitle(f"LUMEN STAGE {guide['title']}")
-    c.setAuthor("OpenAI Codex")
-    cover(c, guide)
-    for number, page in enumerate(guide["pages"], 1): content_page(c, guide, number, page)
-    c.save()
+def standard(c, locale, guide, number, filename):
+    chapter = guide["pages"][number - 1]; base(c, guide, number, chapter)
+    image(c, locale, filename, 36, 87, 592, 370)
+    c.setFillColor(PANEL); c.roundRect(648, 87, 150, 370, 8, fill=1, stroke=0)
+    text(c, "CHECK", 665, 431, 8, BLUE, True)
+    bullets(c, chapter[3], 665, 403, 122)
+    c.showPage()
 
-    public_pdf = ROOT / "public" / guide["filename"]
-    shutil.copy2(output_pdf, public_pdf)
-    pages_dir = ROOT / "public" / "guide-pages" / locale
-    pages_dir.mkdir(parents=True, exist_ok=True)
-    for existing_page in pages_dir.glob("page-*.jpg"):
-        existing_page.unlink()
-    prefix = pages_dir / "page"
-    pdftoppm = Path("/Users/clark/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/pdftoppm")
-    subprocess.run([str(pdftoppm), "-jpeg", "-r", "130", "-jpegopt", "quality=88", str(output_pdf), str(prefix)], check=True)
-    for index, source in enumerate(sorted(pages_dir.glob("page-*.jpg")), 1):
-        target = pages_dir / f"page-{index:02d}.jpg"
-        if source != target: source.replace(target)
-    return output_pdf
+
+def compare(c, locale, guide):
+    chapter = guide["pages"][4]; base(c, guide, 5, chapter)
+    image(c, locale, "desktop-03-shaping-before.png", 36, 193, 370, 231)
+    image(c, locale, "desktop-03-shaping-after.png", 428, 193, 370, 231)
+    for x, label in [(48, "BEFORE"), (440, "AFTER")]:
+        c.setFillColor(BG); c.roundRect(x, 376, 62, 22, 4, fill=1, stroke=0)
+        text(c, label, x + 9, 383, 7.5, BLUE, True)
+    c.setFillColor(PANEL); c.roundRect(36, 77, 762, 92, 8, fill=1, stroke=0)
+    for index, note in enumerate(chapter[3]):
+        x = 53 + index * 249
+        c.setFillColor(BLUE); c.circle(x, 126, 3, fill=1, stroke=0)
+        text(c, note, x + 12, 132, 8.4, INK, False, 210, 12)
+    c.showPage()
+
+
+def poppler(name):
+    bundled = Path("/Users/clark/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override") / name
+    return str(bundled if bundled.exists() else shutil.which(name))
+
+
+def render_pages(locale, pdf_path):
+    target = PAGES / locale; target.mkdir(parents=True, exist_ok=True)
+    for old in [*target.glob("page-*.jpg"), *target.glob("page-*.png")]: old.unlink()
+    subprocess.run([poppler("pdftoppm"), "-png", "-r", "300", str(pdf_path), str(target / "page")], check=True)
+    for index, source in enumerate(sorted(target.glob("page-*.png")), 1):
+        destination = target / f"page-{index:02d}.png"
+        if source != destination: source.replace(destination)
+
+
+def build_pdf(locale, guide):
+    path = PUBLIC / guide["filename"]
+    c = canvas.Canvas(str(path), pagesize=(W, H), pageCompression=1)
+    c.setTitle(f"LUMEN STAGE - {guide['title']}"); c.setAuthor("LUMEN STAGE")
+    cover(c, locale, guide); workflow(c, locale, guide)
+    standard(c, locale, guide, 3, "desktop-01-tone.png")
+    standard(c, locale, guide, 4, "desktop-02-blocking.png")
+    compare(c, locale, guide)
+    standard(c, locale, guide, 6, "desktop-04-framing.png")
+    standard(c, locale, guide, 7, "desktop-05-validation.png")
+    standard(c, locale, guide, 8, "desktop-06-shoot-blueprint.png")
+    standard(c, locale, guide, 9, "desktop-07-current-decision.png")
+    standard(c, locale, guide, 10, "desktop-10-final-check.png")
+    c.save(); render_pages(locale, path)
+    return path
 
 
 def main():
-    register_fonts()
-    zh_dir = ROOT / "public" / "guide-pages" / "zh"
-    zh_dir.mkdir(parents=True, exist_ok=True)
-    for existing_page in zh_dir.glob("page-*.jpg"):
-        existing_page.unlink()
-    for source in sorted((ROOT / "public" / "guide-pages").glob("page-*.jpg")):
-        shutil.copy2(source, zh_dir / source.name)
-    for locale, guide in GUIDES.items(): print(build_one(locale, guide))
+    missing = [f"{locale}/{name}" for locale in GUIDES for name in SOURCES if not (CAPTURES / locale / name).exists()]
+    if missing: raise FileNotFoundError("Missing production captures: " + ", ".join(missing))
+    register_fonts(); PUBLIC.mkdir(parents=True, exist_ok=True); PAGES.mkdir(parents=True, exist_ok=True)
+    for old in [*PAGES.glob("page-*.jpg"), *PAGES.glob("page-*.png")]: old.unlink()
+    outputs = [build_pdf(locale, guide) for locale, guide in GUIDES.items()]
+    for output in outputs: print(output)
 
 
 if __name__ == "__main__": main()
