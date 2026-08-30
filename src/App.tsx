@@ -24,6 +24,8 @@ import { OnboardingTour, shouldShowOnboarding } from './components/OnboardingTou
 import { AssetDrawer, BlueprintPanel, ContinuityGuardPanel, DecisionConsole, ReferenceMatchPanel, ViewModeDock, WorkflowNavigation } from './components/WorkflowShell'
 import { useUiModeStore } from './uiMode'
 import { summarizeHistoryChange, type HistorySummaryLabels } from './historySummary'
+import { useWorkflow } from './workflow'
+import { workflowModeForStage } from './workflowControl'
 
 let hintSequence = 0
 
@@ -147,9 +149,9 @@ function SetupSheetHost() {
 type MoreMenuCopy = { trigger: string; title: string; history: string; current: string; emptyHistory: string; restoreHere: string; steps: string; undo: string; redo: string; workspace: string; project: string; focus: string; showPanels: string; pro: string; presets: string; on: string; off: string; mobile: string; export: string; summaries: HistorySummaryLabels }
 
 const MORE_MENU_COPY: Record<Locale, MoreMenuCopy> = {
-  en: { trigger: 'More', title: 'Workspace and project tools', history: 'History', current: 'Current state', emptyHistory: 'Changes to people, lights or camera will appear here.', restoreHere: 'Return to this state', steps: 'steps', undo: 'Undo', redo: 'Redo', workspace: 'Workspace', project: 'Project', focus: 'Focus view', showPanels: 'Show panels', pro: 'Professional controls', presets: 'Presets', on: 'On', off: 'Off', mobile: 'Mobile', export: 'Export', summaries: { project: 'Project name', subject: 'Person / stage object', lighting: 'Lighting adjustment', camera: 'Camera adjustment', stage: 'Studio setup', scene: 'Scene adjustment' } },
-  zh: { trigger: '更多', title: '工作區與專案工具', history: '操作紀錄', current: '目前狀態', emptyHistory: '調整人物、燈光或相機後，操作會顯示在這裡。', restoreHere: '返回這個狀態', steps: '步', undo: '復原', redo: '重做', workspace: '工作區', project: '專案', focus: '專注檢視', showPanels: '顯示面板', pro: '專業控制', presets: '預設', on: '開啟', off: '關閉', mobile: '手機', export: '匯出', summaries: { project: '專案名稱', subject: '人物／場景物件', lighting: '燈光調整', camera: '相機調整', stage: '攝影棚設定', scene: '場景調整' } },
-  ja: { trigger: 'その他', title: 'ワークスペースとプロジェクト', history: '履歴', current: '現在の状態', emptyHistory: '人物・照明・カメラの変更がここに表示されます。', restoreHere: 'この状態に戻る', steps: '手前', undo: '元に戻す', redo: 'やり直す', workspace: 'ワークスペース', project: 'プロジェクト', focus: '集中表示', showPanels: 'パネル表示', pro: 'プロ設定', presets: 'プリセット', on: 'オン', off: 'オフ', mobile: 'モバイル', export: '書き出す', summaries: { project: 'プロジェクト名', subject: '人物／セット', lighting: '照明調整', camera: 'カメラ調整', stage: 'スタジオ設定', scene: 'シーン調整' } },
+  en: { trigger: 'More', title: 'Workspace and project tools', history: 'History', current: 'Current state', emptyHistory: 'Changes to people, lights or camera will appear here.', restoreHere: 'Return to this state', steps: 'steps', undo: 'Undo', redo: 'Redo', workspace: 'Workspace', project: 'Project', focus: 'Focus view', showPanels: 'Show panels', pro: 'Professional controls', presets: 'Presets', on: 'On', off: 'Off', mobile: 'Simple edition', export: 'Export', summaries: { project: 'Project name', subject: 'Person / stage object', lighting: 'Lighting adjustment', camera: 'Camera adjustment', stage: 'Studio setup', scene: 'Scene adjustment' } },
+  zh: { trigger: '更多', title: '工作區與專案工具', history: '操作紀錄', current: '目前狀態', emptyHistory: '調整人物、燈光或相機後，操作會顯示在這裡。', restoreHere: '返回這個狀態', steps: '步', undo: '復原', redo: '重做', workspace: '工作區', project: '專案', focus: '專注檢視', showPanels: '顯示面板', pro: '專業控制', presets: '預設', on: '開啟', off: '關閉', mobile: '簡易版', export: '匯出', summaries: { project: '專案名稱', subject: '人物／場景物件', lighting: '燈光調整', camera: '相機調整', stage: '攝影棚設定', scene: '場景調整' } },
+  ja: { trigger: 'その他', title: 'ワークスペースとプロジェクト', history: '履歴', current: '現在の状態', emptyHistory: '人物・照明・カメラの変更がここに表示されます。', restoreHere: 'この状態に戻る', steps: '手前', undo: '元に戻す', redo: 'やり直す', workspace: 'ワークスペース', project: 'プロジェクト', focus: '集中表示', showPanels: 'パネル表示', pro: 'プロ設定', presets: 'プリセット', on: 'オン', off: 'オフ', mobile: 'シンプル版', export: '書き出す', summaries: { project: 'プロジェクト名', subject: '人物／セット', lighting: '照明調整', camera: 'カメラ調整', stage: 'スタジオ設定', scene: 'シーン調整' } },
 }
 
 /** Keep the header focused on one primary action; occasional tools live here. */
@@ -512,6 +514,7 @@ function PathSensorOverlay() {
 }
 
 function SceneToolbar() {
+  const positionOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const selected = useStudio((state) => state.selected)
   const view = useStudio((state) => state.view)
   const mode = useStudio((state) => state.transformMode)
@@ -528,9 +531,9 @@ function SceneToolbar() {
     <div className="scene-toolbar" role="toolbar" aria-label={t('scene.aria')}>
       <span>{selectedLight ? `${selectedLight.name.toUpperCase()}${selectedCount > 1 ? ` · ${selectedCount} SELECTED` : ''}` : selectedModifier ? `${selectedModifier.name.toUpperCase()} · GRIP` : selectedStudioObject ? `${selectedStudioObject.name.toUpperCase()} · SET` : selected === 'camera' ? 'CAMERA 01' : 'MODEL'}</span>
       <button className={mode === 'translate' && !aimMode ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'translate') }} title={t('scene.move.title')}><i className="move-glyph" />{t('scene.move')} <kbd>G</kbd></button>
-      {selectedLight && <button className={aimMode ? 'active aim-active' : ''} onClick={() => setValue('lightAimMode', !aimMode)} title={t('scene.aim.title')}><i className="target-glyph" />{t('scene.aim')} <kbd>T</kbd></button>}
-      <button disabled={selected !== 'model' && !selectedLight && !selectedModifier && !selectedStudioObject} className={mode === 'rotate' && !aimMode ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'rotate') }} title={t('scene.rotate.title')}><i className="rotate-glyph" />{t('scene.rotate')} <kbd>R</kbd></button>
-      <PoseHandleButton />
+      {!positionOnly && selectedLight && <button className={aimMode ? 'active aim-active' : ''} onClick={() => setValue('lightAimMode', !aimMode)} title={t('scene.aim.title')}><i className="target-glyph" />{t('scene.aim')} <kbd>T</kbd></button>}
+      {!positionOnly && <button disabled={selected !== 'model' && !selectedLight && !selectedModifier && !selectedStudioObject} className={mode === 'rotate' && !aimMode ? 'active' : ''} onClick={() => { setValue('lightAimMode', false); setValue('transformMode', 'rotate') }} title={t('scene.rotate.title')}><i className="rotate-glyph" />{t('scene.rotate')} <kbd>R</kbd></button>}
+      {!positionOnly && <PoseHandleButton />}
       <SnapButton />
       <MeasureButton />
     </div>
@@ -538,6 +541,7 @@ function SceneToolbar() {
 }
 
 export default function App() {
+  const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const view = useStudio((state) => state.view)
   const renderMode = useStudio((state) => state.renderMode)
   const pathStatus = useStudio((state) => state.pathTracingStatus)
@@ -639,7 +643,7 @@ export default function App() {
   }, [sceneReady])
 
   return (
-    <main className={`app-shell ${workspacePanels.left ? '' : 'left-panel-hidden'} ${workspacePanels.right ? '' : 'right-panel-hidden'} ${workspacePanels.top ? '' : 'top-panel-hidden'}`}>
+    <main className={`app-shell ${workspacePanels.left ? '' : 'left-panel-hidden'} ${workspacePanels.right && !layoutOnly ? '' : 'right-panel-hidden'} ${workspacePanels.top ? '' : 'top-panel-hidden'}`}>
       <TopBar onOpenGuide={() => setGuideOpen(true)} onOpenAbout={() => setAboutOpen(true)} panelsHidden={anyPanelHidden} onTogglePanels={toggleAllPanels} />
       <BlueprintPanel />
       <section className={`viewport ${renderMode === 'path' ? 'path-color-science' : ''}`} aria-label={t('viewport.aria')} style={{ '--path-saturation': pathSaturation, '--path-contrast': pathContrast, '--path-sepia': pathSepia } as React.CSSProperties}>
@@ -675,7 +679,7 @@ export default function App() {
         <ShortcutLauncher />
         <ShortcutHint hint={hint} />
         <button className={`workspace-panel-tab left ${workspacePanels.left ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, left: !current.left }))} aria-label={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft} title={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft}><span aria-hidden="true">{panelSideName.left}</span><i aria-hidden="true" /></button>
-        <button className={`workspace-panel-tab right ${workspacePanels.right ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, right: !current.right }))} aria-label={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight} title={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight}><span aria-hidden="true">{panelSideName.right}</span><i aria-hidden="true" /></button>
+        {!layoutOnly && <button className={`workspace-panel-tab right ${workspacePanels.right ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, right: !current.right }))} aria-label={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight} title={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight}><span aria-hidden="true">{panelSideName.right}</span><i aria-hidden="true" /></button>}
         <button className={`workspace-panel-tab top ${workspacePanels.top ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, top: !current.top }))} aria-label={workspacePanels.top ? panelSideLabel.hideTop : panelSideLabel.showTop} title={workspacePanels.top ? panelSideLabel.hideTop : panelSideLabel.showTop}><span aria-hidden="true">{panelSideName.top}</span><i aria-hidden="true" /></button>
       </section>
       <DecisionConsole />

@@ -26,7 +26,7 @@ import { applyGelTint, geledTemperature, getGel } from '../gels'
 import { brickNormalMap, canvasNormalMap, concreteNormalMap, mottleMap, paperNormalMap, plasterNormalMap, woodNormalMap } from '../textures'
 import { shippedHumanFor } from '../characterAssets'
 import { useWorkflow } from '../workflow'
-import { canControlInWorkflow } from '../workflowControl'
+import { canControlInWorkflow, workflowModeForStage } from '../workflowControl'
 
 const SENSOR_WIDTH = { 'full-frame': 36, 'aps-c': 23.5, mft: 17.3 } as const
 const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
@@ -83,6 +83,7 @@ function createGoboTexture(pattern: StudioLight['goboPattern'], rotation: number
 }
 
 function CameraRig() {
+  const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const { camera } = useThree()
   const view = useStudio((state) => state.view)
   const focalLength = useStudio((state) => state.focalLength)
@@ -124,7 +125,7 @@ function CameraRig() {
     perspective.updateProjectionMatrix()
   }, [anamorphic, camera, imagingFocalLength, sensorFormat, view])
 
-  return <OrbitControls enabled={view === 'studio'} makeDefault target={[0, 1.15, 0]} minDistance={3.5} maxDistance={13} maxPolarAngle={Math.PI / 2.02} />
+  return <OrbitControls enabled={view === 'studio' && !layoutOnly} enableRotate={!layoutOnly} makeDefault target={[0, 1.15, 0]} minDistance={3.5} maxDistance={13} maxPolarAngle={Math.PI / 2.02} />
 }
 
 const LENS_CHARACTER_FRAGMENT = `
@@ -925,6 +926,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
 
 function Mannequin() {
   const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'person'))
+  const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const selectObject = useStudio((state) => state.selectObject)
   const position = useStudio((state) => state.modelPosition)
   const rotation = useStudio((state) => state.modelRotation)
@@ -948,10 +950,11 @@ function Mannequin() {
   const transformControl = useRef<TransformControlsImpl>(null)
   // An imported model with no recognised skeleton cannot be posed, so it gets
   // no handles rather than handles that quietly do nothing.
-  const showHandles = canControl && poseHandles && selected && view !== 'camera' && modelRigStatus === 'rigged'
+  const effectiveTransformMode = layoutOnly ? 'translate' : transformMode
+  const showHandles = !layoutOnly && canControl && poseHandles && selected && view !== 'camera' && modelRigStatus === 'rigged'
 
   const model = (
-    <group ref={group} position={[position[0], seatedLift, position[2]]} rotation={[0, rotation, 0]} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('model') }}>
+    <group ref={group} position={[position[0], position[1] + seatedLift, position[2]]} rotation={[0, rotation, 0]} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('model') }}>
       <ImportedModel url={activeModelUrl} onRigReady={setBoneMap} />
       {showHandles && (
         <PoseRig
@@ -974,17 +977,21 @@ function Mannequin() {
       <TransformControls
         ref={transformControl}
         object={group as RefObject<THREE.Object3D>}
-        mode={transformMode}
+        mode={effectiveTransformMode}
         size={0.72}
         translationSnap={0.05}
         rotationSnap={THREE.MathUtils.degToRad(5)}
-        showY={transformMode === 'rotate'}
-        showX={transformMode === 'translate'}
-        showZ={transformMode === 'translate'}
+        showY
+        showX={effectiveTransformMode === 'translate'}
+        showZ={effectiveTransformMode === 'translate'}
         onMouseUp={() => {
           if (!group.current) return
-          const nextPosition: [number, number, number] = [group.current.position.x, 0, group.current.position.z]
-          setModelTransform(nextPosition, group.current.rotation.y, transformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined)
+          const nextPosition: [number, number, number] = [
+            Number(group.current.position.x.toFixed(2)),
+            Number(Math.min(3, Math.max(0, group.current.position.y - seatedLift)).toFixed(2)),
+            Number(group.current.position.z.toFixed(2)),
+          ]
+          setModelTransform(nextPosition, group.current.rotation.y, effectiveTransformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined)
         }}
       />
     </>
@@ -1081,6 +1088,7 @@ function StudioObjectMesh({ object }: { object: StudioObject }) {
 
 function MovableStudioObject({ object }: { object: StudioObject }) {
   const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, object.type === 'subject' ? 'person' : 'set'))
+  const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const selected = useStudio((state) => state.selected === object.id)
   const selectObject = useStudio((state) => state.selectObject)
   const view = useStudio((state) => state.view)
@@ -1094,14 +1102,16 @@ function MovableStudioObject({ object }: { object: StudioObject }) {
     <StudioObjectMesh object={object} />
     {canControl && selected && view !== 'camera' && <mesh position={[0, yOffset, 0]}><boxGeometry args={outlineSize} /><meshBasicMaterial color={object.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={0.48} /></mesh>}
   </group>
-  return <>{content}{canControl && selected && view !== 'camera' && !object.locked && <TransformControls ref={transformControl} object={group as RefObject<THREE.Object3D>} mode={transformMode} size={0.7} translationSnap={0.05} rotationSnap={THREE.MathUtils.degToRad(5)} showX={transformMode === 'translate'} showY showZ={transformMode === 'translate'} onMouseUp={() => {
+  const effectiveTransformMode = layoutOnly ? 'translate' : transformMode
+  return <>{content}{canControl && selected && view !== 'camera' && !object.locked && <TransformControls ref={transformControl} object={group as RefObject<THREE.Object3D>} mode={effectiveTransformMode} size={0.7} translationSnap={0.05} rotationSnap={THREE.MathUtils.degToRad(5)} showX={effectiveTransformMode === 'translate'} showY showZ={effectiveTransformMode === 'translate'} onMouseUp={() => {
     if (!group.current) return
-    setTransform(object.id, [Number(group.current.position.x.toFixed(2)), Number(Math.max(0, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))], Number(group.current.rotation.y.toFixed(3)), transformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined)
+    setTransform(object.id, [Number(group.current.position.x.toFixed(2)), Number(Math.max(0, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))], Number(group.current.rotation.y.toFixed(3)), effectiveTransformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined)
   }} />}</>
 }
 
 function Softbox({ light }: { light: StudioLight }) {
   const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'light'))
+  const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const { id: lightId, position, temperature, shape, grid: gridEnabled, colorMode, rgb, enabled } = light
   const gel = getGel(light.gelId)
   const softboxEnabled = light.optic === 'softbox'
@@ -1148,6 +1158,10 @@ function Softbox({ light }: { light: StudioLight }) {
   const beamAngle = THREE.MathUtils.degToRad(light.beamAngle / 2)
   const penumbra = THREE.MathUtils.clamp((light.feather / 100) * (gridEnabled ? 0.55 : areaModifier ? 1 : 0.45), 0, 1)
   const effectiveEnabled = enabled && (!soloLightId || soloLightId === lightId)
+  const effectiveAimMode = !layoutOnly && aimMode
+  const effectiveTransformMode = layoutOnly ? 'translate' : transformMode
+  const showLayoutGuide = layoutOnly && enabled && view !== 'camera'
+  const guideColor = primary ? '#d8ff3e' : '#67d8ff'
   const standOffset = useMemo<[number, number]>(() => {
     const awayX = position[0] - light.target[0]
     const awayZ = position[2] - light.target[2]
@@ -1240,28 +1254,28 @@ function Softbox({ light }: { light: StudioLight }) {
       <primitive object={target} />
       <primitive object={aimPivot} />
       {softbox}
-      {canControl && primary && view !== 'camera' && <>
-        <Line points={[position, light.target]} color="#d8ff3e" lineWidth={0.75} dashed dashSize={0.12} gapSize={0.08} transparent opacity={0.52} />
-        <group position={light.target} visible={aimMode}>
-          <mesh><sphereGeometry args={[0.065, 20, 20]} /><meshBasicMaterial color="#d8ff3e" /></mesh>
+      {canControl && (primary || showLayoutGuide) && view !== 'camera' && <>
+        <Line points={[position, light.target]} color={guideColor} lineWidth={showLayoutGuide ? 1 : 0.75} dashed dashSize={0.12} gapSize={0.08} transparent opacity={primary ? 0.68 : 0.38} />
+        <group position={light.target} visible={effectiveAimMode || showLayoutGuide}>
+          <mesh><sphereGeometry args={[0.065, 20, 20]} /><meshBasicMaterial color={guideColor} /></mesh>
           <mesh rotation={[Math.PI / 2, 0, 0]} scale={Math.max(0.45, new THREE.Vector3(...position).distanceTo(new THREE.Vector3(...light.target)) * Math.tan(beamAngle))}>
-            <ringGeometry args={[0.16, 0.175, 40]} /><meshBasicMaterial color="#d8ff3e" transparent opacity={0.58} side={THREE.DoubleSide} />
+            <ringGeometry args={[0.16, 0.185, 40]} /><meshBasicMaterial color={guideColor} transparent opacity={primary ? 0.72 : 0.42} side={THREE.DoubleSide} />
           </mesh>
         </group>
       </>}
-      {canControl && primary && view !== 'camera' && (aimMode || !light.locked) && (
+      {canControl && primary && view !== 'camera' && (effectiveAimMode || !light.locked) && (
         <TransformControls
           ref={transformControl}
-          object={aimMode ? target : transformMode === 'rotate' ? aimPivot : rig as RefObject<THREE.Object3D>}
-          mode={aimMode ? 'translate' : transformMode}
+          object={effectiveAimMode ? target : effectiveTransformMode === 'rotate' ? aimPivot : rig as RefObject<THREE.Object3D>}
+          mode={effectiveAimMode ? 'translate' : effectiveTransformMode}
           size={0.7}
           translationSnap={0.05}
           rotationSnap={THREE.MathUtils.degToRad(5)}
-          showZ={aimMode || transformMode === 'translate'}
+          showZ={effectiveAimMode || effectiveTransformMode === 'translate'}
           onMouseUp={() => {
-            if (aimMode) {
+            if (effectiveAimMode) {
               setLightTarget(lightId, [Number(target.position.x.toFixed(2)), Number(Math.max(0.1, target.position.y).toFixed(2)), Number(target.position.z.toFixed(2))], activeTransformAxis(transformControl.current))
-            } else if (transformMode === 'rotate') {
+            } else if (effectiveTransformMode === 'rotate') {
               const distance = Math.max(0.1, new THREE.Vector3(...position).distanceTo(new THREE.Vector3(...light.target)))
               const direction = new THREE.Vector3(0, 0, 1).applyQuaternion(aimPivot.quaternion).normalize()
               const nextTarget = new THREE.Vector3(...position).addScaledVector(direction, distance)
@@ -1285,6 +1299,7 @@ const MODIFIER_MATERIALS = {
 
 function GripModifier({ modifier }: { modifier: StudioModifier }) {
   const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'grip'))
+  const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const selected = useStudio((state) => state.selected === modifier.id)
   const selectObject = useStudio((state) => state.selectObject)
   const transformMode = useStudio((state) => state.transformMode)
@@ -1381,19 +1396,19 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
     {canControl && selected && view !== 'camera' && !modifier.locked && <TransformControls
       ref={transformControl}
       object={group as RefObject<THREE.Object3D>}
-      mode={transformMode}
+      mode={layoutOnly ? 'translate' : transformMode}
       size={0.7}
       translationSnap={0.05}
       rotationSnap={THREE.MathUtils.degToRad(5)}
-      showX={transformMode === 'translate'}
+      showX={layoutOnly || transformMode === 'translate'}
       showY
-      showZ={transformMode === 'translate'}
+      showZ={layoutOnly || transformMode === 'translate'}
       onMouseUp={() => {
         if (!group.current) return
         setModifierTransform(modifier.id,
           [Number(group.current.position.x.toFixed(2)), Number(Math.max(0.3, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))],
           Number(group.current.rotation.y.toFixed(3)),
-          transformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined,
+          layoutOnly || transformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined,
         )
       }}
     />}
@@ -1581,14 +1596,15 @@ export function StudioScene() {
   const shutterAngle = useStudio((state) => state.shutterAngle)
   const tStop = useStudio((state) => state.tStop)
   const ndStops = useStudio((state) => state.ndStops)
+  const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const ambientColor = useMemo(() => kelvinColor(ambientTemperature), [ambientTemperature])
 
   useEffect(() => {
     gl.shadowMap.enabled = true
     gl.shadowMap.type = THREE.PCFShadowMap
     gl.toneMapping = THREE.ACESFilmicToneMapping
-    scene.background = new THREE.Color('#292b29')
-  }, [gl, scene])
+    scene.background = new THREE.Color(layoutOnly ? '#343a37' : '#292b29')
+  }, [gl, layoutOnly, scene])
 
   useEffect(() => {
     gl.setPixelRatio(Math.min(window.devicePixelRatio, qualityPreset === 'performance' ? 1 : qualityPreset === 'ultra' ? 2 : 1.5))
@@ -1610,7 +1626,7 @@ export function StudioScene() {
     <>
       <CameraRig />
       <TimelinePlayback />
-      <ambientLight intensity={soloLightId ? 0.015 : ambientLevel / 75} color={ambientColor} />
+      <ambientLight intensity={layoutOnly ? Math.max(0.72, ambientLevel / 48) : soloLightId ? 0.015 : ambientLevel / 75} color={ambientColor} />
       <EnvironmentLighting />
       <Backdrop />
       <Mannequin />

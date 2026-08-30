@@ -18,7 +18,7 @@ import { LENS_PROFILES, type LensProfileId } from '../cameraProfiles'
 import { LOCALES, useCatalogT, useLocaleStore, useT, type Locale, type MessageKey } from '../i18n'
 import { renderExportCanvas, exportFileName } from '../shotCapture'
 import { SETUP_CATEGORIES, SETUP_LIBRARY, type SetupCategory } from '../setups'
-import { useStudio, type LightOptic, type LightShape, type StudioLight } from '../store'
+import { useStudio, type LightOptic, type LightShape, type StudioLight, type StudioState } from '../store'
 import { usePhoneScreen, useUiModeStore } from '../uiMode'
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
 import { POSE_LIBRARY } from '../pose'
@@ -30,14 +30,22 @@ import { useDialogFocus } from './DialogFocus'
 import { OnboardingTour, shouldShowOnboarding } from './OnboardingTour'
 import { analyzeReferencePixels, type ReferenceLightingAnalysis } from '../referenceLighting'
 import { captureContinuityBaseline, evaluateContinuity, type ContinuityBaseline } from '../continuity'
+import { useWorkflow, type WorkflowStage } from '../workflow'
 import '../mobile.css'
 
-type Tab = 'intent' | 'blocking' | 'lighting' | 'framing' | 'verify'
+type Tab = 'planning' | 'lighting' | 'shooting' | 'layout'
 
 const MOBILE_WORKFLOW = {
-  en: { intent: 'Define', blocking: 'Block', lighting: 'Shape', framing: 'Frame', verify: 'Verify', reference: 'Reference → light', choose: 'Choose photo', apply: 'Build starting light', local: 'Local luminance estimate', direction: 'Key direction', ratio: 'Key : fill', confidence: 'Confidence', left: 'Left', right: 'Right', front: 'Front', low: 'Low', medium: 'Medium', high: 'High', continuity: 'Continuity guard', baseline: 'Set baseline', track: 'Track subject', restore: 'Restore values', stable: 'Baseline matched', noBaseline: 'Save the hero shot before changing the scene.' },
-  zh: { intent: '定調', blocking: '走位', lighting: '塑光', framing: '取景', verify: '驗證', reference: '參考照 → 起始燈位', choose: '選擇照片', apply: '建立起始燈位', local: '本機明暗推測', direction: '主光方向', ratio: '主光：補光', confidence: '推測信心', left: '左側', right: '右側', front: '正面', low: '低', medium: '中', high: '高', continuity: '光線連戲', baseline: '建立基準', track: '跟隨人物', restore: '恢復讀值', stable: '目前與基準吻合', noBaseline: '先儲存主鏡位，再調整場景。' },
-  ja: { intent: '方向', blocking: '配置', lighting: '光作り', framing: '構図', verify: '検証', reference: '参照写真 → 初期配光', choose: '写真を選択', apply: '初期配光を作成', local: '端末内の明暗推定', direction: 'キー方向', ratio: 'キー：フィル', confidence: '信頼度', left: '左', right: '右', front: '正面', low: '低', medium: '中', high: '高', continuity: '光の連続性', baseline: '基準を設定', track: '人物を追従', restore: '基準値に戻す', stable: '基準と一致', noBaseline: '変更前に基準ショットを保存します。' },
+  en: { planning: 'Person', lighting: 'Light', shooting: 'Camera', layout: 'Layout', reference: 'Reference → light', choose: 'Choose photo', apply: 'Build starting light', local: 'Local luminance estimate', direction: 'Key direction', ratio: 'Key : fill', confidence: 'Confidence', left: 'Left', right: 'Right', front: 'Front', low: 'Low', medium: 'Medium', high: 'High', continuity: 'Continuity guard', baseline: 'Set baseline', track: 'Track subject', restore: 'Restore values', stable: 'Baseline matched', noBaseline: 'Save the hero shot before changing the scene.' },
+  zh: { planning: '人物', lighting: '佈光', shooting: '相機', layout: '配置', reference: '參考照 → 起始燈位', choose: '選擇照片', apply: '建立起始燈位', local: '本機明暗推測', direction: '主光方向', ratio: '主光：補光', confidence: '推測信心', left: '左側', right: '右側', front: '正面', low: '低', medium: '中', high: '高', continuity: '光線連戲', baseline: '建立基準', track: '跟隨人物', restore: '恢復讀值', stable: '目前與基準吻合', noBaseline: '先儲存主鏡位，再調整場景。' },
+  ja: { planning: '人物', lighting: '照明', shooting: 'カメラ', layout: '配置', reference: '参照写真 → 初期配光', choose: '写真を選択', apply: '初期配光を作成', local: '端末内の明暗推定', direction: 'キー方向', ratio: 'キー：フィル', confidence: '信頼度', left: '左', right: '右', front: '正面', low: '低', medium: '中', high: '高', continuity: '光の連続性', baseline: '基準を設定', track: '人物を追従', restore: '基準値に戻す', stable: '基準と一致', noBaseline: '変更前に基準ショットを保存します。' },
+}
+
+const tabStage: Record<Tab, WorkflowStage> = {
+  planning: 'intent',
+  lighting: 'lighting',
+  shooting: 'framing',
+  layout: 'layout',
 }
 
 const MobileStage = lazy(() => import('./MobileStage'))
@@ -86,6 +94,46 @@ const MOBILE_OUTFITS: OutfitStyle[] = ['tshirt', 'shirt', 'suit', 'dress', 'acti
 
 const toDegrees = (radians: number) => (radians * 180) / Math.PI
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180
+
+const MOBILE_CAMERA_KEYS = ['focalLength', 'aperture', 'iso', 'focusDistance', 'cameraPosition', 'cameraTarget', 'cameraTargetSubjectId', 'cameraTargetZone', 'cameraAutoFocus', 'cameraFramingPreset', 'lensProfileId', 'frameOrientation', 'backdropId'] as const
+
+function captureMobileCamera(state: StudioState) {
+  return Object.fromEntries(MOBILE_CAMERA_KEYS.map((key) => [key, structuredClone(state[key])])) as Pick<StudioState, typeof MOBILE_CAMERA_KEYS[number]>
+}
+
+function MobileEditActions<T>({ storageKey, capture, apply }: { storageKey: string; capture: () => T; apply: (snapshot: T) => void }) {
+  const locale = useLocaleStore((state) => state.locale)
+  const baseline = useRef<T>(capture())
+  const current = useRef<T | null>(null)
+  const [saved, setSaved] = useState(false)
+  const copy = locale === 'zh'
+    ? { before: '按住前後', beforeAria: '按住查看調整前', reset: '重設', save: '儲存預設', saved: '已儲存' }
+    : locale === 'ja'
+      ? { before: '長押し前後', beforeAria: '長押しで調整前を表示', reset: 'リセット', save: 'プリセット保存', saved: '保存済み' }
+      : { before: 'Hold before', beforeAria: 'Hold to preview before', reset: 'Reset', save: 'Save preset', saved: 'Saved' }
+  const showBefore = () => {
+    if (current.current !== null) return
+    current.current = capture()
+    apply(baseline.current)
+  }
+  const showAfter = () => {
+    if (current.current === null) return
+    apply(current.current)
+    current.current = null
+  }
+  const save = () => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(capture()))
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 1600)
+    } catch { setSaved(false) }
+  }
+  return <div className="m-edit-actions" role="toolbar">
+    <button aria-label={copy.beforeAria} onPointerDown={(event) => { event.preventDefault(); showBefore() }} onPointerUp={showAfter} onPointerCancel={showAfter} onPointerLeave={showAfter}>{copy.before}</button>
+    <button onClick={() => { showAfter(); apply(baseline.current) }}>{copy.reset}</button>
+    <button className={saved ? 'saved' : ''} onClick={save}>{saved ? copy.saved : copy.save}</button>
+  </div>
+}
 
 /** Where a light sits relative to the subject, in the terms the sliders use. */
 function lightPolar(light: StudioLight, subject: [number, number, number]) {
@@ -213,6 +261,7 @@ function SubjectTab() {
   const t = useT()
   const ct = useCatalogT()
   const height = useStudio((state) => state.modelHeight)
+  const position = useStudio((state) => state.modelPosition)
   const physique = useStudio((state) => state.physique)
   const posePreset = useStudio((state) => state.posePreset)
   const outfit = useStudio((state) => state.outfitStyle)
@@ -220,6 +269,7 @@ function SubjectTab() {
   const updatePhysique = useStudio((state) => state.updatePhysique)
   const applyPhysiquePreset = useStudio((state) => state.applyPhysiquePreset)
   const applyPosePreset = useStudio((state) => state.applyPosePreset)
+  const setModelTransform = useStudio((state) => state.setModelTransform)
 
   return <div className="m-tab">
     <p className="m-note">{t('mobile.subject.hint')}</p>
@@ -230,6 +280,7 @@ function SubjectTab() {
       </div>
     </div>
     <Dial label={t('subject.height')} value={height} min={1.45} max={2.2} step={0.01} readout={`${height.toFixed(2)} m`} onChange={(value) => setValue('modelHeight', Number(value.toFixed(2)))} />
+    <Dial label={t('axis.y')} value={position[1]} min={0} max={3} step={0.05} readout={`${position[1].toFixed(2)} m`} onChange={(value) => setModelTransform([position[0], Number(value.toFixed(2)), position[2]])} />
     <Dial label={t('physique.age')} value={physique.age ?? 28} min={18} max={80} readout={`${Math.round(physique.age ?? 28)}${t('physique.years')}`} onChange={(value) => updatePhysique({ age: value })} />
     <div className="m-field">
       <span className="m-label">{t('physique.presets')}</span>
@@ -644,6 +695,26 @@ function MobileVerifyTab({ onOpenAbout, onOpenTour }: { onOpenAbout: () => void;
   </div>
 }
 
+function MobileLayoutTab() {
+  const t = useT()
+  const state = useStudio()
+  const items = [
+    { id: 'model', label: t('mobile.tab.subject') },
+    ...state.lights.map((light) => ({ id: light.id, label: light.name })),
+    ...state.modifiers.map((modifier) => ({ id: modifier.id, label: modifier.name })),
+    ...state.studioObjects.map((object) => ({ id: object.id, label: object.name })),
+    { id: 'camera', label: t('mobile.tab.camera') },
+  ]
+  return <div className="m-tab">
+    <h2>{t('mobile.layout.title')}</h2>
+    <p className="m-note">{t('mobile.layout.note')}</p>
+    <div className="m-chips m-chips-scroll" role="group" aria-label={t('mobile.layout.title')}>
+      {items.map((item) => <button key={item.id} className={state.selected === item.id ? 'active' : ''} onClick={() => state.selectObject(item.id)}>{item.label}</button>)}
+      <button className="m-chip-add" onClick={() => state.addLight()}>＋ {t('mobile.light.add')}</button>
+    </div>
+  </div>
+}
+
 export function MobileApp() {
   const t = useT()
   const locale = useLocaleStore((state) => state.locale)
@@ -655,7 +726,9 @@ export function MobileApp() {
   const pathSamples = useStudio((state) => state.pathTracingSamples)
   const openStudioView = useStudio((state) => state.openStudioView)
   const openCameraView = useStudio((state) => state.openCameraView)
-  const [tab, setTab] = useState<Tab>('intent')
+  const openTopView = useStudio((state) => state.openTopView)
+  const setWorkflowStage = useWorkflow((state) => state.setStage)
+  const [tab, setTab] = useState<Tab>('planning')
   const [appliedSetup, setAppliedSetup] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(() => !window.matchMedia('(orientation: landscape) and (max-height: 520px)').matches)
   const [capturing, setCapturing] = useState(false)
@@ -665,16 +738,27 @@ export function MobileApp() {
   const pageVisible = usePageVisible()
 
   const openTour = () => {
-    setTab('intent')
+    setTab('planning')
     setSheetOpen(true)
     window.requestAnimationFrame(() => setTourOpen(true))
   }
 
   const closeTour = () => {
     setTourOpen(false)
-    setTab('intent')
+    setTab('planning')
     setSheetOpen(true)
   }
+
+  useEffect(() => {
+    setWorkflowStage(tabStage[tab])
+    if (tab === 'layout') {
+      const studio = useStudio.getState()
+      studio.setValue('transformMode', 'translate')
+      studio.setValue('lightAimMode', false)
+      studio.setValue('poseHandles', false)
+      openTopView()
+    }
+  }, [openTopView, setWorkflowStage, tab])
 
   useEffect(() => {
     const compactLandscape = window.matchMedia('(orientation: landscape) and (max-height: 520px)')
@@ -742,7 +826,7 @@ export function MobileApp() {
           viewsLabel={t('topbar.views')}
           studioLabel={t('mobile.view.studio')}
           cameraLabel={t('mobile.view.camera')}
-          hint={t(view === 'camera' ? 'mobile.hint.camera' : 'mobile.hint.orbit')}
+          hint={t(view === 'camera' ? 'mobile.hint.camera' : tab === 'layout' ? 'mobile.hint.layout' : 'mobile.hint.orbit')}
           shutterLabel={t('mobile.shutter')}
           loadingLabel={t('viewport.loading')}
         />
@@ -750,7 +834,7 @@ export function MobileApp() {
 
       <div className="m-console">
         <nav className="m-tabs" role="tablist" aria-label={t(phone ? 'mobile.aria' : 'mobile.desktop.aria')}>
-          {(['intent', 'blocking', 'lighting', 'framing', 'verify'] as const).map((item) => (
+          {(['planning', 'lighting', 'shooting', 'layout'] as const).map((item) => (
             <button key={item} role="tab" id={`m-tab-${item}`} aria-controls="m-tabpanel" aria-selected={tab === item && sheetOpen}
               className={tab === item && sheetOpen ? 'active' : ''}
               onClick={() => { if (tab === item && sheetOpen) setSheetOpen(false); else { setTab(item); setSheetOpen(true) } }}>
@@ -764,11 +848,18 @@ export function MobileApp() {
 
         {sheetOpen && (
           <section className="m-sheet" id="m-tabpanel" role="tabpanel" aria-labelledby={`m-tab-${tab}`}>
-            {tab === 'intent' && <MobileIntentTab applied={appliedSetup} onApply={setAppliedSetup} />}
-            {tab === 'blocking' && <SubjectTab />}
-            {tab === 'lighting' && <LightsTab />}
-            {tab === 'framing' && <CameraTab />}
-            {tab === 'verify' && <MobileVerifyTab onOpenAbout={() => setAboutOpen(true)} onOpenTour={openTour} />}
+            <div className="m-sheet-scroll">
+              {tab === 'planning' && <SubjectTab />}
+              {tab === 'lighting' && <div className="m-phase-stack"><MobileIntentTab applied={appliedSetup} onApply={setAppliedSetup} /><LightsTab /></div>}
+              {tab === 'shooting' && <div className="m-phase-stack"><CameraTab /><MobileVerifyTab onOpenAbout={() => setAboutOpen(true)} onOpenTour={openTour} /></div>}
+              {tab === 'layout' && <MobileLayoutTab />}
+            </div>
+            {tab === 'lighting' && <MobileEditActions storageKey="lumen-stage:lighting-preset"
+              capture={() => structuredClone(useStudio.getState().lights)}
+              apply={(snapshot) => useStudio.setState({ lights: structuredClone(snapshot) })} />}
+            {tab === 'shooting' && <MobileEditActions storageKey="lumen-stage:camera-preset"
+              capture={() => captureMobileCamera(useStudio.getState())}
+              apply={(snapshot) => useStudio.setState(snapshot)} />}
           </section>
         )}
       </div>

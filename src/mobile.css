@@ -65,19 +65,58 @@
 .m-shutter:active i { transform: scale(.88); }
 .m-shutter:disabled i { background: #6a7052; }
 
-.m-tabs { display: grid; grid-template-columns: repeat(5, 1fr) 48px; border-top: 1px solid var(--line); background: #121412; padding-inline: env(safe-area-inset-left) env(safe-area-inset-right); }
+.m-tabs { display: grid; grid-template-columns: repeat(4, 1fr) 48px; border-top: 1px solid var(--line); background: #121412; padding-inline: env(safe-area-inset-left) env(safe-area-inset-right); }
 .m-tabs button { min-height: 52px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12.5px; cursor: pointer; touch-action: manipulation; }
 .m-tabs button.active { background: #1d201d; color: var(--paper); box-shadow: inset 0 2px 0 var(--signal); }
 .m-tabs .m-sheet-handle { border-right: 0; color: #7f857b; font-size: 13px; }
 
 .m-sheet {
-  max-height: 38vh; max-height: 38dvh; overflow: auto;
-  padding: 12px max(12px, env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  max-height: 38vh; max-height: 38dvh; min-height: 0; overflow: hidden;
+  padding: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto;
   border-top: 1px solid #23261f; background: var(--panel);
   scrollbar-color: #4d554a transparent; scrollbar-width: thin;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
+.m-sheet-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding: 12px max(12px, env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  scrollbar-color: #4d554a transparent;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.m-edit-actions {
+  position: relative;
+  z-index: 4;
+  min-height: calc(58px + env(safe-area-inset-bottom));
+  padding: 7px max(9px, env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(9px, env(safe-area-inset-left));
+  display: grid;
+  grid-template-columns: .95fr .72fr 1.18fr;
+  gap: 6px;
+  border-top: 1px solid #34444f;
+  background: rgba(9, 14, 18, .98);
+  box-shadow: 0 -10px 24px rgba(0,0,0,.28);
+}
+.m-edit-actions button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 7px;
+  border: 1px solid #3a4b56;
+  border-radius: 6px;
+  background: #141d24;
+  color: #a8b5bd;
+  font: 9px var(--mono);
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.m-edit-actions button:first-child { color: var(--signal-cool); }
+.m-edit-actions button:last-child { border-color: rgba(103,216,255,.52); color: #e3f8ff; background: rgba(103,216,255,.08); }
+.m-edit-actions button:active { transform: translateY(1px); background: #22303a; }
+.m-edit-actions button.saved { border-color: #6e9b79; color: #cdf4d5; background: rgba(110,155,121,.14); }
+.m-phase-stack { display: grid; gap: 18px; }
 .m-tab { display: grid; gap: 12px; }
 .m-note { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
 .m-label { color: var(--muted); font: 500 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
@@ -295,9 +334,10 @@
   .m-sheet {
     grid-row: 2;
     max-height: none;
-    padding: 18px;
+    padding: 0;
     border-top: 0;
   }
+  .m-sheet-scroll { padding: 18px; }
   .m-console:not(:has(.m-sheet))::after {
     content: 'SELECT A TAB TO OPEN THE QUICK CONTROLS';
     grid-row: 2;
@@ -418,7 +458,7 @@
 .m-continuity-card > div button:disabled { opacity: .34; }
 
 @media (max-width: 430px) {
-  .m-tabs { grid-template-columns: repeat(5,1fr) 44px; }
+  .m-tabs { grid-template-columns: repeat(4,1fr) 44px; }
   .m-tabs button { min-width: 0; padding-inline: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; }
   .m-reference-result > div { padding-inline: 7px; }
 }

@@ -1924,7 +1924,7 @@ button, input, select { transition: border-color .16s ease, background-color .16
 /* ── Shoot-decision workflow ───────────────────────────────────────────── */
 .topbar { grid-template-columns: 240px minmax(150px,.65fr) minmax(430px,1fr) 370px; }
 .workflow-navigation {
-  min-width: 0; align-self: stretch; display: grid; grid-template-columns: repeat(3,minmax(108px,1fr));
+  min-width: 0; align-self: stretch; display: grid; grid-template-columns: repeat(4,minmax(92px,1fr));
   border-left: 1px solid var(--line); border-right: 1px solid var(--line);
   background: rgba(7,11,15,.42);
 }
@@ -2348,7 +2348,7 @@ header.topbar .project-actions .workflow-next-button:hover {
   header.topbar .project-title { padding-inline: 10px; }
   header.topbar .project-name-input { width: min(92px, 12vw); padding-inline: 6px; }
   header.topbar .language-switch button { min-width: 27px; padding-inline: 5px; }
-  header.topbar .workflow-navigation { margin-inline: 5px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  header.topbar .workflow-navigation { margin-inline: 5px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
   header.topbar .workflow-navigation span { font-size: 9.5px; }
   header.topbar .project-actions { margin-inline: 5px; }
   .blueprint-heading { padding-inline: 12px; }

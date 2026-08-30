@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type WorkflowStage = 'intent' | 'blocking' | 'lighting' | 'framing' | 'verify'
+export type WorkflowStage = 'intent' | 'blocking' | 'lighting' | 'framing' | 'verify' | 'layout'
 
 type WorkflowState = {
   stage: WorkflowStage

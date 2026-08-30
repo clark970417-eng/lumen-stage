@@ -11,10 +11,10 @@ import { workflowModeForStage } from '../workflowControl'
 
 const COPY = {
   en: {
-    stages: [['intent', 'Person'], ['lighting', 'Light'], ['framing', 'Camera']] as Array<[WorkflowStage, string]>,
+    stages: [['intent', 'Person'], ['lighting', 'Light'], ['framing', 'Camera'], ['layout', 'Layout']] as Array<[WorkflowStage, string]>,
     blueprint: 'Shoot blueprint', shot: 'Shot', material: '+ Add to stage', reference: 'Reference match', continuity: 'Continuity guard',
     target: 'Visual target', targetHint: 'Start from the image you want to make.', subject: 'Subject & blocking', lightRoles: 'Lighting roles', framing: 'Frame plan', verify: 'Preflight',
-    mainSubject: 'Main subject', camera: 'Camera A', shots: 'shots', key: 'Key light', fill: 'Fill light', rim: 'Separation light', background: 'Background light', effect: 'Effect light',
+    mainSubject: 'Main subject', camera: 'Camera A', layout: 'Position layout', addLight: '+ Add light', shots: 'shots', key: 'Key light', fill: 'Fill light', rim: 'Separation light', background: 'Background light', effect: 'Effect light',
     noProps: 'No supporting objects yet', tracked: 'tracking subject', manual: 'manual aim', selected: 'Adjusting now', desired: 'Desired effect', desiredLight: 'Light / look', desiredFrame: 'Frame / subject', desiredPose: 'Subject / pose', impact: 'Current impact', advanced: 'Advanced controls',
     soften: 'Soften light', deepen: 'Deepen shadow', trackFace: 'Track face', headshot: 'Headshot', half: 'Half body', full: 'Full body', exposureCheck: 'Exposure check', shotCompare: 'Compare shots', compareNeedTwo: 'Save 2 shots to compare',
     assetTitle: 'Add to the stage', lights: 'Lights', people: 'People & set', grip: 'Light control', backdrops: 'Backdrops', close: 'Close',
@@ -27,10 +27,10 @@ const COPY = {
     match: 'MATCH', drift: 'DRIFT', stable: 'All checked values match the baseline.', viewModes: 'Stage views', studio: 'Studio', top: 'Plan', viewfinder: 'Viewfinder', render: 'Render',
   },
   zh: {
-    stages: [['intent', '人物'], ['lighting', '佈光'], ['framing', '相機']] as Array<[WorkflowStage, string]>,
+    stages: [['intent', '人物'], ['lighting', '佈光'], ['framing', '相機'], ['layout', '配置']] as Array<[WorkflowStage, string]>,
     blueprint: '拍攝藍圖', shot: '鏡位', material: '＋ 加入舞台', reference: '參考照配光', continuity: '光線連戲',
     target: '視覺目標', targetHint: '先從你想做出的畫面開始。', subject: '人物與走位', lightRoles: '燈光角色', framing: '鏡位計畫', verify: '拍攝前檢查',
-    mainSubject: '主要人物', camera: '相機 A', shots: '個鏡位', key: '主光', fill: '補光', rim: '分離光', background: '背景光', effect: '效果光',
+    mainSubject: '主要人物', camera: '相機 A', layout: '全場位置', addLight: '＋ 新增燈光', shots: '個鏡位', key: '主光', fill: '補光', rim: '分離光', background: '背景光', effect: '效果光',
     noProps: '尚未加入其他人物或道具', tracked: '跟隨人物', manual: '手動瞄準', selected: '正在調整', desired: '想得到的效果', desiredLight: '燈光／畫面效果', desiredFrame: '構圖／人物', desiredPose: '人物／姿勢', impact: '當前影響', advanced: '進階器材參數',
     soften: '柔化光線', deepen: '加深陰影', trackFace: '鎖定臉部', headshot: '臉部近景', half: '半身構圖', full: '全身構圖', exposureCheck: '檢查曝光', shotCompare: '比較鏡位', compareNeedTwo: '儲存 2 個鏡位後比較',
     assetTitle: '加入拍攝舞台', lights: '燈光', people: '人物與佈景', grip: '控光附件', backdrops: '背景', close: '關閉',
@@ -43,10 +43,10 @@ const COPY = {
     match: '吻合', drift: '偏移', stable: '目前檢查項目都與基準吻合。', viewModes: '舞台檢視', studio: '棚內', top: '俯視', viewfinder: '取景', render: '成像',
   },
   ja: {
-    stages: [['intent', '人物'], ['lighting', '照明'], ['framing', 'カメラ']] as Array<[WorkflowStage, string]>,
+    stages: [['intent', '人物'], ['lighting', '照明'], ['framing', 'カメラ'], ['layout', '配置']] as Array<[WorkflowStage, string]>,
     blueprint: '撮影ブループリント', shot: 'ショット', material: '＋ ステージに追加', reference: '参照写真から配光', continuity: '光の連続性',
     target: 'ビジュアル目標', targetHint: '作りたい写真から始めます。', subject: '人物と配置', lightRoles: 'ライトの役割', framing: 'ショット計画', verify: '撮影前チェック',
-    mainSubject: 'メイン人物', camera: 'カメラ A', shots: 'ショット', key: 'キーライト', fill: 'フィルライト', rim: 'セパレーション', background: '背景ライト', effect: 'エフェクト',
+    mainSubject: 'メイン人物', camera: 'カメラ A', layout: '全体配置', addLight: '＋ ライトを追加', shots: 'ショット', key: 'キーライト', fill: 'フィルライト', rim: 'セパレーション', background: '背景ライト', effect: 'エフェクト',
     noProps: '人物や小道具はまだありません', tracked: '人物を追従', manual: '手動照準', selected: '調整中', desired: '目指す効果', desiredLight: '照明／ルック', desiredFrame: '構図／人物', desiredPose: '人物／ポーズ', impact: '現在の影響', advanced: '詳細機材設定',
     soften: '光を柔らかく', deepen: '影を深く', trackFace: '顔を追従', headshot: 'ヘッドショット', half: '上半身', full: '全身', exposureCheck: '露出を確認', shotCompare: 'ショット比較', compareNeedTwo: '2 件保存後に比較',
     assetTitle: 'ステージに追加', lights: 'ライト', people: '人物とセット', grip: '遮光・反射', backdrops: '背景', close: '閉じる',
@@ -72,8 +72,8 @@ function DecisionStatusCard() {
   const copy = useCopy()
   const state = useStudio()
   const mode = useWorkflow((workflow) => workflowModeForStage(workflow.stage))
-  const light = mode === 'lighting' ? state.lights.find((item) => item.id === state.selected) : undefined
-  const object = mode === 'person' ? state.studioObjects.find((item) => item.id === state.selected) : undefined
+  const light = mode === 'lighting' || mode === 'layout' ? state.lights.find((item) => item.id === state.selected) : undefined
+  const object = mode === 'person' || mode === 'layout' ? state.studioObjects.find((item) => item.id === state.selected) : undefined
   const lightIndex = light ? state.lights.findIndex((item) => item.id === light.id) : -1
   const distance = light ? Math.hypot(light.position[0] - state.modelPosition[0], light.position[1] - state.modelPosition[1], light.position[2] - state.modelPosition[2]) : 0
   const selection = light ? lightDisplayName(light.name, lightIndex, copy) : state.selected === 'camera' ? copy.camera : state.selected === 'model' ? copy.mainSubject : object?.name ?? String(state.selected)
@@ -99,6 +99,12 @@ export function WorkflowNavigation() {
       if (light) current.selectObject(light.id)
     }
     if (mode === 'camera' && current.selected !== 'camera') current.selectObject('camera')
+    if (mode === 'layout') {
+      if (current.transformMode !== 'translate') current.setValue('transformMode', 'translate')
+      if (current.lightAimMode) current.setValue('lightAimMode', false)
+      if (current.poseHandles) current.setValue('poseHandles', false)
+      if (current.view !== 'top' || current.renderMode !== 'preview') current.openTopView()
+    }
   }, [stage])
 
   const chooseStage = (next: WorkflowStage) => {
@@ -106,6 +112,7 @@ export function WorkflowNavigation() {
     if (next === 'intent') { studio.selectObject('model'); studio.openStudioView() }
     if (next === 'lighting') { const light = studio.lights.find((item) => item.enabled) ?? studio.lights[0]; if (light) studio.selectObject(light.id); studio.openStudioView() }
     if (next === 'framing') { studio.selectObject('camera'); studio.openCameraView() }
+    if (next === 'layout') { studio.setValue('transformMode', 'translate'); studio.setValue('lightAimMode', false); studio.setValue('poseHandles', false); studio.openTopView() }
   }
 
   const isActive = (id: WorkflowStage) => id === 'intent'
@@ -161,7 +168,9 @@ export function BlueprintPanel() {
 
     {shooting && <section className="blueprint-section verify-actions"><h2>{copy.verify}</h2><button onClick={() => studio.setValue('analysisOpen', true)}>{copy.exposureCheck}<b>→</b></button><button disabled={studio.shots.length < 2} onClick={() => studio.setValue('shotPanelOpen', true)}>{studio.shots.length < 2 ? copy.compareNeedTwo : copy.shotCompare}<b>→</b></button><button onClick={() => setContinuityOpen(true)}>{copy.continuity}<b>→</b></button></section>}
 
-    {!shooting && <footer className="blueprint-actions"><button onClick={() => setAssetOpen(true)}>{copy.material}</button></footer>}
+    {stage === 'layout' && <section className="blueprint-section"><h2>{copy.layout}</h2><button className={studio.selected === 'model' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('model')}><i className="model-icon" /><span><strong>{copy.mainSubject}</strong><small>{copy.person}</small></span></button>{studio.lights.map((light, index) => <button key={light.id} className={studio.selected === light.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(light.id)}><i className={`light-icon ${light.shape}`} /><span><strong>{lightRole(index, copy)}</strong><small>{lightDisplayName(light.name, index, copy)}</small></span></button>)}{studio.modifiers.map((modifier) => <button key={modifier.id} className={studio.selected === modifier.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(modifier.id)}><i className="studio-object-icon reflector" /><span><strong>{modifier.name}</strong><small>{copy.grip}</small></span></button>)}{studio.studioObjects.map((item) => <button key={item.id} className={studio.selected === item.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(item.id)}><i className={`studio-object-icon ${item.type}`} /><span><strong>{item.name}</strong><small>{item.type}</small></span></button>)}<button className={studio.selected === 'camera' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('camera')}><i className="camera-icon" /><span><strong>{copy.camera}</strong><small>{copy.camera}</small></span></button></section>}
+
+    {!shooting && stage !== 'layout' && <footer className="blueprint-actions"><button onClick={() => setAssetOpen(true)}>{copy.material}</button></footer>}
   </aside>
 }
 
