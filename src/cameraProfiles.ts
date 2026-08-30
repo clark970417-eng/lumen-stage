@@ -36,3 +36,10 @@ export const LENS_PROFILES: Record<LensProfileId, LensProfile> = {
   'zoom-70-200': { id: 'zoom-70-200', brand: 'PRO', model: '70–200mm F2.8', minFocal: 70, maxFocal: 200, maxAperture: 2.8, blades: 11, defaultFocal: 105, vignette: 20, distortion: 8, chromaticAberration: 10, breathing: 4 },
   'mft-12-35': { id: 'mft-12-35', brand: 'MFT', model: '12–35mm F2.8', minFocal: 12, maxFocal: 35, maxAperture: 2.8, blades: 9, defaultFocal: 25, vignette: 26, distortion: -14, chromaticAberration: 16, breathing: 12 },
 }
+
+/** Keep physical lens character behind the direct focal-length control. */
+export function automaticLensProfileId(focalLength: number): LensProfileId {
+  if (focalLength < 24) return 'mft-12-35'
+  if (focalLength > 70) return 'zoom-70-200'
+  return 'zoom-24-70'
+}

@@ -50,7 +50,7 @@ main.app-shell {
   }
 
   .control-drawer > .control-drawer-body {
-    grid-template-columns: minmax(160px, 1.2fr) repeat(6, minmax(132px, 1fr));
+    grid-template-columns: repeat(6, minmax(132px, 1fr));
     padding-right: 44px;
   }
 }
@@ -96,7 +96,7 @@ main.app-shell {
 
   .control-drawer > .control-drawer-body {
     padding: 7px 42px 7px 7px;
-    grid-template-columns: minmax(160px, 1.2fr) repeat(6, minmax(132px, 1fr));
+    grid-template-columns: repeat(6, minmax(132px, 1fr));
     gap: 6px;
   }
 

@@ -156,7 +156,7 @@ export function AssetDrawer() {
 export function DecisionConsole() {
   const copy = useCopy()
   const state = useStudio()
-  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(true)
   const light = state.lights.find((item) => item.id === state.selected)
   const object = state.studioObjects.find((item) => item.id === state.selected)
   const distance = light ? Math.hypot(light.position[0] - state.modelPosition[0], light.position[1] - state.modelPosition[1], light.position[2] - state.modelPosition[2]) : 0

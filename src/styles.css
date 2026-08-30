@@ -2460,7 +2460,7 @@ main.app-shell.top-panel-hidden.bottom-panel-hidden { grid-template-rows: 0 minm
   min-width: 0;
   padding: 13px 48px 13px 18px;
   display: grid;
-  grid-template-columns: minmax(150px,1.2fr) repeat(6,minmax(112px,1fr));
+  grid-template-columns: repeat(6,minmax(112px,1fr));
   align-items: stretch;
   gap: 8px;
   border: 0;
@@ -2511,6 +2511,101 @@ main.app-shell.top-panel-hidden.bottom-panel-hidden { grid-template-rows: 0 minm
 
 @media (max-width: 1080px) {
   .control-drawer { grid-template-columns: 150px minmax(0,1fr); }
-  .control-drawer > .control-drawer-body { grid-template-columns: minmax(150px,1.2fr) repeat(6,minmax(112px,1fr)); padding-left: 10px; gap: 5px; }
+  .control-drawer > .control-drawer-body { grid-template-columns: repeat(6,minmax(112px,1fr)); padding-left: 10px; gap: 5px; }
   .drawer-control, .drawer-select, .drawer-meter { padding-inline: 8px; }
+}
+
+/* Lightroom-like inspector drawers. Each group keeps its own open state so
+   camera, light, subject, optics and scene controls never become one wall. */
+.inspector .inspector-drawer {
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  background: rgba(10, 15, 20, .28);
+}
+.inspector-drawer > .inspector-drawer-heading {
+  min-height: 43px;
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0;
+  background: rgba(18, 25, 31, .94);
+}
+.inspector-drawer > .inspector-drawer-heading:hover { background: #18232b; }
+.inspector-drawer-heading .inspector-drawer-toggle {
+  min-width: 0;
+  padding: 0 12px;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: #d7e0e5;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.inspector-drawer-toggle > i {
+  width: 7px;
+  height: 7px;
+  border-right: 1px solid var(--signal-cool);
+  border-bottom: 1px solid var(--signal-cool);
+  transform: rotate(-45deg);
+  transition: transform .16s ease;
+}
+.inspector-drawer.is-open .inspector-drawer-toggle > i { transform: rotate(45deg) translateY(-2px); }
+.inspector-drawer-toggle > span {
+  overflow: hidden;
+  color: inherit;
+  font: 500 9.5px var(--mono);
+  letter-spacing: .1em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.inspector-drawer-toggle > small {
+  color: #687b87;
+  font: 7px var(--mono);
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+.inspector-drawer-action {
+  display: flex;
+  align-items: stretch;
+}
+.section-title .inspector-drawer-action button {
+  min-width: 58px;
+  padding: 0 9px;
+  border: 0;
+  border-left: 1px solid #30404a;
+  background: transparent;
+  color: #8295a1;
+  font: 8px var(--mono);
+  text-decoration: none;
+  cursor: pointer;
+}
+.section-title .inspector-drawer-action button:hover { color: var(--signal); background: rgba(255,180,84,.05); }
+.inspector-drawer-content { padding: 17px 16px 19px; }
+.inspector-drawer.is-collapsed .inspector-drawer-heading { border-bottom: 0; }
+.focal-presets {
+  margin: 10px 0 4px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+.focal-presets button {
+  min-height: 30px;
+  border: 1px solid #35434e;
+  border-radius: 5px;
+  background: #10171c;
+  color: #84949e;
+  font: 9px var(--mono);
+  cursor: pointer;
+}
+.focal-presets button::after { content: 'mm'; margin-left: 2px; color: #5f707b; font-size: 7px; }
+.focal-presets button:hover { border-color: #526774; color: #e7eef1; }
+.focal-presets button.active { border-color: var(--signal-cool); background: rgba(103,216,255,.09); color: #edfaff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .inspector-drawer-toggle > i { transition: none; }
 }
