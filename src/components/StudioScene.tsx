@@ -595,6 +595,146 @@ function DefaultMannequin({ pose: poseOverride, skinColor: skinOverride, outfitC
   return <Figure pose={pose} skinColor={skinOverride ?? mainSkinColor} outfitColor={outfitOverride ?? mainOutfitColor} appearance={appearance} gaze={gaze} seatHeight={seatHeight ?? mainSeatHeight} />
 }
 
+function attachHeadDetail(model: THREE.Group, head: THREE.Bone, detail: THREE.Group, worldPosition: THREE.Vector3) {
+  model.add(detail)
+  detail.position.copy(model.worldToLocal(worldPosition))
+  model.updateMatrixWorld(true)
+  head.attach(detail)
+}
+
+/** Rounded short hair with a curved hairline, temple volume and visible strands. */
+function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 512
+  const context = canvas.getContext('2d')!
+  context.fillStyle = '#30211b'
+  context.fillRect(0, 0, 512, 512)
+  let seed = 117
+  const random = () => {
+    seed = (seed * 16807) % 2147483647
+    return (seed - 1) / 2147483646
+  }
+  context.lineCap = 'round'
+  for (let index = 0; index < 980; index += 1) {
+    const x = random() * 512
+    const y = random() * 512
+    const length = 14 + random() * 42
+    context.strokeStyle = random() > 0.55 ? 'rgba(124,82,59,.30)' : 'rgba(16,9,7,.32)'
+    context.lineWidth = 0.55 + random() * 1.3
+    context.beginPath()
+    context.moveTo(x, y)
+    context.quadraticCurveTo(x + length * 0.12, y - length * 0.55, x - length * 0.04, y - length)
+    context.stroke()
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(2.1, 1.5)
+  const material = new THREE.MeshPhysicalMaterial({
+    color: '#463127',
+    map: texture,
+    roughness: 0.56,
+    metalness: 0,
+    sheen: 0.64,
+    sheenColor: new THREE.Color('#8a654e'),
+    sheenRoughness: 0.36,
+    anisotropy: 0.48,
+    anisotropyRotation: Math.PI / 2,
+    envMapIntensity: 0.62,
+    side: THREE.DoubleSide,
+  })
+
+  const radius = 0.142
+  const geometry = new THREE.SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, Math.PI * 0.515)
+  const positions = geometry.getAttribute('position') as THREE.BufferAttribute
+  for (let index = 0; index < positions.count; index += 1) {
+    const x = positions.getX(index)
+    const y = positions.getY(index)
+    const z = positions.getZ(index)
+    const nx = x / radius
+    const nz = z / radius
+    const ripple = 1 + Math.sin(nx * 17 + nz * 5) * 0.004 + Math.sin(nx * 7 - nz * 13) * 0.003
+    positions.setXYZ(index, x * ripple, y * (1 + Math.abs(nx) * 0.025), z * ripple)
+    // At the face, turn the circular cut edge into a soft widow's peak with
+    // higher temples. This removes the single triangular flap seen before.
+    if (nz > 0.10 && y < 0.024) {
+      const temple = Math.pow(Math.abs(nx), 1.5) * 0.034
+      const centreDip = Math.exp(-Math.pow((nx + 0.16) * 4.6, 2)) * -0.007
+      positions.setY(index, Math.max(positions.getY(index), -0.003 + temple + centreDip))
+    }
+  }
+  positions.needsUpdate = true
+  geometry.computeVertexNormals()
+
+  const hairstyle = new THREE.Group()
+  hairstyle.name = 'studio-rounded-short-hair'
+  const cap = new THREE.Mesh(geometry, material)
+  cap.scale.set(0.94, 1.04, 1.03)
+  cap.castShadow = true
+  cap.receiveShadow = true
+  hairstyle.add(cap)
+
+  // Small temple pieces close the cap without turning it into a low bowl cut.
+  const templeGeometry = new THREE.SphereGeometry(0.025, 20, 14)
+  for (const side of [-1, 1] as const) {
+    const temple = new THREE.Mesh(templeGeometry, material)
+    temple.position.set(side * 0.114, -0.024, 0.012)
+    temple.scale.set(0.48, 0.88, 0.68)
+    temple.rotation.z = side * -0.10
+    temple.castShadow = true
+    hairstyle.add(temple)
+  }
+  // A few thin swept strands break the edge without covering the forehead.
+  const lockGeometry = new THREE.CapsuleGeometry(0.0045, 0.020, 5, 10)
+  ;[-0.040, -0.015, 0.012].forEach((x, index) => {
+    const lock = new THREE.Mesh(lockGeometry, material)
+    lock.position.set(x, -0.012 + Math.abs(x) * 0.12, 0.124)
+    lock.rotation.set(0.30, 0, -0.62 + index * 0.12)
+    lock.scale.set(0.64, 1 + index * 0.08, 0.52)
+    lock.castShadow = true
+    hairstyle.add(lock)
+  })
+
+  attachHeadDetail(model, head, hairstyle, new THREE.Vector3(headPosition.x, box.max.y - 0.088, headPosition.z))
+}
+
+/** Adds real sclera, iris, pupil and catchlight geometry to the shipped human. */
+function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3) {
+  const eyes = new THREE.Group()
+  eyes.name = 'studio-eyeballs'
+  const scleraGeometry = new THREE.SphereGeometry(0.0124, 28, 18)
+  const irisGeometry = new THREE.CircleGeometry(0.0054, 28)
+  const pupilGeometry = new THREE.CircleGeometry(0.00245, 24)
+  const catchlightGeometry = new THREE.CircleGeometry(0.00105, 12)
+  const sclera = new THREE.MeshPhysicalMaterial({ color: '#e6e2d8', roughness: 0.30, clearcoat: 0.48, clearcoatRoughness: 0.12 })
+  const iris = new THREE.MeshPhysicalMaterial({ color: '#5b4934', roughness: 0.24, clearcoat: 0.62 })
+  const pupil = new THREE.MeshBasicMaterial({ color: '#08090a' })
+  const catchlight = new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false })
+
+  for (const side of [-1, 1] as const) {
+    const eye = new THREE.Group()
+    eye.position.x = side * 0.0335
+    const white = new THREE.Mesh(scleraGeometry, sclera)
+    white.scale.set(1.12, 0.72, 0.84)
+    white.castShadow = true
+    eye.add(white)
+    const irisMesh = new THREE.Mesh(irisGeometry, iris)
+    irisMesh.position.z = 0.0108
+    eye.add(irisMesh)
+    const pupilMesh = new THREE.Mesh(pupilGeometry, pupil)
+    pupilMesh.position.z = 0.01115
+    eye.add(pupilMesh)
+    const glint = new THREE.Mesh(catchlightGeometry, catchlight)
+    glint.position.set(-0.0018, 0.0020, 0.0115)
+    eye.add(glint)
+    eyes.add(eye)
+  }
+
+  attachHeadDetail(model, head, eyes, new THREE.Vector3(headPosition.x, box.max.y - 0.126, headPosition.z + 0.190))
+}
+
 /**
  * An imported GLB, driven by the same pose rig as the built-in figure.
  *
@@ -602,11 +742,12 @@ function DefaultMannequin({ pose: poseOverride, skinColor: skinOverride, outfitC
  * onto the bones. If the file has no recognisable humanoid skeleton the model
  * still renders — it just stands in its rest pose, and the inspector says so.
  */
-function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOverride, reportStatus = true }: {
+function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOverride, reportStatus = true, onRigReady }: {
   url: string
   pose?: ModelPose
   lookAtCamera?: boolean
   reportStatus?: boolean
+  onRigReady?: (map: BoneMap | null) => void
 }) {
   const [object, setObject] = useState<THREE.Group | null>(null)
   const [loadError, setLoadError] = useState(false)
@@ -675,79 +816,13 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       const map = mapSkeleton(model)
       const quality = mappingQuality(map)
 
-      // The licensed MakeHuman studio model intentionally ships without hair.
-      // Build a continuous short cut with a softly irregular front hairline.
-      // The group is parented to the actual head bone so it follows every pose.
+      // The licensed MakeHuman studio model intentionally ships without hair
+      // or separate eyeball meshes. Add both as head-bone details.
       if (shippedHuman && map.head) {
         const normalizedBox = new THREE.Box3().setFromObject(model)
         const headPosition = map.head.getWorldPosition(new THREE.Vector3())
-        const hairCanvas = document.createElement('canvas')
-        hairCanvas.width = 512
-        hairCanvas.height = 512
-        const hairContext = hairCanvas.getContext('2d')!
-        hairContext.fillStyle = '#2b1b15'
-        hairContext.fillRect(0, 0, 512, 512)
-        let hairSeed = 117
-        const randomHair = () => {
-          hairSeed = (hairSeed * 16807) % 2147483647
-          return (hairSeed - 1) / 2147483646
-        }
-        hairContext.lineCap = 'round'
-        for (let index = 0; index < 760; index += 1) {
-          const x = randomHair() * 512
-          const y = randomHair() * 512
-          const length = 10 + randomHair() * 34
-          hairContext.strokeStyle = randomHair() > 0.48 ? 'rgba(104,68,49,.24)' : 'rgba(18,10,8,.28)'
-          hairContext.lineWidth = 0.45 + randomHair() * 1.15
-          hairContext.beginPath()
-          hairContext.moveTo(x, y)
-          hairContext.quadraticCurveTo(x + length * 0.22, y - length * 0.55, x + length * 0.06, y - length)
-          hairContext.stroke()
-        }
-        const hairTexture = new THREE.CanvasTexture(hairCanvas)
-        hairTexture.colorSpace = THREE.SRGBColorSpace
-        hairTexture.wrapS = THREE.RepeatWrapping
-        hairTexture.wrapT = THREE.RepeatWrapping
-        hairTexture.repeat.set(2.4, 1.6)
-        const hairMaterial = new THREE.MeshStandardMaterial({
-          color: '#ffffff',
-          map: hairTexture,
-          roughness: 0.64,
-          metalness: 0,
-          envMapIntensity: 0.5,
-        })
-        const hairGeometry = new THREE.SphereGeometry(0.138, 48, 24, 0, Math.PI * 2, 0, Math.PI * 0.44)
-        const hairPositions = hairGeometry.getAttribute('position') as THREE.BufferAttribute
-        for (let index = 0; index < hairPositions.count; index += 1) {
-          const x = hairPositions.getX(index)
-          const y = hairPositions.getY(index)
-          const z = hairPositions.getZ(index)
-          const normalizedX = x / 0.138
-          const normalizedZ = z / 0.138
-          const surface = 1 + Math.sin(index * 2.17) * 0.006 + Math.sin(index * 0.71) * 0.004
-          hairPositions.setXYZ(index, x * surface, y * surface, z * surface)
-          if (y < 0.045 && normalizedZ > 0.12) {
-            const templeLift = Math.abs(normalizedX) * 0.021
-            const centreDip = Math.exp(-Math.pow(normalizedX * 3.6, 2)) * -0.012
-            const sidePart = Math.exp(-Math.pow((normalizedX + 0.42) * 9, 2)) * 0.012
-            hairPositions.setY(index, hairPositions.getY(index) + templeLift + centreDip + sidePart)
-          }
-        }
-        hairPositions.needsUpdate = true
-        hairGeometry.computeVertexNormals()
-        const hairstyle = new THREE.Group()
-        hairstyle.name = 'studio-layered-short-hair'
-        const cap = new THREE.Mesh(hairGeometry, hairMaterial)
-        cap.scale.set(0.92, 1, 1.03)
-        cap.rotation.z = -0.025
-        cap.castShadow = true
-        cap.receiveShadow = true
-        hairstyle.add(cap)
-
-        hairstyle.position.copy(model.worldToLocal(new THREE.Vector3(headPosition.x, normalizedBox.max.y - 0.09, headPosition.z)))
-        model.add(hairstyle)
-        model.updateMatrixWorld(true)
-        map.head.attach(hairstyle)
+        addStudioHair(model, map.head, normalizedBox, headPosition)
+        addStudioEyes(model, map.head, normalizedBox, headPosition)
       }
 
       // This source is authored in a wide A-stance. Lower only its upper arms
@@ -766,6 +841,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       }
 
       rig.current = quality.usable ? { map, rest: captureRestPose(model, map) } : null
+      onRigReady?.(quality.usable ? map : null)
       if (reportStatus) setRigStatus(quality.usable ? 'rigged' : 'unrigged')
 
       loadedObject = model
@@ -781,6 +857,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     return () => {
       active = false
       rig.current = null
+      onRigReady?.(null)
       if (reportStatus) setRigStatus('none')
       if (loadedObject) {
         loadedObject.traverse((child) => {
@@ -791,7 +868,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
         })
       }
     }
-  }, [reportStatus, setRigStatus, setStatus, url])
+  }, [onRigReady, reportStatus, setRigStatus, setStatus, url])
 
   // The imported figure gets the same head-tracking behaviour as the built-in one.
   const cameraYaw = THREE.MathUtils.radToDeg(Math.atan2(cameraPosition[0] - modelPosition[0], cameraPosition[2] - modelPosition[2]) - modelRotation)
@@ -830,6 +907,7 @@ function Mannequin() {
   const seatHeight = useSeatHeight(position)
   const seatedLift = Math.min(modelPose.leftLeg, modelPose.rightLeg) > 60 ? seatHeight ?? 0.46 : 0
   const group = useRef<THREE.Group>(null)
+  const [boneMap, setBoneMap] = useState<BoneMap | null>(null)
   const transformControl = useRef<TransformControlsImpl>(null)
   // An imported model with no recognised skeleton cannot be posed, so it gets
   // no handles rather than handles that quietly do nothing.
@@ -837,13 +915,14 @@ function Mannequin() {
 
   const model = (
     <group ref={group} position={[position[0], seatedLift, position[2]]} rotation={[0, rotation, 0]} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); selectObject('model') }}>
-      <ImportedModel url={activeModelUrl} />
+      <ImportedModel url={activeModelUrl} onRigReady={setBoneMap} />
       {showHandles && (
         <PoseRig
           pose={modelPose}
           physique={physique}
           seatHeight={seatHeight}
           groupRef={group}
+          boneMap={boneMap}
           onChange={updateModelPose}
         />
       )}
@@ -884,6 +963,7 @@ function StandaloneFigure({ object }: { object: StudioObject }) {
   const view = useStudio((state) => state.view)
   const updateStudioSubjectPose = useStudio((state) => state.updateStudioSubjectPose)
   const group = useRef<THREE.Group>(null)
+  const [boneMap, setBoneMap] = useState<BoneMap | null>(null)
   return (
     <group ref={group} position={[0, seatedLift, 0]} scale={object.subjectHeight / 1.82}>
       {poseHandles && selected && view !== 'camera' && (
@@ -892,6 +972,7 @@ function StandaloneFigure({ object }: { object: StudioObject }) {
           physique={object.subjectPhysique}
           seatHeight={seatHeight}
           groupRef={group}
+          boneMap={boneMap}
           onChange={(patch) => updateStudioSubjectPose(object.id, patch)}
         />
       )}
@@ -900,6 +981,7 @@ function StandaloneFigure({ object }: { object: StudioObject }) {
         pose={object.subjectPose}
         lookAtCamera={false}
         reportStatus={false}
+        onRigReady={setBoneMap}
       />
     </group>
   )

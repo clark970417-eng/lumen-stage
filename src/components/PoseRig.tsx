@@ -21,6 +21,8 @@ import {
   solveSpineAim, solveThigh, solveUpperArm, type Side,
 } from '../ik'
 import type { ModelPose } from '../pose'
+import type { BoneMap } from '../retarget'
+import { rigOverlayPoints } from '../rigOverlay'
 
 type HandleId =
   | 'head' | 'chest' | 'hips'
@@ -124,12 +126,14 @@ function Handle({ position, radius, active, onStart, onDrag, onEnd }: {
  * can be used directly and a dragged world point converts back with the group's
  * own inverse transform — no duplicated position, rotation or height maths.
  */
-export function PoseRig({ pose, physique, seatHeight, groupRef, onChange }: {
+export function PoseRig({ pose, physique, seatHeight, groupRef, boneMap, onChange }: {
   pose: ModelPose
   physique: Physique
   seatHeight: number | null
   /** The group the figure is rendered in, used to convert world to local. */
   groupRef: React.RefObject<THREE.Group | null>
+  /** Actual imported skeleton, when this overlay drives a GLB rather than Figure. */
+  boneMap?: BoneMap | null
   onChange: (patch: Partial<ModelPose>) => void
 }) {
   const [dragging, setDragging] = useState<HandleId | null>(null)
@@ -145,7 +149,21 @@ export function PoseRig({ pose, physique, seatHeight, groupRef, onChange }: {
     setDragging(null)
   }, [controls])
 
-  const points = useMemo(() => forwardKinematics(pose, physique, seatHeight), [physique, pose, seatHeight])
+  const solverPoints = useMemo(() => forwardKinematics(pose, physique, seatHeight), [physique, pose, seatHeight])
+  const [points, setPoints] = useState(solverPoints)
+
+  useEffect(() => {
+    if (!boneMap || !groupRef.current) {
+      setPoints(solverPoints)
+      return
+    }
+    // ImportedModel applies the new pose in an effect. Read the bones on the
+    // next frame so the overlay never displays the previous pose for one beat.
+    const frame = window.requestAnimationFrame(() => {
+      if (groupRef.current) setPoints(rigOverlayPoints(boneMap, groupRef.current, solverPoints))
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [boneMap, groupRef, solverPoints])
 
   // Leaving pose mode mid-drag must not leave the camera locked.
   useEffect(() => () => { if (controls) controls.enabled = true }, [controls])
@@ -158,43 +176,48 @@ export function PoseRig({ pose, physique, seatHeight, groupRef, onChange }: {
 
   const drag = useCallback((id: HandleId, world: THREE.Vector3) => {
     const local = toLocal(world)
-    if (id === 'head') { onChange(solveHeadAim(local, pose, physique, seatHeight)); return }
-    if (id === 'chest') { onChange(solveSpineAim(local, pose, physique, seatHeight)); return }
+    const visualPoint = points[id]
+    const solverPoint = solverPoints[id]
+    const solverLocal = boneMap && visualPoint && solverPoint
+      ? local.clone().sub(visualPoint).add(solverPoint)
+      : local
+    if (id === 'head') { onChange(solveHeadAim(solverLocal, pose, physique, seatHeight)); return }
+    if (id === 'chest') { onChange(solveSpineAim(solverLocal, pose, physique, seatHeight)); return }
     if (id === 'hips') {
-      onChange({ hipShift: THREE.MathUtils.clamp(local.x, -0.16, 0.16) })
+      onChange({ hipShift: THREE.MathUtils.clamp(pose.hipShift + local.x - points.hips.x, -0.16, 0.16) })
       return
     }
     const side: Side = id.startsWith('left') ? -1 : 1
     if (id === 'leftShoulder' || id === 'rightShoulder') {
-      const current = side === -1 ? points.leftShoulder : points.rightShoulder
+      const current = side === -1 ? solverPoints.leftShoulder : solverPoints.rightShoulder
       const key = side === -1 ? 'leftShoulder' : 'rightShoulder'
-      onChange({ [key]: THREE.MathUtils.clamp(pose[key] + (local.y - current.y) / 0.0009, -25, 45) })
+      onChange({ [key]: THREE.MathUtils.clamp(pose[key] + (solverLocal.y - current.y) / 0.0009, -25, 45) })
       return
     }
     if (id === 'leftElbow' || id === 'rightElbow') {
-      onChange(solveUpperArm(side, local, pose, physique, seatHeight))
+      onChange(solveUpperArm(side, solverLocal, pose, physique, seatHeight))
       return
     }
     if (id === 'leftWrist' || id === 'rightWrist') {
-      onChange(armPatch(side, solveArm(side, local, pose, physique, seatHeight)))
+      onChange(armPatch(side, solveArm(side, solverLocal, pose, physique, seatHeight)))
       return
     }
     if (id === 'leftHip' || id === 'rightHip') {
-      const current = side === -1 ? points.leftHip : points.rightHip
-      const hipRadius = Math.max(0.04, Math.abs(current.x - points.hips.x))
-      const tiltDelta = (local.y - current.y) / (hipRadius * THREE.MathUtils.DEG2RAD) * -side
+      const current = side === -1 ? solverPoints.leftHip : solverPoints.rightHip
+      const hipRadius = Math.max(0.04, Math.abs(current.x - solverPoints.hips.x))
+      const tiltDelta = (solverLocal.y - current.y) / (hipRadius * THREE.MathUtils.DEG2RAD) * -side
       onChange({
-        hipShift: THREE.MathUtils.clamp(pose.hipShift + local.x - current.x, -0.16, 0.16),
+        hipShift: THREE.MathUtils.clamp(pose.hipShift + solverLocal.x - current.x, -0.16, 0.16),
         hipTilt: THREE.MathUtils.clamp(pose.hipTilt + tiltDelta, -18, 18),
       })
       return
     }
     if (id === 'leftKnee' || id === 'rightKnee') {
-      onChange(solveThigh(side, local, pose, physique, seatHeight))
+      onChange(solveThigh(side, solverLocal, pose, physique, seatHeight))
       return
     }
-    onChange(legPatch(side, solveLeg(side, local, pose, physique, seatHeight)))
-  }, [onChange, physique, points, pose, seatHeight, toLocal])
+    onChange(legPatch(side, solveLeg(side, solverLocal, pose, physique, seatHeight)))
+  }, [boneMap, onChange, physique, points, pose, seatHeight, solverPoints, toLocal])
 
   const handles: { id: HandleId; point: THREE.Vector3; radius: number }[] = [
     { id: 'head', point: points.head, radius: 0.016 },
