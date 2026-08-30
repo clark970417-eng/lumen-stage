@@ -104,7 +104,7 @@ src/mobile.css               手機版介面樣式
 src/components/              場景、控制面板、分析與工作表元件
 src/components/MobileApp.tsx 手機版簡易介面
 scripts/build_website_guide.py  網站使用教學 PDF 產生工具
-public/guide-pages/          三語 300 dpi 教學製作來源（正式部署會排除）
+assets/guide-pages/          三語 300 dpi 教學製作來源（不會進入網站建置）
 public/*.pdf                 三語可下載網站使用教學
 palace_*.jpg                 場景環境圖片
 ```

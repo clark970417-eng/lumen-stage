@@ -21,7 +21,7 @@ from reportlab.pdfgen import canvas
 ROOT = Path(__file__).resolve().parents[1]
 CAPTURES = Path(os.environ.get("LUMEN_GUIDE_CAPTURE_DIR", ROOT / "tmp" / "guide-captures"))
 PUBLIC = ROOT / "public"
-PAGES = PUBLIC / "guide-pages"
+PAGES = ROOT / "assets" / "guide-pages"
 W, H = landscape(A4)
 
 BG = HexColor("#080B0F")

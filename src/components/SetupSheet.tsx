@@ -4,7 +4,7 @@ import { useStudio, type StudioLight, type StudioModifier, type StudioShot } fro
 import { useT } from '../i18n'
 import { getHead, getModifier } from '../gear'
 import { calculateMetering, resolveLight, type LightMeterReading } from '../metering'
-import { calculateDepthOfField } from '../optics'
+import { calculateDepthOfField, SENSOR_CIRCLE_OF_CONFUSION } from '../optics'
 import { effectiveFreezeSpeed, gelForShift } from '../photometry'
 import { getGel } from '../gels'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
@@ -39,7 +39,6 @@ const SHEET_THEMES = {
 
 type Palette = typeof SHEET_THEMES[SheetTheme]
 
-const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
 const SENSOR_WIDTH = { 'full-frame': 36, 'aps-c': 23.5, mft: 17.3 } as const
 
 type Plan = {
@@ -210,7 +209,7 @@ export function SetupSheet() {
     [state.lights, state.modifiers, subjectMeterPoint, effectiveAperture, state.shutter, state.iso, state.syncSpeed, state.ambientLevel],
   )
 
-  const depth = calculateDepthOfField(state.focalLength, effectiveAperture, state.focusDistance, SENSOR_COC[state.sensorFormat])
+  const depth = calculateDepthOfField(state.focalLength, effectiveAperture, state.focusDistance, SENSOR_CIRCLE_OF_CONFUSION[state.sensorFormat])
   const horizontalFov = 2 * Math.atan(SENSOR_WIDTH[state.sensorFormat] / (2 * state.focalLength)) * 180 / Math.PI
 
   // --- Plan projection ------------------------------------------------------

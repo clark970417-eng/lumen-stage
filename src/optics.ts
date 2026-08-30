@@ -13,6 +13,13 @@ export type LensOpticsSettings = {
   breathing: number
 }
 
+/** Circle of confusion in millimetres for each supported sensor format. */
+export const SENSOR_CIRCLE_OF_CONFUSION = {
+  'full-frame': 0.03,
+  'aps-c': 0.019,
+  mft: 0.015,
+} as const
+
 export function breathingAdjustedFocalLength(focalLengthMm: number, focusDistanceM: number, breathing: number, enabled = true) {
   if (!enabled || breathing <= 0) return focalLengthMm
   const closeFocusFactor = Math.max(0, Math.min(1, (10 - focusDistanceM) / 9))

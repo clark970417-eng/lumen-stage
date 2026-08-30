@@ -5,14 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/prune-build-assets.mjs",
+    "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:chromium": "playwright test --project=chromium-desktop --project=chromium-phone",
     "typecheck": "tsc -p tsconfig.quality.json",
+    "check:format": "node scripts/check-format.mjs",
     "check:performance": "node scripts/check-performance.mjs",
-    "check": "npm run test && npm run typecheck && npm run build && npm run check:performance",
+    "check": "npm run check:format && npm run test && npm run typecheck && npm run build && npm run check:performance",
     "check:release": "npm run check && npm run test:e2e"
   },
   "dependencies": {

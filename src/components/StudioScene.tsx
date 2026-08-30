@@ -14,7 +14,7 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import type { TransformControls as TransformControlsImpl } from 'three-stdlib'
 import { breathingAdjustedFocalLength, calculateDepthOfField } from '../optics'
 import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjectType, type StudioLight, type StudioModifier, type StudioObject, type TransformAxis } from '../store'
-import { Figure, type FigureAppearance } from './Figure'
+import type { FigureAppearance } from './Figure'
 import { isSeatedPose, type ModelPose } from '../pose'
 import type { HairStyle } from '../wardrobe'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
@@ -670,59 +670,6 @@ function useSeatHeight(position: [number, number, number]) {
   }, [position, studioObjects])
 }
 
-function DefaultMannequin({ pose: poseOverride, skinColor: skinOverride, outfitColor: outfitOverride, appearance: appearanceOverride, seatHeight }: {
-  pose?: ModelPose
-  skinColor?: string
-  outfitColor?: string
-  appearance?: FigureAppearance
-  seatHeight?: number | null
-} = {}) {
-  const mainPose = useStudio((state) => state.modelPose)
-  const mainSkinColor = useStudio((state) => state.skinColor)
-  const mainOutfitColor = useStudio((state) => state.outfitColor)
-  const mainSkinRoughness = useStudio((state) => state.skinRoughness)
-  const mainSkinOil = useStudio((state) => state.skinOil)
-  const mainSubsurface = useStudio((state) => state.skinSubsurface)
-  const mainMakeup = useStudio((state) => state.makeupStyle)
-  const mainEyeColor = useStudio((state) => state.eyeColor)
-  const mainHairColor = useStudio((state) => state.hairColor)
-  const mainHairGloss = useStudio((state) => state.hairGloss)
-  const mainOutfitFabric = useStudio((state) => state.outfitFabric)
-  const mainPhysique = useStudio((state) => state.physique)
-  const mainHairStyle = useStudio((state) => state.hairStyle)
-  const mainOutfitStyle = useStudio((state) => state.outfitStyle)
-  const lookAtCamera = useStudio((state) => state.modelLookAtCamera)
-  const eyesAtCamera = useStudio((state) => state.modelEyesAtCamera)
-  const cameraPosition = useStudio((state) => state.cameraPosition)
-  const modelPosition = useStudio((state) => state.modelPosition)
-  const modelRotation = useStudio((state) => state.modelRotation)
-  const mainSeatHeight = useSeatHeight(modelPosition)
-
-  const basePose = poseOverride ?? mainPose
-  const cameraYaw = THREE.MathUtils.radToDeg(Math.atan2(cameraPosition[0] - modelPosition[0], cameraPosition[2] - modelPosition[2]) - modelRotation)
-  const pose = !poseOverride && lookAtCamera ? { ...basePose, headYaw: THREE.MathUtils.clamp(cameraYaw, -72, 72) } : basePose
-  // Eyes track the lens independently of the head: chin down, eyes up.
-  const gaze = !poseOverride && eyesAtCamera
-    ? { yaw: THREE.MathUtils.clamp(cameraYaw - pose.headYaw, -35, 35), pitch: -pose.headTilt }
-    : { yaw: basePose.gazeYaw, pitch: basePose.gazePitch }
-
-  const appearance: FigureAppearance = appearanceOverride ?? {
-    skinRoughness: mainSkinRoughness,
-    skinOil: mainSkinOil,
-    subsurface: mainSubsurface,
-    makeup: mainMakeup,
-    eyeColor: mainEyeColor,
-    hairColor: mainHairColor,
-    hairGloss: mainHairGloss,
-    outfitFabric: mainOutfitFabric,
-    physique: mainPhysique,
-    hairStyle: mainHairStyle,
-    outfit: mainOutfitStyle,
-  }
-
-  return <Figure pose={pose} skinColor={skinOverride ?? mainSkinColor} outfitColor={outfitOverride ?? mainOutfitColor} appearance={appearance} gaze={gaze} seatHeight={seatHeight ?? mainSeatHeight} />
-}
-
 function attachHeadDetail(model: THREE.Group, head: THREE.Bone, detail: THREE.Group, worldPosition: THREE.Vector3) {
   model.add(detail)
   detail.position.copy(model.worldToLocal(worldPosition))
@@ -1057,18 +1004,14 @@ function toActorPhysical(source: THREE.MeshStandardMaterial) {
 /**
  * The colour light is when it comes back out of skin, whatever went in.
  *
- * Muted rather than the pure haemoglobin red the procedural figure lerps
- * toward, because that figure lerps it against a skin colour the user picked
- * and these actors carry a baked one. Applied neat it turned them orange.
+ * Muted to suit actors that carry a baked skin colour. A pure haemoglobin red
+ * applied directly to these textures turned them orange.
  */
 const SUBSURFACE_COLOR = '#d99a86'
 
 /**
- * The skin response, driven by the same controls as the procedural figure.
- *
- * Matching the formulas in Figure.tsx is the point: a roughness slider that
- * means one thing on the fallback body and another on the actor you actually
- * render is worse than no slider.
+ * The skin response shared by every shipped actor, so a control has the same
+ * photographic meaning when physique or wardrobe selects a different GLB.
  */
 function applyActorSkin(material: THREE.MeshPhysicalMaterial, appearance: FigureAppearance) {
   const response = studioSkinResponse(appearance.skinRoughness, appearance.skinOil, appearance.subsurface, appearance.physique.age)
@@ -1401,7 +1344,6 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   onRigReady?: (map: BoneMap | null) => void
 }) {
   const [object, setObject] = useState<THREE.Group | null>(null)
-  const [loadError, setLoadError] = useState(false)
   const setStatus = useStudio((state) => state.setModelImportStatus)
   const setRigStatus = useStudio((state) => state.setModelRigStatus)
   const mainPose = useStudio((state) => state.modelPose)
@@ -1452,12 +1394,10 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     let active = true
     let loadedObject: THREE.Group | null = null
     // A physique or wardrobe change may point at a different shipped actor.
-    // Do not keep rendering the previous actor while that file loads: opening
-    // the viewfinder during this window otherwise appears to change a woman
-    // back into the previously loaded man. The procedural figure below keeps
-    // the stage occupied with the current appearance until the GLB is ready.
+    // Do not keep rendering the previous actor while that file loads. The
+    // stage stays empty until the selected GLB is ready, so neither the old
+    // procedural figure nor a previously selected actor flashes on screen.
     setObject(null)
-    setLoadError(false)
     if (reportStatus) setStatus('loading')
     const loader = new GLTFLoader()
     loader.load(url, (gltf) => {
@@ -1491,7 +1431,6 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       const initialBox = new THREE.Box3().setFromObject(model)
       const size = initialBox.getSize(new THREE.Vector3())
       if (!Number.isFinite(size.y) || size.y <= 0) {
-        setLoadError(true)
         if (reportStatus) setStatus('error')
         return
       }
@@ -1568,7 +1507,6 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       if (reportStatus) setStatus('ready')
     }, undefined, () => {
       if (active) {
-        setLoadError(true)
         if (reportStatus) { setStatus('error'); setRigStatus('none') }
       }
     })
@@ -1664,7 +1602,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   }, [effectivePose, object])
 
   if (object) return <primitive object={object} rotation={url.includes('/models/lumen-human/') ? [0, 0, 0] : undefined} />
-  return url.includes('/models/lumen-human/') || loadError ? <DefaultMannequin pose={poseOverride} appearance={appearance} /> : null
+  return null
 }
 
 function Mannequin() {

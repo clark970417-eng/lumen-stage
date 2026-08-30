@@ -10,7 +10,7 @@ import { SetupSheet } from './components/SetupSheet'
 import { ShortcutHelp, ShortcutHint, ShortcutLauncher } from './components/ShortcutHelp'
 import { runShortcut } from './shortcuts'
 import { downloadFramePng } from './shotCapture'
-import { calculateDepthOfField } from './optics'
+import { calculateDepthOfField, SENSOR_CIRCLE_OF_CONFUSION } from './optics'
 import { LOCALES, useLocaleStore, useT, type Locale } from './i18n'
 import { useStudio } from './store'
 import { buildShareLink, copyToClipboard } from './share'
@@ -31,7 +31,6 @@ import { useRenderProgress } from './renderProgress'
 
 let hintSequence = 0
 
-const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
 type GuideLocaleText = Record<Locale, string>
 type GuideSlide = {
   chapter: GuideLocaleText
@@ -119,7 +118,7 @@ function ViewfinderOverlay() {
   const syncSpeed = useStudio((state) => state.syncSpeed)
   const lights = useStudio((state) => state.lights)
   const syncError = shutter > syncSpeed && lights.some((light) => light.enabled && light.operationMode === 'flash' && !light.hssEnabled)
-  const depth = calculateDepthOfField(focalLength, aperture, focusDistance, SENSOR_COC[sensorFormat])
+  const depth = calculateDepthOfField(focalLength, aperture, focusDistance, SENSOR_CIRCLE_OF_CONFUSION[sensorFormat])
   const landscapeSizes = { '3:2': [94, 82], '4:5': [86, 90], '1:1': [69, 90], '16:9': [94, 69] } as const
   const portraitSizes = { '3:2': [46, 90], '4:5': [55, 90], '1:1': [69, 90], '16:9': [39, 90] } as const
   const [frameWidth, frameHeight] = (frameOrientation === 'landscape' ? landscapeSizes : portraitSizes)[frameAspect]

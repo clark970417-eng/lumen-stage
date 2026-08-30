@@ -8,8 +8,8 @@ const assetHref = (path: string) => `${assetBase}${path.replace(/^\/+/, '')}`
  * Shipped, redistributable people used by the studio.
  *
  * These are MakeHuman / MPFB 2 exports with a 53-bone humanoid rig and baked
- * CC0 textures. Keeping their URLs in one place makes the procedural figure a
- * deliberate failure fallback instead of the product's default appearance.
+ * CC0 textures. Keeping their URLs in one place makes the selected GLB the
+ * only product appearance and keeps loading transitions deterministic.
  */
 export const DEFAULT_HUMAN_URL = assetHref('models/lumen-human/human-suited-runtime.glb')
 export const SUITED_HUMAN_URL = assetHref('models/lumen-human/human-suited-runtime.glb')
