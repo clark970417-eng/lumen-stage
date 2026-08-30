@@ -90,30 +90,30 @@
 .m-edit-actions {
   position: relative;
   z-index: 4;
-  min-height: calc(58px + env(safe-area-inset-bottom));
-  padding: 7px max(9px, env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(9px, env(safe-area-inset-left));
+  min-height: calc(60px + env(safe-area-inset-bottom));
+  padding: 8px max(9px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(9px, env(safe-area-inset-left));
   display: grid;
   grid-template-columns: .95fr .72fr 1.18fr;
   gap: 6px;
-  border-top: 1px solid #34444f;
-  background: rgba(9, 14, 18, .98);
+  border-top: 1px solid var(--line);
+  background: rgba(13, 19, 24, .98);
   box-shadow: 0 -10px 24px rgba(0,0,0,.28);
 }
 .m-edit-actions button {
   min-width: 0;
   min-height: 44px;
   padding: 0 7px;
-  border: 1px solid #3a4b56;
-  border-radius: 6px;
-  background: #141d24;
-  color: #a8b5bd;
-  font: 9px var(--mono);
+  border: 1px solid #3a4a55;
+  border-radius: 8px;
+  background: #18222a;
+  color: #9eafb9;
+  font-size: 10px;
   white-space: nowrap;
   cursor: pointer;
   touch-action: manipulation;
 }
-.m-edit-actions button:first-child { color: var(--signal-cool); }
-.m-edit-actions button:last-child { border-color: rgba(103,216,255,.52); color: #e3f8ff; background: rgba(103,216,255,.08); }
+.m-edit-actions button:first-child { color: #9eafb9; }
+.m-edit-actions button:last-child { color: var(--signal); }
 .m-edit-actions button:active { transform: translateY(1px); background: #22303a; }
 .m-edit-actions button.saved { border-color: #6e9b79; color: #cdf4d5; background: rgba(110,155,121,.14); }
 .m-phase-stack { display: grid; gap: 18px; }
