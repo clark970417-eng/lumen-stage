@@ -316,8 +316,8 @@
   .m-delete,
   .m-project-actions button,
   .m-project-links a,
-  .m-project-links button { min-height: 38px; }
-  .m-dial input[type='range'] { height: 26px; }
+  .m-project-links button { min-height: 44px; }
+  .m-dial input[type='range'] { height: 44px; }
   .m-setup-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .m-setup { grid-template-columns: 46px 1fr; padding: 9px; }
   .m-setup-plan { width: 46px; height: 46px; }
@@ -371,7 +371,7 @@
 .m-stage-hint { border: 1px solid rgba(62,78,90,.75); border-radius: 6px; background: rgba(9,14,18,.76); color: #a5b2bb; }
 .m-shutter { border-color: #eaf0f3; background: rgba(9,14,18,.7); box-shadow: 0 8px 24px rgba(0,0,0,.3), 0 0 0 5px rgba(255,180,84,.08); }
 .m-shutter i { background: var(--signal); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 0 18px rgba(255,180,84,.22); }
-.m-tabs { margin-top: 7px; border: 1px solid #293640; border-radius: 8px 8px 0 0; background: #10171d; }
+.m-tabs { margin-top: 0; border: 1px solid #293640; border-radius: 8px 8px 0 0; background: #10171d; }
 .m-tabs button { border-right-color: #293640; }
 .m-tabs button.active { background: #18232b; color: #f2f6f7; box-shadow: inset 0 -2px 0 var(--signal); }
 .m-sheet { border-top-color: #2b3741; background: linear-gradient(180deg, #12191f, #0d1318); }
@@ -418,7 +418,20 @@
 .m-continuity-card > div button:disabled { opacity: .34; }
 
 @media (max-width: 430px) {
-  .m-tabs { grid-template-columns: repeat(5,1fr) 42px; }
+  .m-tabs { grid-template-columns: repeat(5,1fr) 44px; }
   .m-tabs button { min-width: 0; padding-inline: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; }
   .m-reference-result > div { padding-inline: 7px; }
+}
+
+/* Theme rules above intentionally come after the structural desktop block.
+   Reassert only desktop geometry here so the canvas and console keep equal
+   breathing room at the 1024px compact-workspace breakpoint. */
+@media (min-width: 901px) {
+  .m-shell .m-viewport { margin: 10px; }
+  .m-tabs { margin-top: 0; border-radius: 0; }
+}
+
+@media (max-width: 430px) {
+  /* About/copyright remains in Verify; the primary header escape is Full. */
+  .m-shell .m-top .copyright-mark.compact { display: none; }
 }

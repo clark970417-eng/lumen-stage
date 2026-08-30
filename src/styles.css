@@ -2022,7 +2022,7 @@ main.app-shell {
 }
 
 header.topbar {
-  grid-template-columns: 220px minmax(250px, .8fr) minmax(500px, 1.25fr) 436px;
+  grid-template-columns: 220px minmax(250px, .8fr) minmax(500px, 1.25fr) 456px;
   align-items: stretch;
   overflow: hidden;
   border-color: rgba(68, 84, 96, .78);
@@ -2105,7 +2105,7 @@ header.topbar .project-actions {
   align-self: center;
   gap: 2px;
   overflow: hidden;
-  grid-template-columns: 68px 54px 62px 42px 50px 46px minmax(76px, 1fr);
+  grid-template-columns: 68px 54px 62px 42px 50px 46px minmax(94px, 1fr);
   border: 1px solid rgba(58, 72, 83, .7);
   border-radius: 12px;
   background: rgba(8, 13, 17, .72);
@@ -2114,9 +2114,11 @@ header.topbar .project-actions button,
 header.topbar .project-actions .setup-sheet-button,
 header.topbar .file-menu > button {
   min-width: 0;
+  overflow: hidden;
   border: 0;
   border-radius: 8px;
   background: transparent;
+  text-overflow: ellipsis;
 }
 header.topbar .project-actions button:hover,
 header.topbar .project-actions .setup-sheet-button:hover,
