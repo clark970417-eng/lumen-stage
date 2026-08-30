@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
-import { EYE_DEPTH_BELOW_CROWN, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairResponse, studioSkinResponse } from '../src/studioHumanDetails.ts'
+import { EYE_DEPTH_BELOW_CROWN, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse } from '../src/studioHumanDetails.ts'
 
 test('shipped human eyeballs sit behind the measured eyelid, not in front of it', () => {
   // Both shipped actors, as measured from their meshes: the male's eyelid sits
@@ -91,4 +91,29 @@ test('hair response keeps directional sheen without a plastic clear coat', () =>
   assert.ok(glossy.sheen <= 0.38)
   assert.ok(glossy.anisotropy <= 0.38)
   assert.ok(glossy.specularIntensity <= 0.36)
+})
+
+test('every hairstyle in the catalogue changes the shipped actors shell', () => {
+  const styles = ['short', 'buzz', 'bob', 'long', 'ponytail', 'bun', 'curly', 'afro', 'bald']
+  const plans = styles.map((style) => studioHairPlan(style))
+
+  assert.equal(studioHairPlan('bald').margin, 0, 'bald is the one style with no shell at all')
+  const wearing = plans.filter((plan) => plan.margin > 0)
+  assert.equal(wearing.length, styles.length - 1)
+
+  // The point of the control is that the styles are distinguishable. Two of
+  // them rendering the same shell at the same size is the bug this replaced.
+  const signatures = new Set(wearing.map((plan) => `${plan.margin}|${plan.lift}|${plan.mass}|${plan.frizz}`))
+  assert.equal(signatures.size, wearing.length, 'no two styles resolve to the same shell')
+
+  for (const plan of wearing) {
+    assert.ok(plan.margin >= 1 && plan.margin < 1.45, 'a shell smaller than the skull would show scalp through it')
+    assert.ok(Math.abs(plan.lift) < 0.03, 'and it stays on the head')
+    assert.ok(plan.frizz > 0 && plan.frizz <= 3)
+  }
+  assert.ok(studioHairPlan('afro').margin > studioHairPlan('buzz').margin, 'volume is what separates these two')
+  assert.equal(studioHairPlan('long').mass, 'shoulders')
+  assert.equal(studioHairPlan('short').mass, 'none')
+  // An unknown style from an old saved project must still render hair.
+  assert.ok(studioHairPlan('mullet').margin > 0)
 })

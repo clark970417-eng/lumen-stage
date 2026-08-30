@@ -16,8 +16,9 @@ import { breathingAdjustedFocalLength, calculateDepthOfField } from '../optics'
 import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjectType, type StudioLight, type StudioModifier, type StudioObject, type TransformAxis } from '../store'
 import { Figure, type FigureAppearance } from './Figure'
 import { isSeatedPose, type ModelPose } from '../pose'
+import type { HairStyle } from '../wardrobe'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SKULL_MARGIN, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairResponse, studioSkinResponse } from '../studioHumanDetails'
+import { STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -776,8 +777,11 @@ function applyStudioHairAppearance(material: THREE.MeshPhysicalMaterial, hairCol
   material.color.copy(lifted).multiplyScalar(1 / HAIR_STRAND_MEAN)
   material.metalness = 0
   material.metalnessMap = null
-  material.roughness = response.roughness
-  material.sheen = response.sheen
+  // A matted style scatters instead of returning a band, so it never reaches
+  // the gloss the control would otherwise allow.
+  const matte = typeof material.userData.lumenHairMatte === 'number' ? material.userData.lumenHairMatte : 0
+  material.roughness = Math.min(0.95, response.roughness + matte)
+  material.sheen = response.sheen * (1 - matte * 4)
   material.sheenColor.copy(color).lerp(new THREE.Color('#d8c7b8'), 0.12)
   material.sheenRoughness = response.sheenRoughness
   material.anisotropy = response.anisotropy
@@ -846,6 +850,62 @@ function measureSkull(model: THREE.Object3D, headBoneY: number, modelTop: number
 }
 
 /**
+ * The mass a style hangs behind the scalp shell.
+ *
+ * Built from the measured skull rather than from constants, so a nape length
+ * on one actor is a nape length on the other. Every piece is a lathe or a
+ * capsule: hair at this distance is a silhouette and a sheen, and a silhouette
+ * is all these have to be right.
+ */
+function buildHairMass(mass: StudioHairMass, skull: THREE.Box3, material: THREE.Material) {
+  if (mass === 'none') return null
+  const size = skull.getSize(new THREE.Vector3())
+  const width = size.x
+  const depth = size.z
+  const group = new THREE.Group()
+  const back = -FACE_FORWARD * depth * 0.28
+
+  if (mass === 'knot') {
+    const knot = new THREE.Mesh(new THREE.SphereGeometry(width * 0.27, 20, 14), material)
+    knot.scale.set(1, 0.86, 0.86)
+    knot.position.set(0, -size.y * 0.06, back - FACE_FORWARD * width * 0.2)
+    knot.castShadow = true
+    group.add(knot)
+    return group
+  }
+
+  if (mass === 'tail') {
+    const tail = new THREE.Mesh(new THREE.CapsuleGeometry(width * 0.14, size.y * 0.95, 6, 16), material)
+    tail.scale.set(1, 1, 0.78)
+    tail.rotation.x = -FACE_FORWARD * 0.24
+    tail.position.set(0, -size.y * 0.62, back - FACE_FORWARD * width * 0.14)
+    tail.castShadow = true
+    group.add(tail)
+    return group
+  }
+
+  // A sheet down the back of the head, longer for 'shoulders'. Half a lathe,
+  // so it wraps the nape instead of standing off it as a slab.
+  const drop = mass === 'shoulders' ? size.y * 2.05 : size.y * 0.62
+  const profile: THREE.Vector2[] = []
+  const steps = 12
+  for (let step = 0; step <= steps; step += 1) {
+    const t = step / steps
+    // Widest at the nape, tapering toward the ends.
+    const flare = Math.sin(Math.min(1, 0.15 + t * 1.1) * Math.PI * 0.86)
+    profile.push(new THREE.Vector2(width * 0.5 * (0.62 + 0.42 * flare), -drop * t))
+  }
+  const sheet = new THREE.Mesh(new THREE.LatheGeometry(profile, 22, Math.PI * 0.52, Math.PI * 0.96), material)
+  sheet.rotation.y = FACE_FORWARD > 0 ? 0 : Math.PI
+  sheet.scale.set(1, 1, depth / width)
+  sheet.position.set(0, -size.y * 0.16, 0)
+  sheet.castShadow = true
+  sheet.receiveShadow = true
+  group.add(sheet)
+  return group
+}
+
+/**
  * Fits the CC0 MakeHuman strand mesh to this normalized actor's real head.
  *
  * The shell used to be scaled by a constant and hung at a fixed drop below the
@@ -858,8 +918,11 @@ function measureSkull(model: THREE.Object3D, headBoneY: number, modelTop: number
  *
  * So the skull is measured and the shell is fitted to it: scaled to the head's
  * own width, centred on the head's own depth, and capped just over the crown.
+ * The chosen style then scales that fit and hangs whatever falls behind it.
  */
-function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group, hairColor: string, hairGloss: number) {
+function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group, hairColor: string, hairGloss: number, hairStyle: HairStyle) {
+  const plan = studioHairPlan(hairStyle)
+  if (plan.margin <= 0) return
   // Hair loads asynchronously, often after the actor has already been placed
   // in the scene. Re-measure its live transform instead of using coordinates
   // captured before the actor's outer transform was applied.
@@ -870,7 +933,7 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
   const material = new THREE.MeshPhysicalMaterial({
     map: texture,
     normalMap: hairNormalMap(),
-    normalScale: new THREE.Vector2(0.4, 0.4),
+    normalScale: new THREE.Vector2(0.4 * plan.frizz, 0.4 * plan.frizz),
     metalness: 0,
     anisotropyRotation: Math.PI / 2,
     transparent: false,
@@ -879,6 +942,7 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
     side: THREE.DoubleSide,
   })
   material.name = STUDIO_HAIR_MATERIAL
+  material.userData.lumenHairMatte = plan.matte
   applyStudioHairAppearance(material, hairColor, hairGloss)
 
   const hairstyle = new THREE.Group()
@@ -900,13 +964,36 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
   // out or the fit lands wherever the exporter's units happened to be.
   const modelScale = model.scale.x || 1
   const fitted = fit && sourceSize.x > 1e-6
-    ? (fit.width * STUDIO_HAIR_SKULL_MARGIN) / (sourceSize.x * modelScale)
+    ? (fit.width * plan.margin) / (sourceSize.x * modelScale)
     : STUDIO_HAIR_SOURCE_SCALE
   source.scale.setScalar(fitted)
   source.position.copy(sourceCenter).multiplyScalar(-fitted)
 
-  const anchor = studioHairAnchor(headPosition, box.max.y, skull ?? undefined, sourceSize.y * fitted * modelScale)
+  const shellHeight = sourceSize.y * fitted * modelScale
+  const anchor = studioHairAnchor(headPosition, box.max.y + plan.lift, skull ?? undefined, shellHeight)
+  // Volume belongs behind and above the head, not over the face. Without this
+  // the big styles grew forward as fast as they grew back and the afro closed
+  // over the brows and cheeks.
+  if (skull) {
+    const depth = skull.getSize(new THREE.Vector3()).z
+    anchor.z -= FACE_FORWARD * Math.max(0, plan.margin - STUDIO_HAIR_SKULL_MARGIN) * depth * 0.62
+  }
   hairstyle.add(source)
+  if (skull) {
+    const mass = buildHairMass(plan.mass, skull, material)
+    // The mass is positioned in skull space; the shell's origin is its own
+    // centre, so shift it onto the skull centre before adding it.
+    if (mass) {
+      const centre = skull.getCenter(new THREE.Vector3())
+      mass.position.set(
+        (centre.x - anchor.x) / modelScale,
+        (centre.y - anchor.y) / modelScale,
+        (centre.z - anchor.z) / modelScale,
+      )
+      mass.scale.setScalar(1 / modelScale)
+      hairstyle.add(mass)
+    }
+  }
   attachHeadDetail(model, head, hairstyle, anchor)
 }
 
@@ -1335,6 +1422,9 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   const mainHairStyle = useStudio((state) => state.hairStyle)
   const mainOutfitStyle = useStudio((state) => state.outfitStyle)
   const rig = useRef<{ map: BoneMap; rest: RestPose; restFootY: number; baseY: number } | null>(null)
+  // The scalp shell as it came off disk, kept so a style change can rebuild it
+  // without fetching the actor again.
+  const hairSource = useRef<{ model: THREE.Group; head: THREE.Bone; source: THREE.Group } | null>(null)
   const pose = poseOverride ?? mainPose
   const lookAtCamera = lookAtCameraOverride ?? mainLookAtCamera
 
@@ -1432,7 +1522,8 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
             })
             return
           }
-          addStudioHair(model, map.head!, hair, appearanceRef.current.hairColor, appearanceRef.current.hairGloss)
+          hairSource.current = { model, head: map.head!, source: hair }
+          addStudioHair(model, map.head!, hair.clone(true), appearanceRef.current.hairColor, appearanceRef.current.hairGloss, appearanceRef.current.hairStyle)
         })
       }
 
@@ -1485,6 +1576,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     return () => {
       active = false
       rig.current = null
+      hairSource.current = null
       onRigReady?.(null)
       if (reportStatus) setRigStatus('none')
       if (loadedObject) {
@@ -1497,6 +1589,27 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       }
     }
   }, [onRigReady, reportStatus, setRigStatus, setStatus, url])
+
+  // A hairstyle is geometry, not a material, so it cannot ride the appearance
+  // pass — the shell has to be thrown away and refitted. Rebuilt from the copy
+  // kept at load rather than by fetching the actor again, which is why the
+  // control can now do something on a shipped subject at all: for nine styles
+  // there is one mesh, and eight of them used to render the ninth.
+  useEffect(() => {
+    const held = hairSource.current
+    if (!object || !held || held.model !== object) return
+    const existing = object.getObjectByName('studio-short04-hair')
+    if (existing) {
+      existing.removeFromParent()
+      existing.traverse((child) => {
+        if (!(child instanceof THREE.Mesh)) return
+        child.geometry.dispose()
+        const materials = Array.isArray(child.material) ? child.material : [child.material]
+        materials.forEach((material) => material.dispose())
+      })
+    }
+    addStudioHair(held.model, held.head, held.source.clone(true), appearance.hairColor, appearance.hairGloss, appearance.hairStyle)
+  }, [appearance.hairColor, appearance.hairGloss, appearance.hairStyle, object])
 
   // Skin, cloth, hair and iris all update live, without reloading the actor or
   // rebuilding its rig. The hair arrives on its own schedule, so this runs

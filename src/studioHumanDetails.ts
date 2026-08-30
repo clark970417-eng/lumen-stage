@@ -132,9 +132,60 @@ export const BROW_SAMPLE_RADIUS = 0.006
  *
  * Hair has thickness, so a shell scaled to the bare cranium reads as a shaved
  * head with a stain on it. Six per cent is about a centimetre of hair on a
- * grown head, which is what this style is.
+ * grown head, which is the reference the styles below work against.
  */
 export const STUDIO_HAIR_SKULL_MARGIN = 1.06
+
+/** The extra mass a style hangs off the back of the scalp shell, if any. */
+export type StudioHairMass = 'none' | 'nape' | 'shoulders' | 'tail' | 'knot'
+
+/**
+ * What each hairstyle does to the shipped actors' scalp shell.
+ *
+ * There is one shell — a CC0 MakeHuman short cut — and nine styles in the
+ * catalogue, so until now eight of them rendered the ninth. That is not a
+ * missing asset so much as a missing interpretation: what a lighting tool
+ * needs from a hairstyle is its volume, where its edge falls and what it hangs
+ * over, and all three can be driven off the one shell plus a mass behind it.
+ *
+ * `margin` scales the shell against the measured skull, `lift` raises or drops
+ * it against the crown in metres, `mass` is what falls behind, and `frizz`
+ * scales the strand normal map, which is what separates a curl from a sheet.
+ */
+export type StudioHairPlan = {
+  margin: number
+  lift: number
+  mass: StudioHairMass
+  frizz: number
+  /** Roughness added on top of the gloss control, for a matted style. */
+  matte: number
+}
+
+const HAIR_PLANS: Record<string, StudioHairPlan> = {
+  // Cropped close enough that the scalp reads through it.
+  buzz: { margin: 1.012, lift: -0.004, mass: 'none', frizz: 0.7, matte: 0.06 },
+  // Off the ears, edge above the collar.
+  short: { margin: 1.05, lift: 0.012, mass: 'none', frizz: 1, matte: 0 },
+  // Down over the ears, ending at the jaw.
+  bob: { margin: 1.07, lift: 0.002, mass: 'nape', frizz: 1, matte: 0 },
+  // Over the shoulders, which is what eats a rim light.
+  long: { margin: 1.07, lift: 0.004, mass: 'shoulders', frizz: 1.05, matte: 0 },
+  // Pulled back off the neck, gathered behind.
+  ponytail: { margin: 1.03, lift: 0.008, mass: 'tail', frizz: 0.9, matte: 0 },
+  // Pulled back and coiled — the cleanest silhouette in the list.
+  bun: { margin: 1.025, lift: 0.008, mass: 'knot', frizz: 0.85, matte: 0 },
+  // More volume and a broken surface, so a backlight scatters instead of
+  // returning one band.
+  curly: { margin: 1.11, lift: 0.006, mass: 'nape', frizz: 2.1, matte: 0.04 },
+  afro: { margin: 1.20, lift: 0.004, mass: 'none', frizz: 2.6, matte: 0.06 },
+}
+
+export const STUDIO_HAIR_BALD: StudioHairPlan = { margin: 0, lift: 0, mass: 'none', frizz: 0, matte: 0 }
+
+export function studioHairPlan(style: string): StudioHairPlan {
+  if (style === 'bald') return STUDIO_HAIR_BALD
+  return HAIR_PLANS[style] ?? HAIR_PLANS.short
+}
 
 /**
  * Where the centre of the hair shell goes, given the measured skull.
