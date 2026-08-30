@@ -56,13 +56,10 @@ export const EYE_HALF_SEPARATION = 0.0311
 /**
  * How far the eyeball centre sits behind the measured face surface.
  *
- * Small, because these faces are closed: the eyes are painted onto solid
- * geometry with no socket to sink into, so the eyeball is a prosthetic that
- * has to stand slightly proud to be seen at all. It is measured to put the
- * cornea's apex level with the lid: the sclera reaches 9.4 mm forward of the
- * eyeball centre and the cornea another 3 mm past that.
+ * A real eye sits about a centimetre in, behind a lid. That only works once
+ * there is an opening for it — see EYE_SET_IN_SOCKET below, which this is.
  */
-export const EYEBALL_SET_BACK = 0.0086
+export const EYEBALL_SET_BACK = 0.0092
 
 /**
  * Which way is out of the face.
@@ -107,6 +104,23 @@ export function studioEyeAnchor(faceZ: number, modelTop: number, centreX = 0, cr
   const depth = THREE.MathUtils.clamp(scaled, 0.095, 0.135)
   return new THREE.Vector3(centreX, modelTop - depth, faceZ - FACE_FORWARD * EYEBALL_SET_BACK)
 }
+
+/**
+ * The eyeball, and the hole cut in the face for it to sit in.
+ *
+ * These heads are closed geometry with the eyes painted on — there is no
+ * socket to put an eye in. So one is made: the triangles inside an almond at
+ * each eye are dropped from the face, and a whole eyeball goes behind the
+ * opening the way a real one sits behind a lid. Anything else is a ball glued
+ * to a cheek, which is what a prosthetic standing proud of a closed face
+ * always looks like.
+ *
+ * The ball has to be wider than the hole or the gap shows daylight, so the
+ * aperture is kept comfortably inside the eyeball's silhouette.
+ */
+export const EYE_RADIUS = 0.0125
+export const EYE_APERTURE_HALF_WIDTH = 0.0113
+export const EYE_APERTURE_HALF_HEIGHT = 0.0055
 
 /**
  * The eyebrow, in metres on a 1.82 m actor.

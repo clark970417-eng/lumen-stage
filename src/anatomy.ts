@@ -15,9 +15,9 @@
  */
 
 import * as THREE from 'three'
-import type { FigureSex, Physique } from './physique'
+import type { FigureSex, Physique } from './physique.ts'
 
-export { DEFAULT_PHYSIQUE, PHYSIQUE_PRESETS, type FigureSex, type Physique } from './physique'
+export { DEFAULT_PHYSIQUE, PHYSIQUE_PRESETS, type FigureSex, type Physique } from './physique.ts'
 
 export type Ring = {
   /** Distance along the segment, 0 at the proximal joint. */

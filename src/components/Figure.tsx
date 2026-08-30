@@ -19,6 +19,7 @@ import {
   hairShell, sculptedHead, upperArmRings, type FaceVariation, type Physique,
 } from '../anatomy'
 import { faceColorMap, faceRoughnessMap, fabricNormalMap, fabricRoughnessMap, hairNormalMap, skinColorMap, skinNormalMap, skinRoughnessMap } from '../textures'
+import { elbowFlexion } from '../ik'
 import { isSeatedPose, type HandPose, type ModelPose } from '../pose'
 import { studioHairResponse, studioSkinResponse } from '../studioHumanDetails'
 import type { FabricKind, HairStyle, OutfitStyle } from '../wardrobe'
@@ -534,7 +535,8 @@ export function Figure({ pose, skinColor, outfitColor, appearance, gaze, seatHei
         {cover.upperArm && !cover.forearm && <mesh material={outfit} position={[0, -SEGMENT.upperArm * 0.965, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[p.armUpper * 0.72, 0.0035, 8, 24]} />
         </mesh>}
-        <group position={[0, -SEGMENT.upperArm, 0]} rotation={[0, 0, rad(elbow)]}>
+        {/* Flexion is about X, the arm's own medio-lateral axis. See elbowFlexion. */}
+        <group position={[0, -SEGMENT.upperArm, 0]} rotation={[rad(elbowFlexion(elbow, side)), 0, 0]}>
           <group rotation={[0, rad(forearmTwist), 0]}>
             <mesh castShadow geometry={geo.forearm} material={cover.forearm ? outfit : skin} scale={cover.forearm ? sleeve : 1} />
             <group position={[0, -SEGMENT.forearm, 0]} rotation={[rad(wrist), 0, 0]}>

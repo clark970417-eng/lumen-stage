@@ -14,8 +14,8 @@
  */
 
 import * as THREE from 'three'
-import { HEAD, resolvePhysique, SEGMENT, type Physique } from './anatomy'
-import { isSeatedPose, type ModelPose } from './pose'
+import { HEAD, resolvePhysique, SEGMENT, type Physique } from './anatomy.ts'
+import { isSeatedPose, type ModelPose } from './pose.ts'
 
 const rad = THREE.MathUtils.degToRad
 const deg = THREE.MathUtils.radToDeg
@@ -30,6 +30,22 @@ const wrap = (degrees: number) => {
 }
 
 export type Side = -1 | 1
+
+/**
+ * Which way an elbow bends.
+ *
+ * The figure faces +Z and its arms hang down −Y, so a forearm flexes about the
+ * arm's own X — the medio-lateral axis, the same one the knee below uses. It
+ * used to be Z, the axis the figure faces down, which swept the forearm
+ * sideways through the frontal plane instead of lifting it: every pose whose
+ * hand had to reach a hip, a chin or a face left it hanging in the air beside
+ * the body, and winding the angle up only pushed it further out.
+ *
+ * Both elbows flex the same way, so the mirrored sign the pose library carries
+ * (left positive, right negative) is folded out here rather than in every pose
+ * entry, and a negative local X rotation is what carries the hand forward.
+ */
+export const elbowFlexion = (elbow: number, side: Side) => elbow * side
 
 /** Where every draggable point currently sits, in figure-local space. */
 export type RigPoints = {
@@ -117,7 +133,7 @@ export function forwardKinematics(pose: ModelPose, physique: Physique, seatHeigh
     ))
     const elbow = new THREE.Vector3(0, -SEGMENT.upperArm, 0).applyQuaternion(armRotation).add(shoulder)
     const forearmRotation = armRotation.clone()
-      .multiply(euler(0, 0, left ? pose.leftElbow : pose.rightElbow))
+      .multiply(euler(elbowFlexion(left ? pose.leftElbow : pose.rightElbow, side), 0, 0))
       .multiply(euler(0, left ? pose.leftForearmTwist : pose.rightForearmTwist, 0))
     const wrist = new THREE.Vector3(0, -SEGMENT.forearm, 0).applyQuaternion(forearmRotation).add(elbow)
     return { elbow, wrist }
@@ -248,11 +264,13 @@ export function solveArm(side: Side, target: THREE.Vector3, pose: ModelPose, phy
   const { angle } = bendForReach(local.length(), SEGMENT.upperArm, SEGMENT.forearm)
   const elbow = side === -1 ? angle : -angle
 
-  // The chain's shape in its own frame, before the shoulder aims it.
+  // The chain's shape in its own frame, before the shoulder aims it. The bend
+  // carries the wrist forward on +Z now that the elbow flexes about X.
+  const flex = rad(elbowFlexion(elbow, side))
   const bent = new THREE.Vector3(
-    SEGMENT.forearm * Math.sin(rad(elbow)),
-    -(SEGMENT.upperArm + SEGMENT.forearm * Math.cos(rad(elbow))),
     0,
+    -(SEGMENT.upperArm + SEGMENT.forearm * Math.cos(flex)),
+    -SEGMENT.forearm * Math.sin(flex),
   )
   const rotation = new THREE.Quaternion().setFromUnitVectors(
     bent.clone().normalize(),

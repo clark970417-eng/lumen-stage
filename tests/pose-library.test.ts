@@ -50,8 +50,12 @@ test('pose library remains inside the supported anatomical ranges', () => {
     rootLift: [-0.2, 0.8],
     headYaw: [-95, 95], headTilt: [-25, 25], headRoll: [-20, 20], neckExtend: [-20, 20],
     torsoYaw: [-110, 110], spineBend: [-35, 35], spineSide: [-20, 20], chestLift: [0, 70],
-    leftArm: [-150, 150], rightArm: [-150, 150], leftArmForward: [-80, 80], rightArmForward: [-80, 80],
-    leftElbow: [-115, 115], rightElbow: [-115, 115], leftWrist: [-25, 25], rightWrist: [-25, 25],
+    // These match what armPatch in src/ik.ts will hand back from a wrist drag,
+    // because a library pose has to be a pose a user could also reach by hand.
+    // The elbow was capped at 115 here, which was never anatomical — a real one
+    // flexes to about 145, and reaching a chin or a cheek needs most of that.
+    leftArm: [-175, 150], rightArm: [-150, 175], leftArmForward: [-70, 110], rightArmForward: [-70, 110],
+    leftElbow: [-145, 145], rightElbow: [-145, 145], leftWrist: [-25, 25], rightWrist: [-25, 25],
     hipShift: [-0.16, 0.16], hipTilt: [-18, 18], hipYaw: [-110, 110], stanceWidth: [0.1, 0.6], weightShift: [-1, 1],
     leftLeg: [-50, 100], rightLeg: [-50, 100], leftKnee: [-5, 115], rightKnee: [-5, 115],
     leftAnkle: [-35, 35], rightAnkle: [-35, 35], leftFootTurn: [-45, 45], rightFootTurn: [-45, 45],

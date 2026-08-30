@@ -15,10 +15,11 @@ import type { TransformControls as TransformControlsImpl } from 'three-stdlib'
 import { breathingAdjustedFocalLength, calculateDepthOfField } from '../optics'
 import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjectType, type StudioLight, type StudioModifier, type StudioObject, type TransformAxis } from '../store'
 import type { FigureAppearance } from './Figure'
-import { isSeatedPose, type ModelPose } from '../pose'
+import { forwardKinematics } from '../ik'
+import { isSeatedPose, NEUTRAL_POSE, type ModelPose } from '../pose'
 import type { HairStyle } from '../wardrobe'
-import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
+import { applyExpressionToMorphs, applyPoseToSkeleton, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
+import { STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -678,17 +679,10 @@ function attachHeadDetail(model: THREE.Group, head: THREE.Bone, detail: THREE.Gr
 }
 
 /**
- * The stance the shipped actors are settled into before their rest pose is
- * captured. Degrees, all in world space, all applied to a figure facing +Z.
+ * The one thing aiming the arms cannot set: the roll about their own length.
  */
-const REST_ARM_DROP = 28
-const REST_ELBOW_FLEX = 9
+/** How far the forearms pronate, so the palms face the thighs not the lens. */
 const REST_FOREARM_ROLL = 24
-const RIG_AXIS = {
-  x: new THREE.Vector3(1, 0, 0),
-  y: new THREE.Vector3(0, 1, 0),
-  z: new THREE.Vector3(0, 0, 1),
-}
 
 /** Material names the appearance pass looks for on a loaded actor. */
 const STUDIO_HAIR_MATERIAL = 'studio-hair-material'
@@ -910,8 +904,16 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
   // model's normalising scale before it reaches the world. Divide that back
   // out or the fit lands wherever the exporter's units happened to be.
   const modelScale = model.scale.x || 1
-  const fitted = fit && sourceSize.x > 1e-6
-    ? (fit.width * plan.margin) / (sourceSize.x * modelScale)
+  // Fitted to whichever way the skull is proportionally largest against the
+  // shell. Scaled on width alone, a head deeper than the shell was authored
+  // for pushed its brow and its crown straight through the hair — which is
+  // exactly what the male actor did, his skull being the deeper of the two.
+  const skullSize = fit ? fit.box.getSize(new THREE.Vector3()) : null
+  const fitted = fit && skullSize && sourceSize.x > 1e-6 && sourceSize.z > 1e-6
+    ? Math.max(
+      (fit.width * plan.margin) / (sourceSize.x * modelScale),
+      (skullSize.z * plan.margin) / (sourceSize.z * modelScale),
+    )
     : STUDIO_HAIR_SOURCE_SCALE
   source.scale.setScalar(fitted)
   source.position.copy(sourceCenter).multiplyScalar(-fitted)
@@ -1246,84 +1248,172 @@ function addStudioBrows(model: THREE.Group, head: THREE.Bone, eyeAnchor: THREE.V
   head.attach(brows)
 }
 
+/**
+ * Cuts an eye opening in a closed face.
+ *
+ * These heads have no sockets — the only boundary loop in the whole head is
+ * the neck, and the eyes are painted onto solid geometry. That leaves nowhere
+ * to put an eyeball: sunk to a believable depth it is inside the skull and
+ * invisible, and raised until it shows it reads as a ball glued to a cheek.
+ *
+ * So an opening is made. Every triangle whose centre falls inside an almond at
+ * the eye, on the front half of the head, is dropped from the index buffer.
+ * The eyeball then sits behind the hole the way a real one sits behind a lid,
+ * and the geometry left around the opening is the lid.
+ */
+function cutEyeApertures(model: THREE.Object3D, anchor: THREE.Vector3) {
+  const centre = new THREE.Vector3()
+  const a = new THREE.Vector3()
+  const b = new THREE.Vector3()
+  const c = new THREE.Vector3()
+  let removed = 0
+  model.updateMatrixWorld(true)
+  model.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return
+    const materials = Array.isArray(child.material) ? child.material : [child.material]
+    if (!materials.some((material) => isActorSkin(material))) return
+    const position = child.geometry.getAttribute('position')
+    const index = child.geometry.getIndex()
+    if (!position || !index) return
+
+    const inAperture = (point: THREE.Vector3) => {
+      if (point.z * FACE_FORWARD < anchor.z * FACE_FORWARD) return false
+      for (const side of [-1, 1] as const) {
+        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / EYE_APERTURE_HALF_WIDTH
+        const dy = (point.y - anchor.y) / EYE_APERTURE_HALF_HEIGHT
+        if (dx * dx + dy * dy <= 1) return true
+      }
+      return false
+    }
+
+    const kept: number[] = []
+    for (let i = 0; i < index.count; i += 3) {
+      a.fromBufferAttribute(position as THREE.BufferAttribute, index.getX(i)).applyMatrix4(child.matrixWorld)
+      b.fromBufferAttribute(position as THREE.BufferAttribute, index.getX(i + 1)).applyMatrix4(child.matrixWorld)
+      c.fromBufferAttribute(position as THREE.BufferAttribute, index.getX(i + 2)).applyMatrix4(child.matrixWorld)
+      centre.copy(a).add(b).add(c).multiplyScalar(1 / 3)
+      if (inAperture(centre)) { removed += 1; continue }
+      kept.push(index.getX(i), index.getX(i + 1), index.getX(i + 2))
+    }
+    if (removed > 0) child.geometry.setIndex(kept)
+  })
+  return removed
+}
+
+/**
+ * The eye, drawn rather than assembled.
+ *
+ * It used to be five primitives stacked a tenth of a millimetre apart — a
+ * sclera ball, an iris disc, a limbus ring, a pupil and a glass cornea. At
+ * portrait size that read as a black goggle around a white button: the ring
+ * was a hard drawn circle, and the cornea's refraction washed the iris out to
+ * grey whatever colour it was set to.
+ *
+ * One ball with one texture instead. A sphere's UVs run pole to rim, so a
+ * texture drawn as horizontal bands wraps into concentric rings — pupil, iris,
+ * limbus, sclera, in order, from the top of the canvas outward. Vertical
+ * streaks in the same canvas become radial fibres in the iris, which is what
+ * stops it reading as a flat disc of colour.
+ */
+const EYE_BANDS = {
+  pupil: 0.052,
+  pupilEdge: 0.068,
+  iris: 0.152,
+  limbus: 0.172,
+}
+
+function createEyeTexture(irisColor: string) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 256
+  canvas.height = 256
+  const context = canvas.getContext('2d')!
+  const iris = new THREE.Color(irisColor).convertLinearToSRGB()
+  const shade = (mix: number) => {
+    const c = iris.clone()
+    c.lerp(new THREE.Color(mix > 0 ? 1 : 0, mix > 0 ? 1 : 0, mix > 0 ? 1 : 0), Math.min(0.95, Math.abs(mix)))
+    return `rgb(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)})`
+  }
+  const row = (from: number, to: number, fill: string) => {
+    context.fillStyle = fill
+    context.fillRect(0, Math.round(from * 256), 256, Math.ceil((to - from) * 256) + 1)
+  }
+
+  row(0, 1, '#e9e4d9')
+  // Veining and shadow toward the back of the ball, which never shows but
+  // keeps the edge of the visible white from reading as flat paint.
+  // Only the front third of the ball is ever outside the lid, so the shading
+  // that turns the back of it away starts well past the visible sclera.
+  const rim = context.createLinearGradient(0, 0.46 * 256, 0, 256)
+  rim.addColorStop(0, 'rgba(150,138,126,0)')
+  rim.addColorStop(1, 'rgba(96,84,74,0.7)')
+  context.fillStyle = rim
+  context.fillRect(0, Math.round(0.46 * 256), 256, 256)
+
+  row(EYE_BANDS.iris, EYE_BANDS.limbus, shade(-0.4))
+  row(EYE_BANDS.pupilEdge, EYE_BANDS.iris, shade(0.08))
+  for (let x = 0; x < 256; x += 2) {
+    const mix = ((x * 2654435761) % 1000) / 1000
+    context.strokeStyle = shade(mix > 0.5 ? 0.22 * (mix - 0.5) * 2 : -0.34 * (0.5 - mix) * 2)
+    context.lineWidth = 1.6
+    context.beginPath()
+    context.moveTo(x, EYE_BANDS.pupilEdge * 256)
+    context.lineTo(x + (mix - 0.5) * 5, EYE_BANDS.iris * 256)
+    context.stroke()
+  }
+  const ring = context.createLinearGradient(0, (EYE_BANDS.iris - 0.022) * 256, 0, (EYE_BANDS.limbus + 0.012) * 256)
+  ring.addColorStop(0, 'rgba(20,14,10,0)')
+  ring.addColorStop(0.5, 'rgba(20,14,10,0.72)')
+  ring.addColorStop(1, 'rgba(20,14,10,0)')
+  context.fillStyle = ring
+  context.fillRect(0, Math.round((EYE_BANDS.iris - 0.022) * 256), 256, Math.ceil(0.06 * 256))
+  row(0, EYE_BANDS.pupil, '#08090a')
+  const pupilEdge = context.createLinearGradient(0, EYE_BANDS.pupil * 256, 0, EYE_BANDS.pupilEdge * 256)
+  pupilEdge.addColorStop(0, 'rgba(8,9,10,1)')
+  pupilEdge.addColorStop(1, 'rgba(8,9,10,0)')
+  context.fillStyle = pupilEdge
+  context.fillRect(0, Math.round(EYE_BANDS.pupil * 256), 256, Math.ceil(0.02 * 256) + 1)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = THREE.RepeatWrapping
+  texture.anisotropy = 8
+  return texture
+}
+
 function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, eyeColor: string, hairColor: string) {
   const eyes = new THREE.Group()
   eyes.name = 'studio-eyeballs'
-  // Keep the group in model space. Each iris already faces -Z; rotating the
-  // whole group as well put the iris and pupil behind the sclera on the female
-  // actors, leaving only the baked red eye sockets visible.
-  // The previous 27.8 mm width covered the painted eyelids. This 24.2 mm width
-  // stays inside both shipped socket textures without making the iris smaller.
-  const scleraGeometry = new THREE.SphereGeometry(0.0112, 40, 26)
-  const irisGeometry = new THREE.CircleGeometry(0.0080, 48)
-  const limbusGeometry = new THREE.RingGeometry(0.0074, 0.0086, 48)
-  const pupilGeometry = new THREE.CircleGeometry(0.0036, 32)
-  // A shallow cap, not a full sphere: only the front of an eye bulges.
-  const corneaGeometry = new THREE.SphereGeometry(0.0072, 28, 20, 0, Math.PI * 2, 0, Math.PI / 2.5)
-
-  // Not white: a sclera in a socket is always half a stop under the cheek,
-  // and a pure white one reads as a headlight against a face this dark.
-  const sclera = new THREE.MeshPhysicalMaterial({ color: '#b3ac9f', roughness: 0.34, clearcoat: 0.4, clearcoatRoughness: 0.14 })
-  sclera.name = ACTOR_EYE_MATERIAL
-  // Matte: the cornea in front of it is what carries the catchlight. Given a
-  // clear coat of its own the iris answered the key across its whole face and
-  // a dark brown eye rendered pale.
-  const iris = new THREE.MeshPhysicalMaterial({ color: eyeColor, roughness: 0.52, clearcoat: 0, metalness: 0 })
-  iris.name = ACTOR_IRIS_MATERIAL
-  // The limbal ring. Its darkness around the iris edge is a large part of why
-  // an eye reads as young, and as an eye at all.
-  const limbus = new THREE.MeshBasicMaterial({ color: '#160f0a', transparent: true, opacity: 0.86, depthWrite: false })
-  const pupil = new THREE.MeshBasicMaterial({ color: '#08090a' })
-  const cornea = new THREE.MeshPhysicalMaterial({
-    name: ACTOR_EYE_MATERIAL,
-    color: '#ffffff',
-    roughness: 0.02,
+  const geometry = new THREE.SphereGeometry(EYE_RADIUS, 44, 32)
+  const material = new THREE.MeshPhysicalMaterial({
+    map: createEyeTexture(eyeColor),
+    roughness: 0.14,
     metalness: 0,
-    transmission: 0.94,
-    thickness: 0.0016,
-    ior: 1.376,
     clearcoat: 1,
-    clearcoatRoughness: 0.02,
-    transparent: true,
-    depthWrite: false,
+    clearcoatRoughness: 0.03,
+    envMapIntensity: 0.55,
   })
+  // Named so the appearance pass can re-tint the iris when the control moves.
+  material.name = ACTOR_IRIS_MATERIAL
 
   for (const side of [-1, 1] as const) {
     const eye = new THREE.Group()
     eye.position.x = side * EYE_HALF_SEPARATION
-    const white = new THREE.Mesh(scleraGeometry, sclera)
-    white.scale.set(1.02, 0.70, 0.86)
-    white.castShadow = true
-    eye.add(white)
-    const irisMesh = new THREE.Mesh(irisGeometry, iris)
-    irisMesh.position.z = 0.00975
-    eye.add(irisMesh)
-    const limbusMesh = new THREE.Mesh(limbusGeometry, limbus)
-    limbusMesh.position.z = 0.00982
-    limbusMesh.renderOrder = 1
-    eye.add(limbusMesh)
-    const pupilMesh = new THREE.Mesh(pupilGeometry, pupil)
-    pupilMesh.position.z = 0.01005
-    eye.add(pupilMesh)
-    const corneaMesh = new THREE.Mesh(corneaGeometry, cornea)
-    // The cap's axis is +Y; tip it toward the camera-facing side of the actor.
-    corneaMesh.rotation.x = Math.PI / 2
-    corneaMesh.position.z = 0.0078
-    corneaMesh.scale.set(1, 0.62, 1)
-    corneaMesh.renderOrder = 2
-    eye.add(corneaMesh)
+    const ball = new THREE.Mesh(geometry, material)
+    // The texture's pole is the pupil; tip it to face the lens.
+    ball.rotation.x = Math.PI / 2
+    ball.castShadow = false
+    ball.receiveShadow = true
+    eye.add(ball)
     eyes.add(eye)
   }
 
-  // The shipped human faces -Z. Keep the sphere centres inside the sockets;
-  // only the iris/pupil surfaces sit just ahead of the face.
-  // Measured off this actor's own face.
   const surface = measureEyeSurface(model, box.max.y)
   const anchor = studioEyeAnchor(surface ?? headPosition.z - 0.12, box.max.y, headPosition.x, box.max.y - headPosition.y)
   // attachHeadDetail converts the anchor in place, so the brows get their own.
   // Placed before the eyes are attached, because attachHeadDetail converts
   // the anchor to model space in place.
   addStudioBrows(model, head, anchor.clone(), hairColor)
+  cutEyeApertures(model, anchor)
   attachHeadDetail(model, head, eyes, anchor)
 }
 
@@ -1467,26 +1557,49 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       }
 
       // This source is authored in a wide A-stance with straight arms and flat,
-      // splayed hands — a modelling pose, not a standing one. Everything the
-      // pose library does to an actor is a delta from whatever is captured
-      // next, so the file's stance has to be settled into a human one first:
-      // arms down beside the body, a little flex left in the elbows, and the
-      // forearms rolled in so the palms face the thighs instead of the lens.
+      // splayed hands — a modelling pose, not a standing one, and not the pose
+      // the library measures from either. Every pose an actor is given is a
+      // delta from whatever rest is captured next, so if that rest is not the
+      // rig's own neutral stance, every delta lands somewhere else: a hand
+      // aimed at a hip arrived at the sternum, and the further the pose asked
+      // the arm to travel the further off it finished.
+      //
+      // So the arms are aimed rather than nudged. Forward kinematics says where
+      // the rig's neutral puts this actor's elbow and wrist; each arm bone is
+      // turned until it points that way, and the rest pose captured below is
+      // then the neutral the deltas are written against, by construction.
       if (shippedHuman) {
-        const rotateInWorld = (bone: THREE.Bone | undefined, axis: THREE.Vector3, degrees: number) => {
-          if (!bone || degrees === 0) return
+        const neutral = forwardKinematics(NEUTRAL_POSE, appearanceRef.current.physique)
+        const aim = (bone: THREE.Bone | undefined, from: THREE.Vector3, to: THREE.Vector3) => {
+          if (!bone) return
+          const direction = boneDirection(bone)
+          if (!direction) return
+          const wanted = to.clone().sub(from).normalize()
+          if (wanted.lengthSq() < 1e-8) return
           const parentWorld = bone.parent?.getWorldQuaternion(new THREE.Quaternion()) ?? new THREE.Quaternion()
           const desiredWorld = bone.getWorldQuaternion(new THREE.Quaternion())
-          desiredWorld.premultiply(new THREE.Quaternion().setFromAxisAngle(axis, THREE.MathUtils.degToRad(degrees)))
+          desiredWorld.premultiply(new THREE.Quaternion().setFromUnitVectors(direction, wanted))
           bone.quaternion.copy(parentWorld.invert()).multiply(desiredWorld)
           model.updateMatrixWorld(true)
         }
-        rotateInWorld(map.leftUpperArm, RIG_AXIS.z, -REST_ARM_DROP)
-        rotateInWorld(map.rightUpperArm, RIG_AXIS.z, REST_ARM_DROP)
-        rotateInWorld(map.leftLowerArm, RIG_AXIS.x, -REST_ELBOW_FLEX)
-        rotateInWorld(map.rightLowerArm, RIG_AXIS.x, -REST_ELBOW_FLEX)
-        rotateInWorld(map.leftLowerArm, RIG_AXIS.y, -REST_FOREARM_ROLL)
-        rotateInWorld(map.rightLowerArm, RIG_AXIS.y, REST_FOREARM_ROLL)
+        aim(map.leftUpperArm, neutral.leftShoulder, neutral.leftElbow)
+        aim(map.leftLowerArm, neutral.leftElbow, neutral.leftWrist)
+        aim(map.rightUpperArm, neutral.rightShoulder, neutral.rightElbow)
+        aim(map.rightLowerArm, neutral.rightElbow, neutral.rightWrist)
+        // Aiming fixes where a bone points, not how it is rolled about its own
+        // length. A forearm still has to pronate or the palms face the lens.
+        const roll = (bone: THREE.Bone | undefined, degrees: number) => {
+          if (!bone) return
+          const along = boneDirection(bone)
+          if (!along) return
+          const parentWorld = bone.parent?.getWorldQuaternion(new THREE.Quaternion()) ?? new THREE.Quaternion()
+          const desiredWorld = bone.getWorldQuaternion(new THREE.Quaternion())
+          desiredWorld.premultiply(new THREE.Quaternion().setFromAxisAngle(along, THREE.MathUtils.degToRad(degrees)))
+          bone.quaternion.copy(parentWorld.invert()).multiply(desiredWorld)
+          model.updateMatrixWorld(true)
+        }
+        roll(map.leftLowerArm, -REST_FOREARM_ROLL)
+        roll(map.rightLowerArm, REST_FOREARM_ROLL)
       }
 
       const footY = (bone: THREE.Bone | undefined) => bone

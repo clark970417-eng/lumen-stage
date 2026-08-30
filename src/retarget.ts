@@ -14,8 +14,9 @@
  */
 
 import * as THREE from 'three'
-import { NEUTRAL_POSE, type HandPose, type ModelPose } from './pose'
-import { applyFingerCurlDelta, applyWorldPoseDelta } from './retargetDelta'
+import { elbowFlexion } from './ik.ts'
+import { NEUTRAL_POSE, type HandPose, type ModelPose } from './pose.ts'
+import { applyFingerCurlDelta, applyWorldPoseDelta } from './retargetDelta.ts'
 
 /** Every joint the rig can drive. Anything else in the skeleton is left alone. */
 export type HumanoidBone =
@@ -151,7 +152,7 @@ const REFERENCE_DIRECTION: Partial<Record<HumanoidBone, THREE.Vector3>> = {
  * A bone with no children (a fingertip, or a hand on a rig without fingers)
  * has no measurable direction, so those keep their rest orientation.
  */
-function boneDirection(bone: THREE.Bone): THREE.Vector3 | null {
+export function boneDirection(bone: THREE.Bone): THREE.Vector3 | null {
   const child = bone.children.find((node) => (node as THREE.Bone).isBone)
   if (!child) return null
   const here = new THREE.Vector3()
@@ -225,7 +226,7 @@ function accumulate(pose: ModelPose, stanceSplay: number): Partial<Record<Humano
     const wrist = left ? pose.leftWrist : pose.rightWrist
     const shoulder = chain(chest.clone(), axis(Z, shoulderLift * side * -0.35))
     const upper = chain(shoulder.clone(), axis(X, -forward), axis(Y, twist), axis(Z, abduct))
-    const lower = chain(upper.clone(), axis(Z, elbow), axis(Y, forearmTwist))
+    const lower = chain(upper.clone(), axis(X, elbowFlexion(elbow, side)), axis(Y, forearmTwist))
     const hand = chain(lower.clone(), axis(X, wrist))
     return { shoulder, upper, lower, hand }
   }
