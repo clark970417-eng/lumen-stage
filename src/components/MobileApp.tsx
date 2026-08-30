@@ -14,7 +14,6 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalSt
 import { AboutDialog, CopyrightMark } from './AboutDialog'
 import { BrandMark } from './BrandMark'
 import { BACKDROPS } from '../backdrops'
-import { LENS_PROFILES, type LensProfileId } from '../cameraProfiles'
 import { LOCALES, useCatalogT, useLocaleStore, useT, type Locale, type MessageKey } from '../i18n'
 import { renderExportCanvas, exportFileName } from '../shotCapture'
 import { SETUP_CATEGORIES, SETUP_LIBRARY, type SetupCategory } from '../setups'
@@ -33,6 +32,7 @@ import { analyzeReferencePixels, type ReferenceLightingAnalysis } from '../refer
 import { captureContinuityBaseline, evaluateContinuity, type ContinuityBaseline } from '../continuity'
 import { useWorkflow, type WorkflowStage } from '../workflow'
 import { assetHref, routeHref } from '../routing'
+import { lightWattage, percentForWattage, wattageLimit } from '../lightProfiles'
 import '../mobile.css'
 
 type Tab = 'planning' | 'lighting' | 'shooting' | 'layout'
@@ -51,9 +51,6 @@ const tabStage: Record<Tab, WorkflowStage> = {
 }
 
 const MobileStage = lazy(() => import('./MobileStage'))
-
-/** Lenses worth carrying, in the order a portrait photographer reaches for them. */
-const LENS_CHOICES: LensProfileId[] = ['zoom-24-70', 'prime-35', 'prime-50', 'prime-85', 'zoom-70-200']
 
 /** A short backdrop shelf — the papers that cover most of what a studio shoots. */
 const BACKDROP_CHOICES = ['super-white', 'bone', 'fashion-grey', 'studio-grey', 'thunder-grey', 'charcoal', 'black-paper', 'cobalt', 'crimson']
@@ -377,8 +374,14 @@ function LightsTab() {
         <button className="m-delete" disabled={lights.length < 2} onClick={() => deleteLight(light.id)}>{t('common.delete')}</button>
       </div>
 
-      <Dial label={t('mobile.light.power')} value={light.powerPercent} min={1} max={100} readout={`${light.powerPercent}%`}
-        onChange={(value) => updateLight(light.id, { powerPercent: value })} />
+      <Dial
+        label={t('mobile.light.power')}
+        value={lightWattage(light)}
+        min={1}
+        max={wattageLimit(light)}
+        readout={`${lightWattage(light)} ${light.operationMode === 'flash' ? 'Ws' : 'W'}`}
+        onChange={(value) => updateLight(light.id, { powerPercent: percentForWattage(light, value) })}
+      />
       <Dial label={t('mobile.light.angle')} value={angle} min={-180} max={180} step={5} readout={`${Math.abs(angle)}° ${side}`}
         onChange={(value) => move(value, distance, light.position[1])} />
       <Dial label={t('mobile.light.distance')} value={Number(distance.toFixed(2))} min={0.6} max={4.5} step={0.05} readout={`${distance.toFixed(2)} m`}
@@ -461,8 +464,6 @@ function CameraTab() {
   const focalLength = useStudio((state) => state.focalLength)
   const aperture = useStudio((state) => state.aperture)
   const iso = useStudio((state) => state.iso)
-  const lensProfileId = useStudio((state) => state.lensProfileId)
-  const selectLensProfile = useStudio((state) => state.selectLensProfile)
   const framingPreset = useStudio((state) => state.cameraFramingPreset)
   const frameCameraSubject = useStudio((state) => state.frameCameraSubject)
   const frameOrientation = useStudio((state) => state.frameOrientation)
@@ -477,7 +478,6 @@ function CameraTab() {
   const startPhotoRender = useStudio((state) => state.startPhotoRender)
   const openCameraView = useStudio((state) => state.openCameraView)
 
-  const lens = LENS_PROFILES[lensProfileId]
   const dx = cameraPosition[0] - cameraTarget[0]
   const dz = cameraPosition[2] - cameraTarget[2]
   const cameraAngle = Math.round(toDegrees(Math.atan2(dx, dz)))
@@ -496,22 +496,9 @@ function CameraTab() {
         </div>
       </div>
 
-      <div className="m-field">
-        <span className="m-label">{t('mobile.camera.lens')}</span>
-        <div className="m-chips">
-          {LENS_CHOICES.map((id) => (
-            <button key={id} className={lensProfileId === id ? 'active' : ''} onClick={() => selectLensProfile(id)}>
-              {LENS_PROFILES[id].minFocal === LENS_PROFILES[id].maxFocal ? `${LENS_PROFILES[id].minFocal}mm` : `${LENS_PROFILES[id].minFocal}–${LENS_PROFILES[id].maxFocal}`}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {lens.minFocal !== lens.maxFocal && (
-        <Dial label={t('cam.focal')} value={focalLength} min={lens.minFocal} max={lens.maxFocal} readout={`${focalLength} mm`}
-          onChange={(value) => setValue('focalLength', value)} />
-      )}
-      <Dial label={t('cam.aperture')} value={aperture} min={lens.maxAperture} max={16} step={0.1} readout={`ƒ/${aperture.toFixed(1)}`}
+      <Dial label={t('cam.focal')} value={focalLength} min={24} max={200} readout={`${focalLength} mm`}
+        onChange={(value) => setValue('focalLength', value)} />
+      <Dial label={t('cam.aperture')} value={aperture} min={1.2} max={16} step={0.1} readout={`ƒ/${aperture.toFixed(1)}`}
         onChange={(value) => setValue('aperture', Number(value.toFixed(1)))} />
       <Dial label="ISO" value={iso} min={100} max={6400} step={100} readout={`${iso}`}
         onChange={(value) => setValue('iso', value)} />
@@ -618,7 +605,7 @@ function ProjectTab({ onOpenAbout, onOpenTour }: { onOpenAbout: () => void; onOp
   </div>
 }
 
-function MobileIntentTab({ applied, onApply }: { applied: string | null; onApply: (id: string) => void }) {
+function MobileIntentTab() {
   const locale = useLocaleStore((state) => state.locale)
   const copy = MOBILE_WORKFLOW[locale]
   const input = useRef<HTMLInputElement>(null)
@@ -666,7 +653,6 @@ function MobileIntentTab({ applied, onApply }: { applied: string | null; onApply
         <div className="m-reference-actions"><button onClick={() => input.current?.click()}>{copy.choose}</button><button onClick={applyReference}>{copy.apply}</button></div>
       </>}
     </section>
-    <SetupsTab applied={applied} onApply={onApply} />
   </div>
 }
 
@@ -701,7 +687,7 @@ function MobileVerifyTab({ onOpenAbout, onOpenTour }: { onOpenAbout: () => void;
   </div>
 }
 
-function MobileLayoutTab() {
+function MobileLayoutTab({ applied, onApply }: { applied: string | null; onApply: (id: string) => void }) {
   const t = useT()
   const state = useStudio()
   const items = [
@@ -730,23 +716,26 @@ function MobileLayoutTab() {
     else if (selectedModifier) state.setModifierTransform(selectedModifier.id, [x, selectedModifier.position[1], selectedModifier.position[2]], selectedModifier.rotationY, 'X')
     else if (selectedStudioObject) state.setStudioObjectTransform(selectedStudioObject.id, [x, selectedStudioObject.position[1], selectedStudioObject.position[2]], selectedStudioObject.rotationY, 'X')
   }
-  return <div className="m-tab">
-    <h2>{t('mobile.layout.title')}</h2>
-    <p className="m-note">{t('mobile.layout.note')}</p>
-    <div className="m-chips m-chips-scroll" role="group" aria-label={t('mobile.layout.title')}>
-      {items.map((item) => <button key={item.id} className={state.selected === item.id ? 'active' : ''} onClick={() => state.selectObject(item.id)}>{item.label}</button>)}
-      <button className="m-chip-add" onClick={() => state.addLight()}>＋ {t('mobile.light.add')}</button>
+  return <div className="m-phase-stack">
+    <SetupsTab applied={applied} onApply={onApply} />
+    <div className="m-tab">
+      <h2>{t('mobile.layout.title')}</h2>
+      <p className="m-note">{t('mobile.layout.note')}</p>
+      <div className="m-chips m-chips-scroll" role="group" aria-label={t('mobile.layout.title')}>
+        {items.map((item) => <button key={item.id} className={state.selected === item.id ? 'active' : ''} onClick={() => state.selectObject(item.id)}>{item.label}</button>)}
+        <button className="m-chip-add" onClick={() => state.addLight()}>＋ {t('mobile.light.add')}</button>
+      </div>
+      <Dial
+        label={`${selectedItem.label} · ${t('mobile.layout.horizontal')}`}
+        value={selectedPosition[0]}
+        min={-horizontalLimit}
+        max={horizontalLimit}
+        step={0.05}
+        readout={`${selectedPosition[0].toFixed(2)} m`}
+        disabled={locked}
+        onChange={moveHorizontally}
+      />
     </div>
-    <Dial
-      label={`${selectedItem.label} · ${t('mobile.layout.horizontal')}`}
-      value={selectedPosition[0]}
-      min={-horizontalLimit}
-      max={horizontalLimit}
-      step={0.05}
-      readout={`${selectedPosition[0].toFixed(2)} m`}
-      disabled={locked}
-      onChange={moveHorizontally}
-    />
   </div>
 }
 
@@ -887,9 +876,9 @@ export function MobileApp() {
           <section className="m-sheet" id="m-tabpanel" role="tabpanel" aria-labelledby={`m-tab-${tab}`}>
             <div className="m-sheet-scroll">
               {tab === 'planning' && <SubjectTab />}
-              {tab === 'lighting' && <div className="m-phase-stack"><MobileIntentTab applied={appliedSetup} onApply={setAppliedSetup} /><LightsTab /></div>}
+              {tab === 'lighting' && <div className="m-phase-stack"><MobileIntentTab /><LightsTab /></div>}
               {tab === 'shooting' && <div className="m-phase-stack"><CameraTab /><MobileVerifyTab onOpenAbout={() => setAboutOpen(true)} onOpenTour={openTour} /></div>}
-              {tab === 'layout' && <MobileLayoutTab />}
+              {tab === 'layout' && <MobileLayoutTab applied={appliedSetup} onApply={setAppliedSetup} />}
             </div>
             {tab === 'lighting' && <MobileEditActions storageKey="lumen-stage:lighting-preset"
               capture={() => structuredClone(useStudio.getState().lights)}

@@ -829,7 +829,7 @@ const DICT = {
   'mobile.light.untitled': { en: 'Untitled light', zh: '未命名燈具', ja: '名称未設定のライト' },
   'mobile.light.bare': { en: 'Bare bulb', zh: '裸燈', ja: 'ベアバルブ' },
   'mobile.light.toggle': { en: 'Light on', zh: '開燈', ja: '点灯' },
-  'mobile.light.power': { en: 'Brightness', zh: '亮度', ja: '明るさ' },
+  'mobile.light.power': { en: 'Output power', zh: '輸出瓦數', ja: '出力ワット数' },
   'mobile.light.angle': { en: 'Angle around the subject', zh: '繞人物角度', ja: '被写体まわりの角度' },
   'mobile.light.angle.front': { en: 'front', zh: '正面', ja: '正面' },
   'mobile.light.angle.back': { en: 'behind', zh: '背後', ja: '背後' },

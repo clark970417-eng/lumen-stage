@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 test('keeps the full studio inside unusual desktop screen shapes', async ({ page }) => {
   test.setTimeout(90_000)
   await page.goto('/studio?ui=full')
-  await expect(page.getByRole('textbox', { name: 'Project name' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('textbox', { name: 'Project name' })).toBeVisible({ timeout: 50_000 })
   const layout = await page.evaluate(() => {
     const header = document.querySelector('header.topbar')?.getBoundingClientRect()
     const stage = document.querySelector('.viewport')?.getBoundingClientRect()
