@@ -110,7 +110,7 @@ function CameraRig() {
       perspective.fov = 43
       perspective.lookAt(0, 0, 1.4)
     } else {
-      perspective.position.set(6.8, 4.8, 7.2)
+      perspective.position.set(6.8, 6, 7.2)
       perspective.fov = 42
       perspective.lookAt(0, 1.1, 0)
     }

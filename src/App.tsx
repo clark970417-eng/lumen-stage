@@ -652,7 +652,7 @@ export default function App() {
           shadows="percentage"
           dpr={[1, 1.75]}
           gl={{ antialias: true, preserveDrawingBuffer: true }}
-          camera={{ position: [6.8, 4.8, 7.2], fov: 42, near: 0.05, far: 100 }}
+          camera={{ position: [6.8, 6, 7.2], fov: 42, near: 0.05, far: 100 }}
         >
           <CanvasHealth onLost={onWebglLost} onRestored={onWebglRestored} />
           <Suspense fallback={null}><StudioScene /></Suspense>
