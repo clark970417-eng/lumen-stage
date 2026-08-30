@@ -31,6 +31,23 @@
 .onboarding-dots i { width: 5px; height: 5px; border-radius: 999px; background: #40515c; }
 .onboarding-dots i.active { width: 16px; background: var(--signal-cool); }
 
+/* The last tour step targets Save. Keep every top-bar action inside its grid
+   even when OS scaling leaves a few fewer CSS pixels than the nominal width. */
+@media (min-width: 1681px) {
+  header.topbar .project-actions {
+    grid-template-columns:
+      minmax(0, 1.25fr)
+      minmax(0, 1fr)
+      minmax(0, 1.15fr)
+      minmax(0, .78fr)
+      minmax(0, .92fr)
+      minmax(0, .85fr)
+      minmax(0, 1.75fr) !important;
+  }
+  header.topbar .project-actions > *,
+  header.topbar .project-actions .file-menu { min-width: 0; }
+}
+
 @media (max-width: 900px) {
   .onboarding-shade { background: rgba(4, 9, 13, .48); }
   .onboarding-card { max-height: min(520px, calc(100dvh - 24px)); }
