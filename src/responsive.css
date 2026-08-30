@@ -20,6 +20,32 @@ main.app-shell {
   block-size: 100dvh;
 }
 
+.viewport-status-stack {
+  position: absolute;
+  inset-block-start: 13px;
+  inset-inline-end: 14px;
+  z-index: 8;
+  display: flex;
+  max-inline-size: min(420px, calc(100% - 28px));
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.viewport-status-stack > .shortcut-launcher,
+.viewport-status-stack > .axis-label {
+  position: static;
+  max-inline-size: 100%;
+  pointer-events: auto;
+}
+
+.viewport-status-stack > .axis-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .control-drawer > .control-drawer-body {
   overflow-x: auto;
   overscroll-behavior-inline: contain;

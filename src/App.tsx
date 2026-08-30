@@ -748,7 +748,10 @@ export default function App() {
         )}
         {webglLost && <div className="webgl-notice" role="alert"><strong>{viewportCopy.interrupted}</strong><span>{viewportCopy.safe}</span><button onClick={() => location.reload()}>{viewportCopy.reload}</button></div>}
         <div className={`viewport-label ${renderMode === 'path' ? 'rendering' : ''}`}>{renderMode === 'path' ? <><span className="status-dot" /> {pathStatus === 'building' ? viewportCopy.buildingScene : `${viewportCopy.pathTracing} · ${Math.floor(pathSamples)} SPP`} <b>HQ</b></> : <>{viewportCopy.studio} · {roomWidth} × {roomDepth} m</>}</div>
-        {(renderMode === 'path' || view !== 'studio') && <div className="axis-label">{renderMode === 'path' ? `${cameraMode === 'cinema' ? viewportCopy.cinema : viewportCopy.photo} · ${sensorLabel} · ${frameAspect}` : view === 'camera' ? `${cameraLabel} · ${sensorLabel} · ${frameAspect} · ${frameOrientation === 'portrait' ? viewportCopy.portrait : viewportCopy.landscape}` : `${viewportCopy.topPlan} · ${viewportCopy.meters}`}</div>}
+        <div className="viewport-status-stack">
+          <ShortcutLauncher />
+          {(renderMode === 'path' || view !== 'studio') && <div className="axis-label">{renderMode === 'path' ? `${cameraMode === 'cinema' ? viewportCopy.cinema : viewportCopy.photo} · ${sensorLabel} · ${frameAspect}` : view === 'camera' ? `${cameraLabel} · ${sensorLabel} · ${frameAspect} · ${frameOrientation === 'portrait' ? viewportCopy.portrait : viewportCopy.landscape}` : `${viewportCopy.topPlan} · ${viewportCopy.meters}`}</div>}
+        </div>
         <ViewModeDock />
         <SceneToolbar />
         <RenderToolbar />
@@ -758,7 +761,6 @@ export default function App() {
         <PathSensorOverlay />
         <ExposureAnalysis />
         <ShotLibrary />
-        <ShortcutLauncher />
         <ShortcutHint hint={hint} />
         <button className={`workspace-panel-tab left ${workspacePanels.left ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, left: !current.left }))} aria-label={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft} title={workspacePanels.left ? panelSideLabel.hideLeft : panelSideLabel.showLeft}><span aria-hidden="true">{panelSideName.left}</span><i aria-hidden="true" /></button>
         <button className={`workspace-panel-tab right ${workspacePanels.right ? 'panel-visible' : ''}`} onClick={() => setWorkspacePanels((current) => ({ ...current, right: !current.right }))} aria-label={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight} title={workspacePanels.right ? panelSideLabel.hideRight : panelSideLabel.showRight}><span aria-hidden="true">{panelSideName.right}</span><i aria-hidden="true" /></button>
