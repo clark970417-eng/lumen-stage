@@ -1947,6 +1947,13 @@ button, input, select { transition: border-color .16s ease, background-color .16
 .blueprint-shot small { margin-top: 6px; color: #7e909c; font: 9px var(--mono); }
 .blueprint-section { padding: 15px 10px; }
 .blueprint-section h2 { margin: 0 5px 10px; color: #8798a4; font: 500 9px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+.layout-section-heading { min-height: 34px; margin: 0 4px 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.layout-section-heading h2 { margin: 0; }
+.layout-section-actions { display: grid; grid-template-columns: repeat(2, 30px); gap: 5px; }
+.layout-section-actions button { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid #3a4a55; border-radius: 6px; background: #18222a; color: #a4b3bc; font-size: 17px; line-height: 1; cursor: pointer; }
+.layout-section-actions .layout-add-button { border-color: rgba(255,180,84,.58); color: var(--signal); background: rgba(255,180,84,.07); }
+.layout-section-actions button:hover:not(:disabled) { border-color: var(--signal); color: #fff; background: #202c35; }
+.layout-section-actions button:disabled { color: #4f5c64; cursor: default; opacity: .48; }
 .blueprint-row { width: 100%; min-height: 58px; margin-bottom: 4px; padding: 8px 8px 8px 10px; display: grid; grid-template-columns: 32px minmax(0,1fr) auto; align-items: center; gap: 9px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #d9e0e4; text-align: left; cursor: pointer; }
 .blueprint-row:hover { background: #19222a; }
 .blueprint-row.active { border-color: #465967; background: linear-gradient(90deg,rgba(103,216,255,.09),rgba(23,31,38,.7)); box-shadow: inset 2px 0 0 var(--signal); }

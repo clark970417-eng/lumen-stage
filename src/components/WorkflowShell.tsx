@@ -14,7 +14,7 @@ const COPY = {
     stages: [['intent', 'Person'], ['lighting', 'Light'], ['framing', 'Camera'], ['layout', 'Layout']] as Array<[WorkflowStage, string]>,
     blueprint: 'Shoot blueprint', shot: 'Shot', material: '+ Add to stage', reference: 'Reference match', continuity: 'Continuity guard',
     target: 'Visual target', targetHint: 'Start from the image you want to make.', subject: 'Subject & blocking', lightRoles: 'Lighting roles', framing: 'Frame plan', verify: 'Preflight',
-    mainSubject: 'Main subject', camera: 'Camera A', layout: 'Position layout', addLight: '+ Add light', shots: 'shots', key: 'Key light', fill: 'Fill light', rim: 'Separation light', background: 'Background light', effect: 'Effect light',
+    mainSubject: 'Main subject', camera: 'Camera A', layout: 'Position layout', addItem: 'Add to stage', removeItem: 'Remove selected item', shots: 'shots', key: 'Key light', fill: 'Fill light', rim: 'Separation light', background: 'Background light', effect: 'Effect light',
     noProps: 'No supporting objects yet', tracked: 'tracking subject', manual: 'manual aim', selected: 'Adjusting now', desired: 'Desired effect', desiredLight: 'Light / look', desiredFrame: 'Frame / subject', desiredPose: 'Subject / pose', impact: 'Current impact', advanced: 'Advanced controls',
     soften: 'Soften light', deepen: 'Deepen shadow', trackFace: 'Track face', headshot: 'Headshot', half: 'Half body', full: 'Full body', exposureCheck: 'Exposure check', shotCompare: 'Compare shots', compareNeedTwo: 'Save 2 shots to compare',
     assetTitle: 'Add to the stage', lights: 'Lights', people: 'People & set', grip: 'Light control', backdrops: 'Backdrops', close: 'Close',
@@ -30,7 +30,7 @@ const COPY = {
     stages: [['intent', '人物'], ['lighting', '佈光'], ['framing', '相機'], ['layout', '配置']] as Array<[WorkflowStage, string]>,
     blueprint: '拍攝藍圖', shot: '鏡位', material: '＋ 加入舞台', reference: '參考照配光', continuity: '光線連戲',
     target: '視覺目標', targetHint: '先從你想做出的畫面開始。', subject: '人物與走位', lightRoles: '燈光角色', framing: '鏡位計畫', verify: '拍攝前檢查',
-    mainSubject: '主要人物', camera: '相機 A', layout: '全場位置', addLight: '＋ 新增燈光', shots: '個鏡位', key: '主光', fill: '補光', rim: '分離光', background: '背景光', effect: '效果光',
+    mainSubject: '主要人物', camera: '相機 A', layout: '全場位置', addItem: '新增到舞台', removeItem: '刪除選取項目', shots: '個鏡位', key: '主光', fill: '補光', rim: '分離光', background: '背景光', effect: '效果光',
     noProps: '尚未加入其他人物或道具', tracked: '跟隨人物', manual: '手動瞄準', selected: '正在調整', desired: '想得到的效果', desiredLight: '燈光／畫面效果', desiredFrame: '構圖／人物', desiredPose: '人物／姿勢', impact: '當前影響', advanced: '進階器材參數',
     soften: '柔化光線', deepen: '加深陰影', trackFace: '鎖定臉部', headshot: '臉部近景', half: '半身構圖', full: '全身構圖', exposureCheck: '檢查曝光', shotCompare: '比較鏡位', compareNeedTwo: '儲存 2 個鏡位後比較',
     assetTitle: '加入拍攝舞台', lights: '燈光', people: '人物與佈景', grip: '控光附件', backdrops: '背景', close: '關閉',
@@ -46,7 +46,7 @@ const COPY = {
     stages: [['intent', '人物'], ['lighting', '照明'], ['framing', 'カメラ'], ['layout', '配置']] as Array<[WorkflowStage, string]>,
     blueprint: '撮影ブループリント', shot: 'ショット', material: '＋ ステージに追加', reference: '参照写真から配光', continuity: '光の連続性',
     target: 'ビジュアル目標', targetHint: '作りたい写真から始めます。', subject: '人物と配置', lightRoles: 'ライトの役割', framing: 'ショット計画', verify: '撮影前チェック',
-    mainSubject: 'メイン人物', camera: 'カメラ A', layout: '全体配置', addLight: '＋ ライトを追加', shots: 'ショット', key: 'キーライト', fill: 'フィルライト', rim: 'セパレーション', background: '背景ライト', effect: 'エフェクト',
+    mainSubject: 'メイン人物', camera: 'カメラ A', layout: '全体配置', addItem: 'ステージに追加', removeItem: '選択中の項目を削除', shots: 'ショット', key: 'キーライト', fill: 'フィルライト', rim: 'セパレーション', background: '背景ライト', effect: 'エフェクト',
     noProps: '人物や小道具はまだありません', tracked: '人物を追従', manual: '手動照準', selected: '調整中', desired: '目指す効果', desiredLight: '照明／ルック', desiredFrame: '構図／人物', desiredPose: '人物／ポーズ', impact: '現在の影響', advanced: '詳細機材設定',
     soften: '光を柔らかく', deepen: '影を深く', trackFace: '顔を追従', headshot: 'ヘッドショット', half: '上半身', full: '全身', exposureCheck: '露出を確認', shotCompare: 'ショット比較', compareNeedTwo: '2 件保存後に比較',
     assetTitle: 'ステージに追加', lights: 'ライト', people: '人物とセット', grip: '遮光・反射', backdrops: '背景', close: '閉じる',
@@ -147,6 +147,16 @@ export function BlueprintPanel() {
   const supporting = studio.studioObjects.filter((item) => item.type === 'subject' || item.type === 'product' || item.type === 'chair' || item.type === 'table')
   const planning = stage === 'intent' || stage === 'blocking'
   const shooting = stage === 'framing' || stage === 'verify'
+  const selectedLight = studio.lights.find((item) => item.id === studio.selected)
+  const selectedModifier = studio.modifiers.find((item) => item.id === studio.selected)
+  const selectedObject = studio.studioObjects.find((item) => item.id === studio.selected)
+  const canDeleteLayoutSelection = studio.selectedIds.length > 0 || !!selectedLight || !!selectedModifier || !!selectedObject
+  const deleteLayoutSelection = () => {
+    if (studio.selectedIds.length > 0) { studio.deleteSelectedLights(); return }
+    if (selectedLight) { studio.deleteLight(selectedLight.id); return }
+    if (selectedModifier) { studio.deleteModifier(selectedModifier.id); return }
+    if (selectedObject) studio.deleteStudioObject(selectedObject.id)
+  }
 
   return <aside className="blueprint-panel panel">
     <header className="blueprint-heading"><span>{copy.blueprint}</span><b>{String(studio.shots.length + 1).padStart(2, '0')}</b></header>
@@ -168,7 +178,20 @@ export function BlueprintPanel() {
 
     {shooting && <section className="blueprint-section verify-actions"><h2>{copy.verify}</h2><button onClick={() => studio.setValue('analysisOpen', true)}>{copy.exposureCheck}<b>→</b></button><button disabled={studio.shots.length < 2} onClick={() => studio.setValue('shotPanelOpen', true)}>{studio.shots.length < 2 ? copy.compareNeedTwo : copy.shotCompare}<b>→</b></button><button onClick={() => setContinuityOpen(true)}>{copy.continuity}<b>→</b></button></section>}
 
-    {stage === 'layout' && <section className="blueprint-section"><h2>{copy.layout}</h2><button className={studio.selected === 'model' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('model')}><i className="model-icon" /><span><strong>{copy.mainSubject}</strong><small>{copy.person}</small></span></button>{studio.lights.map((light, index) => <button key={light.id} className={studio.selected === light.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(light.id)}><i className={`light-icon ${light.shape}`} /><span><strong>{lightRole(index, copy)}</strong><small>{lightDisplayName(light.name, index, copy)}</small></span></button>)}{studio.modifiers.map((modifier) => <button key={modifier.id} className={studio.selected === modifier.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(modifier.id)}><i className="studio-object-icon reflector" /><span><strong>{modifier.name}</strong><small>{copy.grip}</small></span></button>)}{studio.studioObjects.map((item) => <button key={item.id} className={studio.selected === item.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(item.id)}><i className={`studio-object-icon ${item.type}`} /><span><strong>{item.name}</strong><small>{item.type}</small></span></button>)}<button className={studio.selected === 'camera' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('camera')}><i className="camera-icon" /><span><strong>{copy.camera}</strong><small>{copy.camera}</small></span></button></section>}
+    {stage === 'layout' && <section className="blueprint-section layout-section">
+      <header className="layout-section-heading">
+        <h2>{copy.layout}</h2>
+        <div className="layout-section-actions">
+          <button className="layout-add-button" aria-label={copy.addItem} title={copy.addItem} onClick={() => setAssetOpen(true)}>＋</button>
+          <button className="layout-remove-button" aria-label={copy.removeItem} title={copy.removeItem} disabled={!canDeleteLayoutSelection} onClick={deleteLayoutSelection}>−</button>
+        </div>
+      </header>
+      <button className={studio.selected === 'model' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('model')}><i className="model-icon" /><span><strong>{copy.mainSubject}</strong><small>{copy.person}</small></span></button>
+      {studio.lights.map((light, index) => <button key={light.id} className={studio.selected === light.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(light.id)}><i className={`light-icon ${light.shape}`} /><span><strong>{lightRole(index, copy)}</strong><small>{lightDisplayName(light.name, index, copy)}</small></span></button>)}
+      {studio.modifiers.map((modifier) => <button key={modifier.id} className={studio.selected === modifier.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(modifier.id)}><i className="studio-object-icon reflector" /><span><strong>{modifier.name}</strong><small>{copy.grip}</small></span></button>)}
+      {studio.studioObjects.map((item) => <button key={item.id} className={studio.selected === item.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(item.id)}><i className={`studio-object-icon ${item.type}`} /><span><strong>{item.name}</strong><small>{item.type}</small></span></button>)}
+      <button className={studio.selected === 'camera' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('camera')}><i className="camera-icon" /><span><strong>{copy.camera}</strong><small>{copy.camera}</small></span></button>
+    </section>}
 
     {!shooting && stage !== 'layout' && <footer className="blueprint-actions"><button onClick={() => setAssetOpen(true)}>{copy.material}</button></footer>}
   </aside>
@@ -182,9 +205,11 @@ export function AssetDrawer() {
   const studio = useStudio()
   const [tab, setTab] = useState<'lights' | 'people' | 'grip' | 'backdrops'>('lights')
   const mode = workflowModeForStage(stage)
-  const tabs = mode === 'lighting' ? (['lights', 'grip'] as const) : (['people', 'backdrops'] as const)
+  const tabs: ReadonlyArray<'lights' | 'people' | 'grip' | 'backdrops'> = mode === 'layout'
+    ? ['lights', 'people', 'grip', 'backdrops']
+    : mode === 'lighting' ? ['lights', 'grip'] : ['people', 'backdrops']
   useEffect(() => {
-    if (!tabs.includes(tab as never)) setTab(tabs[0])
+    if (!tabs.includes(tab)) setTab(tabs[0])
   }, [stage])
   useEffect(() => {
     if (!open) return
