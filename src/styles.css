@@ -2185,7 +2185,17 @@ header.topbar .project-actions button:hover,
 header.topbar .project-actions .setup-sheet-button:hover,
 header.topbar .file-menu > button:hover,
 header.topbar .file-menu > button.active { background: #24313a; }
-header.topbar .project-actions .save-button { border-radius: 8px; }
+header.topbar .project-actions .save-button {
+  border-radius: 8px;
+  background: var(--signal);
+  color: #191208;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.3);
+}
+header.topbar .project-actions .save-button:hover {
+  background: #ffc36f;
+  color: #191208;
+}
 
 .panel,
 .decision-console,
