@@ -9,10 +9,11 @@ import { OBJLoader } from 'three/addons/loaders/OBJLoader.js'
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
 import { IESLoader } from 'three/addons/loaders/IESLoader.js'
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import type { TransformControls as TransformControlsImpl } from 'three-stdlib'
 import { breathingAdjustedFocalLength, calculateDepthOfField } from '../optics'
-import { useStudio, type OutfitFabric, type StudioLight, type StudioModifier, type StudioObject, type TransformAxis } from '../store'
+import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjectType, type StudioLight, type StudioModifier, type StudioObject, type TransformAxis } from '../store'
 import { Figure, type FigureAppearance } from './Figure'
 import type { ModelPose } from '../pose'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
@@ -24,7 +25,7 @@ import { getBackdrop, type BackdropProfile } from '../backdrops'
 import { FOOTPRINT, seatHeightOf } from '../layout'
 import { PoseRig } from './PoseRig'
 import { applyGelTint, geledTemperature, getGel } from '../gels'
-import { brickNormalMap, canvasNormalMap, concreteNormalMap, mottleMap, paperNormalMap, plasterNormalMap, woodNormalMap } from '../textures'
+import { brickNormalMap, canvasNormalMap, concreteNormalMap, fabricNormalMap, fabricRoughnessMap, mottleMap, paperNormalMap, plasterNormalMap, woodNormalMap } from '../textures'
 import { shippedHumanFor } from '../characterAssets'
 import { useWorkflow } from '../workflow'
 import { canControlInWorkflow, workflowModeForStage } from '../workflowControl'
@@ -480,8 +481,20 @@ function Backdrop() {
   )
 }
 
+/**
+ * How much of the neutral probe the scene as a whole gets.
+ *
+ * Deliberately almost nothing. A probe bright enough to put a reflection in a
+ * chrome ball is also bright enough to act as fill on every wall in the room,
+ * and fill nobody asked for is fill the meter did not predict. So the scene
+ * keeps a trace of it and the props that actually need reflections buy more
+ * through their own envMapIntensity — which, on a metal, is pure specular,
+ * because a metal has no diffuse to lift.
+ */
+const NEUTRAL_ENVIRONMENT_INTENSITY = 0.12
+
 function EnvironmentLighting() {
-  const { scene } = useThree()
+  const { gl, scene } = useThree()
   const hdriUrl = useStudio((state) => state.hdriUrl)
   const sunEnabled = useStudio((state) => state.sunEnabled)
   const windowEnabled = useStudio((state) => state.windowEnabled)
@@ -503,8 +516,34 @@ function EnvironmentLighting() {
     return [Math.cos(elevation) * Math.sin(azimuth) * 12, Math.sin(elevation) * 12, Math.cos(elevation) * Math.cos(azimuth) * 12]
   }, [sunAzimuth, sunElevation])
 
+  /*
+   * A reflection probe, so metal has something to be metal about.
+   *
+   * A chrome or glazed prop with nothing to reflect renders as a dark blob.
+   * The specular lobe is doing its job — there is simply nothing in the room
+   * for it to find, because a studio assembled from spot lights and emissive
+   * planes carries no environment. Real chrome on a real set reflects the
+   * softboxes and the ceiling. So with no HDRI loaded the scene gets a neutral
+   * room, dim enough to read as reflection rather than as fill. Loading an
+   * HDRI replaces it outright and takes the intensity back to full.
+   */
   useEffect(() => {
-    if (!hdriUrl) { scene.environment = null; return }
+    if (hdriUrl) return
+    const generator = new THREE.PMREMGenerator(gl)
+    const room = new RoomEnvironment()
+    const probe = generator.fromScene(room, 0.04)
+    room.dispose()
+    generator.dispose()
+    scene.environment = probe.texture
+    scene.environmentIntensity = NEUTRAL_ENVIRONMENT_INTENSITY
+    return () => {
+      if (scene.environment === probe.texture) scene.environment = null
+      probe.dispose()
+    }
+  }, [gl, hdriUrl, scene])
+
+  useEffect(() => {
+    if (!hdriUrl) return
     let active = true
     let texture: THREE.DataTexture | null = null
     new RGBELoader().load(hdriUrl, (loaded) => {
@@ -512,6 +551,7 @@ function EnvironmentLighting() {
       texture = loaded
       loaded.mapping = THREE.EquirectangularReflectionMapping
       scene.environment = loaded
+      scene.environmentIntensity = 1
     })
     return () => { active = false; if (scene.environment === texture) scene.environment = null; texture?.dispose() }
   }, [hdriUrl, scene])
@@ -1109,59 +1149,142 @@ function StandaloneFigure({ object }: { object: StudioObject }) {
   )
 }
 
+/**
+ * What a prop is actually made of.
+ *
+ * The finish control says matte, glossy or metal. It does not say whether the
+ * thing is an oak table or a ceramic bottle, and running both through one flat
+ * material is the cheapest tell in a render: every surface breaks its highlight
+ * the same way, so nothing has a material — only a colour. So the type picks
+ * the grain and the finish grades it.
+ *
+ * The maps come from the shared cache in textures.ts and are owned by it. They
+ * are never disposed here and their repeat is never touched, because the
+ * backdrop is holding the same instances.
+ */
+function createPropMaterial(type: SceneObjectType, color: string, finish: SceneObjectMaterial) {
+  const metal = finish === 'metal'
+  const glossy = finish === 'glossy'
+  // How much of the type's grain survives the finish: a lacquered table still
+  // has grain under the lacquer, a machined one does not.
+  const grain = metal ? 0.35 : glossy ? 0.55 : 1
+  const material = new THREE.MeshPhysicalMaterial({
+    color,
+    metalness: metal ? 0.86 : 0.02,
+    roughness: metal ? 0.24 : glossy ? 0.17 : 0.7,
+    clearcoat: glossy ? 0.7 : 0.05,
+    clearcoatRoughness: glossy ? 0.07 : 0.3,
+    // See NEUTRAL_ENVIRONMENT_INTENSITY: the shine is bought here, per material,
+    // rather than by turning the probe up on everything in the room.
+    envMapIntensity: metal ? 3.4 : glossy ? 2 : 1,
+  })
+
+  if (type === 'chair' || type === 'table') {
+    // Timber. The grain runs, so a raking light finds a direction on it.
+    material.normalMap = woodNormalMap()
+    material.normalScale = new THREE.Vector2(0.62 * grain, 0.62 * grain)
+    if (!metal) material.roughness = glossy ? 0.2 : 0.6
+    material.sheen = 0
+  } else if (type === 'dog' || type === 'cat') {
+    // A coat, which is velvet as far as a renderer is concerned: dense fine
+    // normals plus a strong sheen, so a backlight rims it instead of skimming
+    // straight past. Fur that does not rim is the reason a plastic-looking pet
+    // stays plastic-looking however you light it.
+    material.normalMap = fabricNormalMap('velvet')
+    material.normalScale = new THREE.Vector2(0.55 * grain, 0.55 * grain)
+    material.roughnessMap = fabricRoughnessMap('velvet')
+    if (!metal) material.roughness = 0.92
+    material.clearcoat = 0
+    material.sheen = 0.75
+    material.sheenRoughness = 0.55
+    material.sheenColor = new THREE.Color(color).lerp(new THREE.Color('#fff2df'), 0.55)
+  } else if (type === 'product') {
+    // Glazed ceramic: the coat is the whole look, so it stays smooth under it.
+    material.clearcoat = metal ? 0.2 : 1
+    material.clearcoatRoughness = 0.05
+    if (!metal) material.roughness = glossy ? 0.09 : 0.4
+    material.ior = 1.5
+    material.specularIntensity = 1
+  } else if (type === 'plinth' || type === 'cube') {
+    // Painted board. Flat colour on a large flat prop is the one place a
+    // renderer shows its seams, so the paint varies in roughness, not in hue.
+    material.normalMap = plasterNormalMap()
+    material.normalScale = new THREE.Vector2(0.24 * grain, 0.24 * grain)
+    material.roughnessMap = mottleMap()
+  }
+  // A sphere is left smooth on purpose: it is the scene's reference ball, and
+  // a reference ball with a texture on it stops being a reference.
+
+  return material
+}
+
 function StudioObjectMesh({ object }: { object: StudioObject }) {
-  const material = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color: object.color,
-    roughness: object.material === 'matte' ? 0.78 : object.material === 'glossy' ? 0.18 : 0.26,
-    metalness: object.material === 'metal' ? 0.82 : 0.02,
-    clearcoat: object.material === 'glossy' ? 0.65 : 0.08,
-    clearcoatRoughness: 0.24,
-  }), [object.color, object.material])
+  const material = useMemo(
+    () => createPropMaterial(object.type, object.color, object.material),
+    [object.color, object.material, object.type],
+  )
   useEffect(() => () => material.dispose(), [material])
   if (object.type === 'subject') return <StandaloneFigure object={object} />
   if (object.type === 'dog') return <group>
     {/* Four legs, not two. A quadruped proxy is in the scene to cast a
         believable shadow and to give the key light something at floor level to
         wrap around; a two-legged one does neither. */}
-    <mesh castShadow receiveShadow position={[0, 0.44, 0.04]} scale={[0.72, 0.6, 1.08]} material={material}><capsuleGeometry args={[0.24, 0.36, 8, 20]} /></mesh>
-    <mesh castShadow receiveShadow position={[0, 0.42, -0.3]} scale={[0.7, 0.68, 0.66]} material={material}><sphereGeometry args={[0.26, 24, 18]} /></mesh>
-    <mesh castShadow position={[0, 0.58, 0.28]} rotation={[-0.5, 0, 0]} scale={[0.85, 1, 0.85]} material={material}><capsuleGeometry args={[0.12, 0.16, 6, 16]} /></mesh>
-    <mesh castShadow position={[0, 0.69, 0.4]} scale={[0.9, 0.88, 1]} material={material}><sphereGeometry args={[0.22, 24, 18]} /></mesh>
-    <mesh castShadow position={[0, 0.625, 0.6]} scale={[0.72, 0.56, 1.05]} material={material}><sphereGeometry args={[0.155, 22, 16]} /></mesh>
+    <mesh castShadow receiveShadow position={[0, 0.44, 0.04]} scale={[0.72, 0.6, 1.08]} material={material}><capsuleGeometry args={[0.24, 0.36, 10, 28]} /></mesh>
+    <mesh castShadow receiveShadow position={[0, 0.42, -0.3]} scale={[0.7, 0.68, 0.66]} material={material}><sphereGeometry args={[0.26, 32, 22]} /></mesh>
+    {/* Brisket. A dog's chest hangs below the ribcage and forward of the
+        forelegs, and it is the mass a low key light actually finds first. */}
+    <mesh castShadow receiveShadow position={[0, 0.37, 0.22]} scale={[0.62, 0.68, 0.72]} material={material}><sphereGeometry args={[0.23, 28, 20]} /></mesh>
+    <mesh castShadow position={[0, 0.58, 0.28]} rotation={[-0.5, 0, 0]} scale={[0.85, 1, 0.85]} material={material}><capsuleGeometry args={[0.12, 0.16, 8, 20]} /></mesh>
+    <mesh castShadow position={[0, 0.69, 0.4]} scale={[0.9, 0.88, 1]} material={material}><sphereGeometry args={[0.22, 32, 22]} /></mesh>
+    <mesh castShadow position={[0, 0.625, 0.6]} scale={[0.72, 0.56, 1.05]} material={material}><sphereGeometry args={[0.155, 28, 20]} /></mesh>
+    {/* Lower jaw, set back under the muzzle. */}
+    <mesh castShadow position={[0, 0.575, 0.575]} scale={[0.6, 0.34, 0.86]} material={material}><sphereGeometry args={[0.145, 24, 16]} /></mesh>
     {[-1, 1].map((side) => <group key={side}>
       <mesh castShadow position={[side * 0.155, 0.83, 0.38]} rotation={[0.18, 0, side * 0.32]} material={material}><coneGeometry args={[0.1, 0.26, 18]} /></mesh>
       {/* Foreleg: upper, lower, paw. */}
-      <mesh castShadow receiveShadow position={[side * 0.16, 0.3, 0.24]} material={material}><capsuleGeometry args={[0.056, 0.2, 6, 12]} /></mesh>
-      <mesh castShadow receiveShadow position={[side * 0.16, 0.12, 0.245]} material={material}><capsuleGeometry args={[0.042, 0.16, 6, 12]} /></mesh>
-      <mesh castShadow position={[side * 0.16, 0.038, 0.275]} scale={[1, 0.6, 1.25]} material={material}><sphereGeometry args={[0.06, 16, 12]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.16, 0.3, 0.24]} material={material}><capsuleGeometry args={[0.056, 0.2, 8, 18]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.16, 0.12, 0.245]} material={material}><capsuleGeometry args={[0.042, 0.16, 8, 16]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.16, 0.038, 0.275]} scale={[1, 0.6, 1.25]} material={material}><sphereGeometry args={[0.06, 20, 14]} /></mesh>
       {/* Hind leg: the thigh is the heavier mass, which is what reads at a glance. */}
-      <mesh castShadow receiveShadow position={[side * 0.17, 0.33, -0.24]} material={material}><capsuleGeometry args={[0.078, 0.16, 6, 14]} /></mesh>
-      <mesh castShadow receiveShadow position={[side * 0.17, 0.13, -0.245]} material={material}><capsuleGeometry args={[0.042, 0.15, 6, 12]} /></mesh>
-      <mesh castShadow position={[side * 0.17, 0.038, -0.215]} scale={[1, 0.6, 1.25]} material={material}><sphereGeometry args={[0.06, 16, 12]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.17, 0.33, -0.24]} material={material}><capsuleGeometry args={[0.078, 0.16, 8, 20]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.17, 0.13, -0.245]} material={material}><capsuleGeometry args={[0.042, 0.15, 8, 16]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.17, 0.038, -0.215]} scale={[1, 0.6, 1.25]} material={material}><sphereGeometry args={[0.06, 20, 14]} /></mesh>
       <mesh position={[side * 0.09, 0.72, 0.575]}><sphereGeometry args={[0.026, 14, 10]} /><meshPhysicalMaterial color="#17130f" roughness={0.1} clearcoat={0.9} /></mesh>
     </group>)}
     <mesh position={[0, 0.62, 0.735]}><sphereGeometry args={[0.043, 16, 12]} /><meshPhysicalMaterial color="#17130f" roughness={0.18} clearcoat={0.65} /></mesh>
-    <mesh castShadow position={[0, 0.5, -0.5]} rotation={[0.2, 0, -0.75]} material={material}><torusGeometry args={[0.24, 0.035, 10, 28, Math.PI * 1.15]} /></mesh>
+    {/* Tail. A torus of constant section reads as a hoop, so the tail is drawn
+        as tapering segments along its arc — thick at the root, thin at the tip,
+        which is the only part of it a rim light ever finds. */}
+    {([
+      [[0, 0.47, -0.46], [0.03, 0.61, -0.6], 0.05, 1.15],
+      [[0.03, 0.61, -0.6], [0.06, 0.75, -0.63], 0.036, 1.2],
+      [[0.06, 0.75, -0.63], [0.09, 0.86, -0.56], 0.024, 1.25],
+    ] as const).map(([from, to, radius, taper], index) => (
+      <Strut key={index} from={[...from]} to={[...to]} radius={radius} taper={taper} material={material} segments={14} />
+    ))}
+    <mesh castShadow position={[0.09, 0.87, -0.55]} scale={[1, 1.2, 1]} material={material}><sphereGeometry args={[0.024, 16, 12]} /></mesh>
     <mesh position={[0, 0.55, 0.24]} rotation={[1.2, 0, 0]}><torusGeometry args={[0.14, 0.018, 10, 28]} /><meshStandardMaterial color="#8c3b34" roughness={0.72} /></mesh>
   </group>
   if (object.type === 'cat') return <group>
-    <mesh castShadow receiveShadow position={[0, 0.34, -0.06]} scale={[0.62, 0.78, 0.86]} material={material}><sphereGeometry args={[0.27, 24, 18]} /></mesh>
-    <mesh castShadow receiveShadow position={[0, 0.4, 0.14]} scale={[0.56, 0.62, 0.6]} material={material}><sphereGeometry args={[0.24, 22, 16]} /></mesh>
-    <mesh castShadow position={[0, 0.62, 0.14]} scale={[0.95, 0.88, 0.9]} material={material}><sphereGeometry args={[0.21, 24, 18]} /></mesh>
+    <mesh castShadow receiveShadow position={[0, 0.34, -0.06]} scale={[0.62, 0.78, 0.86]} material={material}><sphereGeometry args={[0.27, 32, 22]} /></mesh>
+    <mesh castShadow receiveShadow position={[0, 0.4, 0.14]} scale={[0.56, 0.62, 0.6]} material={material}><sphereGeometry args={[0.24, 30, 20]} /></mesh>
+    {/* The ruff, which is where a cat's head stops and its shoulders start. */}
+    <mesh castShadow position={[0, 0.53, 0.14]} scale={[0.72, 0.42, 0.7]} material={material}><sphereGeometry args={[0.2, 26, 18]} /></mesh>
+    <mesh castShadow position={[0, 0.62, 0.14]} scale={[0.95, 0.88, 0.9]} material={material}><sphereGeometry args={[0.21, 32, 22]} /></mesh>
     {[-1, 1].map((side) => <group key={side}>
       <mesh castShadow position={[side * 0.125, 0.8, 0.12]} rotation={[0, 0, side * -0.14]} material={material}><coneGeometry args={[0.1, 0.23, 16]} /></mesh>
       <mesh position={[side * 0.075, 0.655, 0.32]} rotation={[0, side * 0.12, 0]} scale={[1.3, 0.72, 0.5]}><sphereGeometry args={[0.033, 14, 10]} /><meshPhysicalMaterial color="#a9d06e" roughness={0.1} clearcoat={0.9} /></mesh>
       {/* Foreleg. */}
-      <mesh castShadow receiveShadow position={[side * 0.105, 0.24, 0.15]} material={material}><capsuleGeometry args={[0.04, 0.12, 6, 12]} /></mesh>
-      <mesh castShadow receiveShadow position={[side * 0.105, 0.09, 0.155]} material={material}><capsuleGeometry args={[0.031, 0.1, 6, 10]} /></mesh>
-      <mesh castShadow position={[side * 0.105, 0.028, 0.175]} scale={[1, 0.6, 1.2]} material={material}><sphereGeometry args={[0.045, 14, 10]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.105, 0.24, 0.15]} material={material}><capsuleGeometry args={[0.04, 0.12, 8, 16]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.105, 0.09, 0.155]} material={material}><capsuleGeometry args={[0.031, 0.1, 8, 14]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.105, 0.028, 0.175]} scale={[1, 0.6, 1.2]} material={material}><sphereGeometry args={[0.045, 18, 12]} /></mesh>
       {/* Hind leg. */}
-      <mesh castShadow receiveShadow position={[side * 0.115, 0.26, -0.18]} material={material}><capsuleGeometry args={[0.06, 0.1, 6, 12]} /></mesh>
-      <mesh castShadow receiveShadow position={[side * 0.115, 0.09, -0.185]} material={material}><capsuleGeometry args={[0.031, 0.1, 6, 10]} /></mesh>
-      <mesh castShadow position={[side * 0.115, 0.028, -0.16]} scale={[1, 0.6, 1.2]} material={material}><sphereGeometry args={[0.045, 14, 10]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.115, 0.26, -0.18]} material={material}><capsuleGeometry args={[0.06, 0.1, 8, 18]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.115, 0.09, -0.185]} material={material}><capsuleGeometry args={[0.031, 0.1, 8, 14]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.115, 0.028, -0.16]} scale={[1, 0.6, 1.2]} material={material}><sphereGeometry args={[0.045, 18, 12]} /></mesh>
     </group>)}
     <mesh position={[0, 0.575, 0.325]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[0.025, 0.038, 3]} /><meshStandardMaterial color="#a66f72" roughness={0.6} /></mesh>
-    <mesh castShadow position={[0.11, 0.38, -0.3]} rotation={[0.15, 0.15, -0.42]} material={material}><torusGeometry args={[0.3, 0.026, 9, 30, Math.PI * 1.45]} /></mesh>
+    <mesh castShadow receiveShadow position={[0.11, 0.38, -0.3]} rotation={[0.15, 0.15, -0.42]} material={material}><torusGeometry args={[0.3, 0.026, 16, 48, Math.PI * 1.45]} /></mesh>
   </group>
   if (object.type === 'product') return <group>
     <RoundedBox castShadow receiveShadow args={[0.38, 0.12, 0.38]} radius={0.035} smoothness={3} position={[0, 0.06, 0]} material={material} />
@@ -1171,44 +1294,83 @@ function StudioObjectMesh({ object }: { object: StudioObject }) {
     <mesh castShadow receiveShadow position={[0, 0.31, 0]} material={material}><cylinderGeometry args={[0.148, 0.16, 0.38, 48]} /></mesh>
     <mesh castShadow receiveShadow position={[0, 0.545, 0]} material={material}><cylinderGeometry args={[0.074, 0.148, 0.09, 48]} /></mesh>
     <mesh castShadow receiveShadow position={[0, 0.625, 0]} material={material}><cylinderGeometry args={[0.07, 0.074, 0.07, 32]} /></mesh>
-    <mesh castShadow position={[0, 0.705, 0]}><cylinderGeometry args={[0.086, 0.086, 0.09, 40]} /><meshStandardMaterial color="#202320" metalness={0.72} roughness={0.22} /></mesh>
-    <mesh position={[0, 0.705, 0]}><torusGeometry args={[0.0865, 0.006, 8, 40]} /><meshStandardMaterial color="#14170f" metalness={0.6} roughness={0.4} /></mesh>
-    {/* The label wraps the bottle, so it curves through the highlight. */}
-    <mesh position={[0, 0.31, 0]}>
-      <cylinderGeometry args={[0.1535, 0.1595, 0.19, 48, 1, true]} />
-      <meshPhysicalMaterial color="#f3efe5" roughness={0.74} side={THREE.DoubleSide} />
+    {/* Cap: a machined collar with a knurl, and a shoulder ring under it. The
+        cap is the one hard specular on the whole prop, so it is the thing a
+        product light is aimed to place. */}
+    <mesh castShadow receiveShadow position={[0, 0.705, 0]}><cylinderGeometry args={[0.086, 0.086, 0.09, 64]} /><meshStandardMaterial color="#4a4f47" metalness={0.86} roughness={0.19} envMapIntensity={1.4} /></mesh>
+    <mesh castShadow position={[0, 0.752, 0]}><cylinderGeometry args={[0.082, 0.086, 0.012, 64]} /><meshStandardMaterial color="#565c53" metalness={0.9} roughness={0.13} envMapIntensity={1.5} /></mesh>
+    {([0.682, 0.705, 0.728] as const).map((y) => (
+      <mesh key={y} position={[0, y, 0]}><torusGeometry args={[0.0862, 0.0035, 10, 64]} /><meshStandardMaterial color="#2f342e" metalness={0.7} roughness={0.36} /></mesh>
+    ))}
+    <mesh position={[0, 0.596, 0]}><torusGeometry args={[0.0755, 0.0055, 10, 56]} /><meshStandardMaterial color="#4a4f47" metalness={0.82} roughness={0.24} /></mesh>
+    {/* The label wraps the bottle, so it curves through the highlight — and it
+        is paper, which is the whole reason it does not mirror the key back. */}
+    <mesh receiveShadow position={[0, 0.31, 0]}>
+      <cylinderGeometry args={[0.1535, 0.1595, 0.19, 64, 1, true]} />
+      <meshPhysicalMaterial
+        color="#f3efe5"
+        roughness={0.78}
+        normalMap={paperNormalMap()}
+        normalScale={new THREE.Vector2(0.35, 0.35)}
+        sheen={0.25}
+        sheenRoughness={0.8}
+        side={THREE.DoubleSide}
+      />
     </mesh>
-    <mesh position={[0, 0.345, 0]}>
-      <cylinderGeometry args={[0.1545, 0.1555, 0.014, 48, 1, true]} />
+    <mesh position={[0, 0.352, 0]}>
+      <cylinderGeometry args={[0.1547, 0.1553, 0.016, 64, 1, true]} />
       <meshStandardMaterial color="#3f433e" roughness={0.6} side={THREE.DoubleSide} />
+    </mesh>
+    {/* A foil rule under the wordmark. Small, but it is the only thing on the
+        bottle that throws a moving highlight as the key swings. */}
+    <mesh position={[0, 0.268, 0]}>
+      <cylinderGeometry args={[0.1547, 0.1553, 0.006, 64, 1, true]} />
+      <meshStandardMaterial color="#b79a5c" metalness={0.88} roughness={0.18} envMapIntensity={1.5} side={THREE.DoubleSide} />
     </mesh>
   </group>
   // Seat and table tops land exactly on the heights in layout.ts, so a figure
   // placed on one sits on the surface instead of a centimetre inside it.
   if (object.type === 'chair') return <>
-    <RoundedBox castShadow receiveShadow args={[0.7, 0.1, 0.64]} radius={0.03} smoothness={4} position={[0, 0.49, 0]} material={material} />
-    <RoundedBox castShadow receiveShadow args={[0.72, 0.055, 0.66]} radius={0.018} smoothness={3} position={[0, 0.418, 0]} material={material} />
-    <RoundedBox castShadow receiveShadow args={[0.66, 0.6, 0.09]} radius={0.04} smoothness={4} position={[0, 0.85, 0.28]} rotation={[-0.11, 0, 0]} material={material} />
-    {([[-0.29, -0.26], [0.29, -0.26], [-0.29, 0.26], [0.29, 0.26]] as const).map(([x, z], index) => (
-      <mesh key={index} castShadow receiveShadow position={[x, 0.195, z]}>
-        <cylinderGeometry args={[0.023, 0.033, 0.39, 14]} />
-        <meshStandardMaterial color="#2c302d" metalness={0.72} roughness={0.28} />
-      </mesh>
+    <RoundedBox castShadow receiveShadow args={[0.7, 0.1, 0.64]} radius={0.03} smoothness={5} position={[0, 0.49, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[0.72, 0.055, 0.66]} radius={0.018} smoothness={4} position={[0, 0.418, 0]} material={material} />
+    {/* The back starts above the seat, not on it. The gap is what your eye
+        reads as a chair rather than as a block with a slab behind it. */}
+    <RoundedBox castShadow receiveShadow args={[0.62, 0.48, 0.075]} radius={0.035} smoothness={5} position={[0, 0.91, 0.302]} rotation={[-0.11, 0, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[0.66, 0.07, 0.085]} radius={0.033} smoothness={5} position={[0, 1.166, 0.332]} rotation={[-0.11, 0, 0]} material={material} />
+    {/* Legs splay. Drawn between two known ends so the feet stay on the floor
+        whatever the splay, which is exactly what four independently placed
+        cylinders could not promise. */}
+    {([[-1, -1], [1, -1], [-1, 1], [1, 1]] as const).map(([sx, sz], index) => (
+      <group key={index}>
+        <Strut
+          from={[sx * 0.247, 0.4, sz * 0.221]}
+          to={[sx * 0.302, 0, sz * 0.27]}
+          radius={0.021}
+          taper={1.6}
+          material={material}
+          segments={16}
+        />
+        <mesh castShadow position={[sx * 0.302, 0.006, sz * 0.27]}>
+          <cylinderGeometry args={[0.026, 0.028, 0.012, 14]} />
+          <meshStandardMaterial color="#1a1c1a" roughness={0.9} />
+        </mesh>
+      </group>
     ))}
     {/* Stretchers — the bars that stop a chair racking, and the detail that
-        separates a chair from four sticks under a slab. */}
-    {([-0.29, 0.29] as const).map((x) => (
-      <Strut key={x} from={[x, 0.15, -0.26]} to={[x, 0.15, 0.26]} radius={0.015} color="#2c302d" gear={false} />
+        separates a chair from four sticks under a slab. They meet the legs on
+        the splay, so they land on the taper rather than floating beside it. */}
+    {([-1, 1] as const).map((sx) => (
+      <Strut key={sx} from={[sx * 0.281, 0.15, -0.252]} to={[sx * 0.281, 0.15, 0.252]} radius={0.015} material={material} />
     ))}
-    <Strut from={[-0.29, 0.15, 0]} to={[0.29, 0.15, 0]} radius={0.015} color="#2c302d" gear={false} />
+    <Strut from={[-0.281, 0.15, 0]} to={[0.281, 0.15, 0]} radius={0.015} material={material} />
     {/* Back uprights, carrying the panel down to the seat frame. */}
     {([-0.28, 0.28] as const).map((x) => (
-      <Strut key={x} from={[x, 0.44, 0.27]} to={[x * 0.98, 1.13, 0.35]} radius={0.019} color="#2c302d" gear={false} />
+      <Strut key={x} from={[x, 0.42, 0.268]} to={[x * 0.98, 1.19, 0.345]} radius={0.019} material={material} segments={14} />
     ))}
   </>
   if (object.type === 'table') return <>
-    <RoundedBox castShadow receiveShadow args={[1.38, 0.06, 0.78]} radius={0.018} smoothness={3} position={[0, 0.85, 0]} material={material} />
-    <RoundedBox castShadow receiveShadow args={[1.33, 0.035, 0.73]} radius={0.012} smoothness={2} position={[0, 0.807, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[1.38, 0.06, 0.78]} radius={0.018} smoothness={5} position={[0, 0.85, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[1.33, 0.035, 0.73]} radius={0.012} smoothness={4} position={[0, 0.807, 0]} material={material} />
     {/* Apron on both axes. One rail across the middle was holding nothing. */}
     {([-0.32, 0.32] as const).map((z) => (
       <mesh key={z} castShadow receiveShadow position={[0, 0.755, z]} material={material}><boxGeometry args={[1.16, 0.09, 0.036]} /></mesh>
@@ -1218,7 +1380,8 @@ function StudioObjectMesh({ object }: { object: StudioObject }) {
     ))}
     {([[-0.6, -0.32], [0.6, -0.32], [-0.6, 0.32], [0.6, 0.32]] as const).map(([x, z], index) => (
       <group key={index}>
-        <mesh castShadow receiveShadow position={[x, 0.385, z]} material={material}><cylinderGeometry args={[0.032, 0.046, 0.77, 16]} /></mesh>
+        {/* Thick at the rail, thin at the floor. It was turned upside down. */}
+        <mesh castShadow receiveShadow position={[x, 0.385, z]} material={material}><cylinderGeometry args={[0.047, 0.03, 0.77, 20]} /></mesh>
         <mesh castShadow position={[x, 0.008, z]}><cylinderGeometry args={[0.05, 0.052, 0.016, 16]} /><meshStandardMaterial color="#1a1c1a" roughness={0.9} /></mesh>
       </group>
     ))}
@@ -1229,8 +1392,10 @@ function StudioObjectMesh({ object }: { object: StudioObject }) {
     <mesh castShadow receiveShadow position={[0, 1.074, 0]} material={material}><cylinderGeometry args={[0.46, 0.42, 0.052, 56]} /></mesh>
     <mesh position={[0, 1.1, 0]} material={material}><torusGeometry args={[0.448, 0.014, 10, 56]} /></mesh>
   </group>
-  if (object.type === 'sphere') return <mesh castShadow receiveShadow material={material}><sphereGeometry args={[0.5, 40, 28]} /></mesh>
-  return <RoundedBox castShadow receiveShadow args={[0.82, 0.82, 0.82]} radius={0.045} smoothness={3} material={material} />
+  // The reference ball, and the reference block. Both get read for the shape of
+  // a highlight, so both get enough segments to hold one without stepping.
+  if (object.type === 'sphere') return <mesh castShadow receiveShadow material={material}><sphereGeometry args={[0.5, 72, 48]} /></mesh>
+  return <RoundedBox castShadow receiveShadow args={[0.82, 0.82, 0.82]} radius={0.05} smoothness={6} material={material} />
 }
 
 function MovableStudioObject({ object }: { object: StudioObject }) {
@@ -1310,16 +1475,19 @@ function gearMaterial(surface: GearSurface, lift: number) {
  * spreader — and writing each one as a position plus a pair of Euler angles is
  * how they end up subtly detached from the thing they are supposed to hold.
  */
-function Strut({ from, to, radius, surface = GEAR.aluminium, color, taper = 1, cast = true, gear = true }: {
+function Strut({ from, to, radius, surface = GEAR.aluminium, color, material, taper = 1, cast = true, gear = true, segments = 12 }: {
   from: [number, number, number]
   to: [number, number, number]
   radius: number
   surface?: GearSurface
   /** Overrides the surface colour for set dressing that is not studio hardware. */
   color?: string
+  /** Set dressing shares the prop's own material rather than a gear finish. */
+  material?: THREE.Material
   taper?: number
   cast?: boolean
   gear?: boolean
+  segments?: number
 }) {
   const lift = useGearLift()
   const { position, quaternion, length } = useMemo(() => {
@@ -1335,9 +1503,9 @@ function Strut({ from, to, radius, surface = GEAR.aluminium, color, taper = 1, c
     // Deps are the endpoints' numbers, not the array literals the caller inlines.
   }, [from[0], from[1], from[2], to[0], to[1], to[2]])
   return (
-    <mesh castShadow={cast} position={position} quaternion={quaternion}>
-      <cylinderGeometry args={[radius * taper, radius, length, 12]} />
-      <meshStandardMaterial {...gearMaterial(surface, gear ? lift : 0)} {...(color ? { color, emissive: color } : {})} />
+    <mesh castShadow={cast} receiveShadow position={position} quaternion={quaternion} material={material}>
+      <cylinderGeometry args={[radius * taper, radius, length, segments]} />
+      {!material && <meshStandardMaterial {...gearMaterial(surface, gear ? lift : 0)} {...(color ? { color, emissive: color } : {})} />}
     </mesh>
   )
 }
