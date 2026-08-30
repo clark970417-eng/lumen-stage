@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/prune-build-assets.mjs",
     "preview": "vite preview",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
-    "check": "npm run test && npm run build"
+    "typecheck": "tsc -p tsconfig.quality.json",
+    "check": "npm run test && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@react-three/drei": "10.7.8",
@@ -22,6 +23,7 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
+    "@types/node": "^26.4.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
     "@types/three": "0.185.4",

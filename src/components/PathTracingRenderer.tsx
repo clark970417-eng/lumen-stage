@@ -5,6 +5,7 @@ import { PhysicalCamera, WebGLPathTracer } from 'three-gpu-pathtracer'
 import { LENS_PROFILES } from '../cameraProfiles'
 import { breathingAdjustedFocalLength } from '../optics'
 import { useStudio } from '../store'
+import { useRenderProgress } from '../renderProgress'
 
 const SENSOR_WIDTH = { 'full-frame': 36, 'aps-c': 23.5, mft: 17.3 } as const
 
@@ -53,7 +54,8 @@ export default function PathTracingRenderer() {
   const sunElevation = useStudio((state) => state.sunElevation)
   const sunIntensity = useStudio((state) => state.sunIntensity)
   const haze = useStudio((state) => state.haze)
-  const setValue = useStudio((state) => state.setValue)
+  const setStatus = useRenderProgress((state) => state.setStatus)
+  const setSamples = useRenderProgress((state) => state.setSamples)
   const tracer = useMemo(() => new WebGLPathTracer(gl), [gl])
   const physicalCamera = useMemo(() => new PhysicalCamera(), [])
   const ready = useRef(false)
@@ -75,15 +77,14 @@ export default function PathTracingRenderer() {
     return () => {
       ready.current = false
       tracer.dispose()
-      useStudio.setState({ pathTracingSamples: 0, pathTracingStatus: 'idle' })
+      useRenderProgress.getState().reset()
     }
   }, [tracer])
 
   useEffect(() => {
     try {
       ready.current = false
-      setValue('pathTracingStatus', 'building')
-      setValue('pathTracingSamples', 0)
+      useRenderProgress.getState().reset('building')
 
       const source = camera as THREE.PerspectiveCamera
       physicalCamera.position.copy(source.position)
@@ -105,21 +106,21 @@ export default function PathTracingRenderer() {
       tracer.setScene(scene, physicalCamera)
       ready.current = true
       lastReport.current = 0
-      setValue('pathTracingStatus', paused ? 'paused' : 'rendering')
+      setStatus(paused ? 'paused' : 'rendering')
     } catch (error) {
       console.error('Path tracing scene build failed', error)
-      setValue('pathTracingStatus', 'error')
+      setStatus('error')
     }
   }, [
     ambientLevel, ambientTemperature, anamorphic, aperture, camera, cameraMode, cameraPosition, cameraTarget, floorColor, focalLength, focusDistance, haze, hdriUrl, iesUrl, lensBreathing, lensOpticsEnabled, lensProfileId, lights, modifiers, roomDepth, roomHeight, roomWidth, studioObjects,
     modelHeight, modelImportStatus, modelPose, modelPosition, modelRotation, outfitColor, physicalCamera, renderRevision, skinColor, soloLightId,
-    scene, sensorFormat, setValue, shutter, sunAzimuth, sunElevation, sunEnabled, sunIntensity, syncSpeed, tracer, tStop, wallColor, windowEnabled,
+    scene, sensorFormat, setStatus, shutter, sunAzimuth, sunElevation, sunEnabled, sunIntensity, syncSpeed, tracer, tStop, wallColor, windowEnabled,
   ])
 
   useEffect(() => {
     if (!ready.current) return
-    setValue('pathTracingStatus', paused ? 'paused' : 'rendering')
-  }, [paused, setValue])
+    setStatus(paused ? 'paused' : 'rendering')
+  }, [paused, setStatus])
 
   useFrame((_, delta) => {
     if (!ready.current) return
@@ -129,8 +130,8 @@ export default function PathTracingRenderer() {
     if (lastReport.current >= 0.2) {
       lastReport.current = 0
       const samples = tracer.samples
-      if (Math.abs(useStudio.getState().pathTracingSamples - samples) >= 0.2) {
-        useStudio.setState({ pathTracingSamples: samples })
+      if (Math.abs(useRenderProgress.getState().samples - samples) >= 0.2) {
+        setSamples(samples)
       }
     }
   }, 1)

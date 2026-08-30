@@ -19,6 +19,7 @@ import { LOCALES, useCatalogT, useLocaleStore, useT, type Locale, type MessageKe
 import { renderExportCanvas, exportFileName } from '../shotCapture'
 import { SETUP_CATEGORIES, SETUP_LIBRARY, type SetupCategory } from '../setups'
 import { useStudio, type LightOptic, type LightShape, type StudioLight, type StudioState } from '../store'
+import { useRenderProgress } from '../renderProgress'
 import { usePhoneScreen, useUiModeStore } from '../uiMode'
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
 import { POSE_LIBRARY } from '../pose'
@@ -194,6 +195,9 @@ function usePageVisible() {
   return useSyncExternalStore(subscribeToVisibility, () => !document.hidden, () => true)
 }
 
+const beginRangeEdit = () => useStudio.getState().beginHistoryTransaction()
+const endRangeEdit = () => useStudio.getState().endHistoryTransaction()
+
 function Dial({ label, value, min, max, step = 1, readout, disabled = false, onChange }: {
   label: string
   value: number
@@ -207,7 +211,7 @@ function Dial({ label, value, min, max, step = 1, readout, disabled = false, onC
   return (
     <label className="m-dial">
       <span>{label}<b>{readout}</b></span>
-      <input type="range" min={min} max={max} step={step} value={value} disabled={disabled} onChange={(event) => onChange(Number(event.target.value))} />
+      <input type="range" min={min} max={max} step={step} value={value} disabled={disabled} onPointerDown={beginRangeEdit} onPointerUp={endRangeEdit} onPointerCancel={endRangeEdit} onChange={(event) => onChange(Number(event.target.value))} />
     </label>
   )
 }
@@ -468,8 +472,8 @@ function CameraTab() {
   const cameraTarget = useStudio((state) => state.cameraTarget)
   const setCameraPosition = useStudio((state) => state.setCameraPosition)
   const renderMode = useStudio((state) => state.renderMode)
-  const pathStatus = useStudio((state) => state.pathTracingStatus)
-  const pathSamples = useStudio((state) => state.pathTracingSamples)
+  const pathStatus = useRenderProgress((state) => state.status)
+  const pathSamples = useRenderProgress((state) => state.samples)
   const startPhotoRender = useStudio((state) => state.startPhotoRender)
   const openCameraView = useStudio((state) => state.openCameraView)
 
@@ -754,7 +758,7 @@ export function MobileApp() {
   const phone = usePhoneScreen()
   const view = useStudio((state) => state.view)
   const renderMode = useStudio((state) => state.renderMode)
-  const pathSamples = useStudio((state) => state.pathTracingSamples)
+  const pathSamples = useRenderProgress((state) => state.samples)
   const openStudioView = useStudio((state) => state.openStudioView)
   const openCameraView = useStudio((state) => state.openCameraView)
   const setWorkflowStage = useWorkflow((state) => state.setStage)

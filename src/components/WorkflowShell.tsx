@@ -128,12 +128,17 @@ export function WorkflowNavigation() {
 
 export function ViewModeDock() {
   const copy = useCopy()
-  const state = useStudio()
+  const view = useStudio((state) => state.view)
+  const renderMode = useStudio((state) => state.renderMode)
+  const openStudioView = useStudio((state) => state.openStudioView)
+  const openTopView = useStudio((state) => state.openTopView)
+  const openCameraView = useStudio((state) => state.openCameraView)
+  const startPhotoRender = useStudio((state) => state.startPhotoRender)
   return <div className="view-mode-dock" role="group" aria-label={copy.viewModes}>
-    <button className={state.view === 'studio' && state.renderMode === 'preview' ? 'active' : ''} onClick={state.openStudioView}>{copy.studio}<kbd>1</kbd></button>
-    <button className={state.view === 'top' && state.renderMode === 'preview' ? 'active' : ''} onClick={state.openTopView}>{copy.top}<kbd>2</kbd></button>
-    <button className={state.view === 'camera' && state.renderMode === 'preview' ? 'active' : ''} onClick={state.openCameraView}>{copy.viewfinder}<kbd>3</kbd></button>
-    <button className={state.renderMode === 'path' ? 'active render' : ''} onClick={state.startPhotoRender}>{copy.render}<kbd>4</kbd></button>
+    <button className={view === 'studio' && renderMode === 'preview' ? 'active' : ''} onClick={openStudioView}>{copy.studio}<kbd>1</kbd></button>
+    <button className={view === 'top' && renderMode === 'preview' ? 'active' : ''} onClick={openTopView}>{copy.top}<kbd>2</kbd></button>
+    <button className={view === 'camera' && renderMode === 'preview' ? 'active' : ''} onClick={openCameraView}>{copy.viewfinder}<kbd>3</kbd></button>
+    <button className={renderMode === 'path' ? 'active render' : ''} onClick={startPhotoRender}>{copy.render}<kbd>4</kbd></button>
   </div>
 }
 

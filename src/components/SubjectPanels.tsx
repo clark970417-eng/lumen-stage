@@ -12,6 +12,7 @@ import { PHYSIQUE_PRESETS, type Physique } from '../physique'
 import { HAND_POSES, POSE_CATEGORIES, POSE_LIBRARY, type HandPose, type ModelPose, type PoseCategory } from '../pose'
 import { FABRICS, HAIR_STYLES, OUTFITS, type FabricKind, type HairStyle, type OutfitStyle } from '../wardrobe'
 import { useCatalogT, useT, type MessageKey } from '../i18n'
+import { useStudio } from '../store'
 
 type RangeProps = {
   label: string
@@ -24,12 +25,15 @@ type RangeProps = {
   onChange: (value: number) => void
 }
 
+const beginRangeEdit = () => useStudio.getState().beginHistoryTransaction()
+const endRangeEdit = () => useStudio.getState().endHistoryTransaction()
+
 function Range({ label, value, min, max, step = 1, unit = '', displayValue, onChange }: RangeProps) {
   const progress = ((value - min) / (max - min)) * 100
   return (
     <label className="control-row">
       <span>{label}</span><output>{displayValue ?? `${value}${unit}`}</output>
-      <input aria-label={label} type="range" min={min} max={max} step={step} value={value} style={{ '--progress': `${progress}%` } as React.CSSProperties} onChange={(event) => onChange(Number(event.target.value))} />
+      <input aria-label={label} type="range" min={min} max={max} step={step} value={value} style={{ '--progress': `${progress}%` } as React.CSSProperties} onPointerDown={beginRangeEdit} onPointerUp={endRangeEdit} onPointerCancel={endRangeEdit} onChange={(event) => onChange(Number(event.target.value))} />
     </label>
   )
 }

@@ -13,6 +13,9 @@ import { clampToRoom, FOOTPRINT, isSittable, resolveCollisions, snapAroundSubjec
 import { mirrorProject } from './persistence'
 import { reportError } from './monitoring'
 import { lockPositionToAxis, type TransformAxis } from './transformAxis'
+import { createAutosaveScheduler } from './autosave'
+import { createHistoryTransaction } from './historyTransaction'
+import { useRenderProgress } from './renderProgress'
 
 export type ViewMode = 'studio' | 'camera' | 'top'
 export type RenderMode = 'preview' | 'path'
@@ -244,8 +247,6 @@ export type StudioState = {
   view: ViewMode
   renderMode: RenderMode
   pathTracingPaused: boolean
-  pathTracingSamples: number
-  pathTracingStatus: 'idle' | 'building' | 'rendering' | 'paused' | 'error'
   renderRevision: number
   analysisOpen: boolean
   exposureOverlay: ExposureOverlay
@@ -377,6 +378,8 @@ export type StudioState = {
   saveStatus: 'idle' | 'saved' | 'autosaved' | 'loaded' | 'exported' | 'error'
   undoStack: HistorySnapshot[]
   redoStack: HistorySnapshot[]
+  beginHistoryTransaction: () => void
+  endHistoryTransaction: () => void
   setValue: <K extends keyof StudioState>(key: K, value: StudioState[K]) => void
   updateLight: (id: string, patch: Partial<Omit<StudioLight, 'id'>>) => void
   fitHead: (id: string, headId: string) => void
@@ -1028,15 +1031,17 @@ const persistShots = (shots: StudioShot[]) => {
 }
 
 const historyKeys = new Set<keyof StudioState>(['projectName', 'backdrop', 'backdropId', 'backdropWidth', 'backdropDistance', 'cameraMode', 'frameRate', 'shutterAngle', 'tStop', 'ndStops', 'anamorphic', 'roomWidth', 'roomDepth', 'roomHeight', 'wallColor', 'floorColor', 'windowEnabled', 'sunEnabled', 'sunAzimuth', 'sunElevation', 'sunIntensity', 'haze', 'qualityPreset', 'outputResolution', 'denoiseEnabled', 'modelLookAtCamera', 'modelEyesAtCamera', 'timelineDuration', 'focalLength', 'aperture', 'iso', 'shutter', 'focusDistance', 'dofEnabled', 'focusGuide', 'cameraPosition', 'cameraTarget', 'sensorFormat', 'frameAspect', 'frameOrientation', 'modelPosition', 'modelRotation', 'modelHeight', 'skinColor', 'outfitColor', 'skinRoughness', 'skinOil', 'skinSubsurface', 'makeupStyle', 'eyeColor', 'hairColor', 'hairGloss', 'outfitFabric', 'syncSpeed', 'ambientLevel', 'ambientTemperature', 'lensOpticsEnabled', 'lensVignette', 'lensDistortion', 'lensChromaticAberration', 'lensBreathing', 'imageFormat', 'whiteBalance', 'whiteBalanceTint', 'colorProfileId', 'highlightRolloff', 'toneCurve', 'lutIntensity', 'sensorSimulationEnabled', 'shutterMode', 'sensorDynamicRange', 'noiseReduction', 'colorNoise', 'motionBlur', 'rollingShutter'])
-const withUndo = (state: StudioState) => [...state.undoStack, historyFrom(state)].slice(-30)
+const historyTransaction = createHistoryTransaction<HistorySnapshot>()
+const withUndo = (state: StudioState) => {
+  const snapshot = historyTransaction.capture(() => historyFrom(state))
+  return snapshot ? [...state.undoStack, snapshot].slice(-30) : state.undoStack
+}
 
 export const useStudio = create<StudioState>((set, get) => ({
   projectName: 'Portrait study',
   view: 'studio',
   renderMode: 'preview',
   pathTracingPaused: false,
-  pathTracingSamples: 0,
-  pathTracingStatus: 'idle',
   renderRevision: 0,
   analysisOpen: false,
   exposureOverlay: 'none',
@@ -1165,6 +1170,11 @@ export const useStudio = create<StudioState>((set, get) => ({
   saveStatus: 'idle',
   undoStack: [],
   redoStack: [],
+  beginHistoryTransaction: () => historyTransaction.begin(),
+  endHistoryTransaction: () => {
+    const snapshot = historyTransaction.end()
+    if (snapshot) set((state) => ({ undoStack: [...state.undoStack, snapshot].slice(-30) }))
+  },
   setValue: (key, value) => set((state) => ({
     [key]: value,
     ...(key === 'modelHeight' ? { lights: syncBoundLightTargets({ ...state, modelHeight: Number(value) }), ...syncCameraTracking({ ...state, modelHeight: Number(value) }) } : {}),
@@ -1628,10 +1638,10 @@ export const useStudio = create<StudioState>((set, get) => ({
     try {
       const state = get()
       const serialized = JSON.stringify(snapshotFrom(state))
-      lastAutosave = JSON.stringify(snapshotFrom(state))
       localStorage.setItem(STORAGE_KEY, serialized)
+      autosaveController.markSaved(serialized)
       void mirrorProject(serialized).catch((error) => reportError(error, { area: 'project-backup' }))
-      window.clearTimeout(autosaveTimer)
+      autosaveController.cancel()
       set({ lastSavedAt: Date.now(), saveStatus: 'saved' })
     } catch { set({ saveStatus: 'error' }) }
   },
@@ -1684,30 +1694,27 @@ export const useStudio = create<StudioState>((set, get) => ({
     } catch { set({ saveStatus: 'error' }) }
   },
   resetLighting: () => set((state) => ({ lights: cloneLights(initialLights), selected: 'key', selectedIds: ['key'], undoStack: withUndo(state), redoStack: [] })),
-  openStudioView: () => set({ view: 'studio', renderMode: 'preview', pathTracingPaused: false, pathTracingSamples: 0, pathTracingStatus: 'idle' }),
-  openCameraView: () => set({ view: 'camera', renderMode: 'preview', pathTracingPaused: false, pathTracingSamples: 0, pathTracingStatus: 'idle' }),
-  openTopView: () => set({ view: 'top', renderMode: 'preview', pathTracingPaused: false, pathTracingSamples: 0, pathTracingStatus: 'idle' }),
-  startPhotoRender: () => set((state) => ({ view: 'camera', renderMode: 'path', pathTracingPaused: false, pathTracingSamples: 0, pathTracingStatus: 'building', renderRevision: state.renderRevision + 1 })),
-  restartPhotoRender: () => set((state) => ({ pathTracingPaused: false, pathTracingSamples: 0, pathTracingStatus: 'building', renderRevision: state.renderRevision + 1 })),
+  openStudioView: () => { useRenderProgress.getState().reset(); set({ view: 'studio', renderMode: 'preview', pathTracingPaused: false }) },
+  openCameraView: () => { useRenderProgress.getState().reset(); set({ view: 'camera', renderMode: 'preview', pathTracingPaused: false }) },
+  openTopView: () => { useRenderProgress.getState().reset(); set({ view: 'top', renderMode: 'preview', pathTracingPaused: false }) },
+  startPhotoRender: () => { useRenderProgress.getState().reset('building'); set((state) => ({ view: 'camera', renderMode: 'path', pathTracingPaused: false, renderRevision: state.renderRevision + 1 })) },
+  restartPhotoRender: () => { useRenderProgress.getState().reset('building'); set((state) => ({ pathTracingPaused: false, renderRevision: state.renderRevision + 1 })) },
 }))
 
-let autosaveTimer: number | undefined
-let lastAutosave = JSON.stringify(snapshotFrom(useStudio.getState()))
-
-useStudio.subscribe((state) => {
-  const serialized = JSON.stringify(snapshotFrom(state))
-  if (serialized === lastAutosave) return
-  lastAutosave = serialized
-  window.clearTimeout(autosaveTimer)
-  autosaveTimer = window.setTimeout(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, serialized)
-      void mirrorProject(serialized).catch((error) => reportError(error, { area: 'project-backup' }))
-      useStudio.setState({ lastSavedAt: Date.now(), saveStatus: 'autosaved' })
-    } catch (error) {
-      reportError(error, { area: 'project-storage' })
-      void mirrorProject(serialized).catch((backupError) => reportError(backupError, { area: 'project-backup' }))
-      useStudio.setState({ saveStatus: 'error' })
-    }
-  }, 900)
+const autosaveController = createAutosaveScheduler<StudioState>({
+  delay: 900,
+  initialSerialized: JSON.stringify(snapshotFrom(useStudio.getState())),
+  serialize: (state) => JSON.stringify(snapshotFrom(state)),
+  persist: (serialized) => {
+    localStorage.setItem(STORAGE_KEY, serialized)
+    void mirrorProject(serialized).catch((error) => reportError(error, { area: 'project-backup' }))
+  },
+  onSaved: () => useStudio.setState({ lastSavedAt: Date.now(), saveStatus: 'autosaved' }),
+  onError: (error, serialized) => {
+    reportError(error, { area: 'project-storage' })
+    void mirrorProject(serialized).catch((backupError) => reportError(backupError, { area: 'project-backup' }))
+    useStudio.setState({ saveStatus: 'error' })
+  },
 })
+
+useStudio.subscribe((state) => autosaveController.schedule(state))

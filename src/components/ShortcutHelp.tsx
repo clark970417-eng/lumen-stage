@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { SECTION_LABELS, SHORTCUTS, type Shortcut, type ShortcutSection } from '../shortcuts'
 import { useT } from '../i18n'
 import { useStudio } from '../store'
@@ -31,7 +31,8 @@ export function ShortcutLauncher() {
 export function ShortcutHelp() {
   const open = useStudio((state) => state.shortcutHelpOpen)
   const setValue = useStudio((state) => state.setValue)
-  const state = useStudio()
+  const availabilityKey = useStudio((state) => [state.renderMode, state.selected, state.selectedIds.join(','), state.lights.map((item) => item.id).join(','), state.modifiers.map((item) => item.id).join(','), state.studioObjects.map((item) => item.id).join(','), state.undoStack.length, state.redoStack.length].join('|'))
+  const state = useMemo(() => useStudio.getState(), [availabilityKey])
   const t = useT()
   const closeButton = useRef<HTMLButtonElement>(null)
 

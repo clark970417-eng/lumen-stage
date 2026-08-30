@@ -3,8 +3,11 @@ import { useT } from '../i18n'
 import { useStudio, type CameraMode, type OutputResolution } from '../store'
 import { MAX_HDRI_FILE_BYTES, MAX_IES_FILE_BYTES, MAX_PROJECT_FILE_BYTES, readTextFileWithinLimit } from '../security'
 
+const beginRangeEdit = () => useStudio.getState().beginHistoryTransaction()
+const endRangeEdit = () => useStudio.getState().endHistoryTransaction()
+
 function ProRange({ label, value, min, max, step = 1, unit = '', onChange }: { label: string; value: number; min: number; max: number; step?: number; unit?: string; onChange: (value: number) => void }) {
-  return <label className="pro-range"><span>{label}</span><output>{Number.isInteger(value) ? value : value.toFixed(1)}{unit}</output><input aria-label={label} type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} /></label>
+  return <label className="pro-range"><span>{label}</span><output>{Number.isInteger(value) ? value : value.toFixed(1)}{unit}</output><input aria-label={label} type="range" value={value} min={min} max={max} step={step} onPointerDown={beginRangeEdit} onPointerUp={endRangeEdit} onPointerCancel={endRangeEdit} onChange={(event) => onChange(Number(event.target.value))} /></label>
 }
 
 function exportStoryboard() {
@@ -35,12 +38,16 @@ function exportStoryboard() {
 }
 
 export function ProfessionalPanel() {
+  const open = useStudio((state) => state.professionalPanelOpen)
+  return open ? <ProfessionalPanelContent /> : null
+}
+
+function ProfessionalPanelContent() {
   const state = useStudio()
   const hdriInput = useRef<HTMLInputElement>(null)
   const iesInput = useRef<HTMLInputElement>(null)
   const mergeInput = useRef<HTMLInputElement>(null)
   const t = useT()
-  if (!state.professionalPanelOpen) return null
   const set = state.setValue
   return <aside className="professional-panel" aria-label={t('pro.aria')}>
     <header><div><strong>PRODUCTION CONSOLE</strong><small>V22 · PHOTO / CINEMA</small></div><button aria-label={t('pro.close')} onClick={() => set('professionalPanelOpen', false)}>×</button></header>

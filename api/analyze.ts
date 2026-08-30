@@ -1,9 +1,12 @@
 import { buildPhotoAnalysisPrompt } from '../src/photoAnalysisPrompt.ts'
+import { consumeRateLimit, requestClientId } from './requestGuard.ts'
 
-type VercelRequest = { method?: string; body?: unknown }
+type VercelRequest = { method?: string; body?: unknown; headers?: Record<string, string | string[] | undefined> }
 type VercelResponse = { status: (code: number) => VercelResponse; json: (body: unknown) => void; setHeader: (name: string, value: string) => void }
 
 const MAX_DATA_URL_LENGTH = 4_000_000
+const MAX_REMOTE_URL_LENGTH = 2_048
+const ANALYSIS_TIMEOUT_MS = 45_000
 const ALLOWED_REMOTE_HOSTS = [
   'pbs.twimg.com',
   'video.twimg.com',
@@ -49,18 +52,26 @@ export default async function handler(request: VercelRequest, response: VercelRe
   const body = (request.body ?? {}) as { imageData?: unknown; imageUrl?: unknown; notes?: unknown }
   const imageData = typeof body.imageData === 'string' ? body.imageData : ''
   const imageUrl = typeof body.imageUrl === 'string' ? body.imageUrl : ''
-  const notes = typeof body.notes === 'string' ? body.notes : ''
+  const notes = typeof body.notes === 'string' ? body.notes.slice(0, 800) : ''
   const validData = /^data:image\/(jpeg|png|webp);base64,/i.test(imageData) && imageData.length <= MAX_DATA_URL_LENGTH
-  const validRemote = Boolean(imageUrl && isAllowedRemoteImage(imageUrl))
+  const validRemote = Boolean(imageUrl && imageUrl.length <= MAX_REMOTE_URL_LENGTH && isAllowedRemoteImage(imageUrl))
   if (!validData && !validRemote) return response.status(400).json({ error: '圖片格式、大小或來源不受支援。社群匯入目前僅支援 X 與 Instagram。' })
+
+  const rateLimit = consumeRateLimit(requestClientId(request.headers))
+  response.setHeader('RateLimit-Limit', String(rateLimit.limit))
+  response.setHeader('RateLimit-Remaining', String(rateLimit.remaining))
+  response.setHeader('RateLimit-Reset', String(Math.ceil(rateLimit.resetAt / 1000)))
+  if (!rateLimit.allowed) return response.status(429).json({ code: 'RATE_LIMITED', error: '分析請求過於頻繁，請稍後再試。' })
 
   try {
     const openaiResponse = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
+      signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS),
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: process.env.PHOTO_ANALYSIS_MODEL || 'gpt-5.4',
         store: false,
+        max_output_tokens: 2_200,
         input: [{ role: 'user', content: [{ type: 'input_text', text: buildPhotoAnalysisPrompt({ notes, sourceKind: validRemote ? 'social' : 'upload' }) }, { type: 'input_image', image_url: validData ? imageData : imageUrl, detail: 'high' }] }],
         text: { format: { type: 'json_schema', name: 'photo_postprocess_analysis', strict: true, schema } }
       })
@@ -71,7 +82,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
     if (!text) throw new Error('分析結果格式不完整')
     return response.status(200).json(JSON.parse(text))
   } catch (error) {
-    const message = error instanceof Error ? error.message : '未知錯誤'
-    return response.status(502).json({ error: `分析暫時失敗：${message}` })
+    const message = error instanceof Error ? error.message : 'Unknown analysis error'
+    console.error('[photo-analysis]', message.slice(0, 500))
+    return response.status(502).json({ code: 'ANALYSIS_FAILED', error: '分析暫時失敗，請稍後再試。' })
   }
 }

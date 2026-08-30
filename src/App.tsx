@@ -27,6 +27,7 @@ import { summarizeHistoryChange, type HistorySummaryLabels } from './historySumm
 import { useWorkflow } from './workflow'
 import { workflowModeForStage } from './workflowControl'
 import { assetHref } from './routing'
+import { useRenderProgress } from './renderProgress'
 
 let hintSequence = 0
 
@@ -528,8 +529,8 @@ export function GuideModal({ open, onClose, onStartTour }: { open: boolean; onCl
 function RenderToolbar() {
   const renderMode = useStudio((state) => state.renderMode)
   const paused = useStudio((state) => state.pathTracingPaused)
-  const samples = useStudio((state) => state.pathTracingSamples)
-  const status = useStudio((state) => state.pathTracingStatus)
+  const samples = useRenderProgress((state) => state.samples)
+  const status = useRenderProgress((state) => state.status)
   const setValue = useStudio((state) => state.setValue)
   const restart = useStudio((state) => state.restartPhotoRender)
   const t = useT()
@@ -617,8 +618,8 @@ function SceneToolbar() {
 export default function App() {
   const view = useStudio((state) => state.view)
   const renderMode = useStudio((state) => state.renderMode)
-  const pathStatus = useStudio((state) => state.pathTracingStatus)
-  const pathSamples = useStudio((state) => state.pathTracingSamples)
+  const pathStatus = useRenderProgress((state) => state.status)
+  const pathSamples = useRenderProgress((state) => state.samples)
   const sensorFormat = useStudio((state) => state.sensorFormat)
   const frameAspect = useStudio((state) => state.frameAspect)
   const frameOrientation = useStudio((state) => state.frameOrientation)

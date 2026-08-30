@@ -51,6 +51,10 @@ npm run preview
 npm run check
 ```
 
+照片分析 API 預設會對每個來源限制每分鐘 6 次請求；可用
+`ANALYSIS_RATE_LIMIT_PER_MINUTE` 調整（上限 60），並建議在正式環境再搭配
+Vercel Firewall 或共享式限流儲存。
+
 ## 正式網站
 
 - `/`：三語產品首頁
@@ -83,12 +87,15 @@ src/ik.ts                    骨架正逆運動學（雙骨鏈解析解）
 src/retarget.ts              匯入模型的人形骨架對應與姿勢重定向
 src/layout.ts                佔位碰撞、房間邊界與角度吸附
 src/share.ts                 場景壓縮與分享連結
+src/autosave.ts              延後序列化與瀏覽器儲存排程
+src/historyTransaction.ts    將連續拖曳合併成單一復原步驟
+src/renderProgress.ts        獨立的高頻率路徑追蹤進度狀態
 src/uiMode.ts                依螢幕寬度決定桌機或手機介面（可用 ?ui= 覆寫）
 src/mobile.css               手機版介面樣式
 src/components/              場景、控制面板、分析與工作表元件
 src/components/MobileApp.tsx 手機版簡易介面
 scripts/build_website_guide.py  網站使用教學 PDF 產生工具
-public/guide-pages/          三語 300 dpi 網站教學頁面
+public/guide-pages/          三語 300 dpi 教學製作來源（正式部署會排除）
 public/*.pdf                 三語可下載網站使用教學
 palace_*.jpg                 場景環境圖片
 ```

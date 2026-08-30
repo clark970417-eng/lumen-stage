@@ -134,7 +134,11 @@ export function ShotLibrary() {
   const activeShotId = useStudio((state) => state.activeShotId)
   const frameAspect = useStudio((state) => state.frameAspect)
   const frameOrientation = useStudio((state) => state.frameOrientation)
-  const state = useStudio()
+  const setValue = useStudio((state) => state.setValue)
+  const updateShot = useStudio((state) => state.updateShot)
+  const loadShot = useStudio((state) => state.loadShot)
+  const overwriteShot = useStudio((state) => state.overwriteShot)
+  const deleteShot = useStudio((state) => state.deleteShot)
   const t = useT()
   const locale = useLocaleStore((item) => item.locale)
   const shortShot = locale === 'zh' ? '鏡位' : locale === 'ja' ? 'ショット' : 'Shot'
@@ -149,11 +153,11 @@ export function ShotLibrary() {
 
   return <>
     <div className="shot-launcher">
-      <button className={open ? 'active' : ''} onClick={() => state.setValue('shotPanelOpen', !open)}>{t('shots.launcher')} <b>{String(shots.length).padStart(2, '0')}</b></button>
+      <button className={open ? 'active' : ''} onClick={() => setValue('shotPanelOpen', !open)}>{t('shots.launcher')} <b>{String(shots.length).padStart(2, '0')}</b></button>
       <button className="capture-shot-button" onClick={captureCurrent}>＋ {shortShot}</button>
     </div>
     {open && <aside className="shot-panel" aria-label={t('shots.launcher')}>
-      <header><span>{t('shots.launcher')}</span><button aria-label={t('shots.close')} onClick={() => state.setValue('shotPanelOpen', false)}>×</button></header>
+      <header><span>{t('shots.launcher')}</span><button aria-label={t('shots.close')} onClick={() => setValue('shotPanelOpen', false)}>×</button></header>
       <div className="shot-panel-actions"><span>{t('shots.count', { count: shots.length })}</span><button onClick={captureCurrent}>{t('shots.capture')}</button></div>
       {compareIds.length === 1 && <p className="compare-hint">{t('compare.hint')}</p>}
       {comparePair.length === 2 && <ShotCompare a={comparePair[0]} b={comparePair[1]} onClose={() => setCompareIds([])} />}
@@ -165,15 +169,15 @@ export function ShotLibrary() {
             <img src={shot.thumbnail} alt={t('shots.preview', { name: shot.name })} />
             <div className="shot-card-body">
               <span>{shortShot} {String(index + 1).padStart(2, '0')}{activeShotId === shot.id ? ` · ${locale === 'zh' ? '目前使用' : locale === 'ja' ? '使用中' : 'Active'}` : ''}</span>
-              <input aria-label={t('shots.nameAria', { name: shot.name })} defaultValue={shot.name} onBlur={(event) => state.updateShot(shot.id, event.target.value)} />
+              <input aria-label={t('shots.nameAria', { name: shot.name })} defaultValue={shot.name} onBlur={(event) => updateShot(shot.id, event.target.value)} />
               <small>{scene ? `${cameraLabel(scene)} · ${lensLabel(scene)} @ ${scene.focalLength}mm · ${scene.imageFormat?.toUpperCase() ?? 'JPEG'} / ${COLOR_PROFILES[scene.colorProfileId ?? 'neutral'].code} · LOOK ${(scene.makeupStyle ?? 'natural').toUpperCase()} / ${(scene.outfitFabric ?? 'cotton').toUpperCase()} · ISO ${scene.iso} · ${scene.lights.length} LIGHTS · ${(scene.modifiers ?? []).length} GRIP · ${(scene.studioObjects ?? []).length} SET · ${getBackdrop(scene.backdropId ?? 'studio-grey').label.toUpperCase()}` : 'SCENE DATA ERROR'}</small>
             </div>
             <div className="shot-card-actions">
               <button className={compareIds.includes(shot.id) ? 'active' : ''} onClick={() => toggleCompare(shot.id)}>{t('compare.pick')}</button>
-              <button onClick={() => state.loadShot(shot.id)}>{t('common.load')}</button>
-              <button onClick={() => state.overwriteShot(shot.id, thumbnail())}>{t('shots.overwrite')}</button>
+              <button onClick={() => loadShot(shot.id)}>{t('common.load')}</button>
+              <button onClick={() => overwriteShot(shot.id, thumbnail())}>{t('shots.overwrite')}</button>
               <button onClick={() => openSetupSheetForShot(shot)}>{t('topbar.setupSheet')}</button>
-              <button className="danger" onClick={() => { if (window.confirm(t('shots.deleteConfirm', { name: shot.name }))) state.deleteShot(shot.id) }}>{t('common.delete')}</button>
+              <button className="danger" onClick={() => { if (window.confirm(t('shots.deleteConfirm', { name: shot.name }))) deleteShot(shot.id) }}>{t('common.delete')}</button>
             </div>
           </article>
         })}
