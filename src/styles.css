@@ -2342,7 +2342,7 @@ header.topbar .project-actions .workflow-next-button:hover {
     grid-row: 1;
     align-self: end;
     width: 100%;
-    padding-block: 3px 1px;
+    padding: 3px 0 1px;
   }
   header.topbar .project-title .save-state {
     grid-column: 1;
@@ -2390,7 +2390,7 @@ header.topbar .project-actions .workflow-next-button:hover {
   header.topbar { grid-template-columns: 118px minmax(200px, .72fr) minmax(185px, 1fr) 242px; }
   header.topbar .brand > div { transform: scale(.9); transform-origin: left center; }
   header.topbar .project-title { padding-inline: 10px; }
-  header.topbar .project-name-input { width: 100%; padding-inline: 6px; }
+  header.topbar .project-name-input { width: 100%; padding-inline: 0; }
   header.topbar .language-switch button { min-width: 27px; padding-inline: 5px; }
   header.topbar .workflow-navigation { margin-inline: 5px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
   header.topbar .workflow-navigation span { font-size: 9.5px; }
