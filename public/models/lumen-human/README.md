@@ -22,3 +22,10 @@ Upstream attribution and generation notes: <https://github.com/kunalkushwaha/vsi
 - Dress: `toigo_halter_dress_knee_length` by Margaret Toigo, from the MakeHuman Dress 01 CC0 asset pack.
 - Gown: `toigo_halter_dress_with_fluted_skirt` by Margaret Toigo, from the MakeHuman Dress 01 CC0 asset pack.
 - Runtime treatment: female macro body baked into the mesh, 1024 px embedded PBR maps, fitted and skinned garments, four embedded motion clips, normalized to 1.82 m in the studio.
+
+`human-female-casual.glb` is the matching everyday female subject: a shirt-and-jeans outfit with low shoes, exported through the same MPFB 2 pipeline and 53-bone game-engine rig.
+
+- Body and skin: MakeHuman system asset `young_caucasian_female`, CC0 1.0.
+- Outfit: MakeHuman system asset `female_casualsuit01`, CC0 1.0.
+- Shoes: MakeHuman system asset `shoes02`, CC0 1.0.
+- Runtime treatment: female macro body baked into the mesh, 1024 px embedded PBR maps, fitted and skinned garments, four embedded motion clips, normalized to 1.82 m in the studio.

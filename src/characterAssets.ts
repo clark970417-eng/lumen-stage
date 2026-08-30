@@ -10,6 +10,7 @@ import type { Physique } from './physique'
  */
 export const DEFAULT_HUMAN_URL = '/models/lumen-human/human-suited-runtime.glb'
 export const SUITED_HUMAN_URL = '/models/lumen-human/human-suited-runtime.glb'
+export const FEMALE_CASUAL_URL = '/models/lumen-human/human-female-casual.glb'
 export const FEMALE_ACTIVEWEAR_URL = '/models/lumen-human/human-female-activewear.glb'
 export const FEMALE_DRESS_URL = '/models/lumen-human/human-female-dress.glb'
 export const FEMALE_GOWN_URL = '/models/lumen-human/human-female-gown.glb'
@@ -20,7 +21,8 @@ export function shippedHumanFor(physique: Physique, outfit: OutfitStyle) {
   if (physique.sex === 'feminine') {
     if (outfit === 'dress') return FEMALE_DRESS_URL
     if (outfit === 'gown') return FEMALE_GOWN_URL
-    return FEMALE_ACTIVEWEAR_URL
+    if (outfit === 'activewear' || outfit === 'tank') return FEMALE_ACTIVEWEAR_URL
+    return FEMALE_CASUAL_URL
   }
   return SUITED_HUMAN_URL
 }
