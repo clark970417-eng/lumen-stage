@@ -8,6 +8,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js'
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js'
 import { IESLoader } from 'three/addons/loaders/IESLoader.js'
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import type { TransformControls as TransformControlsImpl } from 'three-stdlib'
 import { breathingAdjustedFocalLength, calculateDepthOfField } from '../optics'
@@ -27,6 +28,11 @@ import { brickNormalMap, canvasNormalMap, concreteNormalMap, mottleMap, paperNor
 import { shippedHumanFor } from '../characterAssets'
 import { useWorkflow } from '../workflow'
 import { canControlInWorkflow, workflowModeForStage } from '../workflowControl'
+
+// A RectAreaLight is dark until the LTC lookup tables are uploaded. Every bounce
+// panel and the window are rect-area sources, so this has to run before the
+// first frame or half the scene's light silently contributes nothing.
+RectAreaLightUniformsLib.init()
 
 const SENSOR_WIDTH = { 'full-frame': 36, 'aps-c': 23.5, mft: 17.3 } as const
 const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
@@ -457,6 +463,18 @@ function Backdrop() {
       </mesh>
       <mesh receiveShadow rotation={[0, Math.PI / 2, 0]} position={[-halfWidth, roomHeight / 2, roomDepth * 0.25]}><planeGeometry args={[roomDepth, roomHeight]} /><meshStandardMaterial color={wallColor} roughness={0.95} /></mesh>
       <mesh receiveShadow rotation={[0, -Math.PI / 2, 0]} position={[halfWidth, roomHeight / 2, roomDepth * 0.25]}><planeGeometry args={[roomDepth, roomHeight]} /><meshStandardMaterial color={wallColor} roughness={0.95} /></mesh>
+      {/* Skirting. Two flat planes meeting at a hairline read as a render; the
+          bead of trim is what tells the eye where the floor actually stops. */}
+      <mesh castShadow receiveShadow position={[0, 0.055, -roomDepth * 0.25 + 0.02]}>
+        <boxGeometry args={[roomWidth, 0.11, 0.04]} />
+        <meshStandardMaterial color={wallColor} roughness={0.72} />
+      </mesh>
+      {([-1, 1] as const).map((side) => (
+        <mesh key={side} castShadow receiveShadow position={[side * (halfWidth - 0.02), 0.055, roomDepth * 0.25]}>
+          <boxGeometry args={[0.04, 0.11, roomDepth]} />
+          <meshStandardMaterial color={wallColor} roughness={0.72} />
+        </mesh>
+      ))}
       <BackdropSurface />
     </group>
   )
@@ -472,6 +490,13 @@ function EnvironmentLighting() {
   const sunIntensity = useStudio((state) => state.sunIntensity)
   const haze = useStudio((state) => state.haze)
   const roomWidth = useStudio((state) => state.roomWidth)
+  const roomDepth = useStudio((state) => state.roomDepth)
+  const qualityPreset = useStudio((state) => state.qualityPreset)
+  // The sun's shadow camera is orthographic and defaults to a 10m box centred on
+  // the origin. A room wider than that loses its shadows at the edges, so the
+  // frustum is cut to the room instead of to Three's default.
+  const sunShadowExtent = Math.max(roomWidth, roomDepth) * 0.8
+  const sunShadowMap = qualityPreset === 'performance' ? 1024 : qualityPreset === 'ultra' ? 4096 : 2048
   const sunPosition = useMemo<[number, number, number]>(() => {
     const azimuth = THREE.MathUtils.degToRad(sunAzimuth)
     const elevation = THREE.MathUtils.degToRad(sunElevation)
@@ -493,12 +518,65 @@ function EnvironmentLighting() {
 
   return <>
     {haze > 0 && <fog attach="fog" args={['#747b75', Math.max(0.008, 0.045 - haze * 0.00035)]} />}
-    {sunEnabled && <directionalLight position={sunPosition} intensity={sunIntensity / 18} color="#fff1d4" castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />}
-    {windowEnabled && <group position={[-roomWidth / 2 + 0.03, 2.15, 0.25]} rotation={[0, Math.PI / 2, 0]}>
-      <rectAreaLight width={1.8} height={2.2} intensity={sunIntensity / 22 + 1.2} color="#dceaff" />
-      <mesh><planeGeometry args={[1.8, 2.2]} /><meshBasicMaterial color="#b9d4de" transparent opacity={0.2} side={THREE.DoubleSide} /></mesh>
-      {[-0.45, 0.45].map((x) => <mesh key={x} position={[x, 0, 0.01]}><planeGeometry args={[0.035, 2.2]} /><meshBasicMaterial color="#303630" /></mesh>)}
-      <mesh position={[0, 0, 0.01]}><planeGeometry args={[1.8, 0.035]} /><meshBasicMaterial color="#303630" /></mesh>
+    {sunEnabled && <directionalLight
+      position={sunPosition}
+      intensity={sunIntensity / 18}
+      color="#fff1d4"
+      castShadow
+      shadow-mapSize-width={sunShadowMap}
+      shadow-mapSize-height={sunShadowMap}
+      shadow-camera-near={2}
+      shadow-camera-far={26}
+      shadow-camera-left={-sunShadowExtent}
+      shadow-camera-right={sunShadowExtent}
+      shadow-camera-top={sunShadowExtent}
+      shadow-camera-bottom={-sunShadowExtent}
+      shadow-bias={-0.0004}
+      shadow-normalBias={0.05}
+    />}
+    {/*
+      A practical window, built into the left wall.
+
+      The group faces +X so the rect-area light's emissive face points into the
+      room rather than out through the wall, and the joinery is solid stock
+      rather than decals — a window in a lighting tool is a large soft source
+      whose mullions are the only thing that shapes it.
+    */}
+    {windowEnabled && <group position={[-roomWidth / 2 + 0.06, 2.15, 0.25]} rotation={[0, -Math.PI / 2, 0]}>
+      <rectAreaLight width={1.74} height={2.14} intensity={sunIntensity / 22 + 1.2} color="#dceaff" />
+      <mesh>
+        <planeGeometry args={[1.8, 2.2]} />
+        <meshPhysicalMaterial color="#cfe4ef" roughness={0.06} metalness={0} transmission={0.86} thickness={0.02} transparent opacity={0.34} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Outer casing: head, sill and two jambs, each with real depth. */}
+      {([[0, 1.14, 1.94, 0.09], [0, -1.14, 1.94, 0.09]] as const).map(([x, y, w, h]) => (
+        <mesh key={`rail-${y}`} castShadow receiveShadow position={[x, y, -0.03]}>
+          <boxGeometry args={[w, h, 0.11]} />
+          <meshStandardMaterial color="#343a35" roughness={0.62} metalness={0.12} />
+        </mesh>
+      ))}
+      {([-0.925, 0.925] as const).map((x) => (
+        <mesh key={`jamb-${x}`} castShadow receiveShadow position={[x, 0, -0.03]}>
+          <boxGeometry args={[0.09, 2.28, 0.11]} />
+          <meshStandardMaterial color="#343a35" roughness={0.62} metalness={0.12} />
+        </mesh>
+      ))}
+      {/* Mullions and transom — the bars that cut the soft source into panes. */}
+      {([-0.45, 0.45] as const).map((x) => (
+        <mesh key={`mullion-${x}`} castShadow position={[x, 0, -0.012]}>
+          <boxGeometry args={[0.042, 2.16, 0.05]} />
+          <meshStandardMaterial color="#2e3430" roughness={0.58} metalness={0.14} />
+        </mesh>
+      ))}
+      <mesh castShadow position={[0, 0.34, -0.012]}>
+        <boxGeometry args={[1.8, 0.042, 0.05]} />
+        <meshStandardMaterial color="#2e3430" roughness={0.58} metalness={0.14} />
+      </mesh>
+      {/* The sill sticks into the room, so it catches a highlight edge-on. */}
+      <mesh castShadow receiveShadow position={[0, -1.2, 0.09]} rotation={[Math.PI / 2, 0, 0]}>
+        <boxGeometry args={[2.02, 0.24, 0.05]} />
+        <meshStandardMaterial color="#3c423c" roughness={0.7} />
+      </mesh>
     </group>}
   </>
 }
@@ -1042,46 +1120,115 @@ function StudioObjectMesh({ object }: { object: StudioObject }) {
   useEffect(() => () => material.dispose(), [material])
   if (object.type === 'subject') return <StandaloneFigure object={object} />
   if (object.type === 'dog') return <group>
-    <mesh castShadow receiveShadow position={[0, 0.42, 0]} scale={[0.7, 0.58, 1.12]} material={material}><capsuleGeometry args={[0.24, 0.38, 8, 20]} /></mesh>
-    <mesh castShadow position={[0, 0.64, 0.38]} scale={[0.92, 0.9, 1]} material={material}><sphereGeometry args={[0.25, 24, 18]} /></mesh>
-    <mesh castShadow position={[0, 0.57, 0.59]} scale={[0.78, 0.58, 1]} material={material}><sphereGeometry args={[0.18, 22, 16]} /></mesh>
+    {/* Four legs, not two. A quadruped proxy is in the scene to cast a
+        believable shadow and to give the key light something at floor level to
+        wrap around; a two-legged one does neither. */}
+    <mesh castShadow receiveShadow position={[0, 0.44, 0.04]} scale={[0.72, 0.6, 1.08]} material={material}><capsuleGeometry args={[0.24, 0.36, 8, 20]} /></mesh>
+    <mesh castShadow receiveShadow position={[0, 0.42, -0.3]} scale={[0.7, 0.68, 0.66]} material={material}><sphereGeometry args={[0.26, 24, 18]} /></mesh>
+    <mesh castShadow position={[0, 0.58, 0.28]} rotation={[-0.5, 0, 0]} scale={[0.85, 1, 0.85]} material={material}><capsuleGeometry args={[0.12, 0.16, 6, 16]} /></mesh>
+    <mesh castShadow position={[0, 0.69, 0.4]} scale={[0.9, 0.88, 1]} material={material}><sphereGeometry args={[0.22, 24, 18]} /></mesh>
+    <mesh castShadow position={[0, 0.625, 0.6]} scale={[0.72, 0.56, 1.05]} material={material}><sphereGeometry args={[0.155, 22, 16]} /></mesh>
     {[-1, 1].map((side) => <group key={side}>
-      <mesh castShadow position={[side * 0.17, 0.79, 0.38]} rotation={[0.18, 0, side * 0.32]} material={material}><coneGeometry args={[0.11, 0.28, 18]} /></mesh>
-      <mesh castShadow position={[side * 0.18, 0.22, side * -0.03]} material={material}><capsuleGeometry args={[0.055, 0.31, 6, 12]} /></mesh>
-      <mesh position={[side * 0.095, 0.68, 0.60]}><sphereGeometry args={[0.026, 14, 10]} /><meshPhysicalMaterial color="#17130f" roughness={0.1} clearcoat={0.9} /></mesh>
+      <mesh castShadow position={[side * 0.155, 0.83, 0.38]} rotation={[0.18, 0, side * 0.32]} material={material}><coneGeometry args={[0.1, 0.26, 18]} /></mesh>
+      {/* Foreleg: upper, lower, paw. */}
+      <mesh castShadow receiveShadow position={[side * 0.16, 0.3, 0.24]} material={material}><capsuleGeometry args={[0.056, 0.2, 6, 12]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.16, 0.12, 0.245]} material={material}><capsuleGeometry args={[0.042, 0.16, 6, 12]} /></mesh>
+      <mesh castShadow position={[side * 0.16, 0.038, 0.275]} scale={[1, 0.6, 1.25]} material={material}><sphereGeometry args={[0.06, 16, 12]} /></mesh>
+      {/* Hind leg: the thigh is the heavier mass, which is what reads at a glance. */}
+      <mesh castShadow receiveShadow position={[side * 0.17, 0.33, -0.24]} material={material}><capsuleGeometry args={[0.078, 0.16, 6, 14]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.17, 0.13, -0.245]} material={material}><capsuleGeometry args={[0.042, 0.15, 6, 12]} /></mesh>
+      <mesh castShadow position={[side * 0.17, 0.038, -0.215]} scale={[1, 0.6, 1.25]} material={material}><sphereGeometry args={[0.06, 16, 12]} /></mesh>
+      <mesh position={[side * 0.09, 0.72, 0.575]}><sphereGeometry args={[0.026, 14, 10]} /><meshPhysicalMaterial color="#17130f" roughness={0.1} clearcoat={0.9} /></mesh>
     </group>)}
-    <mesh position={[0, 0.57, 0.755]}><sphereGeometry args={[0.043, 16, 12]} /><meshPhysicalMaterial color="#17130f" roughness={0.18} clearcoat={0.65} /></mesh>
-    <mesh castShadow position={[0, 0.54, -0.48]} rotation={[0.2, 0, -0.75]} material={material}><torusGeometry args={[0.25, 0.035, 10, 28, Math.PI * 1.15]} /></mesh>
+    <mesh position={[0, 0.62, 0.735]}><sphereGeometry args={[0.043, 16, 12]} /><meshPhysicalMaterial color="#17130f" roughness={0.18} clearcoat={0.65} /></mesh>
+    <mesh castShadow position={[0, 0.5, -0.5]} rotation={[0.2, 0, -0.75]} material={material}><torusGeometry args={[0.24, 0.035, 10, 28, Math.PI * 1.15]} /></mesh>
+    <mesh position={[0, 0.55, 0.24]} rotation={[1.2, 0, 0]}><torusGeometry args={[0.14, 0.018, 10, 28]} /><meshStandardMaterial color="#8c3b34" roughness={0.72} /></mesh>
   </group>
   if (object.type === 'cat') return <group>
-    <mesh castShadow receiveShadow position={[0, 0.32, -0.02]} scale={[0.62, 0.82, 0.78]} material={material}><sphereGeometry args={[0.27, 24, 18]} /></mesh>
-    <mesh castShadow position={[0, 0.62, 0.12]} scale={[0.95, 0.88, 0.9]} material={material}><sphereGeometry args={[0.22, 24, 18]} /></mesh>
+    <mesh castShadow receiveShadow position={[0, 0.34, -0.06]} scale={[0.62, 0.78, 0.86]} material={material}><sphereGeometry args={[0.27, 24, 18]} /></mesh>
+    <mesh castShadow receiveShadow position={[0, 0.4, 0.14]} scale={[0.56, 0.62, 0.6]} material={material}><sphereGeometry args={[0.24, 22, 16]} /></mesh>
+    <mesh castShadow position={[0, 0.62, 0.14]} scale={[0.95, 0.88, 0.9]} material={material}><sphereGeometry args={[0.21, 24, 18]} /></mesh>
     {[-1, 1].map((side) => <group key={side}>
-      <mesh castShadow position={[side * 0.13, 0.81, 0.10]} rotation={[0, 0, side * -0.14]} material={material}><coneGeometry args={[0.105, 0.24, 16]} /></mesh>
-      <mesh position={[side * 0.078, 0.65, 0.31]} rotation={[0, side * 0.12, 0]} scale={[1.3, 0.72, 0.5]}><sphereGeometry args={[0.033, 14, 10]} /><meshPhysicalMaterial color="#a9d06e" roughness={0.1} clearcoat={0.9} /></mesh>
-      <mesh castShadow position={[side * 0.11, 0.12, 0.06]} material={material}><capsuleGeometry args={[0.045, 0.18, 6, 12]} /></mesh>
+      <mesh castShadow position={[side * 0.125, 0.8, 0.12]} rotation={[0, 0, side * -0.14]} material={material}><coneGeometry args={[0.1, 0.23, 16]} /></mesh>
+      <mesh position={[side * 0.075, 0.655, 0.32]} rotation={[0, side * 0.12, 0]} scale={[1.3, 0.72, 0.5]}><sphereGeometry args={[0.033, 14, 10]} /><meshPhysicalMaterial color="#a9d06e" roughness={0.1} clearcoat={0.9} /></mesh>
+      {/* Foreleg. */}
+      <mesh castShadow receiveShadow position={[side * 0.105, 0.24, 0.15]} material={material}><capsuleGeometry args={[0.04, 0.12, 6, 12]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.105, 0.09, 0.155]} material={material}><capsuleGeometry args={[0.031, 0.1, 6, 10]} /></mesh>
+      <mesh castShadow position={[side * 0.105, 0.028, 0.175]} scale={[1, 0.6, 1.2]} material={material}><sphereGeometry args={[0.045, 14, 10]} /></mesh>
+      {/* Hind leg. */}
+      <mesh castShadow receiveShadow position={[side * 0.115, 0.26, -0.18]} material={material}><capsuleGeometry args={[0.06, 0.1, 6, 12]} /></mesh>
+      <mesh castShadow receiveShadow position={[side * 0.115, 0.09, -0.185]} material={material}><capsuleGeometry args={[0.031, 0.1, 6, 10]} /></mesh>
+      <mesh castShadow position={[side * 0.115, 0.028, -0.16]} scale={[1, 0.6, 1.2]} material={material}><sphereGeometry args={[0.045, 14, 10]} /></mesh>
     </group>)}
-    <mesh position={[0, 0.57, 0.335]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[0.025, 0.038, 3]} /><meshStandardMaterial color="#a66f72" roughness={0.6} /></mesh>
-    <mesh castShadow position={[0.13, 0.38, -0.25]} rotation={[0.15, 0.15, -0.42]} material={material}><torusGeometry args={[0.31, 0.026, 9, 30, Math.PI * 1.45]} /></mesh>
+    <mesh position={[0, 0.575, 0.325]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[0.025, 0.038, 3]} /><meshStandardMaterial color="#a66f72" roughness={0.6} /></mesh>
+    <mesh castShadow position={[0.11, 0.38, -0.3]} rotation={[0.15, 0.15, -0.42]} material={material}><torusGeometry args={[0.3, 0.026, 9, 30, Math.PI * 1.45]} /></mesh>
   </group>
   if (object.type === 'product') return <group>
     <RoundedBox castShadow receiveShadow args={[0.38, 0.12, 0.38]} radius={0.035} smoothness={3} position={[0, 0.06, 0]} material={material} />
-    <mesh castShadow receiveShadow position={[0, 0.34, 0]} material={material}><cylinderGeometry args={[0.135, 0.16, 0.48, 40]} /></mesh>
-    <mesh castShadow position={[0, 0.62, 0]}><cylinderGeometry args={[0.09, 0.09, 0.10, 32]} /><meshStandardMaterial color="#202320" metalness={0.72} roughness={0.22} /></mesh>
-    <mesh position={[0, 0.35, 0.151]}><planeGeometry args={[0.18, 0.18]} /><meshPhysicalMaterial color="#f3efe5" roughness={0.72} /></mesh>
-    <mesh position={[0, 0.35, 0.153]}><planeGeometry args={[0.09, 0.012]} /><meshBasicMaterial color="#3f433e" /></mesh>
+    {/* Bottle, built as body then shoulder then neck then cap. A straight
+        cylinder gives a key light no shoulder to run down, and the shoulder is
+        the shot. */}
+    <mesh castShadow receiveShadow position={[0, 0.31, 0]} material={material}><cylinderGeometry args={[0.148, 0.16, 0.38, 48]} /></mesh>
+    <mesh castShadow receiveShadow position={[0, 0.545, 0]} material={material}><cylinderGeometry args={[0.074, 0.148, 0.09, 48]} /></mesh>
+    <mesh castShadow receiveShadow position={[0, 0.625, 0]} material={material}><cylinderGeometry args={[0.07, 0.074, 0.07, 32]} /></mesh>
+    <mesh castShadow position={[0, 0.705, 0]}><cylinderGeometry args={[0.086, 0.086, 0.09, 40]} /><meshStandardMaterial color="#202320" metalness={0.72} roughness={0.22} /></mesh>
+    <mesh position={[0, 0.705, 0]}><torusGeometry args={[0.0865, 0.006, 8, 40]} /><meshStandardMaterial color="#14170f" metalness={0.6} roughness={0.4} /></mesh>
+    {/* The label wraps the bottle, so it curves through the highlight. */}
+    <mesh position={[0, 0.31, 0]}>
+      <cylinderGeometry args={[0.1535, 0.1595, 0.19, 48, 1, true]} />
+      <meshPhysicalMaterial color="#f3efe5" roughness={0.74} side={THREE.DoubleSide} />
+    </mesh>
+    <mesh position={[0, 0.345, 0]}>
+      <cylinderGeometry args={[0.1545, 0.1555, 0.014, 48, 1, true]} />
+      <meshStandardMaterial color="#3f433e" roughness={0.6} side={THREE.DoubleSide} />
+    </mesh>
   </group>
+  // Seat and table tops land exactly on the heights in layout.ts, so a figure
+  // placed on one sits on the surface instead of a centimetre inside it.
   if (object.type === 'chair') return <>
-    <RoundedBox castShadow receiveShadow args={[0.72, 0.14, 0.68]} radius={0.055} smoothness={4} position={[0, 0.52, 0]} material={material} />
-    <RoundedBox castShadow receiveShadow args={[0.72, 0.76, 0.13]} radius={0.055} smoothness={4} position={[0, 0.92, 0.28]} rotation={[-0.08, 0, 0]} material={material} />
-    {[[-0.27,-0.24],[0.27,-0.24],[-0.27,0.24],[0.27,0.24]].map(([x,z], index) => <mesh key={index} castShadow position={[x,0.24,z]}><cylinderGeometry args={[0.035,0.025,0.48,12]} /><meshStandardMaterial color="#2c302d" metalness={0.72} roughness={0.28} /></mesh>)}
+    <RoundedBox castShadow receiveShadow args={[0.7, 0.1, 0.64]} radius={0.03} smoothness={4} position={[0, 0.49, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[0.72, 0.055, 0.66]} radius={0.018} smoothness={3} position={[0, 0.418, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[0.66, 0.6, 0.09]} radius={0.04} smoothness={4} position={[0, 0.85, 0.28]} rotation={[-0.11, 0, 0]} material={material} />
+    {([[-0.29, -0.26], [0.29, -0.26], [-0.29, 0.26], [0.29, 0.26]] as const).map(([x, z], index) => (
+      <mesh key={index} castShadow receiveShadow position={[x, 0.195, z]}>
+        <cylinderGeometry args={[0.023, 0.033, 0.39, 14]} />
+        <meshStandardMaterial color="#2c302d" metalness={0.72} roughness={0.28} />
+      </mesh>
+    ))}
+    {/* Stretchers — the bars that stop a chair racking, and the detail that
+        separates a chair from four sticks under a slab. */}
+    {([-0.29, 0.29] as const).map((x) => (
+      <Strut key={x} from={[x, 0.15, -0.26]} to={[x, 0.15, 0.26]} radius={0.015} color="#2c302d" gear={false} />
+    ))}
+    <Strut from={[-0.29, 0.15, 0]} to={[0.29, 0.15, 0]} radius={0.015} color="#2c302d" gear={false} />
+    {/* Back uprights, carrying the panel down to the seat frame. */}
+    {([-0.28, 0.28] as const).map((x) => (
+      <Strut key={x} from={[x, 0.44, 0.27]} to={[x * 0.98, 1.13, 0.35]} radius={0.019} color="#2c302d" gear={false} />
+    ))}
   </>
   if (object.type === 'table') return <>
-    <RoundedBox castShadow receiveShadow args={[1.38, 0.13, 0.78]} radius={0.045} smoothness={3} position={[0, 0.84, 0]} material={material} />
-    {[[-0.57,-0.26],[0.57,-0.26],[-0.57,0.26],[0.57,0.26]].map(([x,z], index) => <mesh key={index} castShadow position={[x,0.41,z]} material={material}><cylinderGeometry args={[0.045,0.032,0.82,12]} /></mesh>)}
-    <mesh castShadow position={[0, 0.79, 0]} material={material}><boxGeometry args={[1.1, 0.055, 0.08]} /></mesh>
+    <RoundedBox castShadow receiveShadow args={[1.38, 0.06, 0.78]} radius={0.018} smoothness={3} position={[0, 0.85, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[1.33, 0.035, 0.73]} radius={0.012} smoothness={2} position={[0, 0.807, 0]} material={material} />
+    {/* Apron on both axes. One rail across the middle was holding nothing. */}
+    {([-0.32, 0.32] as const).map((z) => (
+      <mesh key={z} castShadow receiveShadow position={[0, 0.755, z]} material={material}><boxGeometry args={[1.16, 0.09, 0.036]} /></mesh>
+    ))}
+    {([-0.6, 0.6] as const).map((x) => (
+      <mesh key={x} castShadow receiveShadow position={[x, 0.755, 0]} material={material}><boxGeometry args={[0.036, 0.09, 0.6]} /></mesh>
+    ))}
+    {([[-0.6, -0.32], [0.6, -0.32], [-0.6, 0.32], [0.6, 0.32]] as const).map(([x, z], index) => (
+      <group key={index}>
+        <mesh castShadow receiveShadow position={[x, 0.385, z]} material={material}><cylinderGeometry args={[0.032, 0.046, 0.77, 16]} /></mesh>
+        <mesh castShadow position={[x, 0.008, z]}><cylinderGeometry args={[0.05, 0.052, 0.016, 16]} /><meshStandardMaterial color="#1a1c1a" roughness={0.9} /></mesh>
+      </group>
+    ))}
   </>
-  if (object.type === 'plinth') return <group><mesh castShadow receiveShadow position={[0, 0.55, 0]} material={material}><cylinderGeometry args={[0.42, 0.46, 1.1, 48]} /></mesh><mesh position={[0, 1.105, 0]} material={material}><torusGeometry args={[0.395, 0.018, 10, 48]} /></mesh></group>
+  if (object.type === 'plinth') return <group>
+    <mesh castShadow receiveShadow position={[0, 0.028, 0]} material={material}><cylinderGeometry args={[0.5, 0.52, 0.055, 56]} /></mesh>
+    <mesh castShadow receiveShadow position={[0, 0.55, 0]} material={material}><cylinderGeometry args={[0.42, 0.46, 0.995, 56]} /></mesh>
+    <mesh castShadow receiveShadow position={[0, 1.074, 0]} material={material}><cylinderGeometry args={[0.46, 0.42, 0.052, 56]} /></mesh>
+    <mesh position={[0, 1.1, 0]} material={material}><torusGeometry args={[0.448, 0.014, 10, 56]} /></mesh>
+  </group>
   if (object.type === 'sphere') return <mesh castShadow receiveShadow material={material}><sphereGeometry args={[0.5, 40, 28]} /></mesh>
   return <RoundedBox castShadow receiveShadow args={[0.82, 0.82, 0.82]} radius={0.045} smoothness={3} material={material} />
 }
@@ -1109,9 +1256,160 @@ function MovableStudioObject({ object }: { object: StudioObject }) {
   }} />}</>
 }
 
+/**
+ * The gear palette.
+ *
+ * Studio hardware is genuinely black, and rendered literally it disappears: a
+ * stand in an unlit corner becomes a silhouette with no shape in it. Real gear
+ * still reads, because anodised aluminium and textured paint catch a specular
+ * off whatever source is running. So the housings sit at a graphite value with
+ * enough metalness to pick up a highlight, and the hardware around them —
+ * speed rings, fins, mounts, risers — is left bright aluminium.
+ */
+const GEAR = {
+  /** Painted housing: dark, but with a value you can see a form change in. */
+  housing: { color: '#5d655e', metalness: 0.34, roughness: 0.52, envMapIntensity: 1.15, lift: 0.5 },
+  /** Fabric-covered shells — flatter, one stop below the housings. */
+  fabric: { color: '#4a514c', metalness: 0.12, roughness: 0.8, envMapIntensity: 0.9, lift: 0.42 },
+  /** Bare aluminium: speed rings, stand sections, lens mounts. */
+  aluminium: { color: '#9aa199', metalness: 0.86, roughness: 0.28, envMapIntensity: 1.35, lift: 0.58 },
+  /** Machined bright work: knobs, collars, shoes. */
+  chrome: { color: '#b9c0b7', metalness: 0.92, roughness: 0.17, envMapIntensity: 1.5, lift: 0.62 },
+  /** Rubber and textured grip — the one place that is meant to stay dark. */
+  rubber: { color: '#3a3e3f', metalness: 0.04, roughness: 0.92, envMapIntensity: 0.5, lift: 0.3 },
+} as const
+
+type GearSurface = (typeof GEAR)[keyof typeof GEAR]
+
+/**
+ * Whether gear should be lit for the eye or for the sensor.
+ *
+ * In the working views the studio is a viewport: you are placing hardware, and
+ * hardware you cannot see is hardware you cannot place — a stand whose only
+ * light comes from a key aimed the other way is a correct black silhouette and
+ * a useless one. Through the taking lens, and in a path-traced frame, it is a
+ * photograph again, so the lift goes to zero and the gear falls back to
+ * whatever the lights actually put on it.
+ */
+function useGearLift() {
+  const view = useStudio((state) => state.view)
+  const renderMode = useStudio((state) => state.renderMode)
+  return view === 'camera' || renderMode === 'path' ? 0 : 1
+}
+
+/** Material props for a gear surface at the current viewport lift. */
+function gearMaterial(surface: GearSurface, lift: number) {
+  const { lift: base, ...rest } = surface
+  return { ...rest, emissive: rest.color, emissiveIntensity: base * lift }
+}
+
+/**
+ * A cylinder laid between two points.
+ *
+ * Rigging is mostly tubes between two known ends — a stand arm, a leg, a
+ * spreader — and writing each one as a position plus a pair of Euler angles is
+ * how they end up subtly detached from the thing they are supposed to hold.
+ */
+function Strut({ from, to, radius, surface = GEAR.aluminium, color, taper = 1, cast = true, gear = true }: {
+  from: [number, number, number]
+  to: [number, number, number]
+  radius: number
+  surface?: GearSurface
+  /** Overrides the surface colour for set dressing that is not studio hardware. */
+  color?: string
+  taper?: number
+  cast?: boolean
+  gear?: boolean
+}) {
+  const lift = useGearLift()
+  const { position, quaternion, length } = useMemo(() => {
+    const start = new THREE.Vector3(...from)
+    const end = new THREE.Vector3(...to)
+    const direction = end.clone().sub(start)
+    const span = Math.max(0.001, direction.length())
+    return {
+      position: start.clone().addScaledVector(direction, 0.5),
+      quaternion: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize()),
+      length: span,
+    }
+    // Deps are the endpoints' numbers, not the array literals the caller inlines.
+  }, [from[0], from[1], from[2], to[0], to[1], to[2]])
+  return (
+    <mesh castShadow={cast} position={position} quaternion={quaternion}>
+      <cylinderGeometry args={[radius * taper, radius, length, 12]} />
+      <meshStandardMaterial {...gearMaterial(surface, gear ? lift : 0)} {...(color ? { color, emissive: color } : {})} />
+    </mesh>
+  )
+}
+
+/**
+ * A three-section light stand.
+ *
+ * The riser telescopes and the legs hinge off the bottom section, which is what
+ * makes a stand read as a stand rather than as a pole: the silhouette a stand
+ * throws on a backdrop is legs first, column second.
+ */
+function LightStand({ height, footprint = 0.4 }: { height: number; footprint?: number }) {
+  const lift = useGearLift()
+  const columnTop = Math.max(0.35, height)
+  const hinge = Math.min(0.58, columnTop * 0.6)
+  const foot = 0.018
+  const spread = footprint
+  const legTilt = Math.atan2(spread, foot - hinge)
+  const legLength = Math.hypot(spread, hinge - foot)
+  const sections: Array<[number, number, number]> = [
+    [0.02, columnTop * 0.44, 0.031],
+    [columnTop * 0.40, columnTop * 0.76, 0.024],
+    [columnTop * 0.72, columnTop, 0.018],
+  ]
+  return (
+    <group>
+      {sections.map(([bottom, top, radius], index) => (
+        <group key={index}>
+          <mesh castShadow receiveShadow position={[0, (bottom + top) / 2, 0]}>
+            <cylinderGeometry args={[radius, radius, top - bottom, 14]} />
+            <meshStandardMaterial {...gearMaterial(GEAR.aluminium, lift)} />
+          </mesh>
+          {/* The collar that clamps the section above it. */}
+          {index < sections.length - 1 && (
+            <mesh castShadow position={[0, top - 0.012, 0]}>
+              <cylinderGeometry args={[radius * 1.5, radius * 1.5, 0.045, 16]} />
+              <meshStandardMaterial {...gearMaterial(GEAR.housing, lift)} />
+            </mesh>
+          )}
+        </group>
+      ))}
+      {/* Leg hub. */}
+      <mesh castShadow position={[0, hinge, 0]}>
+        <cylinderGeometry args={[0.05, 0.05, 0.075, 16]} />
+        <meshStandardMaterial {...gearMaterial(GEAR.housing, lift)} />
+      </mesh>
+      {[0, (Math.PI * 2) / 3, (Math.PI * 4) / 3].map((azimuth) => (
+        <group key={azimuth} rotation={[0, azimuth, 0]}>
+          <mesh castShadow receiveShadow position={[0, (hinge + foot) / 2, spread / 2]} rotation={[legTilt, 0, 0]}>
+            <cylinderGeometry args={[0.011, 0.016, legLength, 10]} />
+            <meshStandardMaterial {...gearMaterial(GEAR.aluminium, lift)} />
+          </mesh>
+          {/* A rubber foot, which is the part that actually touches the floor. */}
+          <mesh castShadow position={[0, foot, spread]}>
+            <cylinderGeometry args={[0.026, 0.03, 0.03, 12]} />
+            <meshStandardMaterial {...gearMaterial(GEAR.rubber, lift)} />
+          </mesh>
+        </group>
+      ))}
+      {/* Spigot and tilt knuckle at the top. */}
+      <mesh castShadow position={[0, columnTop + 0.03, 0]}>
+        <cylinderGeometry args={[0.014, 0.014, 0.07, 12]} />
+        <meshStandardMaterial {...gearMaterial(GEAR.chrome, lift)} />
+      </mesh>
+    </group>
+  )
+}
+
 function Softbox({ light }: { light: StudioLight }) {
   const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'light'))
   const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
+  const lift = useGearLift()
   const { id: lightId, position, temperature, shape, grid: gridEnabled, colorMode, rgb, enabled } = light
   const gel = getGel(light.gelId)
   const softboxEnabled = light.optic === 'softbox'
@@ -1152,6 +1450,11 @@ function Softbox({ light }: { light: StudioLight }) {
     const modifierScale = areaModifier ? 1 : light.headType === 'panel' ? 0.62 : 0.36
     return [light.modifierWidth / 1.12 * modifierScale, light.modifierHeight / 1.12 * modifierScale, 1]
   }, [areaModifier, light.headType, light.modifierHeight, light.modifierWidth])
+  // Cross-section radii for the fixture shell. A four-sided cylinder is a
+  // truncated pyramid, so the square boxes and the round ones share one taper.
+  const fixtureDepth = light.headType === 'panel' ? 0.16 : light.headType === 'strobe' ? 0.46 : 0.58
+  const frontRadius = shape === 'round' ? 0.64 : 0.884
+  const backRadius = light.headType === 'panel' ? frontRadius * 0.94 : frontRadius * 0.3
   const sourceRadius = areaModifier
     ? Math.max(light.modifierWidth, light.modifierHeight) * (shape === 'strip' ? 0.28 : 0.44)
     : light.headType === 'panel' ? Math.max(light.modifierWidth, light.modifierHeight) * 0.22 : 0.025
@@ -1162,6 +1465,21 @@ function Softbox({ light }: { light: StudioLight }) {
   const effectiveTransformMode = layoutOnly ? 'translate' : transformMode
   const showLayoutGuide = layoutOnly && enabled && view !== 'camera'
   const guideColor = primary ? '#d8ff3e' : '#67d8ff'
+  /**
+   * The shadow camera, fitted to what this head can actually reach.
+   *
+   * A fixed 12 m frustum spends most of its depth precision on empty room and
+   * still clips the backdrop shadow when a light is set far back, so near and
+   * far are cut to the throw. The distance cutoff is dropped entirely: the
+   * meter models pure inverse-square falloff, and a render that stops the light
+   * dead at 12 m disagrees with the reading the tool just gave you.
+   */
+  const throwDistance = Math.max(
+    0.8,
+    Math.hypot(position[0] - light.target[0], position[1] - light.target[1], position[2] - light.target[2]),
+  )
+  const shadowNear = THREE.MathUtils.clamp(throwDistance * 0.16, 0.15, 1.2)
+  const shadowFar = THREE.MathUtils.clamp(throwDistance * 2.6, 7, 30)
   const standOffset = useMemo<[number, number]>(() => {
     const awayX = position[0] - light.target[0]
     const awayZ = position[2] - light.target[2]
@@ -1197,38 +1515,79 @@ function Softbox({ light }: { light: StudioLight }) {
         ref={spot}
         position={[0, 0, 0]} target={target} color={color} intensity={effectiveEnabled ? outputLumens / (renderMode === 'path' ? PATHTRACE_CANDELA_SCALE : PREVIEW_CANDELA_SCALE) : 0}
         map={goboTexture ?? undefined}
-        angle={beamAngle} penumbra={penumbra} decay={2} distance={12} castShadow
+        angle={beamAngle} penumbra={penumbra} decay={2} distance={0} castShadow
         shadow-mapSize-width={shadowMapSize} shadow-mapSize-height={shadowMapSize}
         shadow-bias={-0.00012}
         shadow-normalBias={0.035}
-        shadow-camera-near={0.4}
-        shadow-camera-far={12}
+        shadow-camera-near={shadowNear}
+        shadow-camera-far={shadowFar}
         shadow-radius={areaModifier ? THREE.MathUtils.clamp(Math.max(light.modifierWidth, light.modifierHeight) * 2.4, 1.2, 4) : 0.7}
       />
       <group ref={visual} scale={fixtureScale}>
-        {shape === 'round' ? (
-          <mesh position={[0, 0, -0.2]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.64, 0.64, light.headType === 'panel' ? 0.16 : 0.4, 48]} /><meshStandardMaterial color="#151816" roughness={0.72} /></mesh>
-        ) : (
-          <mesh position={[0, 0, -0.23]}><boxGeometry args={[1.25, 1.25, light.headType === 'panel' ? 0.14 : light.headType === 'strobe' ? 0.3 : 0.4]} /><meshStandardMaterial color="#151816" roughness={0.72} /></mesh>
-        )}
-        <mesh position={[0, 0, -0.45]}><cylinderGeometry args={[0.15, 0.22, 0.3, 24]} /><meshStandardMaterial color="#202321" metalness={0.65} roughness={0.3} /></mesh>
+        {/*
+          The box tapers.
+
+          A softbox is a truncated pyramid pulled over a speed ring, not a slab:
+          the taper is why a light three-quarters behind a subject shows an edge
+          rather than a rectangle, and it is the whole silhouette on a plan view.
+          Panels stay shallow and flat, because that is what a panel is.
+        */}
+        <group rotation={[Math.PI / 2, 0, 0]}>
+          <mesh castShadow receiveShadow position={[0, -fixtureDepth / 2, 0]} rotation={[0, shape === 'round' ? 0 : Math.PI / 4, 0]}>
+            <cylinderGeometry args={[frontRadius, backRadius, fixtureDepth, shape === 'round' ? 48 : 4, 1, true]} />
+            <meshStandardMaterial {...gearMaterial(GEAR.fabric, lift)} side={THREE.DoubleSide} />
+          </mesh>
+          {/* Piping around the front edge. On real gear it is the reflective
+              trim that catches the room and draws the box's outline. */}
+          <mesh position={[0, 0.004, 0]} rotation={[0, shape === 'round' ? 0 : Math.PI / 4, 0]}>
+            <cylinderGeometry args={[frontRadius * 1.012, frontRadius, 0.05, shape === 'round' ? 48 : 4, 1, true]} />
+            <meshStandardMaterial {...gearMaterial(GEAR.aluminium, lift)} side={THREE.DoubleSide} />
+          </mesh>
+          {/* Speed ring: the collar the fabric pulls onto. */}
+          <mesh castShadow position={[0, -fixtureDepth - 0.01, 0]}>
+            <cylinderGeometry args={[backRadius * 1.06, backRadius * 1.06, 0.055, 28]} />
+            <meshStandardMaterial {...gearMaterial(GEAR.aluminium, lift)} />
+          </mesh>
+          {/* Lamp head behind the ring — barrel along the throw, not upright. */}
+          <mesh castShadow receiveShadow position={[0, -fixtureDepth - 0.19, 0]}>
+            <cylinderGeometry args={[0.16, 0.2, 0.34, 24]} />
+            <meshStandardMaterial {...gearMaterial(GEAR.housing, lift)} />
+          </mesh>
+          {/* Pilot lamp: green when the head is live, dark when it is not. */}
+          <mesh position={[0.145, -fixtureDepth - 0.12, 0.115]}>
+            <sphereGeometry args={[0.017, 12, 10]} />
+            <meshStandardMaterial
+              color={effectiveEnabled ? '#8ef2a4' : '#2c322d'}
+              emissive={effectiveEnabled ? '#4fe07a' : '#000000'}
+              emissiveIntensity={effectiveEnabled ? 2.4 : 0}
+              toneMapped={false}
+            />
+          </mesh>
+          {/* Cooling fins, so the back of the head is not a blank cylinder. */}
+          {[0.06, 0.12, 0.18].map((offset) => (
+            <mesh key={offset} castShadow position={[0, -fixtureDepth - 0.19 - offset, 0]}>
+              <cylinderGeometry args={[0.205, 0.205, 0.012, 24]} />
+              <meshStandardMaterial {...gearMaterial(GEAR.aluminium, lift)} />
+            </mesh>
+          ))}
+        </group>
         <mesh position={[0, 0, 0.001]}>
           {shape === 'round' ? <circleGeometry args={[0.57, 48]} /> : <planeGeometry args={[1.12, 1.12]} />}
           <meshStandardMaterial color={effectiveEnabled ? color : '#31342f'} emissive={color} emissiveIntensity={effectiveEnabled ? (softboxEnabled ? 1.5 : 2.8) : 0} roughness={softboxEnabled ? 0.82 : 0.35} side={THREE.DoubleSide} />
         </mesh>
         {gridEnabled && <group position={[0, 0, 0.016]}>
-          {[-0.42, -0.21, 0, 0.21, 0.42].map((offset) => <mesh key={`v-${offset}`} position={[offset, 0, 0]}><planeGeometry args={[0.018, 1.02]} /><meshBasicMaterial color="#151815" side={THREE.DoubleSide} /></mesh>)}
-          {[-0.42, -0.21, 0, 0.21, 0.42].map((offset) => <mesh key={`h-${offset}`} position={[0, offset, 0]}><planeGeometry args={[1.02, 0.018]} /><meshBasicMaterial color="#151815" side={THREE.DoubleSide} /></mesh>)}
+          {[-0.42, -0.21, 0, 0.21, 0.42].map((offset) => <mesh key={`v-${offset}`} position={[offset, 0, 0]}><planeGeometry args={[0.018, 1.02]} /><meshStandardMaterial color="#3a403b" roughness={0.9} side={THREE.DoubleSide} /></mesh>)}
+          {[-0.42, -0.21, 0, 0.21, 0.42].map((offset) => <mesh key={`h-${offset}`} position={[0, offset, 0]}><planeGeometry args={[1.02, 0.018]} /><meshStandardMaterial color="#3a403b" roughness={0.9} side={THREE.DoubleSide} /></mesh>)}
         </group>}
         {light.optic === 'umbrella-shoot' && <group position={[0, 0, 0.12]}><mesh rotation={[Math.PI / 2, 0, 0]}><sphereGeometry args={[0.7, 48, 18, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshPhysicalMaterial color="#f5f3e8" transmission={0.42} transparent opacity={0.72} roughness={0.88} side={THREE.DoubleSide} /></mesh><mesh position={[0, 0, -0.28]}><cylinderGeometry args={[0.012, 0.012, 1.05, 10]} /><meshStandardMaterial color="#454b45" metalness={0.75} /></mesh></group>}
         {light.optic === 'umbrella-reflect' && <group position={[0, 0, 0.12]}><mesh rotation={[Math.PI / 2, 0, 0]}><sphereGeometry args={[0.7, 48, 18, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color="#d9ddd8" metalness={0.82} roughness={0.24} side={THREE.DoubleSide} /></mesh><mesh position={[0, 0, -0.28]}><cylinderGeometry args={[0.012, 0.012, 1.05, 10]} /><meshStandardMaterial color="#454b45" metalness={0.75} /></mesh></group>}
         {light.optic === 'beauty-dish' && <group position={[0, 0, 0.16]}><mesh rotation={[Math.PI / 2, 0, 0]}><sphereGeometry args={[0.58, 48, 12, 0, Math.PI * 2, 0, Math.PI / 3]} /><meshStandardMaterial color="#c9cec7" metalness={0.55} roughness={0.34} side={THREE.DoubleSide} /></mesh><mesh position={[0, 0, 0.23]}><cylinderGeometry args={[0.13, 0.16, 0.055, 32]} /><meshStandardMaterial color="#d6dad3" metalness={0.52} roughness={0.3} /></mesh></group>}
         {light.optic === 'deep-parabolic' && <mesh position={[0, 0, 0.3]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.64, 0.22, 0.72, 48, 1, true]} /><meshStandardMaterial color="#babfb8" metalness={0.62} roughness={0.28} side={THREE.DoubleSide} /></mesh>}
         {light.optic === 'lantern' && <mesh position={[0, 0, 0.18]} scale={[0.9, 0.9, 0.72]}><sphereGeometry args={[0.62, 40, 28]} /><meshPhysicalMaterial color={color} emissive={color} emissiveIntensity={effectiveEnabled ? 0.9 : 0} transmission={0.18} transparent opacity={0.8} roughness={0.9} side={THREE.DoubleSide} /></mesh>}
-        {light.optic === 'standard' && <mesh position={[0, 0, 0.18]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.48, 0.3, 0.36, 32, 1, true]} /><meshStandardMaterial color="#1b1f1b" metalness={0.55} roughness={0.38} side={THREE.DoubleSide} /></mesh>}
+        {light.optic === 'standard' && <mesh castShadow position={[0, 0, 0.18]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.48, 0.3, 0.36, 32, 1, true]} /><meshStandardMaterial color="#8f958d" metalness={0.8} roughness={0.3} side={THREE.DoubleSide} /></mesh>}
         {light.optic === 'fresnel' && <group position={[0, 0, 0.08]}>{[0.18, 0.3, 0.42].map((radius) => <mesh key={radius}><torusGeometry args={[radius, 0.016, 8, 40]} /><meshStandardMaterial color="#555d54" metalness={0.5} roughness={0.3} /></mesh>)}</group>}
-        {light.optic === 'snoot' && <mesh position={[0, 0, 0.32]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.17, 0.32, 0.65, 32, 1, true]} /><meshStandardMaterial color="#111411" metalness={0.68} roughness={0.25} side={THREE.DoubleSide} /></mesh>}
-        {light.optic === 'projection' && <group><mesh position={[0, 0, 0.34]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.18, 0.27, 0.72, 32]} /><meshStandardMaterial color="#121512" metalness={0.72} roughness={0.22} /></mesh><mesh position={[0, 0, 0.72]}><circleGeometry args={[0.15, 36]} /><meshStandardMaterial color="#303730" emissive={color} emissiveIntensity={effectiveEnabled ? 0.5 : 0} /></mesh></group>}
+        {light.optic === 'snoot' && <mesh castShadow position={[0, 0, 0.32]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.17, 0.32, 0.65, 32, 1, true]} /><meshStandardMaterial {...gearMaterial(GEAR.housing, lift)} side={THREE.DoubleSide} /></mesh>}
+        {light.optic === 'projection' && <group><mesh castShadow position={[0, 0, 0.34]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.18, 0.27, 0.72, 32]} /><meshStandardMaterial {...gearMaterial(GEAR.housing, lift)} /></mesh><mesh position={[0, 0, 0.72]}><circleGeometry args={[0.15, 36]} /><meshStandardMaterial color="#303730" emissive={color} emissiveIntensity={effectiveEnabled ? 0.5 : 0} /></mesh></group>}
         {light.optic === 'projection' && light.goboPattern !== 'none' && <group position={[0, 0, 0.79]} rotation={[0, 0, THREE.MathUtils.degToRad(light.goboRotation)]} scale={light.goboScale}>
           {light.goboPattern === 'window' && <><mesh castShadow><planeGeometry args={[0.07, 0.64]} /><meshBasicMaterial color="#050605" side={THREE.DoubleSide} /></mesh><mesh castShadow><planeGeometry args={[0.64, 0.07]} /><meshBasicMaterial color="#050605" side={THREE.DoubleSide} /></mesh></>}
           {light.goboPattern === 'blinds' && [-0.24, -0.12, 0, 0.12, 0.24].map((offset) => <mesh key={offset} castShadow position={[0, offset, 0]}><planeGeometry args={[0.68, 0.055]} /><meshBasicMaterial color="#050605" side={THREE.DoubleSide} /></mesh>)}
@@ -1236,15 +1595,24 @@ function Softbox({ light }: { light: StudioLight }) {
           {light.goboPattern === 'breakup' && [[-0.22,0.2,0.28],[0.18,0.18,-0.45],[-0.12,-0.08,0.7],[0.2,-0.19,-0.2],[0.02,0.02,1.1]].map(([x,y,r], index) => <mesh key={index} castShadow position={[x,y,0]} rotation={[0,0,r]}><planeGeometry args={[0.32,0.055]} /><meshBasicMaterial color="#050605" side={THREE.DoubleSide} /></mesh>)}
         </group>}
         {light.optic === 'barn-doors' && <group position={[0, 0, 0.12]}>
-          {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((rotation) => <group key={rotation} rotation={[0, 0, rotation]}><mesh position={[0, 0.48, 0.1]} rotation={[THREE.MathUtils.degToRad(light.barnDoorAngle), 0, 0]}><planeGeometry args={[0.72, 0.48]} /><meshStandardMaterial color="#101310" metalness={0.65} roughness={0.28} side={THREE.DoubleSide} /></mesh></group>)}
+          {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((rotation) => <group key={rotation} rotation={[0, 0, rotation]}><mesh castShadow position={[0, 0.48, 0.1]} rotation={[THREE.MathUtils.degToRad(light.barnDoorAngle), 0, 0]}><planeGeometry args={[0.72, 0.48]} /><meshStandardMaterial color="#4a514a" metalness={0.5} roughness={0.44} side={THREE.DoubleSide} /></mesh></group>)}
         </group>}
-        {canControl && selected && view !== 'camera' && <RoundedBox args={[1.34, 1.34, 0.46]} radius={0.025} smoothness={2}><meshBasicMaterial color={light.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={primary ? 0.58 : 0.28} /></RoundedBox>}
+        {canControl && selected && view !== 'camera' && <RoundedBox args={[1.34, 1.34, fixtureDepth + 0.62]} radius={0.025} smoothness={2} position={[0, 0, -(fixtureDepth + 0.62) / 2 + 0.06]}><meshBasicMaterial color={light.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={primary ? 0.58 : 0.28} /></RoundedBox>}
       </group>
-      <Line points={[[standOffset[0], -0.09, standOffset[1]], [0, -0.09, 0]]} color="#343936" lineWidth={4} />
-      <mesh castShadow position={[standOffset[0], -0.09, standOffset[1]]}><sphereGeometry args={[0.052, 16, 12]} /><meshStandardMaterial color="#272a28" metalness={0.78} roughness={0.25} /></mesh>
+      {/* Yoke arm from the tilt knuckle to the back of the head — a real tube,
+          not a screen-space line that vanishes at a grazing angle. */}
+      <Strut from={[standOffset[0], -0.09, standOffset[1]]} to={[0, -0.02, 0]} radius={0.019} />
+      <mesh castShadow position={[standOffset[0], -0.09, standOffset[1]]}>
+        <sphereGeometry args={[0.052, 18, 14]} />
+        <meshStandardMaterial {...gearMaterial(GEAR.housing, lift)} />
+      </mesh>
+      {/* The tilt knob you would actually reach for. */}
+      <mesh castShadow position={[standOffset[0], -0.09, standOffset[1] + 0.055]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.026, 0.026, 0.03, 14]} />
+        <meshStandardMaterial {...gearMaterial(GEAR.chrome, lift)} />
+      </mesh>
       <group position={[standOffset[0], -position[1], standOffset[1]]}>
-        <mesh castShadow position={[0, position[1] / 2, 0]}><cylinderGeometry args={[0.025, 0.035, position[1], 12]} /><meshStandardMaterial color="#272a28" metalness={0.78} roughness={0.25} /></mesh>
-        {[0, 2.09, 4.18].map((rotation) => <mesh key={rotation} rotation={[0, rotation, -1.2]} position={[0, 0.08, 0]}><cylinderGeometry args={[0.018, 0.018, 0.62, 10]} /><meshStandardMaterial color="#252825" metalness={0.72} /></mesh>)}
+        <LightStand height={Math.max(0.35, position[1] - 0.09)} footprint={FOOTPRINT.lightStand} />
       </group>
     </group>
   )
@@ -1298,6 +1666,7 @@ const MODIFIER_MATERIALS = {
 } as const
 
 function GripModifier({ modifier }: { modifier: StudioModifier }) {
+  const lift = useGearLift()
   const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'grip'))
   const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const selected = useStudio((state) => state.selected === modifier.id)
@@ -1317,6 +1686,8 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
   const bounceLight = useRef<THREE.RectAreaLight>(null)
   const material = MODIFIER_MATERIALS[modifier.surface]
   const panelWidth = modifier.type === 'vflat' ? modifier.width / 2 : modifier.width
+  // How much column there is between the floor and the frame's bottom rail.
+  const standDrop = Math.max(0.3, modifier.position[1] - modifier.height / 2 - 0.17)
   const bounce = useMemo(() => {
     if (modifier.surface === 'black') return { intensity: 0, color: new THREE.Color('#ffffff') }
     const normal = new THREE.Vector3(Math.sin(modifier.rotationY), 0, Math.cos(modifier.rotationY)).normalize()
@@ -1355,16 +1726,28 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
     bounceLight.current?.lookAt(modelPosition[0], modelPosition[1] + modelHeight * 0.62, modelPosition[2])
   }, [modelHeight, modelPosition, modifier.position])
 
+  // Fabric stretched on a tubular frame. The frame used to be a wireframe box,
+  // which reads as a debug helper rather than as the aluminium it stands for —
+  // and a wireframe throws no shadow, so the panel floated free of its rig.
+  const halfPanel = panelWidth / 2
+  const halfHeight = modifier.height / 2
   const panel = (x = 0, rotationY = 0) => (
     <group position={[x, 0, 0]} rotation={[0, rotationY, 0]}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[panelWidth, modifier.height, 0.035]} />
         <meshStandardMaterial {...material} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position={[0, 0, -0.021]}>
-        <boxGeometry args={[panelWidth + 0.035, modifier.height + 0.035, 0.018]} />
-        <meshBasicMaterial color="#343833" wireframe transparent opacity={0.52} />
-      </mesh>
+      <Strut from={[-halfPanel, halfHeight, -0.03]} to={[halfPanel, halfHeight, -0.03]} radius={0.014} />
+      <Strut from={[-halfPanel, -halfHeight, -0.03]} to={[halfPanel, -halfHeight, -0.03]} radius={0.014} />
+      <Strut from={[-halfPanel, -halfHeight, -0.03]} to={[-halfPanel, halfHeight, -0.03]} radius={0.014} />
+      <Strut from={[halfPanel, -halfHeight, -0.03]} to={[halfPanel, halfHeight, -0.03]} radius={0.014} />
+      {/* Corner blocks, where the tubes actually join. */}
+      {([[-halfPanel, halfHeight], [halfPanel, halfHeight], [-halfPanel, -halfHeight], [halfPanel, -halfHeight]] as const).map(([cx, cy]) => (
+        <mesh key={`${cx}-${cy}`} castShadow position={[cx, cy, -0.03]}>
+          <sphereGeometry args={[0.022, 12, 10]} />
+          <meshStandardMaterial {...gearMaterial(GEAR.housing, lift)} />
+        </mesh>
+      ))}
     </group>
   )
 
@@ -1380,8 +1763,20 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
         {panel(panelWidth * 0.24, -0.34)}
       </> : panel()}
       {modifier.type !== 'vflat' && <>
-        <mesh position={[0, -modifier.height / 2 - 0.34, 0]} castShadow><cylinderGeometry args={[0.018, 0.025, 0.68, 10]} /><meshStandardMaterial color="#242824" metalness={0.7} roughness={0.28} /></mesh>
-        <mesh position={[0, -modifier.height / 2 - 0.67, 0]} rotation={[0, 0, Math.PI / 2]} castShadow><cylinderGeometry args={[0.018, 0.018, 0.48, 10]} /><meshStandardMaterial color="#242824" metalness={0.7} /></mesh>
+        {/* A grip stand that reaches the floor. The old stub ended in mid-air
+            below tall panels and punched through the floor under short ones. */}
+        <Strut from={[0, -halfHeight, 0]} to={[0, -halfHeight - 0.16, 0]} radius={0.016} />
+        <mesh castShadow position={[0, -halfHeight - 0.17, 0]}>
+          <sphereGeometry args={[0.042, 16, 12]} />
+          <meshStandardMaterial {...gearMaterial(GEAR.housing, lift)} />
+        </mesh>
+        <mesh castShadow position={[0.05, -halfHeight - 0.17, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.022, 0.022, 0.028, 14]} />
+          <meshStandardMaterial {...gearMaterial(GEAR.chrome, lift)} />
+        </mesh>
+        <group position={[0, -modifier.position[1], 0]}>
+          <LightStand height={standDrop} footprint={FOOTPRINT.gripStand} />
+        </group>
       </>}
       {canControl && selected && view !== 'camera' && <mesh>
         <boxGeometry args={[modifier.width + 0.1, modifier.height + 0.1, modifier.type === 'vflat' ? 0.5 : 0.1]} />
@@ -1416,6 +1811,7 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
 }
 
 function CameraProp() {
+  const lift = useGearLift()
   const canControl = useWorkflow((state) => canControlInWorkflow(state.stage, 'camera'))
   const selectObject = useStudio((state) => state.selectObject)
   const selected = useStudio((state) => state.selected === 'camera')
@@ -1424,18 +1820,117 @@ function CameraProp() {
   const target = useStudio((state) => state.cameraTarget)
   const setCameraPosition = useStudio((state) => state.setCameraPosition)
   const group = useRef<THREE.Group>(null)
+  const head = useRef<THREE.Group>(null)
   const transformControl = useRef<TransformControlsImpl>(null)
+  const columnHeight = Math.max(0.3, position[1] - 0.22)
 
+  // Only the head aims. Aiming the whole prop tipped the tripod over with it,
+  // so a camera looking down at a seated subject stood on slanted legs.
   useEffect(() => {
-    group.current?.lookAt(...target)
+    head.current?.lookAt(...target)
   }, [position, target])
+
+  /*
+   * Which way the body faces.
+   *
+   * Object3D.lookAt turns a plain group so that its *+Z* faces the target —
+   * the opposite of a Camera or a Light, which face along -Z. The body below is
+   * authored the natural way round, lens on -Z and screen on +Z, so without
+   * this half turn the prop aims its viewfinder at the subject and its lens at
+   * the room. It only became obvious once the front and back stopped looking
+   * alike.
+   */
 
   const camera = (
     <group ref={group} position={position} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('camera') }}>
-      <RoundedBox args={[0.48, 0.32, 0.25]} radius={0.04} smoothness={4}><meshStandardMaterial color="#1d201e" metalness={0.55} roughness={0.36} /></RoundedBox>
-      <mesh position={[0, 0, -0.23]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.15, 0.12, 0.3, 32]} /><meshStandardMaterial color="#111312" metalness={0.72} roughness={0.28} /></mesh>
-      <mesh position={[0, -0.8, 0.08]}><cylinderGeometry args={[0.025, 0.035, 1.45, 12]} /><meshStandardMaterial color="#2b2e2b" metalness={0.8} /></mesh>
-      {canControl && selected && view !== 'camera' && <RoundedBox args={[0.54, 0.38, 0.32]} radius={0.03} smoothness={2}><meshBasicMaterial color="#d8ff3e" wireframe transparent opacity={0.58} /></RoundedBox>}
+      <group position={[0, -columnHeight - 0.22, 0]}>
+        <LightStand height={columnHeight} footprint={0.46} />
+      </group>
+      {/* Fluid head: bowl, tilt plate and the pan bar. */}
+      <mesh castShadow position={[0, -0.185, 0]}>
+        <cylinderGeometry args={[0.062, 0.082, 0.09, 20]} />
+        <meshStandardMaterial {...gearMaterial(GEAR.housing, lift)} />
+      </mesh>
+      <group ref={head}>
+        <group rotation={[0, Math.PI, 0]}>
+        {/* Body, with the shoulders a mirrorless body actually has. */}
+        <RoundedBox castShadow receiveShadow args={[0.36, 0.26, 0.19]} radius={0.028} smoothness={4} position={[0, 0, 0.02]}>
+          <meshStandardMaterial {...gearMaterial(GEAR.housing, lift)} />
+        </RoundedBox>
+        {/* Silver top plate. A body that is one flat black block has no line
+            along the shoulders, which is the shape you recognise a camera by. */}
+        <RoundedBox castShadow args={[0.365, 0.05, 0.195]} radius={0.02} smoothness={3} position={[0, 0.115, 0.02]}>
+          <meshStandardMaterial {...gearMaterial(GEAR.aluminium, lift)} />
+        </RoundedBox>
+        {/* Hand grip. */}
+        <RoundedBox castShadow args={[0.11, 0.25, 0.2]} radius={0.045} smoothness={4} position={[0.2, -0.012, 0.025]}>
+          <meshStandardMaterial {...gearMaterial(GEAR.rubber, lift)} />
+        </RoundedBox>
+        {/* Viewfinder hump and hot shoe. */}
+        <RoundedBox castShadow args={[0.12, 0.085, 0.135]} radius={0.02} smoothness={3} position={[-0.005, 0.16, 0.025]}>
+          <meshStandardMaterial {...gearMaterial(GEAR.aluminium, lift)} />
+        </RoundedBox>
+        <mesh castShadow position={[-0.005, 0.208, 0.03]}>
+          <boxGeometry args={[0.062, 0.014, 0.052]} />
+          <meshStandardMaterial {...gearMaterial(GEAR.chrome, lift)} />
+        </mesh>
+        {/* Eyepiece, at the back where a face would go. */}
+        <mesh position={[-0.005, 0.155, 0.1]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.032, 0.038, 0.03, 20]} />
+          <meshStandardMaterial {...gearMaterial(GEAR.rubber, lift)} />
+        </mesh>
+        {/* Shutter release and mode dial. */}
+        <mesh position={[0.2, 0.118, -0.02]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.017, 0.017, 0.014, 16]} />
+          <meshStandardMaterial {...gearMaterial(GEAR.chrome, lift)} />
+        </mesh>
+        <mesh position={[-0.13, 0.135, 0.04]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.037, 0.037, 0.026, 20]} />
+          <meshStandardMaterial {...gearMaterial(GEAR.aluminium, lift)} />
+        </mesh>
+        {/* Rear screen. */}
+        <mesh position={[0, -0.01, 0.117]}>
+          <planeGeometry args={[0.2, 0.14]} />
+          <meshPhysicalMaterial color="#0b0d0c" roughness={0.12} clearcoat={0.8} clearcoatRoughness={0.06} />
+        </mesh>
+        {/* Lens: mount, barrel, focus and zoom rings, hood, front element. */}
+        <mesh castShadow position={[0, 0, -0.09]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.088, 0.088, 0.03, 32]} />
+          <meshStandardMaterial {...gearMaterial(GEAR.chrome, lift)} />
+        </mesh>
+        <mesh castShadow position={[0, 0, -0.2]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.079, 0.084, 0.21, 36]} />
+          <meshStandardMaterial {...gearMaterial(GEAR.housing, lift)} />
+        </mesh>
+        {/* Accent band. One warm ring is all it takes for the lens to stop
+            reading as a hole in the middle of the frame. */}
+        <mesh position={[0, 0, -0.3]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.0895, 0.0895, 0.012, 40]} />
+          <meshStandardMaterial color="#c9722f" metalness={0.35} roughness={0.4} />
+        </mesh>
+        {([-0.17, -0.26] as const).map((z) => (
+          <mesh key={z} castShadow position={[0, 0, z]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.09, 0.09, 0.05, 40]} />
+            <meshStandardMaterial {...gearMaterial(GEAR.rubber, lift)} />
+          </mesh>
+        ))}
+        <mesh castShadow position={[0, 0, -0.36]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.108, 0.086, 0.11, 36, 1, true]} />
+          <meshStandardMaterial color="#3c423c" metalness={0.32} roughness={0.66} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh position={[0, 0, -0.305]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.074, 0.074, 0.004, 32]} />
+          <meshPhysicalMaterial color="#0a1418" roughness={0.05} metalness={0.1} clearcoat={1} iridescence={0.6} iridescenceIOR={1.6} />
+        </mesh>
+        {/* Pan bar — it tilts with the head, which is the point of it. */}
+        <Strut from={[-0.085, -0.14, 0.05]} to={[-0.16, -0.24, 0.36]} radius={0.011} />
+        <mesh castShadow position={[-0.17, -0.255, 0.4]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.019, 0.019, 0.11, 14]} />
+          <meshStandardMaterial {...gearMaterial(GEAR.rubber, lift)} />
+        </mesh>
+        {canControl && selected && view !== 'camera' && <RoundedBox args={[0.56, 0.4, 0.62]} radius={0.03} smoothness={2} position={[0.02, 0, -0.1]}><meshBasicMaterial color="#d8ff3e" wireframe transparent opacity={0.58} /></RoundedBox>}
+        </group>
+      </group>
     </group>
   )
 
