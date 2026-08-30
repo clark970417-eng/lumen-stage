@@ -46,6 +46,7 @@ function StudioShell() {
     // React.lazy reuses the same module request, removing a serial network round trip.
     const shell = mobile ? loadMobileApp() : loadApp()
     Promise.all([import('./store'), import('./share'), import('./persistence'), shell]).then(async ([store, share, persistence]) => {
+      const requestedSetup = new URLSearchParams(location.search).get('setup')
       const shared = await share.readSceneFromLocation()
       if (shared) store.useStudio.getState().importProject(shared)
       else if (persistence.hasLocalProject()) store.useStudio.getState().loadProject()
@@ -56,6 +57,7 @@ function StudioShell() {
         const backup = await persistence.readMirroredProject()
         if (backup) store.useStudio.getState().importProject(backup)
       }
+      if (requestedSetup) store.useStudio.getState().applyLightingSetup(requestedSetup)
       void persistence.requestDurableStorage()
     }).finally(() => { if (active) setReady(true) })
     return () => { active = false }
