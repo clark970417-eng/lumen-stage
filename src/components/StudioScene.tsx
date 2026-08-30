@@ -604,13 +604,32 @@ function attachHeadDetail(model: THREE.Group, head: THREE.Bone, detail: THREE.Gr
   head.attach(detail)
 }
 
-/** Fits the CC0 MakeHuman short04 mesh to this normalized actor's real head. */
-function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, source: THREE.Group) {
+/** Maps the appearance controls to a physically plausible hair response. */
+function applyStudioHairAppearance(material: THREE.MeshPhysicalMaterial, hairColor: string, hairGloss: number) {
+  const gloss = THREE.MathUtils.clamp(hairGloss / 100, 0, 1)
+  const color = new THREE.Color(hairColor)
+  material.color.copy(color)
+  material.roughness = THREE.MathUtils.lerp(0.72, 0.22, gloss)
+  material.sheen = THREE.MathUtils.lerp(0.28, 0.92, gloss)
+  material.sheenColor.copy(color).lerp(new THREE.Color('#fff4e8'), 0.22 + gloss * 0.18)
+  material.sheenRoughness = THREE.MathUtils.lerp(0.58, 0.20, gloss)
+  material.anisotropy = THREE.MathUtils.lerp(0.22, 0.84, gloss)
+  material.clearcoat = gloss * 0.18
+  material.clearcoatRoughness = THREE.MathUtils.lerp(0.48, 0.20, gloss)
+  material.needsUpdate = true
+}
+
+/** Gives the source hairstyle fine, directional fibres without baking in one hair colour. */
+function createStudioHairTexture() {
   const canvas = document.createElement('canvas')
   canvas.width = 512
   canvas.height = 512
   const context = canvas.getContext('2d')!
-  context.fillStyle = '#30211b'
+  const base = context.createLinearGradient(0, 0, 0, 512)
+  base.addColorStop(0, '#707070')
+  base.addColorStop(0.22, '#aaaaaa')
+  base.addColorStop(1, '#868686')
+  context.fillStyle = base
   context.fillRect(0, 0, 512, 512)
   let seed = 117
   const random = () => {
@@ -618,35 +637,51 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     return (seed - 1) / 2147483646
   }
   context.lineCap = 'round'
-  for (let index = 0; index < 980; index += 1) {
+  for (let index = 0; index < 1350; index += 1) {
     const x = random() * 512
     const y = random() * 512
-    const length = 14 + random() * 42
-    context.strokeStyle = random() > 0.55 ? 'rgba(124,82,59,.30)' : 'rgba(16,9,7,.32)'
-    context.lineWidth = 0.55 + random() * 1.3
+    const length = 24 + random() * 68
+    context.strokeStyle = random() > 0.58 ? 'rgba(255,255,255,.20)' : 'rgba(18,18,18,.24)'
+    context.lineWidth = 0.35 + random() * 0.85
     context.beginPath()
     context.moveTo(x, y)
-    context.quadraticCurveTo(x + length * 0.12, y - length * 0.55, x - length * 0.04, y - length)
+    context.bezierCurveTo(
+      x + length * 0.10,
+      y - length * 0.30,
+      x - length * 0.08,
+      y - length * 0.72,
+      x + length * 0.03,
+      y - length,
+    )
     context.stroke()
   }
+  // A soft root shadow keeps the scalp from reading as a uniformly coloured cap.
+  const rootShade = context.createLinearGradient(0, 0, 0, 150)
+  rootShade.addColorStop(0, 'rgba(20,20,20,.34)')
+  rootShade.addColorStop(1, 'rgba(20,20,20,0)')
+  context.fillStyle = rootShade
+  context.fillRect(0, 0, 512, 150)
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
-  texture.repeat.set(2.1, 1.5)
+  texture.repeat.set(2.4, 1.7)
+  texture.anisotropy = 8
+  return texture
+}
+
+/** Fits the CC0 MakeHuman short04 mesh to this normalized actor's real head. */
+function addStudioHair(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, source: THREE.Group, hairColor: string, hairGloss: number) {
+  const texture = createStudioHairTexture()
   const material = new THREE.MeshPhysicalMaterial({
-    color: '#463127',
     map: texture,
-    roughness: 0.56,
     metalness: 0,
-    sheen: 0.64,
-    sheenColor: new THREE.Color('#8a654e'),
-    sheenRoughness: 0.36,
-    anisotropy: 0.48,
     anisotropyRotation: Math.PI / 2,
-    envMapIntensity: 0.62,
+    envMapIntensity: 0.68,
     side: THREE.DoubleSide,
   })
+  material.name = 'studio-hair-material'
+  applyStudioHairAppearance(material, hairColor, hairGloss)
 
   const hairstyle = new THREE.Group()
   hairstyle.name = 'studio-short04-hair'
@@ -727,6 +762,8 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   const cameraPosition = useStudio((state) => state.cameraPosition)
   const modelPosition = useStudio((state) => state.modelPosition)
   const modelRotation = useStudio((state) => state.modelRotation)
+  const hairColor = useStudio((state) => state.hairColor)
+  const hairGloss = useStudio((state) => state.hairGloss)
   const rig = useRef<{ map: BoneMap; rest: RestPose } | null>(null)
   const pose = poseOverride ?? mainPose
   const lookAtCamera = lookAtCameraOverride ?? mainLookAtCamera
@@ -801,7 +838,8 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
             })
             return
           }
-          addStudioHair(model, map.head!, normalizedBox, headPosition, hair)
+          const currentAppearance = useStudio.getState()
+          addStudioHair(model, map.head!, normalizedBox, headPosition, hair, currentAppearance.hairColor, currentAppearance.hairGloss)
         })
       }
 
@@ -849,6 +887,21 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       }
     }
   }, [onRigReady, reportStatus, setRigStatus, setStatus, url])
+
+  // Colour and gloss update live without reloading the actor or rebuilding its rig.
+  useEffect(() => {
+    const hairstyle = object?.getObjectByName('studio-short04-hair')
+    if (!hairstyle) return
+    hairstyle.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return
+      const materials = Array.isArray(child.material) ? child.material : [child.material]
+      materials.forEach((material) => {
+        if (material instanceof THREE.MeshPhysicalMaterial && material.name === 'studio-hair-material') {
+          applyStudioHairAppearance(material, hairColor, hairGloss)
+        }
+      })
+    })
+  }, [hairColor, hairGloss, object])
 
   // The imported figure gets the same head-tracking behaviour as the built-in one.
   const cameraYaw = THREE.MathUtils.radToDeg(Math.atan2(cameraPosition[0] - modelPosition[0], cameraPosition[2] - modelPosition[2]) - modelRotation)
