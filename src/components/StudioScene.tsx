@@ -17,7 +17,7 @@ import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjec
 import { Figure, type FigureAppearance } from './Figure'
 import { isSeatedPose, type ModelPose } from '../pose'
 import { applyExpressionToMorphs, applyPoseToSkeleton, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairResponse, studioSkinResponse } from '../studioHumanDetails'
+import { BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SKULL_MARGIN, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairResponse, studioSkinResponse } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -746,14 +746,34 @@ const RIG_AXIS = {
 const STUDIO_HAIR_MATERIAL = 'studio-hair-material'
 const ACTOR_IRIS_MATERIAL = 'lumen-actor-iris'
 const ACTOR_EYE_MATERIAL = 'lumen-actor-eye'
+const ACTOR_BROW_MATERIAL = 'lumen-actor-brow'
+
+/**
+ * How far the hair colour is lifted toward white, in sRGB.
+ *
+ * Small: enough to keep a strand's shading readable against a dark colour,
+ * not enough to grey it.
+ */
+const HAIR_COLOUR_LIFT = 0.05
+
+/** Mean linear luminance of the strand map, divided back out of the colour. */
+const HAIR_STRAND_MEAN = 0.44
 
 /** Maps the appearance controls to a physically plausible hair response. */
 function applyStudioHairAppearance(material: THREE.MeshPhysicalMaterial, hairColor: string, hairGloss: number) {
   const response = studioHairResponse(hairGloss)
-  const color = new THREE.Color(hairColor)
   // The colour control tints the photographed strands instead of multiplying
   // a dark texture by another dark colour, which crushed every strand to black.
-  material.color.copy(color).lerp(new THREE.Color('#ffffff'), 0.18)
+  // Both halves of that have to happen in the right space. Lifting toward
+  // white is a perceptual move, so it is done in sRGB — an eighteen per cent
+  // lift applied to linear values turned near-black hair into mid grey, which
+  // is how the default subject ended up looking like she had gone silver. And
+  // the lift is then divided back out by the strand map's own mean, so what
+  // the colour picker says is what the hair renders as.
+  const color = new THREE.Color(hairColor)
+  const lifted = color.clone().convertLinearToSRGB()
+  lifted.lerp(new THREE.Color(1, 1, 1), HAIR_COLOUR_LIFT).convertSRGBToLinear()
+  material.color.copy(lifted).multiplyScalar(1 / HAIR_STRAND_MEAN)
   material.metalness = 0
   material.metalnessMap = null
   material.roughness = response.roughness
@@ -796,7 +816,49 @@ function createStudioHairTexture() {
   return texture
 }
 
-/** Fits the CC0 MakeHuman strand mesh to this normalized actor's real head. */
+/**
+ * The upper skull, measured off the actor's own mesh.
+ *
+ * Everything above a fifth of the way up from the head bone and inside a
+ * head's width of the centreline: that is the cranium plus the ears, which is
+ * exactly the volume a scalp shell has to cover. Read in world space, after
+ * the actor has been normalised, so it already carries whatever scale the file
+ * needed.
+ */
+function measureSkull(model: THREE.Object3D, headBoneY: number, modelTop: number) {
+  const point = new THREE.Vector3()
+  const box = new THREE.Box3()
+  const floor = headBoneY + (modelTop - headBoneY) * 0.2
+  model.updateMatrixWorld(true)
+  model.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return
+    const position = child.geometry.getAttribute('position')
+    if (!position) return
+    for (let index = 0; index < position.count; index += 1) {
+      point.fromBufferAttribute(position as THREE.BufferAttribute, index).applyMatrix4(child.matrixWorld)
+      if (point.y < floor || point.y > modelTop + 1e-4) continue
+      if (Math.abs(point.x) > 0.16) continue
+      box.expandByPoint(point)
+    }
+  })
+  if (box.isEmpty()) return null
+  return { box, width: box.getSize(new THREE.Vector3()).x }
+}
+
+/**
+ * Fits the CC0 MakeHuman strand mesh to this normalized actor's real head.
+ *
+ * The shell used to be scaled by a constant and hung at a fixed drop below the
+ * crown. Neither survives contact with a second actor: the constant is applied
+ * inside the model's own normalising scale, so the same number produced a
+ * bigger wig on whichever file happened to be authored smaller, and the fixed
+ * drop had nothing to do with where that actor's skull actually was. Straight
+ * on it looked survivable. From three-quarters it was a grey slab hanging in
+ * front of the face.
+ *
+ * So the skull is measured and the shell is fitted to it: scaled to the head's
+ * own width, centred on the head's own depth, and capped just over the crown.
+ */
 function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group, hairColor: string, hairGloss: number) {
   // Hair loads asynchronously, often after the actor has already been placed
   // in the scene. Re-measure its live transform instead of using coordinates
@@ -821,19 +883,31 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
 
   const hairstyle = new THREE.Group()
   hairstyle.name = 'studio-short04-hair'
-  const sourceBox = new THREE.Box3().setFromObject(source)
-  const sourceCenter = sourceBox.getCenter(new THREE.Vector3())
-  source.scale.setScalar(STUDIO_HAIR_SOURCE_SCALE)
-  source.position.copy(sourceCenter).multiplyScalar(-STUDIO_HAIR_SOURCE_SCALE)
   source.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return
     child.material = material
     child.castShadow = true
     child.receiveShadow = true
   })
+
+  const fit = measureSkull(model, headPosition.y, box.max.y)
+  const skull = fit?.box
+  const sourceBox = new THREE.Box3().setFromObject(source)
+  const sourceSize = sourceBox.getSize(new THREE.Vector3())
+  const sourceCenter = sourceBox.getCenter(new THREE.Vector3())
+  // The shell is a child of the model, so its own scale is multiplied by the
+  // model's normalising scale before it reaches the world. Divide that back
+  // out or the fit lands wherever the exporter's units happened to be.
+  const modelScale = model.scale.x || 1
+  const fitted = fit && sourceSize.x > 1e-6
+    ? (fit.width * STUDIO_HAIR_SKULL_MARGIN) / (sourceSize.x * modelScale)
+    : STUDIO_HAIR_SOURCE_SCALE
+  source.scale.setScalar(fitted)
+  source.position.copy(sourceCenter).multiplyScalar(-fitted)
+
+  const anchor = studioHairAnchor(headPosition, box.max.y, skull ?? undefined, sourceSize.y * fitted * modelScale)
   hairstyle.add(source)
-  const skull = measureSkullDepth(model, box.max.y)
-  attachHeadDetail(model, head, hairstyle, studioHairAnchor(headPosition, box.max.y, skull?.front, skull?.back))
+  attachHeadDetail(model, head, hairstyle, anchor)
 }
 
 /*
@@ -911,12 +985,16 @@ const SUBSURFACE_COLOR = '#d99a86'
  */
 function applyActorSkin(material: THREE.MeshPhysicalMaterial, appearance: FigureAppearance) {
   const response = studioSkinResponse(appearance.skinRoughness, appearance.skinOil, appearance.subsurface, appearance.physique.age)
-  if (!material.normalMap) {
-    // Pores. This is the male body's missing map, and the difference between
-    // a broken highlight and one flat specular blob across a whole cheek.
-    material.normalMap = skinNormalMap()
-    material.normalScale = new THREE.Vector2(0.3, 0.3)
-  }
+  // Pores, on every actor. This started out filling in only the male body's
+  // missing map — the difference between a broken highlight and one flat
+  // specular blob across a whole cheek — and left the female bodies with the
+  // one their file ships. That map is 1024 by 1024 pixels of pure black. A
+  // black texel is not "no detail": decoded it is a tangent-space normal
+  // pointing away from every light in the room, so her skin shaded dark and
+  // mottled while his, with no map at all, came out clean. That is the whole
+  // difference in finish between the two shipped subjects.
+  material.normalMap = skinNormalMap()
+  material.normalScale = new THREE.Vector2(0.3, 0.3)
   // Whose map is in play decides what the roughness number means. Ours is
   // authored against an absolute value; the file's is authored against the
   // glTF default factor of 1, so imposing an absolute number on it made the
@@ -1051,31 +1129,94 @@ function measureEyeSurface(model: THREE.Object3D, modelTop: number) {
 }
 
 /**
- * The front and back of the skull, for centring a scalp shell on it.
+ * The front of the face at one point on it.
  *
- * Read at the same height the hair anchor uses and out on the temples, so the
- * span is the head's own depth rather than an assumption about where the
- * rigger put the head bone.
+ * A brow cannot be a rigid arc laid across a head: a face curves away toward
+ * the temple, so a single depth buries the outer half of the arc and leaves a
+ * hook poking out of the inner half. Each piece of the brow is placed on the
+ * surface under it instead, and this is what finds that surface — the nearest
+ * vertices in plan, front-most first.
  */
-function measureSkullDepth(model: THREE.Object3D, modelTop: number) {
-  const depths = measureFaceBand(model, modelTop, 0.105, 0.03, { min: 0.03, max: 0.075 })
-  if (!depths) return null
-  const front = depths[Math.round((depths.length - 1) * 0.97)] * FACE_FORWARD
-  const back = depths[Math.round((depths.length - 1) * 0.03)] * FACE_FORWARD
-  return { front, back }
+function sampleFaceZ(model: THREE.Object3D, x: number, y: number, radius: number) {
+  const point = new THREE.Vector3()
+  let front = Number.NEGATIVE_INFINITY
+  const radiusSq = radius * radius
+  model.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return
+    const position = child.geometry.getAttribute('position')
+    if (!position) return
+    for (let index = 0; index < position.count; index += 1) {
+      point.fromBufferAttribute(position as THREE.BufferAttribute, index).applyMatrix4(child.matrixWorld)
+      const dx = point.x - x
+      const dy = point.y - y
+      if (dx * dx + dy * dy > radiusSq) continue
+      const depth = point.z * FACE_FORWARD
+      if (depth > front) front = depth
+    }
+  })
+  return Number.isFinite(front) ? front * FACE_FORWARD : null
 }
 
 /**
- * Real sclera, iris, limbus, pupil and cornea for the shipped actor.
+ * Eyebrows.
  *
- * The catchlight used to be painted on: a white disc, fixed in the corner of
- * every eye, pointing at a key light that might be anywhere. In a tool whose
- * job is to tell you where your key is, that is a lie drawn at the one place a
- * portrait photographer looks first. It is gone. In its place the eye has a
- * cornea — a clear dome over the iris — so the catchlight is a real specular
- * off the real lights, and it moves when you move them.
+ * These faces ship without them — the base texture paints a socket and stops —
+ * and a browless face is the loudest thing wrong with a portrait of one. A
+ * brow carries most of what a viewer reads as age, mood and sex, so a head
+ * missing both reads as a mannequin whatever else has been fixed.
+ *
+ * Built as a run of short segments rather than one arc, each one dropped onto
+ * the face surface directly under it, so the brow follows the brow ridge round
+ * toward the temple instead of sinking into it. Coloured off the hair, because
+ * that is the control a user reaches for when they want a different one.
  */
-function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, eyeColor: string) {
+function addStudioBrows(model: THREE.Group, head: THREE.Bone, eyeAnchor: THREE.Vector3, hairColor: string) {
+  const brows = new THREE.Group()
+  brows.name = 'studio-eyebrows'
+  const material = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(hairColor),
+    roughness: 0.82,
+    metalness: 0,
+    sheen: 0.16,
+    clearcoat: 0,
+    envMapIntensity: 0.1,
+  })
+  material.name = ACTOR_BROW_MATERIAL
+  const hair = new THREE.SphereGeometry(1, 8, 6)
+  // Sizes are in metres on the finished actor, so they have to be divided back
+  // through whatever scale normalised him to 1.82 m.
+  const unit = 1 / (model.scale.x || 1)
+
+  const browY = eyeAnchor.y + BROW_RISE_ABOVE_EYE
+  for (const side of [-1, 1] as const) {
+    for (let step = 0; step < BROW_SEGMENTS; step += 1) {
+      // 0 at the inner end, 1 at the outer.
+      const along = step / (BROW_SEGMENTS - 1)
+      const x = side * (BROW_INNER_X + along * BROW_LENGTH)
+      // A brow rises off the inner end, peaks two-thirds out and falls away.
+      const arch = Math.sin(Math.min(1, along * 1.35) * Math.PI * 0.9)
+      const y = browY + arch * BROW_ARCH - along * BROW_OUTER_DROP
+      const surface = sampleFaceZ(model, x, y, BROW_SAMPLE_RADIUS)
+      if (surface === null) continue
+      const segment = new THREE.Mesh(hair, material)
+      segment.castShadow = true
+      // Thick in the middle, tapering at both ends, the way a brow does.
+      const taper = 0.45 + 0.55 * Math.sin(Math.PI * Math.min(1, along * 1.15))
+      segment.scale.set(BROW_SEGMENT_LENGTH * unit, BROW_THICKNESS * taper * unit, BROW_THICKNESS * taper * unit)
+      // Everything above is measured in world space; the group hangs off the
+      // model, which carries the actor's normalising scale.
+      segment.position.copy(model.worldToLocal(new THREE.Vector3(x, y, surface + FACE_FORWARD * BROW_PROUD_OF_FACE)))
+      brows.add(segment)
+    }
+  }
+  if (brows.children.length === 0) return
+
+  model.add(brows)
+  model.updateMatrixWorld(true)
+  head.attach(brows)
+}
+
+function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, eyeColor: string, hairColor: string) {
   const eyes = new THREE.Group()
   eyes.name = 'studio-eyeballs'
   // Keep the group in model space. Each iris already faces -Z; rotating the
@@ -1084,21 +1225,24 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
   // The previous 27.8 mm width covered the painted eyelids. This 24.2 mm width
   // stays inside both shipped socket textures without making the iris smaller.
   const scleraGeometry = new THREE.SphereGeometry(0.0112, 40, 26)
-  const irisGeometry = new THREE.CircleGeometry(0.0068, 40)
-  const limbusGeometry = new THREE.RingGeometry(0.0062, 0.0071, 40)
-  const pupilGeometry = new THREE.CircleGeometry(0.0030, 32)
+  const irisGeometry = new THREE.CircleGeometry(0.0080, 48)
+  const limbusGeometry = new THREE.RingGeometry(0.0074, 0.0086, 48)
+  const pupilGeometry = new THREE.CircleGeometry(0.0036, 32)
   // A shallow cap, not a full sphere: only the front of an eye bulges.
   const corneaGeometry = new THREE.SphereGeometry(0.0072, 28, 20, 0, Math.PI * 2, 0, Math.PI / 2.5)
 
   // Not white: a sclera in a socket is always half a stop under the cheek,
   // and a pure white one reads as a headlight against a face this dark.
-  const sclera = new THREE.MeshPhysicalMaterial({ color: '#cfc9bd', roughness: 0.3, clearcoat: 0.45, clearcoatRoughness: 0.12 })
+  const sclera = new THREE.MeshPhysicalMaterial({ color: '#b3ac9f', roughness: 0.34, clearcoat: 0.4, clearcoatRoughness: 0.14 })
   sclera.name = ACTOR_EYE_MATERIAL
-  const iris = new THREE.MeshPhysicalMaterial({ color: eyeColor, roughness: 0.22, clearcoat: 0.62, clearcoatRoughness: 0.08 })
+  // Matte: the cornea in front of it is what carries the catchlight. Given a
+  // clear coat of its own the iris answered the key across its whole face and
+  // a dark brown eye rendered pale.
+  const iris = new THREE.MeshPhysicalMaterial({ color: eyeColor, roughness: 0.52, clearcoat: 0, metalness: 0 })
   iris.name = ACTOR_IRIS_MATERIAL
   // The limbal ring. Its darkness around the iris edge is a large part of why
   // an eye reads as young, and as an eye at all.
-  const limbus = new THREE.MeshBasicMaterial({ color: '#1d1712', transparent: true, opacity: 0.72, depthWrite: false })
+  const limbus = new THREE.MeshBasicMaterial({ color: '#160f0a', transparent: true, opacity: 0.86, depthWrite: false })
   const pupil = new THREE.MeshBasicMaterial({ color: '#08090a' })
   const cornea = new THREE.MeshPhysicalMaterial({
     name: ACTOR_EYE_MATERIAL,
@@ -1118,7 +1262,7 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     const eye = new THREE.Group()
     eye.position.x = side * EYE_HALF_SEPARATION
     const white = new THREE.Mesh(scleraGeometry, sclera)
-    white.scale.set(1.12, 0.72, 0.86)
+    white.scale.set(1.02, 0.70, 0.86)
     white.castShadow = true
     eye.add(white)
     const irisMesh = new THREE.Mesh(irisGeometry, iris)
@@ -1146,6 +1290,10 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
   // Measured off this actor's own face.
   const surface = measureEyeSurface(model, box.max.y)
   const anchor = studioEyeAnchor(surface ?? headPosition.z - 0.12, box.max.y, headPosition.x, box.max.y - headPosition.y)
+  // attachHeadDetail converts the anchor in place, so the brows get their own.
+  // Placed before the eyes are attached, because attachHeadDetail converts
+  // the anchor to model space in place.
+  addStudioBrows(model, head, anchor.clone(), hairColor)
   attachHeadDetail(model, head, eyes, anchor)
 }
 
@@ -1273,7 +1421,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       if (shippedHuman && map.head) {
         const normalizedBox = new THREE.Box3().setFromObject(model)
         const headPosition = map.head.getWorldPosition(new THREE.Vector3())
-        addStudioEyes(model, map.head, normalizedBox, headPosition, appearanceRef.current.eyeColor)
+        addStudioEyes(model, map.head, normalizedBox, headPosition, appearanceRef.current.eyeColor, appearanceRef.current.hairColor)
         new OBJLoader().load(STUDIO_HAIR_SOURCE_URL, (hair) => {
           if (!active) {
             hair.traverse((child) => {

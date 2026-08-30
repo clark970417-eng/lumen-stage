@@ -109,16 +109,49 @@ export function studioEyeAnchor(faceZ: number, modelTop: number, centreX = 0, cr
 }
 
 /**
- * Where the hair shell goes.
+ * The eyebrow, in metres on a 1.82 m actor.
  *
- * Centred on the skull rather than hung off the head bone: `skullFrontZ` and
- * `skullBackZ` come from the actor's own mesh, and a scalp shell wants to sit
- * on the middle of that, pulled back a little because a hairline starts behind
- * the brow. Hung off the bone it drifted with whatever depth the rigger chose.
+ * A brow runs from about 18 mm off the centreline out to 50 mm, sits roughly
+ * 16 mm above the pupil at its peak, and is a couple of millimetres of hair
+ * standing off the ridge. Laid down as segments, each one placed on the face
+ * surface it covers.
  */
-export function studioHairAnchor(headPosition: THREE.Vector3, modelTop: number, skullFrontZ?: number, skullBackZ?: number) {
-  const centreZ = skullFrontZ !== undefined && skullBackZ !== undefined
-    ? (skullFrontZ + skullBackZ) / 2 - FACE_FORWARD * 0.006
-    : headPosition.z + FACE_FORWARD * 0.01
-  return new THREE.Vector3(headPosition.x, modelTop - 0.105, centreZ)
+export const BROW_SEGMENTS = 13
+export const BROW_INNER_X = 0.0125
+export const BROW_LENGTH = 0.0295
+export const BROW_RISE_ABOVE_EYE = 0.0124
+export const BROW_ARCH = 0.0042
+export const BROW_OUTER_DROP = 0.0036
+export const BROW_THICKNESS = 0.0022
+export const BROW_SEGMENT_LENGTH = 0.0023
+export const BROW_PROUD_OF_FACE = 0.0012
+export const BROW_SAMPLE_RADIUS = 0.006
+
+/**
+ * How much wider than the skull the scalp shell sits.
+ *
+ * Hair has thickness, so a shell scaled to the bare cranium reads as a shaved
+ * head with a stain on it. Six per cent is about a centimetre of hair on a
+ * grown head, which is what this style is.
+ */
+export const STUDIO_HAIR_SKULL_MARGIN = 1.06
+
+/**
+ * Where the centre of the hair shell goes, given the measured skull.
+ *
+ * Centred on the skull the actor actually has rather than hung off a head bone
+ * the two riggers placed three centimetres apart, and capped just over the
+ * crown rather than dropped a fixed distance below it — a shell hung from a
+ * constant sat in front of the face on whichever actor was authored deeper.
+ * `shellHeight` is the fitted shell's own height, which is what turns "cap the
+ * crown" into a centre position.
+ */
+export function studioHairAnchor(headPosition: THREE.Vector3, modelTop: number, skull?: THREE.Box3, shellHeight?: number) {
+  if (!skull || shellHeight === undefined || shellHeight <= 0) {
+    return new THREE.Vector3(headPosition.x, modelTop - 0.105, headPosition.z + FACE_FORWARD * 0.01)
+  }
+  const centre = skull.getCenter(new THREE.Vector3())
+  // A hairline starts behind the brow, so the shell sits a little back of the
+  // skull's own centre of depth.
+  return new THREE.Vector3(centre.x, modelTop + 0.004 - shellHeight / 2, centre.z - FACE_FORWARD * 0.008)
 }

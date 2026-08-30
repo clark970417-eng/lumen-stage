@@ -41,10 +41,28 @@ test('eye height follows the actor own skull, not one baked-in drop', () => {
   assert.ok(studioEyeAnchor(0.033, 1.82, 0, 0.02).y <= 1.82 - 0.095)
 })
 
-test('shipped human hair stays on the face-facing side of the head bone', () => {
+test('the hair shell caps the crown of the skull it was measured against', () => {
   const head = new THREE.Vector3(0, 1.672, -0.090)
+  // Her skull, as measured off the mesh: 185 mm across, 212 mm deep, centred
+  // 58 mm behind the origin — nowhere near her head bone's depth.
+  const skull = new THREE.Box3(
+    new THREE.Vector3(-0.0924, 1.698, -0.1635),
+    new THREE.Vector3(0.0924, 1.820, 0.0482),
+  )
+  const shellHeight = 0.254
+  const anchor = studioHairAnchor(head, 1.82, skull, shellHeight)
+
+  // The shell's origin is its own centre, so this is where its top lands.
+  const top = anchor.y + shellHeight / 2
+  assert.ok(top > 1.82 && top - 1.82 < 0.01, 'the shell sits on the crown, not above or inside it')
+  const centre = skull.getCenter(new THREE.Vector3())
+  assert.ok(anchor.z < centre.z, 'and a little behind the skull centre, where a hairline starts')
+  assert.ok(centre.z - anchor.z < 0.015, 'but not so far back it uncovers the forehead')
+  assert.ok(Math.abs(anchor.x - centre.x) < 1e-9, 'centred on the head, not on the body')
+
+  // With nothing measured it still has to land on the face-facing side.
   assert.ok(studioHairAnchor(head, 1.82).z > head.z)
-  assert.ok(Math.abs(studioHairAnchor(head, 1.82, 0.08, -0.12).z - -0.026) < 1e-9)
+  assert.ok(studioHairAnchor(head, 1.82, skull).z > head.z, 'a skull with no shell height falls back too')
 })
 
 test('runtime hair is a compact CC0 MakeHuman mesh, not a procedural helmet', () => {
