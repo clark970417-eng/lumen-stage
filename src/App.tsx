@@ -11,7 +11,7 @@ import { ShortcutHelp, ShortcutHint, ShortcutLauncher } from './components/Short
 import { runShortcut } from './shortcuts'
 import { downloadFramePng } from './shotCapture'
 import { calculateDepthOfField } from './optics'
-import { LOCALES, useLocaleStore, useT, type Locale, type MessageKey } from './i18n'
+import { LOCALES, useLocaleStore, useT, type Locale } from './i18n'
 import { useStudio } from './store'
 import { buildShareLink, copyToClipboard } from './share'
 import { COLOR_PROFILES } from './colorScience'
@@ -27,6 +27,11 @@ let hintSequence = 0
 
 const SENSOR_LABELS = { 'full-frame': 'FULL FRAME', 'aps-c': 'APS-C', mft: 'MFT' } as const
 const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
+const GUIDE_CHAPTERS: Record<Locale, readonly string[]> = {
+  en: ['Start here', 'Five-stage workflow', 'Define', 'Block', 'Shape', 'Frame', 'Verify', 'Shoot Blueprint', 'Selected Decision', 'Finish and export'],
+  zh: ['從這裡開始', '五步拍攝流程', '定調', '走位', '塑光', '取景', '驗證', '拍攝藍圖', '目前決策', '完成與輸出'],
+  ja: ['ここから開始', '5 段階のフロー', '方向', '配置', '光作り', '構図', '検証', '撮影ブループリント', '現在の判断', '完了と出力'],
+}
 
 function ViewfinderOverlay() {
   const view = useStudio((state) => state.view)
@@ -281,7 +286,7 @@ export function GuideModal({ open, onClose, onStartTour }: { open: boolean; onCl
   const pageCount = 10
   const locale = useLocaleStore((state) => state.locale)
   const t = useT()
-  const chapters = Array.from({ length: pageCount }, (_, index) => t(`guide.chapter.${index + 1}` as MessageKey))
+  const chapters = GUIDE_CHAPTERS[locale]
 
   const goToPage = useCallback((nextPage: number, behavior: ScrollBehavior = 'smooth') => {
     const targetPage = Math.max(1, Math.min(pageCount, nextPage))
@@ -346,7 +351,7 @@ export function GuideModal({ open, onClose, onStartTour }: { open: boolean; onCl
             })
             setPage((current) => current === nearest ? current : nearest)
           }}>
-            {chapters.map((chapter, index) => <figure key={`${locale}-${index + 1}`} data-guide-page={index + 1}><img loading={index < 2 ? 'eager' : 'lazy'} src={`/guide-pages/${locale}/page-${String(index + 1).padStart(2, '0')}.jpg`} alt={t('guide.pageNamed', { n: index + 1, title: chapter })} /><figcaption><span>{String(index + 1).padStart(2, '0')}</span>{chapter}</figcaption></figure>)}
+            {chapters.map((chapter, index) => <figure key={`${locale}-${index + 1}`} data-guide-page={index + 1}><img loading={index < 2 ? 'eager' : 'lazy'} src={`/guide-pages/${locale}/page-${String(index + 1).padStart(2, '0')}.png`} alt={t('guide.pageNamed', { n: index + 1, title: chapter })} /><figcaption><span>{String(index + 1).padStart(2, '0')}</span>{chapter}</figcaption></figure>)}
           </div>
         </div>
         <footer className="guide-footer">

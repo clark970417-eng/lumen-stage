@@ -88,7 +88,8 @@ src/mobile.css               手機版介面樣式
 src/components/              場景、控制面板、分析與工作表元件
 src/components/MobileApp.tsx 手機版簡易介面
 scripts/build_website_guide.py  網站使用教學 PDF 產生工具
-output/pdf/                  已產生的網站使用教學
+public/guide-pages/          三語 300 dpi 網站教學頁面
+public/*.pdf                 三語可下載網站使用教學
 palace_*.jpg                 場景環境圖片
 ```
 
@@ -100,7 +101,7 @@ palace_*.jpg                 場景環境圖片
 
 ## 文件
 
-完整操作說明可參考 [`output/pdf/LUMEN_STAGE_網站使用教學.pdf`](output/pdf/LUMEN_STAGE_網站使用教學.pdf)。
+完整操作說明可參考 [`public/LUMEN_STAGE_網站使用教學.pdf`](public/LUMEN_STAGE_網站使用教學.pdf)。
 
 ## 授權
 
