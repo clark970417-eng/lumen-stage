@@ -158,7 +158,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
       <div className="hero-copy">
         <span className="hero-eyebrow"><i /> {copy.eyebrow}</span>
         <h1><span>{copy.title[0]}</span><em><span>{copy.title[1]}</span><span>{copy.title[2]}</span></em></h1>
-        <div className="hero-lower"><p>{copy.intro}</p><div><a className="site-cta" href="/studio"><span>{copy.open}</span><b aria-hidden="true">↗</b></a><ul>{copy.proof.map((item) => <li key={item}>{item}</li>)}</ul></div></div>
+        <div className="hero-lower"><p>{copy.intro}</p><ul>{copy.proof.map((item) => <li key={item}>{item}</li>)}</ul></div>
       </div>
       <div className="hero-instrument">
         <picture key={locale}>
@@ -168,7 +168,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
             alt={studioPreview.alt}
             width="1920"
             height="1080"
-            sizes="(max-width: 620px) 100vw, (max-width: 900px) 96vw, 60vw"
+            sizes="(max-width: 620px) 100vw, (max-width: 900px) 96vw, 40vw"
             loading="eager"
             decoding="async"
             fetchPriority="high"
@@ -199,6 +199,6 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     <section className="workflow" id="workflow"><div className="workflow-heading" data-reveal><span>03 / WORKFLOW</span><h2>{copy.workflowTitle}</h2><p>PLAN · SHAPE · CAPTURE</p></div><ol>{copy.workflow.map(([title, body], index) => <li key={title} data-reveal><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></li>)}</ol></section>
     <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>04 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
     <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>05 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
-    <section className="final-cta" data-reveal><span>READY / SET / LIGHT</span><h2>{copy.finalTitle}</h2><a className="site-cta" href="/studio"><span>{copy.open}</span><b aria-hidden="true">↗</b></a></section>
+    <section className="final-cta" data-reveal><span>READY / SET / LIGHT</span><h2>{copy.finalTitle}</h2></section>
   </main><SiteFooter copy={copy} /></>
 }

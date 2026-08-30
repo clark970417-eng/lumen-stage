@@ -364,7 +364,8 @@ html.public-site-root .legal-page {
   }
 
   html.public-site-root .site-header .site-cta.compact {
-    display: none;
+    display: inline-flex;
+    flex: 0 0 40px;
   }
 
   html.public-site-root .site-brand,
