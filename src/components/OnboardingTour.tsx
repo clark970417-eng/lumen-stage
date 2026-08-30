@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useLocaleStore, useT, type MessageKey } from '../i18n'
 import { assetHref } from '../routing'
+import { useStudio } from '../store'
 import '../onboarding.css'
 
 export type OnboardingScope = 'desktop' | 'mobile'
@@ -12,28 +13,30 @@ type TourStep = {
   media: { kind: 'image'; src: string } | { kind: 'compare'; before: string; after: string }
   aspect: 'wide' | 'panel' | 'strip'
   placement: 'below' | 'left' | 'above' | 'right'
+  task: 'pose' | 'lighting' | 'camera' | 'render' | 'shot'
 }
 
 const STORAGE_PREFIX = 'lumen-stage:onboarding:v2:'
 
 const STEPS: Record<OnboardingScope, TourStep[]> = {
   desktop: [
-    { target: '.workflow-navigation', title: 'tour.desktop.1.title', body: 'tour.desktop.1.body', media: { kind: 'image', src: 'desktop-0.png' }, aspect: 'wide', placement: 'below' },
-    { target: '.blueprint-panel', title: 'tour.desktop.2.title', body: 'tour.desktop.2.body', media: { kind: 'image', src: 'desktop-0.png' }, aspect: 'wide', placement: 'right' },
-    { target: '.decision-console', title: 'tour.desktop.3.title', body: 'tour.desktop.3.body', media: { kind: 'image', src: 'desktop-1.png' }, aspect: 'wide', placement: 'left' },
-    { target: '.decision-console', title: 'tour.desktop.4.title', body: 'tour.desktop.4.body', media: { kind: 'image', src: 'desktop-2.png' }, aspect: 'wide', placement: 'left' },
-    { target: ['.inspector-footer-actions', '.project-actions'], title: 'tour.desktop.5.title', body: 'tour.desktop.5.body', media: { kind: 'image', src: 'desktop-3.png' }, aspect: 'wide', placement: 'left' },
+    { target: '.decision-console', title: 'tour.desktop.1.title', body: 'tour.desktop.1.body', media: { kind: 'compare', before: 'blueprint-before.webp', after: 'blueprint-after.webp' }, aspect: 'wide', placement: 'left', task: 'pose' },
+    { target: '.setup-library', title: 'tour.desktop.2.title', body: 'tour.desktop.2.body', media: { kind: 'compare', before: 'library-before.webp', after: 'library-after.webp' }, aspect: 'wide', placement: 'left', task: 'lighting' },
+    { target: '.decision-console', title: 'tour.desktop.3.title', body: 'tour.desktop.3.body', media: { kind: 'compare', before: 'exposure-before.webp', after: 'exposure-after.webp' }, aspect: 'wide', placement: 'left', task: 'camera' },
+    { target: '.view-mode-dock', title: 'tour.desktop.4.title', body: 'tour.desktop.4.body', media: { kind: 'compare', before: 'render-before.webp', after: 'render-after.webp' }, aspect: 'wide', placement: 'above', task: 'render' },
+    { target: '.shot-launcher', title: 'tour.desktop.5.title', body: 'tour.desktop.5.body', media: { kind: 'image', src: 'desktop-3.png' }, aspect: 'wide', placement: 'above', task: 'shot' },
   ],
   mobile: [
-    { target: '#m-tab-planning', title: 'tour.mobile.1.title', body: 'tour.mobile.1.body', media: { kind: 'image', src: 'mobile-0.png' }, aspect: 'wide', placement: 'above' },
-    { target: '#m-tab-lighting', title: 'tour.mobile.2.title', body: 'tour.mobile.2.body', media: { kind: 'image', src: 'mobile-1.png' }, aspect: 'wide', placement: 'above' },
-    { target: '#m-tab-shooting', title: 'tour.mobile.3.title', body: 'tour.mobile.3.body', media: { kind: 'image', src: 'mobile-2.png' }, aspect: 'wide', placement: 'above' },
-    { target: '#m-tab-layout', title: 'tour.mobile.4.title', body: 'tour.mobile.4.body', media: { kind: 'image', src: 'mobile-3.png' }, aspect: 'wide', placement: 'above' },
+    { target: ['.m-sheet-scroll', '#m-tab-planning'], title: 'tour.mobile.1.title', body: 'tour.mobile.1.body', media: { kind: 'image', src: 'mobile-0.png' }, aspect: 'wide', placement: 'above', task: 'pose' },
+    { target: ['.m-setup-list', '#m-tab-lighting'], title: 'tour.mobile.2.title', body: 'tour.mobile.2.body', media: { kind: 'image', src: 'mobile-1.png' }, aspect: 'wide', placement: 'above', task: 'lighting' },
+    { target: ['.m-sheet-scroll', '#m-tab-shooting'], title: 'tour.mobile.3.title', body: 'tour.mobile.3.body', media: { kind: 'image', src: 'mobile-2.png' }, aspect: 'wide', placement: 'above', task: 'camera' },
+    { target: '.m-hq', title: 'tour.mobile.4.title', body: 'tour.mobile.4.body', media: { kind: 'image', src: 'mobile-2.png' }, aspect: 'wide', placement: 'above', task: 'render' },
+    { target: '.m-shutter', title: 'tour.mobile.5.title', body: 'tour.mobile.5.body', media: { kind: 'image', src: 'mobile-3.png' }, aspect: 'wide', placement: 'below', task: 'shot' },
   ],
 }
 
-const MOBILE_TABS = ['#m-tab-planning', '#m-tab-lighting', '#m-tab-shooting', '#m-tab-layout']
-const DESKTOP_MODES = [0, 0, 1, 2, 3]
+const MOBILE_TABS = ['#m-tab-planning', '#m-tab-lighting', '#m-tab-shooting', '#m-tab-shooting', '#m-tab-shooting']
+const DESKTOP_MODES = [0, 1, 2, 2, 2]
 const DESKTOP_VIDEO_STARTS = [2.5, 5, 7.5, 10, 12.5]
 
 export function shouldShowOnboarding(scope: OnboardingScope) {
@@ -76,18 +79,33 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
 }) {
   const t = useT()
   const locale = useLocaleStore((state) => state.locale)
+  const studio = useStudio()
   const [stepIndex, setStepIndex] = useState(0)
   const [showAfter, setShowAfter] = useState(false)
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
   const [cardSize, setCardSize] = useState({ width: 460, height: 460 })
   const cardRef = useRef<HTMLElement>(null)
+  const baselineRef = useRef({ pose: '', lights: '', camera: '', shots: 0 })
   const steps = STEPS[scope]
   const step = steps[stepIndex]
 
   useEffect(() => {
     if (!open) return
+    const current = useStudio.getState()
+    baselineRef.current = {
+      pose: current.posePreset,
+      lights: current.lights.map((light) => `${light.id}:${light.powerPercent}:${light.position.join(',')}`).join('|'),
+      camera: [current.focalLength, current.aperture, current.iso, current.shutter, ...current.cameraPosition].join(':'),
+      shots: current.shots.length,
+    }
     setStepIndex(0)
   }, [open, scope])
+
+  useEffect(() => {
+    if (!open || scope !== 'desktop' || stepIndex !== 1) return
+    studio.setValue('setupLibraryOpen', true)
+    return () => useStudio.getState().setValue('setupLibraryOpen', false)
+  }, [open, scope, stepIndex])
 
   useEffect(() => {
     setShowAfter(false)
@@ -210,6 +228,13 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
   }
   const last = stepIndex === steps.length - 1
   const media = step.media
+  const lightSignature = studio.lights.map((light) => `${light.id}:${light.powerPercent}:${light.position.join(',')}`).join('|')
+  const cameraSignature = [studio.focalLength, studio.aperture, studio.iso, studio.shutter, ...studio.cameraPosition].join(':')
+  const taskComplete = step.task === 'pose' ? studio.posePreset !== baselineRef.current.pose
+    : step.task === 'lighting' ? lightSignature !== baselineRef.current.lights
+    : step.task === 'camera' ? cameraSignature !== baselineRef.current.camera
+    : step.task === 'render' ? studio.renderMode === 'path'
+    : studio.shots.length > baselineRef.current.shots
 
   return (
     <div className={`onboarding-tour onboarding-${scope}`} aria-live="polite">
@@ -226,8 +251,8 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
                 : <img src={assetHref(`onboarding/${locale}/${media.src}`)} alt={t(step.title)} />}
             </div>
           : <div className={`onboarding-media onboarding-media--${step.aspect} onboarding-compare${showAfter ? ' is-after' : ''}`}>
-              <img className="before" src={media.before} alt={t('tour.beforeAlt', { title: t(step.title) })} />
-              <img className="after" src={media.after} alt={t('tour.afterAlt', { title: t(step.title) })} />
+              <img className="before" src={assetHref(`onboarding/${media.before}`)} alt={t('tour.beforeAlt', { title: t(step.title) })} />
+              <img className="after" src={assetHref(`onboarding/${media.after}`)} alt={t('tour.afterAlt', { title: t(step.title) })} />
               <div className="onboarding-compare-switch" role="group" aria-label={t('tour.compare')}>
                 <button className={!showAfter ? 'active' : ''} onClick={() => setShowAfter(false)}>{t('tour.before')}</button>
                 <button className={showAfter ? 'active' : ''} onClick={() => setShowAfter(true)}>{t('tour.after')}</button>
@@ -237,6 +262,10 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
           <div className="onboarding-kicker"><span>{t('tour.step', { n: stepIndex + 1, total: steps.length })}</span><button onClick={finish}>{t('tour.skip')}</button></div>
           <h2>{t(step.title)}</h2>
           <p>{t(step.body)}</p>
+          <div className={`onboarding-task-status${taskComplete ? ' is-complete' : ''}`} role="status">
+            <i aria-hidden="true">{taskComplete ? '✓' : '→'}</i>
+            <span>{t(taskComplete ? 'tour.taskDone' : 'tour.taskTry')}</span>
+          </div>
         </div>
         <footer>
           <div className="onboarding-dots" aria-hidden="true">{steps.map((_, index) => <i key={index} className={index === stepIndex ? 'active' : ''} />)}</div>

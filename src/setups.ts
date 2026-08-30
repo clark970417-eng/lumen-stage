@@ -62,7 +62,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'rembrandt',
     category: 'portrait',
-    label: 'Rembrandt',
+    label: 'Sculpted dramatic portrait',
     summary: 'Key at 45° and above; a triangle of light on the far cheek.',
     note: 'The key sits 45° round and 45° up so the nose shadow reaches down to meet the cheek shadow, leaving one lit triangle under the far eye. Move the key any wider and the triangle closes; any higher and it drops onto the lip.',
     backdropId: 'thunder-grey',
@@ -76,7 +76,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'loop',
     category: 'portrait',
-    label: 'Loop',
+    label: 'Natural everyday portrait',
     summary: 'The everyday portrait key. A small loop of nose shadow, no join.',
     note: 'Key about 35° round and 35° up. The nose shadow makes a short loop on the cheek but never touches the cheek shadow — the most forgiving pattern there is, which is why it is the default for headshots.',
     backdropId: 'studio-grey',
@@ -90,7 +90,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'butterfly',
     category: 'beauty',
-    label: 'Butterfly / Paramount',
+    label: 'Sculpted cheekbone beauty',
     summary: 'Key straight above the lens; a butterfly shadow under the nose.',
     note: 'Dead on axis and high, with a reflector under the chin to open the eye sockets. The symmetry is the point — it flatters cheekbones and punishes anything asymmetrical about the face.',
     backdropId: 'fashion-grey',
@@ -104,7 +104,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'clamshell',
     category: 'beauty',
-    label: 'Clamshell',
+    label: 'Soft beauty light',
     summary: 'Two sources stacked on the lens axis. The standard beauty light.',
     note: 'A large source above and a second below, both on axis, with the subject in the gap. It fills every shadow the top light makes, which is exactly what a skin-and-makeup shot wants and exactly what a character portrait does not.',
     backdropId: 'super-white',
@@ -119,7 +119,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'split',
     category: 'dramatic',
-    label: 'Split',
+    label: 'Bold half-shadow portrait',
     summary: 'Key at 90°. Half the face lit, half in shadow.',
     note: 'The key sits level with the face and directly to the side, so the shadow line runs down the centre of the nose. Nothing is more unforgiving, which is why it works on faces with structure and fails on faces without.',
     backdropId: 'black-paper',
@@ -132,7 +132,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'noir',
     category: 'dramatic',
-    label: 'Film noir',
+    label: 'Film-noir edge portrait',
     summary: 'Hard key high and to the side, plus a hard back light.',
     note: 'A bare reflector for a hard shadow edge, deliberately unfilled, with a snooted back light separating the shoulder from black. The absence of fill is the setup: if you soften it, it stops being noir.',
     backdropId: 'black-paper',
@@ -146,7 +146,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'rim-pair',
     category: 'dramatic',
-    label: 'Twin rim',
+    label: 'Graphic rim silhouette',
     summary: 'Two strips behind, edging both shoulders. No key at all.',
     note: 'Both sources sit behind the subject at 135°, aimed forward. The face stays dark and the outline does the work — the fastest way to read a silhouette against a black background.',
     backdropId: 'charcoal',
@@ -160,7 +160,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'high-key',
     category: 'commercial',
-    label: 'High key',
+    label: 'Bright white commercial',
     summary: 'Flat frontal key plus two lights burning the paper to white.',
     note: 'The background lights run about 2⅓ stops over the key — enough to clip to paper white without spilling back onto the subject. Flag them or the wrap kills your contrast.',
     backdropId: 'super-white',
@@ -176,7 +176,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'low-key',
     category: 'dramatic',
-    label: 'Low key',
+    label: 'Deep spotlight portrait',
     summary: 'One gridded source, everything else flagged off.',
     note: 'A single small source with a 20° grid, close in so the fall-off is steep. The grid is doing the real work: it keeps the light off the background so the black stays black.',
     backdropId: 'black-paper',
@@ -189,7 +189,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'three-point',
     category: 'cinematic',
-    label: 'Three point',
+    label: 'Clear interview lighting',
     summary: 'Key, fill and back light. The interview standard.',
     note: 'Key at 40° camera left, fill on the opposite side at half the level, back light high and behind on the key side so the rim lands where the shadow is deepest. Continuous heads, because this one is usually shot as video.',
     backdropId: 'canvas-grey',
@@ -204,7 +204,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'window-light',
     category: 'cinematic',
-    label: 'Window light',
+    label: 'Natural window softness',
     summary: 'One big soft source at 60°, bounce opposite. Nothing else.',
     note: 'A 2 m source stood on end and feathered so the near edge, not the centre, points at the face. Feathering is what gives it the fall-off of a real window instead of the flatness of a big box.',
     backdropId: 'plaster-grey',
@@ -218,7 +218,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'gel-duo',
     category: 'cinematic',
-    label: 'Teal and orange',
+    label: 'Teal-orange cinema contrast',
     summary: 'Warm key one side, cool rim the other.',
     note: 'Complementary gels on opposite sides give separation without a background light. Remember the cost: the blue-green side is nearly two stops down before it leaves the head, so it needs the bigger unit.',
     backdropId: 'charcoal',
@@ -232,7 +232,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'product-tent',
     category: 'commercial',
-    label: 'Product · large top',
+    label: 'Even premium product light',
     summary: 'One very large source overhead, white cards either side.',
     note: 'The source has to be bigger than the subject or the specular roll-off breaks at the edges. Cards on both sides return enough to fill the sides without adding a second highlight.',
     backdropId: 'vinyl-white',
@@ -247,7 +247,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'short-broad',
     category: 'portrait',
-    label: 'Short light',
+    label: 'Slimming short-side portrait',
     summary: 'Key on the far side of a turned face. Narrows the jaw.',
     note: 'With the head turned, put the key on the side turned away from camera. The near cheek falls into shadow, which slims the face — the reverse (broad light) widens it, which is why short light is the default for most people.',
     backdropId: 'studio-grey',
@@ -261,7 +261,7 @@ export const SETUP_LIBRARY: LightingSetup[] = [
   {
     id: 'fashion-hard',
     category: 'commercial',
-    label: 'Hard fashion',
+    label: 'Crisp hard-fashion light',
     summary: 'Single bare head, high and frontal. Sharp shadows, saturated colour.',
     note: 'A deep parabolic or a bare reflector on axis and high. The shadow edge is the aesthetic — no fill, no diffusion, and the background sits close enough to take the shadow as part of the picture.',
     backdropId: 'blush',

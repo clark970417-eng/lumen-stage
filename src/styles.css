@@ -1348,7 +1348,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .setup-subject { fill: rgba(233, 238, 230, 0.85); }
 .setup-light { fill: #ffb454; }
 .setup-camera { fill: rgba(120, 190, 255, 0.9); }
-.setup-card-title strong { display: block; margin-bottom: 3px; font-size: 12.5px; }
+.setup-card-title { min-width: 0; }
+.setup-card-title strong { display: block; margin-bottom: 3px; overflow-wrap: anywhere; font-size: 12.5px; line-height: 1.35; }
 .setup-card-title small { color: rgba(233, 238, 230, 0.5); font-size: 10.5px; line-height: 1.45; }
 .setup-card-note {
   margin: 9px 0 0;
@@ -2703,6 +2704,17 @@ main.app-shell.top-panel-hidden.bottom-panel-hidden { grid-template-rows: 0 minm
 .inspector-preset-entry small { margin-top: 4px; color: #728590; font: 7.5px var(--mono); }
 .inspector-preset-entry > button { min-height: 30px; padding: 0 5px; }
 .inspector-preset-entry > button.danger { border-color: rgba(190,107,88,.42); color: #d6a191; }
+.inspector-search { position: relative; min-height: 42px; padding: 7px 8px; display: grid; grid-template-columns: 14px minmax(0, 1fr) 26px; align-items: center; gap: 6px; border-bottom: 1px solid #2c3b45; background: #0c141a; }
+.inspector-search > i { width: 14px; height: 14px; position: relative; border: 1.5px solid #718895; border-radius: 50%; }
+.inspector-search > i::after { content: ''; position: absolute; right: -4px; bottom: -2px; width: 6px; height: 1.5px; transform: rotate(45deg); background: #718895; }
+.inspector-search input { min-width: 0; width: 100%; height: 28px; padding: 0 7px; border: 1px solid transparent; border-radius: 5px; outline: 0; background: #111c23; color: #dce8ee; font-size: 10px; }
+.inspector-search input:focus { border-color: var(--signal-cool); box-shadow: 0 0 0 2px rgba(103,216,255,.08); }
+.inspector-search input::placeholder { overflow: hidden; color: #6f838f; text-overflow: ellipsis; }
+.inspector-search small { grid-column: 2 / -1; min-width: 0; color: #8fc8d9; font: 7.5px var(--mono); line-height: 1.4; white-space: normal; }
+.inspector-search small.empty { color: #b78378; }
+.inspector-search button { width: 26px; height: 26px; padding: 0; border: 0; background: transparent; color: #80939e; font-size: 16px; cursor: pointer; }
+.inspector-scroll-region.is-searching .inspector-search-miss { display: none; }
+.inspector-search-hit { position: relative; border-radius: 5px; background: rgba(103,216,255,.095) !important; box-shadow: inset 2px 0 var(--signal-cool); }
 .focal-presets {
   margin: 10px 0 4px;
   display: grid;

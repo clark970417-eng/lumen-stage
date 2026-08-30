@@ -487,8 +487,8 @@ const LEGACY_STORAGE_KEY = 'lumen-stage-scene-v1'
 const SHOT_STORAGE_KEY = 'lumen-stage-shots-v1'
 
 const initialLights: StudioLight[] = [
-  { id: 'key', name: 'Key light', enabled: true, intensity: 1450, powerPercent: 13, profileId: 'godox-ad600pro', headType: 'strobe', temperature: 5600, shape: 'square', softbox: true, grid: false, colorMode: 'kelvin', rgb: '#ff3d8d', position: [-2.25, 2.65, 2.15], target: [0, 1.32, 0], beamAngle: 75, feather: 78, modifierWidth: 0.9, modifierHeight: 0.9, optic: 'softbox', modifierId: 'rfi-3x3', gelId: 'none', gridDegrees: null, barnDoorAngle: 45, goboPattern: 'none', goboRotation: 0, goboScale: 1, operationMode: 'flash', hssEnabled: false, flashDuration: 220, locked: false },
-  { id: 'fill', name: 'Fill light', enabled: true, intensity: 520, powerPercent: 4, profileId: 'godox-ad600pro', headType: 'strobe', temperature: 5600, shape: 'round', softbox: true, grid: false, colorMode: 'kelvin', rgb: '#3b82ff', position: [2.7, 2.2, 0.4], target: [0, 1.32, 0], beamAngle: 76, feather: 84, modifierWidth: 0.9, modifierHeight: 0.9, optic: 'softbox', modifierId: 'rfi-octa-3', gelId: 'none', gridDegrees: null, barnDoorAngle: 45, goboPattern: 'none', goboRotation: 0, goboScale: 1, operationMode: 'flash', hssEnabled: false, flashDuration: 220, locked: false },
+  { id: 'key', name: 'Key light', enabled: true, intensity: 1700, powerPercent: 18, profileId: 'godox-ad600pro', headType: 'strobe', temperature: 5600, shape: 'round', softbox: true, grid: false, colorMode: 'kelvin', rgb: '#ff3d8d', position: [-1.15, 2.05, 1.45], target: [0, 1.5, 0], beamAngle: 78, feather: 82, modifierWidth: 1.2, modifierHeight: 1.2, optic: 'softbox', modifierId: 'rfi-octa-5', gelId: 'none', gridDegrees: null, barnDoorAngle: 45, goboPattern: 'none', goboRotation: 0, goboScale: 1, operationMode: 'flash', hssEnabled: false, flashDuration: 220, locked: false },
+  { id: 'fill', name: 'Fill light', enabled: true, intensity: 700, powerPercent: 7, profileId: 'godox-ad400pro', headType: 'strobe', temperature: 5600, shape: 'square', softbox: true, grid: false, colorMode: 'kelvin', rgb: '#3b82ff', position: [1.45, 1.7, 1.65], target: [0, 1.45, 0], beamAngle: 80, feather: 88, modifierWidth: 0.9, modifierHeight: 0.9, optic: 'softbox', modifierId: 'rfi-3x3', gelId: 'none', gridDegrees: null, barnDoorAngle: 45, goboPattern: 'none', goboRotation: 0, goboScale: 1, operationMode: 'flash', hssEnabled: false, flashDuration: 220, locked: false },
 ]
 
 const cloneLights = (lights: StudioLight[]) => lights.map((light) => ({ ...light, position: [...light.position] as [number, number, number], target: [...light.target] as [number, number, number] }))
@@ -1103,7 +1103,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   studioObjects: [],
   meterPosition: [0, 1.45, 0.15],
   syncSpeed: 200,
-  ambientLevel: 12,
+  ambientLevel: 20,
   ambientTemperature: 4300,
   modelPosition: [0, 0, 0],
   modelRotation: 0,

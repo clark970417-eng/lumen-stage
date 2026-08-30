@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useStudio, type MakeupStyle, type OutfitFabric, type PosePreset, type StudioLight, type StudioObject, type StudioState } from '../store'
 import { calculateDepthOfField } from '../optics'
 import { effectiveLightOutput, flashSyncFactor, lightWattage, opticTransmission, percentForWattage, wattageLimit } from '../lightProfiles'
@@ -39,8 +39,11 @@ function Range({ label, value, min, max, step = 1, unit = '', displayValue, disa
 
 type DrawerComparison<T> = { capture: () => T; apply: (snapshot: T) => void }
 
+const InspectorSearchContext = createContext('')
+
 function InspectorDrawer<T>({ title, meta, action, comparison, className = '', children }: { title: string; meta?: string; action?: ReactNode; comparison?: DrawerComparison<T>; className?: string; children: ReactNode }) {
   const [open, setOpen] = useState(false)
+  const search = useContext(InspectorSearchContext)
   const locale = useLocaleStore((state) => state.locale)
   const baseline = useRef<T | null>(null)
   const current = useRef<T | null>(null)
@@ -82,7 +85,7 @@ function InspectorDrawer<T>({ title, meta, action, comparison, className = '', c
         {action}
       </div>}
     </div>
-    {open && <div className="inspector-drawer-content">{children}</div>}
+    {(open || Boolean(search)) && <div className="inspector-drawer-content">{children}</div>}
   </section>
 }
 
@@ -162,7 +165,7 @@ function InspectorFooter({ mode }: { mode: WorkflowMode }) {
       whiteBalance: 5600, whiteBalanceTint: 0, colorProfileId: 'neutral', highlightRolloff: 55, toneCurve: 58,
       lutIntensity: 100, sensorSimulationEnabled: true, shutterMode: 'mechanical', sensorDynamicRange: 14,
       noiseReduction: 35, colorNoise: 35, motionBlur: 55, rollingShutter: 50, sensorFormat: 'full-frame',
-      frameAspect: '3:2', frameOrientation: 'landscape', syncSpeed: 200, ambientLevel: 12, ambientTemperature: 4300,
+      frameAspect: '3:2', frameOrientation: 'landscape', syncSpeed: 200, ambientLevel: 20, ambientTemperature: 4300,
     })
   }
   const savePreset = () => {
@@ -295,6 +298,9 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
   const mode = useWorkflow((workflow) => workflowModeForStage(workflow.stage))
   const t = useT()
   const locale = useLocaleStore((item) => item.locale)
+  const [search, setSearch] = useState('')
+  const [searchCount, setSearchCount] = useState(0)
+  const scrollRegion = useRef<HTMLDivElement>(null)
   const meta = locale === 'zh'
     ? { lightOutput: '燈光／輸出', meters: '公尺', tracking: '人物追蹤', manual: '手動', grip: '控光附件', metersDeg: '公尺／角度', subjectPose: '人物／姿勢', cameraBody: '相機機身', optical: '鏡頭特性', color: 'RAW／色彩流程', sensor: '感光元件／快門', frame: '構圖／曝光', ambient: '環境光／閃燈同步', cameraExposure: '相機／曝光', fullFrame: '全片幅' }
     : locale === 'ja'
@@ -327,10 +333,40 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
     setValue('focalLength', value)
   }
 
+  useEffect(() => {
+    const root = scrollRegion.current
+    if (!root) return
+    const frame = window.requestAnimationFrame(() => {
+      root.querySelectorAll('.inspector-search-hit, .inspector-search-miss').forEach((element) => element.classList.remove('inspector-search-hit', 'inspector-search-miss'))
+      const query = search.trim().toLocaleLowerCase(locale === 'zh' ? 'zh-TW' : locale === 'ja' ? 'ja-JP' : 'en-US')
+      if (!query) { setSearchCount(0); return }
+      const hits = new Set<HTMLElement>()
+      root.querySelectorAll<HTMLElement>('[aria-label]').forEach((element) => {
+        const label = element.getAttribute('aria-label')?.toLocaleLowerCase() ?? ''
+        if (!label.includes(query)) return
+        const control = element.closest<HTMLElement>('.control-row, .select-row, .sub-control, .subject-look-control, .appearance-controls > label, .target-binding-panel label, .color-profile-select, .shutter-speed-control') ?? element
+        control.classList.add('inspector-search-hit')
+        hits.add(control)
+      })
+      root.querySelectorAll<HTMLElement>('.inspector-section').forEach((section) => {
+        if (!section.querySelector('.inspector-search-hit')) section.classList.add('inspector-search-miss')
+      })
+      setSearchCount(hits.size)
+      hits.values().next().value?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [locale, mode, search, state.selected])
+
   return (
     <aside className={`inspector panel workflow-mode-${mode}`}>
       <div className="panel-heading"><span>{t('inspector.title')}</span><b>{selectionLabel}</b></div>
-      <div className="inspector-scroll-region">
+      <div className="inspector-search">
+        <i aria-hidden="true" />
+        <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('inspector.search.placeholder')} aria-label={t('inspector.search.placeholder')} />
+        {search && <><small className={searchCount ? '' : 'empty'}>{searchCount ? t('inspector.search.count', { count: searchCount }) : t('inspector.search.none')}</small><button aria-label={t('inspector.search.clear')} onClick={() => setSearch('')}>×</button></>}
+      </div>
+      <InspectorSearchContext.Provider value={search}>
+      <div ref={scrollRegion} className={`inspector-scroll-region${search ? ' is-searching' : ''}`}>
       {mode === 'layout' && <section className="inspector-section layout-position-inspector">
         <div className="pose-heading"><span>{t('axis.section')}</span><small>{meta.meters}</small></div>
         {state.selected === 'model' && <>
@@ -727,6 +763,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
       </>}
       {footer}
       </div>
+      </InspectorSearchContext.Provider>
       <InspectorFooter mode={mode} />
     </aside>
   )
