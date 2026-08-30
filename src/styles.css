@@ -31,6 +31,67 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .shell-loading span { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line-bright); transform: rotate(45deg); }
 .shell-loading i { width: 8px; height: 8px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 14px rgba(255,180,84,.5); }
 
+/* ErrorBoundary renders before route-level styles are available, so its
+   recovery screen must live in the global bundle. */
+.fatal-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  min-height: 100dvh;
+  padding: clamp(24px, 6vw, 72px);
+  display: grid;
+  place-content: center;
+  justify-items: start;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 18% 28%, rgba(103, 216, 255, .08), transparent 30%),
+    var(--ink);
+  color: var(--paper);
+}
+.fatal-screen .brand-symbol { width: 42px; height: 42px; }
+.fatal-screen > span {
+  margin-top: 28px;
+  color: var(--signal);
+  font: 500 10px var(--mono);
+  letter-spacing: .14em;
+}
+.fatal-screen h1 {
+  max-width: 760px;
+  margin: 16px 0;
+  font-size: clamp(36px, 5.5vw, 68px);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -.035em;
+}
+.fatal-screen p { max-width: 680px; margin: 0; color: #aeb9c0; line-height: 1.7; }
+.fatal-screen div { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 10px; }
+.fatal-screen button,
+.fatal-screen a {
+  min-height: 46px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  background: var(--panel-raised);
+  color: var(--paper);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+.fatal-screen button { border-color: var(--signal); background: var(--signal); color: var(--ink); font-weight: 600; }
+.fatal-screen button:hover { background: #ffc36f; }
+.fatal-screen a:hover { border-color: #657887; background: #202b34; }
+
+@media (max-width: 520px) {
+  .fatal-screen { padding: 24px 18px; }
+  .fatal-screen h1 { font-size: clamp(34px, 11vw, 48px); }
+  .fatal-screen div { width: 100%; }
+  .fatal-screen button,
+  .fatal-screen a { flex: 1 1 150px; }
+}
+
 .app-shell {
   width: 100%; height: 100%; min-width: 1024px; min-height: 680px;
   display: grid;
