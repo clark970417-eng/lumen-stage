@@ -48,6 +48,19 @@ export function profileLookup(profileId: LightProfileId): LightProfile {
 
 export { powerFraction }
 
+/** User-facing output control. The catalogue stays internal for photometry. */
+export function lightWattage(light: Pick<StudioLight, 'profileId' | 'powerPercent'>) {
+  return Math.max(1, Math.round(getHead(light.profileId).power * powerFraction(light)))
+}
+
+export function wattageLimit(light: Pick<StudioLight, 'profileId'>) {
+  return getHead(light.profileId).power
+}
+
+export function percentForWattage(light: Pick<StudioLight, 'profileId'>, watts: number) {
+  return Math.min(100, Math.max(1, Math.round((watts / wattageLimit(light)) * 100)))
+}
+
 /** Fraction of light surviving the fitted gel. */
 export function gelTransmission(light: Pick<StudioLight, 'gelId'>) {
   return getGel(light.gelId).transmission
