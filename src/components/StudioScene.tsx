@@ -2111,6 +2111,7 @@ function Mannequin() {
   const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const selectObject = useStudio((state) => state.selectObject)
   const position = useStudio((state) => state.modelPosition)
+  const enabled = useStudio((state) => state.mainSubjectEnabled)
   const rotation = useStudio((state) => state.modelRotation)
   const selected = useStudio((state) => state.selected === 'model')
   const transformMode = useStudio((state) => state.transformMode)
@@ -2158,6 +2159,8 @@ function Mannequin() {
       )}
     </group>
   )
+
+  if (!enabled) return null
 
   if (!canControl || !selected || view === 'camera') return model
 

@@ -87,6 +87,7 @@ export function Library() {
   const ungroupSelected = useStudio((state) => state.ungroupSelectedLights)
   const hasSelectedGroup = useStudio((state) => state.lights.some((light) => state.selectedIds.includes(light.id) && light.groupId))
   const modelAssetName = useStudio((state) => state.modelAssetName)
+  const mainSubjectEnabled = useStudio((state) => state.mainSubjectEnabled)
   const modelImportStatus = useStudio((state) => state.modelImportStatus)
   const setModelAsset = useStudio((state) => state.setModelAsset)
   const sensorFormat = useStudio((state) => state.sensorFormat)
@@ -113,7 +114,7 @@ export function Library() {
 
   return (
     <aside className="library panel">
-      <div className="panel-heading"><span>{t('library.title')}</span><b>{String(lights.length + modifiers.length + studioObjects.length + 2).padStart(2, '0')}</b></div>
+      <div className="panel-heading"><span>{t('library.title')}</span><b>{String(lights.length + modifiers.length + studioObjects.length + 1 + Number(mainSubjectEnabled)).padStart(2, '0')}</b></div>
       <div className="library-actions" role="toolbar" aria-label={t('library.history')}>
         <button className="add-light-button" onClick={() => addLight('square')}>{t('library.addLight')}</button>
         <button onClick={undo} disabled={!canUndo} title={t('library.undo.title')}>↶</button>
@@ -132,9 +133,9 @@ export function Library() {
         <button className={selected === 'camera' ? 'selected' : ''} onClick={() => selectObject('camera')}>
           <span className="object-icon camera-icon" /><span><strong>Camera 01</strong><small>{sensorFormat === 'full-frame' ? 'Full frame' : sensorFormat === 'aps-c' ? 'APS-C' : 'Micro Four Thirds'} · {frameAspect}</small></span><i>C</i>
         </button>
-        <button className={selected === 'model' ? 'selected' : ''} onClick={() => selectObject('model')}>
+        {mainSubjectEnabled && <button className={selected === 'model' ? 'selected' : ''} onClick={() => selectObject('model')}>
           <span className="object-icon model-icon" /><span><strong>{modelAssetName || DEFAULT_HUMAN_NAME}</strong><small>{modelImportStatus === 'ready' ? `Rigged GLB · ${modelHeight.toFixed(2)} m` : modelImportStatus === 'error' ? 'Model failed · proxy active' : `Loading human · ${posePreset.replaceAll('-', ' ')}`}</small></span><i>M</i>
-        </button>
+        </button>}
         {lights.map((light, index) => matches(light.id, light.name, LIGHT_PROFILES[light.profileId].model, light.optic) && (
           <button key={light.id} className={`${selectedIds.includes(light.id) ? 'selected' : ''} ${selected === light.id ? 'primary-object' : ''} ${light.enabled ? '' : 'object-disabled'}`} onClick={(event) => selectObject(light.id, event.shiftKey)} onDoubleClick={() => toggleFavorite(light.id)}>
             <span className={`object-icon light-icon ${light.shape}`} /><span><strong>{favoriteIds.includes(light.id) ? '★ ' : ''}{light.name}</strong><small>{LIGHT_PROFILES[light.profileId].model} · {light.operationMode === 'flash' ? light.hssEnabled ? 'FLASH/HSS' : 'FLASH' : 'CONT'} · {light.optic === 'softbox' ? `${Math.round(light.modifierWidth * 100)}×${Math.round(light.modifierHeight * 100)} cm` : light.optic.toUpperCase()}{light.groupId ? ' · GROUP' : ''}</small></span><i>{light.locked ? 'LOCK' : light.enabled ? `L${index + 1}` : 'OFF'}</i>

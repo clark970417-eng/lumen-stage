@@ -93,7 +93,11 @@ export function WorkflowNavigation() {
   useEffect(() => {
     const current = useStudio.getState()
     const mode = workflowModeForStage(stage)
-    if (mode === 'person' && current.selected !== 'model' && !current.studioObjects.some((item) => item.id === current.selected)) current.selectObject('model')
+    if (mode === 'person' && current.selected !== 'model' && !current.studioObjects.some((item) => item.id === current.selected)) {
+      const subject = current.studioObjects.find((item) => item.type === 'subject')
+      if (current.mainSubjectEnabled) current.selectObject('model')
+      else if (subject) current.selectObject(subject.id)
+    }
     if (mode === 'lighting' && !current.lights.some((item) => item.id === current.selected) && !current.modifiers.some((item) => item.id === current.selected)) {
       const light = current.lights.find((item) => item.enabled) ?? current.lights[0]
       if (light) current.selectObject(light.id)
@@ -109,7 +113,7 @@ export function WorkflowNavigation() {
 
   const chooseStage = (next: WorkflowStage) => {
     setStage(next)
-    if (next === 'intent') { studio.selectObject('model'); studio.openStudioView() }
+    if (next === 'intent') { const subject = studio.studioObjects.find((item) => item.type === 'subject'); if (studio.mainSubjectEnabled) studio.selectObject('model'); else if (subject) studio.selectObject(subject.id); studio.openStudioView() }
     if (next === 'lighting') { const light = studio.lights.find((item) => item.enabled) ?? studio.lights[0]; if (light) studio.selectObject(light.id); studio.openStudioView() }
     if (next === 'framing') { studio.selectObject('camera'); studio.openCameraView() }
     if (next === 'layout') { studio.setValue('transformMode', 'translate'); studio.setValue('lightAimMode', false); studio.setValue('poseHandles', false); studio.openTopView() }
@@ -155,12 +159,13 @@ export function BlueprintPanel() {
   const selectedLight = studio.lights.find((item) => item.id === studio.selected)
   const selectedModifier = studio.modifiers.find((item) => item.id === studio.selected)
   const selectedObject = studio.studioObjects.find((item) => item.id === studio.selected)
-  const canDeleteLayoutSelection = studio.selectedIds.length > 0 || !!selectedLight || !!selectedModifier || !!selectedObject
+  const canDeleteLayoutSelection = studio.selectedIds.length > 0 || !!selectedLight || !!selectedModifier || !!selectedObject || (studio.selected === 'model' && studio.mainSubjectEnabled)
   const deleteLayoutSelection = () => {
     if (studio.selectedIds.length > 0) { studio.deleteSelectedLights(); return }
     if (selectedLight) { studio.deleteLight(selectedLight.id); return }
     if (selectedModifier) { studio.deleteModifier(selectedModifier.id); return }
-    if (selectedObject) studio.deleteStudioObject(selectedObject.id)
+    if (selectedObject) { studio.deleteStudioObject(selectedObject.id); return }
+    if (studio.selected === 'model') studio.deleteMainSubject()
   }
 
   return <aside className="blueprint-panel panel">
@@ -175,7 +180,11 @@ export function BlueprintPanel() {
 
     {planning && <section className="blueprint-section intent-card"><div><span>{copy.target}</span><small>{copy.targetHint}</small></div><button onClick={() => setReferenceOpen(true)}>{copy.reference}<b>→</b></button></section>}
 
-    {planning && <section className="blueprint-section"><h2>{copy.subject}</h2><button className={studio.selected === 'model' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('model')}><i className="model-icon" /><span><strong>{copy.mainSubject}</strong><small>{studio.posePreset.replaceAll('-', ' ')} · {studio.modelHeight.toFixed(2)} m</small></span></button>{supporting.map((item) => <button key={item.id} className={studio.selected === item.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(item.id)}><i className={`studio-object-icon ${item.type}`} /><span><strong>{item.name}</strong><small>{item.type}</small></span></button>)}{supporting.length === 0 && <p className="blueprint-empty">{copy.noProps}</p>}</section>}
+    {planning && <section className="blueprint-section"><h2>{copy.subject}</h2>
+      {studio.mainSubjectEnabled && <div className="blueprint-subject-row"><button className={studio.selected === 'model' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('model')}><i className="model-icon" /><span><strong>{copy.mainSubject}</strong><small>{studio.posePreset.replaceAll('-', ' ')} · {studio.modelHeight.toFixed(2)} m</small></span></button><button className="blueprint-subject-delete" aria-label={`${copy.removeItem}: ${copy.mainSubject}`} title={copy.removeItem} onClick={studio.deleteMainSubject}>×</button></div>}
+      {supporting.map((item) => <div className="blueprint-subject-row" key={item.id}><button className={studio.selected === item.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(item.id)}><i className={`studio-object-icon ${item.type}`} /><span><strong>{item.name}</strong><small>{item.type}</small></span></button><button className="blueprint-subject-delete" aria-label={`${copy.removeItem}: ${item.name}`} title={copy.removeItem} onClick={() => studio.deleteStudioObject(item.id)}>×</button></div>)}
+      {!studio.mainSubjectEnabled && supporting.length === 0 && <p className="blueprint-empty">{copy.noProps}</p>}
+    </section>}
 
     {stage === 'lighting' && <section className="blueprint-section"><h2>{copy.lightRoles}</h2>{studio.lights.map((light, index) => <button key={light.id} className={studio.selected === light.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(light.id)}><i className={`light-icon ${light.shape}`} /><span><strong>{lightRole(index, copy)}</strong><small>{lightDisplayName(light.name, index, copy)} · {light.targetSubjectId ? copy.tracked : copy.manual}</small></span><em>{light.enabled ? `${lightWattage(light)} ${light.operationMode === 'flash' ? 'Ws' : 'W'}` : 'OFF'}</em></button>)}</section>}
 
@@ -191,7 +200,7 @@ export function BlueprintPanel() {
           <button className="layout-remove-button" aria-label={copy.removeItem} title={copy.removeItem} disabled={!canDeleteLayoutSelection} onClick={deleteLayoutSelection}>−</button>
         </div>
       </header>
-      <button className={studio.selected === 'model' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('model')}><i className="model-icon" /><span><strong>{copy.mainSubject}</strong><small>{copy.person}</small></span></button>
+      {studio.mainSubjectEnabled && <button className={studio.selected === 'model' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('model')}><i className="model-icon" /><span><strong>{copy.mainSubject}</strong><small>{copy.person}</small></span></button>}
       {studio.lights.map((light, index) => <button key={light.id} className={studio.selected === light.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(light.id)}><i className={`light-icon ${light.shape}`} /><span><strong>{lightRole(index, copy)}</strong><small>{lightDisplayName(light.name, index, copy)}</small></span></button>)}
       {studio.modifiers.map((modifier) => <button key={modifier.id} className={studio.selected === modifier.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(modifier.id)}><i className="studio-object-icon reflector" /><span><strong>{modifier.name}</strong><small>{copy.grip}</small></span></button>)}
       {studio.studioObjects.map((item) => <button key={item.id} className={studio.selected === item.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(item.id)}><i className={`studio-object-icon ${item.type}`} /><span><strong>{item.name}</strong><small>{item.type}</small></span></button>)}
@@ -250,12 +259,13 @@ export function DecisionConsole() {
   const [desiredOpen, setDesiredOpen] = useState(false)
   const light = mode === 'lighting' ? state.lights.find((item) => item.id === state.selected) : undefined
   const showDesiredEffect = mode === 'lighting' || mode === 'camera'
+  const targetSubjectId = state.mainSubjectEnabled ? 'model' : state.studioObjects.find((item) => item.type === 'subject')?.id
 
   return <aside className="decision-console advanced-open">
     <Inspector footer={showDesiredEffect ?
       <div className={`decision-effects decision-effects-drawer ${desiredOpen ? 'is-open' : 'is-collapsed'}`}>
         <button className="decision-effects-toggle" aria-expanded={desiredOpen} onClick={() => setDesiredOpen((open) => !open)}><i aria-hidden="true" /><span>{copy.desired}</span><small>{mode === 'lighting' ? copy.desiredLight : mode === 'camera' ? copy.desiredFrame : copy.desiredPose}</small></button>
-        {desiredOpen && <div className="decision-actions">{light ? <><button onClick={() => state.updateLight(light.id, { modifierWidth: Math.min(2.4, light.modifierWidth + 0.2), modifierHeight: Math.min(2.4, light.modifierHeight + 0.2), feather: Math.min(100, light.feather + 6) })}>{copy.soften}</button><button onClick={() => { const fill = state.lights[1]; if (fill) state.updateLight(fill.id, { powerPercent: Math.max(1, fill.powerPercent - 2) }) }}>{copy.deepen}</button><button className={light.targetSubjectId === 'model' ? 'active' : ''} onClick={() => state.bindLightToSubject(light.id, 'model', 'face')}>{copy.trackFace}</button></> : mode === 'camera' ? <><button onClick={() => state.frameCameraSubject('model', 'headshot')}>{copy.headshot}</button><button onClick={() => state.frameCameraSubject('model', 'half')}>{copy.half}</button><button onClick={() => state.frameCameraSubject('model', 'full')}>{copy.full}</button></> : null}</div>}
+        {desiredOpen && <div className="decision-actions">{light ? <><button onClick={() => state.updateLight(light.id, { modifierWidth: Math.min(2.4, light.modifierWidth + 0.2), modifierHeight: Math.min(2.4, light.modifierHeight + 0.2), feather: Math.min(100, light.feather + 6) })}>{copy.soften}</button><button onClick={() => { const fill = state.lights[1]; if (fill) state.updateLight(fill.id, { powerPercent: Math.max(1, fill.powerPercent - 2) }) }}>{copy.deepen}</button><button disabled={!targetSubjectId} className={light.targetSubjectId === targetSubjectId ? 'active' : ''} onClick={() => targetSubjectId && state.bindLightToSubject(light.id, targetSubjectId, 'face')}>{copy.trackFace}</button></> : mode === 'camera' ? <><button disabled={!targetSubjectId} onClick={() => targetSubjectId && state.frameCameraSubject(targetSubjectId, 'headshot')}>{copy.headshot}</button><button disabled={!targetSubjectId} onClick={() => targetSubjectId && state.frameCameraSubject(targetSubjectId, 'half')}>{copy.half}</button><button disabled={!targetSubjectId} onClick={() => targetSubjectId && state.frameCameraSubject(targetSubjectId, 'full')}>{copy.full}</button></> : null}</div>}
       </div>
       : null} />
   </aside>
@@ -296,14 +306,15 @@ export function ReferenceMatchPanel() {
     if (!analysis) return
     const key = state.lights[0]
     const fill = state.lights[1]
+    const subjectId = state.mainSubjectEnabled ? 'model' : state.studioObjects.find((object) => object.type === 'subject')?.id
     const keyX = analysis.direction === 'right' ? 2.35 : analysis.direction === 'left' ? -2.35 : -0.35
     if (key) {
       state.updateLight(key.id, { powerPercent: analysis.keyPower, position: [keyX, 2.65, 2.1] })
-      state.bindLightToSubject(key.id, 'model', 'face')
+      state.bindLightToSubject(key.id, subjectId ?? null, 'face')
     }
     if (fill) {
       state.updateLight(fill.id, { powerPercent: analysis.fillPower, position: [-keyX || 2.4, 2.05, 0.8] })
-      state.bindLightToSubject(fill.id, 'model', 'chest')
+      state.bindLightToSubject(fill.id, subjectId ?? null, 'chest')
     }
     state.openStudioView()
     setStage('lighting')
@@ -331,8 +342,10 @@ export function ContinuityGuardPanel() {
   if (!open) return null
 
   const track = () => {
-    state.lights.filter((light) => light.enabled).forEach((light) => state.bindLightToSubject(light.id, 'model', light.id === state.lights[0]?.id ? 'face' : 'chest'))
-    state.bindCameraToSubject('model', 'face')
+    const subjectId = state.mainSubjectEnabled ? 'model' : state.studioObjects.find((object) => object.type === 'subject')?.id
+    if (!subjectId) return
+    state.lights.filter((light) => light.enabled).forEach((light) => state.bindLightToSubject(light.id, subjectId, light.id === state.lights[0]?.id ? 'face' : 'chest'))
+    state.bindCameraToSubject(subjectId, 'face')
     state.setCameraAutoFocus(true)
   }
   const restore = () => {

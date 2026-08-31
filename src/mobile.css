@@ -122,6 +122,11 @@
 .m-note { margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
 .m-label { color: var(--muted); font: 500 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
 .m-field { display: grid; gap: 7px; }
+.m-subject-bar { display: grid; gap: 8px; padding: 10px; border: 1px solid #31434e; border-radius: 10px; background: #0c141a; }
+.m-subject-actions { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; }
+.m-subject-actions button { min-height: 36px; padding: 0 9px; border: 1px solid #374b57; border-radius: 7px; background: #121e26; color: #aebdc6; font: 9px var(--mono); cursor: pointer; }
+.m-subject-actions button:hover,.m-subject-actions button:focus-visible { border-color: var(--signal); color: #fff; }
+.m-subject-actions button.danger { border-color: #65403f; color: #ff9f95; }
 .m-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .m-label-row b { color: var(--signal); font: 500 11px var(--mono); letter-spacing: .04em; }
 

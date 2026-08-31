@@ -263,18 +263,52 @@ function SetupsTab({ applied, onApply }: { applied: string | null; onApply: (id:
 function SubjectTab() {
   const t = useT()
   const ct = useCatalogT()
-  const height = useStudio((state) => state.modelHeight)
-  const position = useStudio((state) => state.modelPosition)
-  const physique = useStudio((state) => state.physique)
-  const posePreset = useStudio((state) => state.posePreset)
-  const outfit = useStudio((state) => state.outfitStyle)
-  const setValue = useStudio((state) => state.setValue)
-  const updatePhysique = useStudio((state) => state.updatePhysique)
-  const applyPhysiquePreset = useStudio((state) => state.applyPhysiquePreset)
-  const applyPosePreset = useStudio((state) => state.applyPosePreset)
-  const setModelTransform = useStudio((state) => state.setModelTransform)
+  const state = useStudio()
+  const subjects = state.studioObjects.filter((object) => object.type === 'subject')
+  const selectedObject = subjects.find((object) => object.id === state.selected)
+  const activeId = state.selected === 'model' && state.mainSubjectEnabled
+    ? 'model'
+    : selectedObject?.id ?? (state.mainSubjectEnabled ? 'model' : subjects[0]?.id)
+  const activeObject = subjects.find((object) => object.id === activeId)
+  const main = activeId === 'model'
+  const height = main ? state.modelHeight : activeObject?.subjectHeight ?? 1.82
+  const position = main ? state.modelPosition : activeObject?.position ?? [0, 0, 0]
+  const physique = main ? state.physique : activeObject?.subjectPhysique ?? state.physique
+  const posePreset = main ? state.posePreset : activeObject?.subjectPosePreset ?? 'neutral'
+  const outfit = main ? state.outfitStyle : activeObject?.subjectOutfitStyle ?? 'tshirt'
+  const updatePhysique = (patch: Partial<typeof physique>) => main
+    ? state.updatePhysique(patch)
+    : activeObject && state.updateStudioSubjectPhysique(activeObject.id, patch)
+  const applyPhysiquePreset = (id: string) => main
+    ? state.applyPhysiquePreset(id)
+    : activeObject && state.applyStudioSubjectPhysique(activeObject.id, id)
+  const applyPosePreset = (id: string) => main
+    ? state.applyPosePreset(id)
+    : activeObject && state.applyStudioSubjectPose(activeObject.id, id)
+  const setHeight = (value: number) => main
+    ? state.setValue('modelHeight', Number(value.toFixed(2)))
+    : activeObject && state.updateStudioObject(activeObject.id, { subjectHeight: Number(value.toFixed(2)) })
+  const setVerticalPosition = (value: number) => main
+    ? state.setModelTransform([position[0], Number(value.toFixed(2)), position[2]])
+    : activeObject && state.setStudioObjectTransform(activeObject.id, [position[0], Number(value.toFixed(2)), position[2]], activeObject.rotationY)
+  const setOutfit = (value: OutfitStyle) => main
+    ? state.setValue('outfitStyle', value)
+    : activeObject && state.updateStudioObject(activeObject.id, { subjectOutfitStyle: value })
+  const deleteSubject = () => main ? state.deleteMainSubject() : activeObject && state.deleteStudioObject(activeObject.id)
 
   return <div className="m-tab">
+    <div className="m-subject-bar">
+      <div className="m-chips m-chips-scroll" role="group" aria-label={t('object.subject')}>
+        {state.mainSubjectEnabled && <button className={activeId === 'model' ? 'active' : ''} onClick={() => state.selectObject('model')}>{t('subject.main')}</button>}
+        {subjects.map((subject, index) => <button key={subject.id} className={activeId === subject.id ? 'active' : ''} onClick={() => state.selectObject(subject.id)}>{t('subject.numbered', { n: index + 1, name: subject.name })}</button>)}
+      </div>
+      <div className="m-subject-actions">
+        <button onClick={() => state.addStudioObject('subject', 'feminine')}>＋ {t('physique.feminine')}</button>
+        <button onClick={() => state.addStudioObject('subject', 'masculine')}>＋ {t('physique.masculine')}</button>
+        {activeId && <button className="danger" onClick={deleteSubject}>{t('common.delete')}</button>}
+      </div>
+    </div>
+    {!activeId ? <p className="m-note">{t('mobile.subject.hint')}</p> : <>
     <p className="m-note">{t('mobile.subject.hint')}</p>
     <div className="m-field">
       <span className="m-label">{t('physique.sex')}</span>
@@ -282,8 +316,8 @@ function SubjectTab() {
         {([['feminine','physique.feminine'],['masculine','physique.masculine'],['neutral','physique.neutral']] as const).map(([value,key]) => <button key={value} className={physique.sex === value ? 'active' : ''} onClick={() => updatePhysique({ sex: value })}>{t(key)}</button>)}
       </div>
     </div>
-    <Dial label={t('subject.height')} value={height} min={1.45} max={2.2} step={0.01} readout={`${height.toFixed(2)} m`} onChange={(value) => setValue('modelHeight', Number(value.toFixed(2)))} />
-    <Dial label={t('axis.y')} value={position[1]} min={0} max={3} step={0.05} readout={`${position[1].toFixed(2)} m`} onChange={(value) => setModelTransform([position[0], Number(value.toFixed(2)), position[2]])} />
+    <Dial label={t('subject.height')} value={height} min={1.45} max={2.2} step={0.01} readout={`${height.toFixed(2)} m`} onChange={setHeight} />
+    <Dial label={t('axis.y')} value={position[1]} min={0} max={3} step={0.05} readout={`${position[1].toFixed(2)} m`} onChange={setVerticalPosition} />
     <Dial label={t('physique.age')} value={physique.age ?? 28} min={18} max={80} readout={`${Math.round(physique.age ?? 28)}${t('physique.years')}`} onChange={(value) => updatePhysique({ age: value })} />
     <div className="m-field">
       <span className="m-label">{t('physique.presets')}</span>
@@ -303,9 +337,10 @@ function SubjectTab() {
     <div className="m-field">
       <span className="m-label">{t('wardrobe.outfit')}</span>
       <div className="m-chips m-chips-scroll">
-        {MOBILE_OUTFITS.map((id) => <button key={id} className={outfit === id ? 'active' : ''} onClick={() => setValue('outfitStyle', id)}>{ct(`outfit.${id}`, OUTFITS.find((item) => item.id === id)?.label ?? id)}</button>)}
+        {MOBILE_OUTFITS.map((id) => <button key={id} className={outfit === id ? 'active' : ''} onClick={() => setOutfit(id)}>{ct(`outfit.${id}`, OUTFITS.find((item) => item.id === id)?.label ?? id)}</button>)}
       </div>
     </div>
+    </>}
   </div>
 }
 
@@ -313,7 +348,7 @@ function LightsTab() {
   const t = useT()
   const lights = useStudio((state) => state.lights)
   const selected = useStudio((state) => state.selected)
-  const subject = useStudio((state) => state.modelPosition)
+  const subject = useStudio((state) => state.mainSubjectEnabled ? state.modelPosition : state.studioObjects.find((object) => object.type === 'subject')?.position ?? state.modelPosition)
   const selectObject = useStudio((state) => state.selectObject)
   const updateLight = useStudio((state) => state.updateLight)
   const setLightPosition = useStudio((state) => state.setLightPosition)
@@ -466,6 +501,7 @@ function CameraTab() {
   const iso = useStudio((state) => state.iso)
   const framingPreset = useStudio((state) => state.cameraFramingPreset)
   const frameCameraSubject = useStudio((state) => state.frameCameraSubject)
+  const targetSubjectId = useStudio((state) => state.mainSubjectEnabled ? 'model' : state.studioObjects.find((object) => object.type === 'subject')?.id)
   const frameOrientation = useStudio((state) => state.frameOrientation)
   const backdropId = useStudio((state) => state.backdropId)
   const selectBackdrop = useStudio((state) => state.selectBackdrop)
@@ -489,7 +525,7 @@ function CameraTab() {
         <span className="m-label">{t('cam.section')}</span>
         <div className="m-chips">
           {(['headshot', 'half', 'full'] as const).map((preset) => (
-            <button key={preset} className={framingPreset === preset ? 'active' : ''} onClick={() => frameCameraSubject('model', preset)}>
+            <button key={preset} disabled={!targetSubjectId} className={framingPreset === preset ? 'active' : ''} onClick={() => targetSubjectId && frameCameraSubject(targetSubjectId, preset)}>
               {t(`framing.${preset}`)}
             </button>
           ))}
@@ -638,8 +674,9 @@ function MobileIntentTab() {
     const key = studio.lights[0]
     const fill = studio.lights[1]
     const keyX = analysis.direction === 'right' ? 2.25 : analysis.direction === 'left' ? -2.25 : -0.35
-    if (key) { studio.updateLight(key.id, { powerPercent: analysis.keyPower, position: [keyX, 2.65, 2.1] }); studio.bindLightToSubject(key.id, 'model', 'face') }
-    if (fill) { studio.updateLight(fill.id, { powerPercent: analysis.fillPower, position: [-keyX, 2.05, .8] }); studio.bindLightToSubject(fill.id, 'model', 'chest') }
+    const subjectId = studio.mainSubjectEnabled ? 'model' : studio.studioObjects.find((object) => object.type === 'subject')?.id
+    if (key) { studio.updateLight(key.id, { powerPercent: analysis.keyPower, position: [keyX, 2.65, 2.1] }); studio.bindLightToSubject(key.id, subjectId ?? null, 'face') }
+    if (fill) { studio.updateLight(fill.id, { powerPercent: analysis.fillPower, position: [-keyX, 2.05, .8] }); studio.bindLightToSubject(fill.id, subjectId ?? null, 'chest') }
     studio.openStudioView()
   }
 
@@ -664,8 +701,10 @@ function MobileVerifyTab({ onOpenAbout, onOpenTour }: { onOpenAbout: () => void;
   const report = useMemo(() => baseline ? evaluateContinuity(baseline, studio) : null, [baseline, studio])
 
   const track = () => {
-    studio.lights.filter((light) => light.enabled).forEach((light) => studio.bindLightToSubject(light.id, 'model', light.id === studio.lights[0]?.id ? 'face' : 'chest'))
-    studio.bindCameraToSubject('model', 'face')
+    const subjectId = studio.mainSubjectEnabled ? 'model' : studio.studioObjects.find((object) => object.type === 'subject')?.id
+    if (!subjectId) return
+    studio.lights.filter((light) => light.enabled).forEach((light) => studio.bindLightToSubject(light.id, subjectId, light.id === studio.lights[0]?.id ? 'face' : 'chest'))
+    studio.bindCameraToSubject(subjectId, 'face')
     studio.setCameraAutoFocus(true)
   }
   const restore = () => {
@@ -691,7 +730,7 @@ function MobileLayoutTab({ applied, onApply }: { applied: string | null; onApply
   const t = useT()
   const state = useStudio()
   const items = [
-    { id: 'model', label: t('mobile.tab.subject') },
+    ...(state.mainSubjectEnabled ? [{ id: 'model', label: t('mobile.tab.subject') }] : []),
     ...state.lights.map((light) => ({ id: light.id, label: light.name })),
     ...state.modifiers.map((modifier) => ({ id: modifier.id, label: modifier.name })),
     ...state.studioObjects.map((object) => ({ id: object.id, label: object.name })),

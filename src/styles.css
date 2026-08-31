@@ -1955,6 +1955,10 @@ button, input, select { transition: border-color .16s ease, background-color .16
 .layout-section-actions button:hover:not(:disabled) { border-color: var(--signal); color: #fff; background: #202c35; }
 .layout-section-actions button:disabled { color: #4f5c64; cursor: default; opacity: .48; }
 .blueprint-row { width: 100%; min-height: 58px; margin-bottom: 4px; padding: 8px 8px 8px 10px; display: grid; grid-template-columns: 32px minmax(0,1fr) auto; align-items: center; gap: 9px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #d9e0e4; text-align: left; cursor: pointer; }
+.blueprint-subject-row { position: relative; }
+.blueprint-subject-row .blueprint-row { padding-right: 38px; }
+.blueprint-subject-delete { position: absolute; z-index: 2; right: 8px; top: 50%; width: 28px; height: 28px; padding: 0; transform: translateY(-50%); border: 1px solid transparent; border-radius: 6px; background: transparent; color: #768995; font: 18px/1 var(--mono); cursor: pointer; }
+.blueprint-subject-delete:hover,.blueprint-subject-delete:focus-visible { border-color: #7d4d4b; background: #2b1c1d; color: #ff9f95; }
 .blueprint-row:hover { background: #19222a; }
 .blueprint-row.active { border-color: #465967; background: linear-gradient(90deg,rgba(103,216,255,.09),rgba(23,31,38,.7)); box-shadow: inset 2px 0 0 var(--signal); }
 .blueprint-row > i { position: relative; display: block; width: 32px; height: 32px; border: 1px solid #40505c; border-radius: 5px; background: #0d1318; }

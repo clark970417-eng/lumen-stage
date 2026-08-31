@@ -17,3 +17,32 @@ test('keeps the full studio inside unusual desktop screen shapes', async ({ page
   expect(layout.headerInside).toBeTruthy()
   expect(layout.stageUsable).toBeTruthy()
 })
+
+test('reflows immediately when a full studio window is resized', async ({ page }) => {
+  test.setTimeout(120_000)
+  await page.addInitScript(() => localStorage.setItem('lumen-stage:onboarding:v2:desktop', 'done'))
+  await page.setViewportSize({ width: 1470, height: 956 })
+  await page.goto('/studio?ui=full')
+  await expect(page.getByRole('textbox', { name: 'Project name' })).toBeVisible({ timeout: 50_000 })
+
+  for (const size of [{ width: 1180, height: 820 }, { width: 900, height: 720 }, { width: 1470, height: 956 }]) {
+    await page.setViewportSize(size)
+    await page.waitForTimeout(150)
+    const fit = await page.evaluate(() => {
+      const shell = document.querySelector('main.app-shell')?.getBoundingClientRect()
+      const header = document.querySelector('header.topbar')?.getBoundingClientRect()
+      const stage = document.querySelector('.viewport')?.getBoundingClientRect()
+      return {
+        viewport: innerWidth,
+        documentWidth: document.documentElement.scrollWidth,
+        shellRight: shell?.right ?? Infinity,
+        headerRight: header?.right ?? Infinity,
+        stageWidth: stage?.width ?? 0,
+      }
+    })
+    expect(fit.documentWidth).toBeLessThanOrEqual(fit.viewport + 1)
+    expect(fit.shellRight).toBeLessThanOrEqual(fit.viewport + 1)
+    expect(fit.headerRight).toBeLessThanOrEqual(fit.viewport + 1)
+    expect(fit.stageWidth).toBeGreaterThanOrEqual(300)
+  }
+})

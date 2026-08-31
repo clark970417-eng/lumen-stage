@@ -50,3 +50,63 @@ test('keeps setup presets in Layout and exposes direct power and focal controls'
   await expect(focalLength).toHaveAttribute('max', '200')
   await expect(page.getByRole('button', { name: '24–70' })).toHaveCount(0)
 })
+
+test('allows every subject, including the main subject, to be removed in the full workspace', async ({ page }) => {
+  test.setTimeout(180_000)
+
+  await page.addInitScript(() => {
+    localStorage.setItem('lumen-stage:locale', 'en')
+    localStorage.setItem('lumen-stage:onboarding:v2:desktop', 'done')
+  })
+  await page.goto('/studio?ui=full')
+
+  const addPerson = async (label: 'Woman' | 'Man') => {
+    await page.getByRole('button', { name: '+ Add to stage', exact: true }).click()
+    const drawer = page.getByRole('dialog', { name: 'Add to the stage' })
+    await drawer.getByRole('button', { name: 'People & set', exact: true }).click()
+    await drawer.getByText('Person', { exact: true }).click()
+    await drawer.getByText(label, { exact: true }).click()
+  }
+
+  await addPerson('Woman')
+  const removeSupporting = page.getByRole('button', { name: 'Remove selected item: Subject 1' })
+  await expect(removeSupporting).toBeVisible()
+  await removeSupporting.click()
+  await expect(removeSupporting).toHaveCount(0)
+
+  const removeMain = page.getByRole('button', { name: 'Remove selected item: Main subject' })
+  await expect(removeMain).toBeVisible({ timeout: 50_000 })
+  await removeMain.click()
+  await expect(removeMain).toHaveCount(0)
+  await expect(page.getByText('Main subject', { exact: true })).toHaveCount(0)
+
+  await addPerson('Woman')
+  await addPerson('Man')
+  await expect(page.getByRole('button', { name: 'Remove selected item: Subject 1' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Remove selected item: Subject 2' })).toBeVisible()
+})
+
+test('keeps multi-person controls available after deleting the last subject in the simple workspace', async ({ page }) => {
+  test.setTimeout(180_000)
+  await page.addInitScript(() => {
+    localStorage.setItem('lumen-stage:locale', 'en')
+    localStorage.setItem('lumen-stage:onboarding:v2:mobile', 'done')
+  })
+  await page.goto('/studio?ui=mobile')
+
+  const addFeminine = page.getByRole('button', { name: '＋ Feminine', exact: true })
+  const addMasculine = page.getByRole('button', { name: '＋ Masculine', exact: true })
+  await expect(addFeminine).toBeVisible({ timeout: 50_000 })
+  await addFeminine.click()
+  await addMasculine.click()
+  await expect(page.locator('.m-subject-bar .m-chips').first().getByRole('button')).toHaveCount(3)
+
+  const remove = page.locator('.m-subject-actions').getByRole('button', { name: 'Delete', exact: true })
+  await remove.click()
+  await remove.click()
+  await remove.click()
+  await expect(remove).toHaveCount(0)
+  await expect(page.locator('.m-subject-bar .m-chips').first().getByRole('button')).toHaveCount(0)
+  await expect(addFeminine).toBeVisible()
+  await expect(addMasculine).toBeVisible()
+})

@@ -192,6 +192,7 @@ type SceneSnapshot = {
   syncSpeed: number
   ambientLevel: number
   ambientTemperature: number
+  mainSubjectEnabled: boolean
   modelPosition: [number, number, number]
   modelRotation: number
   modelHeight: number
@@ -312,6 +313,7 @@ export type StudioState = {
   syncSpeed: number
   ambientLevel: number
   ambientTemperature: number
+  mainSubjectEnabled: boolean
   modelPosition: [number, number, number]
   modelRotation: number
   modelHeight: number
@@ -411,6 +413,7 @@ export type StudioState = {
   updateStudioSubjectPose: (id: string, patch: Partial<ModelPose>) => void
   duplicateStudioObject: (id: string) => void
   deleteStudioObject: (id: string) => void
+  deleteMainSubject: () => void
   setStudioObjectTransform: (id: string, position: [number, number, number], rotationY?: number, axis?: TransformAxis) => void
   groupSelectedLights: () => void
   ungroupSelectedLights: () => void
@@ -496,11 +499,13 @@ const cloneModifiers = (modifiers: StudioModifier[]) => modifiers.map((modifier)
 const cloneStudioObjects = (objects: StudioObject[]) => objects.map((object) => ({ ...object, position: [...object.position] as [number, number, number], subjectPose: { ...object.subjectPose }, subjectPhysique: { ...object.subjectPhysique } }))
 
 
-type TargetableState = Pick<StudioState, 'modelPosition' | 'modelHeight' | 'studioObjects'>
+type TargetableState = Pick<StudioState, 'mainSubjectEnabled' | 'modelPosition' | 'modelHeight' | 'studioObjects'>
 
 const subjectTargetPoint = (state: TargetableState, subjectId: string, zone: LightTargetZone = 'face'): [number, number, number] | null => {
   const heightFactor = zone === 'face' ? 0.92 : zone === 'chest' ? 0.66 : 0.5
-  if (subjectId === 'model') return [state.modelPosition[0], Number((state.modelPosition[1] + state.modelHeight * heightFactor).toFixed(2)), state.modelPosition[2]]
+  if (subjectId === 'model') return state.mainSubjectEnabled
+    ? [state.modelPosition[0], Number((state.modelPosition[1] + state.modelHeight * heightFactor).toFixed(2)), state.modelPosition[2]]
+    : null
   const subject = state.studioObjects.find((object) => object.id === subjectId && object.type === 'subject')
   if (!subject) return null
   return [subject.position[0], Number((subject.position[1] + subject.subjectHeight * heightFactor).toFixed(2)), subject.position[2]]
@@ -518,8 +523,8 @@ const syncBoundLightTargets = (state: TargetableState & { lights: StudioLight[] 
  * People are immovable so a dragged stand goes round them rather than shoving
  * the subject out of the shot.
  */
-const floorOccupants = (state: Pick<StudioState, 'lights' | 'modifiers' | 'studioObjects' | 'modelPosition'>): Occupant[] => [
-  { id: 'model', position: state.modelPosition, radius: FOOTPRINT.subject, movable: false, kind: 'subject' as const },
+const floorOccupants = (state: Pick<StudioState, 'lights' | 'modifiers' | 'studioObjects' | 'mainSubjectEnabled' | 'modelPosition'>): Occupant[] => [
+  ...(state.mainSubjectEnabled ? [{ id: 'model', position: state.modelPosition, radius: FOOTPRINT.subject, movable: false, kind: 'subject' as const }] : []),
   ...state.studioObjects.map((object) => ({
     id: object.id,
     position: object.position,
@@ -593,6 +598,7 @@ const snapshotFrom = (state: StudioState, includeShots = false): SceneSnapshot =
   syncSpeed: state.syncSpeed,
   ambientLevel: state.ambientLevel,
   ambientTemperature: state.ambientTemperature,
+  mainSubjectEnabled: state.mainSubjectEnabled,
   modelPosition: [...state.modelPosition] as [number, number, number],
   modelRotation: state.modelRotation,
   modelHeight: state.modelHeight,
@@ -695,6 +701,7 @@ const snapshotState = (snapshot: SceneSnapshot) => ({
   syncSpeed: snapshot.syncSpeed,
   ambientLevel: snapshot.ambientLevel,
   ambientTemperature: snapshot.ambientTemperature,
+  mainSubjectEnabled: snapshot.mainSubjectEnabled,
   modelPosition: [...snapshot.modelPosition] as [number, number, number],
   modelRotation: snapshot.modelRotation,
   modelHeight: snapshot.modelHeight,
@@ -948,6 +955,7 @@ const normalizeSnapshot = (value: unknown): SceneSnapshot => {
     syncSpeed: Number.isFinite(Number(raw.syncSpeed)) ? Math.min(500, Math.max(60, Number(raw.syncSpeed))) : 200,
     ambientLevel: Number.isFinite(Number(raw.ambientLevel)) ? Math.min(100, Math.max(0, Number(raw.ambientLevel))) : 12,
     ambientTemperature: Number.isFinite(Number(raw.ambientTemperature)) ? Math.min(7500, Math.max(2200, Number(raw.ambientTemperature))) : 4300,
+    mainSubjectEnabled: raw.mainSubjectEnabled !== false,
     modelPosition: needsNeutralActorMigration
       ? [Number(raw.modelPosition[0]) || 0, 0, Number(raw.modelPosition[2]) || 0]
       : raw.modelPosition.map(Number) as [number, number, number],
@@ -1105,6 +1113,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   syncSpeed: 200,
   ambientLevel: 20,
   ambientTemperature: 4300,
+  mainSubjectEnabled: true,
   modelPosition: [0, 0, 0],
   modelRotation: 0,
   modelHeight: 1.82,
@@ -1245,7 +1254,8 @@ export const useStudio = create<StudioState>((set, get) => ({
     undoStack: withUndo(state), redoStack: [],
   })),
   selectObject: (id, additive = false) => set((state) => {
-    if (id === 'model' || id === 'camera' || id === 'meter') return { selected: id, selectedIds: [] }
+    if (id === 'model') return state.mainSubjectEnabled ? { selected: id, selectedIds: [] } : state
+    if (id === 'camera' || id === 'meter') return { selected: id, selectedIds: [] }
     if (state.modifiers.some((modifier) => modifier.id === id)) return { selected: id, selectedIds: [] }
     if (state.studioObjects.some((object) => object.id === id)) return { selected: id, selectedIds: [] }
     if (!state.lights.some((light) => light.id === id)) return state
@@ -1325,7 +1335,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (!state.lights.some((light) => light.id === id)) return state
     const lights = state.lights.filter((light) => light.id !== id)
     const nextLight = lights[0]
-    return { lights, selected: nextLight?.id ?? 'model', selectedIds: nextLight ? [nextLight.id] : [], soloLightId: state.soloLightId === id ? null : state.soloLightId, undoStack: withUndo(state), redoStack: [] }
+    return { lights, selected: nextLight?.id ?? (state.mainSubjectEnabled ? 'model' : 'camera'), selectedIds: nextLight ? [nextLight.id] : [], soloLightId: state.soloLightId === id ? null : state.soloLightId, undoStack: withUndo(state), redoStack: [] }
   }),
   deleteSelectedLights: () => set((state) => {
     const removable = new Set(state.selectedIds)
@@ -1333,7 +1343,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     const lights = state.lights.filter((light) => !removable.has(light.id))
     if (lights.length === state.lights.length) return state
     const nextLight = lights[0]
-    return { lights, selected: nextLight?.id ?? 'model', selectedIds: nextLight ? [nextLight.id] : [], soloLightId: state.soloLightId && removable.has(state.soloLightId) ? null : state.soloLightId, undoStack: withUndo(state), redoStack: [] }
+    return { lights, selected: nextLight?.id ?? (state.mainSubjectEnabled ? 'model' : 'camera'), selectedIds: nextLight ? [nextLight.id] : [], soloLightId: state.soloLightId && removable.has(state.soloLightId) ? null : state.soloLightId, undoStack: withUndo(state), redoStack: [] }
   }),
   addModifier: (type) => set((state) => {
     const id = `modifier-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
@@ -1356,7 +1366,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   }),
   deleteModifier: (id) => set((state) => {
     if (!state.modifiers.some((modifier) => modifier.id === id)) return state
-    return { modifiers: state.modifiers.filter((modifier) => modifier.id !== id), selected: state.lights[0]?.id ?? 'model', selectedIds: state.lights[0] ? [state.lights[0].id] : [], undoStack: withUndo(state), redoStack: [] }
+    return { modifiers: state.modifiers.filter((modifier) => modifier.id !== id), selected: state.lights[0]?.id ?? (state.mainSubjectEnabled ? 'model' : 'camera'), selectedIds: state.lights[0] ? [state.lights[0].id] : [], undoStack: withUndo(state), redoStack: [] }
   }),
   setModifierTransform: (id, position, rotationY, axis) => set((state) => {
     const source = state.modifiers.find((modifier) => modifier.id === id)
@@ -1427,7 +1437,20 @@ export const useStudio = create<StudioState>((set, get) => ({
   deleteStudioObject: (id) => set((state) => {
     if (!state.studioObjects.some((object) => object.id === id)) return state
     const studioObjects = state.studioObjects.filter((object) => object.id !== id)
-    return { studioObjects, lights: syncBoundLightTargets({ ...state, studioObjects }), ...syncCameraTracking({ ...state, studioObjects }), selected: 'model', selectedIds: [], undoStack: withUndo(state), redoStack: [] }
+    return { studioObjects, lights: syncBoundLightTargets({ ...state, studioObjects }), ...syncCameraTracking({ ...state, studioObjects }), selected: state.mainSubjectEnabled ? 'model' : 'camera', selectedIds: [], undoStack: withUndo(state), redoStack: [] }
+  }),
+  deleteMainSubject: () => set((state) => {
+    if (!state.mainSubjectEnabled) return state
+    const nextState = { ...state, mainSubjectEnabled: false }
+    return {
+      mainSubjectEnabled: false,
+      lights: syncBoundLightTargets(nextState),
+      ...syncCameraTracking(nextState),
+      selected: state.studioObjects.find((object) => object.type === 'subject')?.id ?? 'camera',
+      selectedIds: [],
+      undoStack: withUndo(state),
+      redoStack: [],
+    }
   }),
   setStudioObjectTransform: (id, position, rotationY, axis) => set((state) => {
     const source = state.studioObjects.find((object) => object.id === id)
@@ -1505,7 +1528,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       // Lights bound to the subject need their aim re-solved for this scene's
       // actual subject position, which the setup knows nothing about.
       lights: syncBoundLightTargets(next),
-      selected: lights[0]?.id ?? 'model',
+      selected: lights[0]?.id ?? (state.mainSubjectEnabled ? 'model' : 'camera'),
       selectedIds: [],
       undoStack: withUndo(state),
       redoStack: [],
@@ -1621,7 +1644,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     persistShots(shots)
     return { shots, activeShotId: state.activeShotId === id ? null : state.activeShotId }
   }),
-  setModelAsset: (url, name) => set((state) => ({ modelAssetUrl: url, modelAssetName: name, modelImportStatus: url ? 'loading' : 'idle', selected: 'model', selectedIds: [], undoStack: withUndo(state), redoStack: [] })),
+  setModelAsset: (url, name) => set((state) => ({ modelAssetUrl: url, modelAssetName: name, modelImportStatus: url ? 'loading' : 'idle', mainSubjectEnabled: true, selected: 'model', selectedIds: [], undoStack: withUndo(state), redoStack: [] })),
   setModelImportStatus: (status) => set({ modelImportStatus: status }),
   setModelRigStatus: (status) => set({ modelRigStatus: status }),
   undo: () => set((state) => {
@@ -1653,7 +1676,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       const shots = snapshot.shots ?? readStoredShots()
       persistShots(shots)
       const firstLight = snapshot.lights[0]
-      set((state) => ({ ...snapshotState(snapshot), shots, selected: firstLight?.id ?? 'model', selectedIds: firstLight ? [firstLight.id] : [], saveStatus: 'loaded', lastSavedAt: Date.now(), undoStack: withUndo(state), redoStack: [] }))
+      set((state) => ({ ...snapshotState(snapshot), shots, selected: firstLight?.id ?? (snapshot.mainSubjectEnabled ? 'model' : 'camera'), selectedIds: firstLight ? [firstLight.id] : [], saveStatus: 'loaded', lastSavedAt: Date.now(), undoStack: withUndo(state), redoStack: [] }))
     } catch { set({ saveStatus: 'error' }) }
   },
   shareableJson: () => JSON.stringify(snapshotFrom(get(), false)),
@@ -1678,7 +1701,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       const shots = snapshot.shots ?? []
       persistShots(shots)
       const firstLight = snapshot.lights[0]
-      set((state) => ({ ...snapshotState(snapshot), shots, selected: firstLight?.id ?? 'model', selectedIds: firstLight ? [firstLight.id] : [], saveStatus: 'loaded', lastSavedAt: Date.now(), undoStack: withUndo(state), redoStack: [] }))
+      set((state) => ({ ...snapshotState(snapshot), shots, selected: firstLight?.id ?? (snapshot.mainSubjectEnabled ? 'model' : 'camera'), selectedIds: firstLight ? [firstLight.id] : [], saveStatus: 'loaded', lastSavedAt: Date.now(), undoStack: withUndo(state), redoStack: [] }))
     } catch { set({ saveStatus: 'error' }) }
   },
   mergeProject: (raw) => {

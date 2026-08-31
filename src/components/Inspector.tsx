@@ -480,7 +480,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
           <div className="target-binding-panel">
             <label><span>{t('beam.follow')}</span><select aria-label={t('beam.follow.aria')} value={light.targetSubjectId ?? 'manual'} onChange={(event) => state.bindLightToSubject(light.id, event.target.value === 'manual' ? null : event.target.value, light.targetZone ?? 'face')}>
               <option value="manual">{t('beam.manual')}</option>
-              <option value="model">{t('subject.main')}</option>
+              {state.mainSubjectEnabled && <option value="model">{t('subject.main')}</option>}
               {subjectObjects.map((subject, index) => <option key={subject.id} value={subject.id}>{t('subject.numbered', { n: index + 2, name: subject.name })}</option>)}
             </select></label>
             <div role="group" aria-label={t('beam.zone.aria')}>
@@ -572,6 +572,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
 
       {mode === 'person' && state.selected === 'model' && <section className="inspector-section model-inspector model-inspector-direct">
         <div className="selection-chip"><span className="model-silhouette" /><div><strong>{state.modelAssetName || DEFAULT_HUMAN_NAME}</strong><small>{state.modelImportStatus === 'ready' ? 'Rigged human · 1.82 m normalized' : state.modelImportStatus === 'error' ? 'Model failed · procedural fallback' : 'Loading realistic human…'}</small></div><b>SELECTED</b></div>
+        <div className="object-management main-subject-management"><span>{t('subject.main')}</span><button className="danger" onClick={state.deleteMainSubject}>{t('common.delete')}</button></div>
         <Range label={t('axis.x')} value={state.modelPosition[0]} min={-3} max={3} step={0.05} onChange={(value) => state.setModelTransform([value, state.modelPosition[1], state.modelPosition[2]])} />
         <Range label={t('axis.y')} value={state.modelPosition[1]} min={0} max={3} step={0.05} unit=" m" onChange={(value) => state.setModelTransform([state.modelPosition[0], value, state.modelPosition[2]])} />
         <Range label={t('axis.z')} value={state.modelPosition[2]} min={-1} max={4} step={0.05} onChange={(value) => state.setModelTransform([state.modelPosition[0], state.modelPosition[1], value])} />
@@ -620,7 +621,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
         <div className="target-binding-panel camera-target-panel">
           <label><span>{t('beam.follow')}</span><select aria-label={t('camera.followAria')} value={state.cameraTargetSubjectId ?? 'manual'} onChange={(event) => state.bindCameraToSubject(event.target.value === 'manual' ? null : event.target.value, state.cameraTargetZone)}>
             <option value="manual">{t('camera.manual')}</option>
-            <option value="model">{t('subject.main')}</option>
+            {state.mainSubjectEnabled && <option value="model">{t('subject.main')}</option>}
             {subjectObjects.map((subject, index) => <option key={subject.id} value={subject.id}>{t('subject.numbered', { n: index + 2, name: subject.name })}</option>)}
           </select></label>
           <div role="group" aria-label={t('camera.zoneAria')}>
