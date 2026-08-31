@@ -1477,11 +1477,13 @@ function paintOverSocket(model: THREE.Object3D, anchor: THREE.Vector3) {
  * lids have to clip the ball into an almond, and they cannot do that until the
  * mesh can describe an almond.
  *
- * Midpoint subdivision, three levels, only on triangles touching the eye. A
+ * Midpoint subdivision, five levels, only on the triangles the rim actually
+ * runs through — which takes a four-millimetre staircase down to an eighth of
+ * a millimetre for a few thousand triangles rather than ninety thousand. A
  * midpoint sits exactly on its edge, so a refined triangle beside an unrefined
  * one leaves no crack — the extra vertex is simply unused by the neighbour.
  */
-function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 3) {
+function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 5) {
   const point = new THREE.Vector3()
   model.updateMatrixWorld(true)
   model.traverse((child) => {
@@ -1504,19 +1506,17 @@ function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 
     }
     const position = arrays.get('position')!
 
-    // Wide enough that the boundary between refined and coarse skin falls
-    // clear of the aperture and the socket paint, tight enough that the face
-    // does not carry six times its triangles for a cut a centimetre across.
-    const reach = 1.5
-    const touchesEye = (vertex: number) => {
+    // Distance from the nearer aperture, normalised so 1 is exactly the rim.
+    const apertureRadius = (vertex: number) => {
       point.set(position[vertex * 3], position[vertex * 3 + 1], position[vertex * 3 + 2]).applyMatrix4(child.matrixWorld)
-      if (point.z * FACE_FORWARD < anchor.z * FACE_FORWARD - EYE_RADIUS) return false
+      if (point.z * FACE_FORWARD < anchor.z * FACE_FORWARD - EYE_RADIUS) return Number.POSITIVE_INFINITY
+      let nearest = Number.POSITIVE_INFINITY
       for (const side of [-1, 1] as const) {
-        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / (EYE_APERTURE_HALF_WIDTH * reach)
-        const dy = (point.y - anchor.y) / (EYE_APERTURE_HALF_HEIGHT * reach)
-        if (dx * dx + dy * dy <= 1) return true
+        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / EYE_APERTURE_HALF_WIDTH
+        const dy = (point.y - anchor.y) / EYE_APERTURE_HALF_HEIGHT
+        nearest = Math.min(nearest, Math.hypot(dx, dy))
       }
-      return false
+      return nearest
     }
 
     let count = positionAttribute.count
@@ -1560,7 +1560,13 @@ function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 
       const next: number[] = []
       for (let i = 0; i < triangles.length; i += 3) {
         const [x, y, z] = [triangles[i], triangles[i + 1], triangles[i + 2]]
-        if (!touchesEye(x) && !touchesEye(y) && !touchesEye(z)) { next.push(x, y, z); continue }
+        const radii = [apertureRadius(x), apertureRadius(y), apertureRadius(z)]
+        // Only the rim is worth resolving. A triangle wholly inside is dropped
+        // whole and one wholly outside is never touched, so neither gets
+        // smoother by being smaller — refining them just costs vertices.
+        // Straddling triangles are the staircase, and they are a thin line, so
+        // they can afford far more levels than a solid disc could.
+        if (!(Math.min(...radii) <= 1 && Math.max(...radii) >= 1)) { next.push(x, y, z); continue }
         const xy = midpoint(x, y)
         const yz = midpoint(y, z)
         const zx = midpoint(z, x)
@@ -1929,10 +1935,44 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
           bone.quaternion.copy(parentWorld.invert()).multiply(desiredWorld)
           model.updateMatrixWorld(true)
         }
-        aim(map.leftUpperArm, neutral.leftShoulder, neutral.leftElbow)
-        aim(map.leftLowerArm, neutral.leftElbow, neutral.leftWrist)
-        aim(map.rightUpperArm, neutral.rightShoulder, neutral.rightElbow)
-        aim(map.rightLowerArm, neutral.rightElbow, neutral.rightWrist)
+        // These rigs name their arms from the character's own left, which on a
+        // figure facing +Z is the +X side — the opposite side from the one the
+        // procedural figure puts its left arm on. Aimed at the target as
+        // written, each arm was sent to the other side's elbow and wrist: the
+        // eight degrees that should splay it clear of the hip tucked it eight
+        // degrees in instead, and the hand finished inside the thigh with the
+        // fingertips out the front of the jeans. So the target is mirrored
+        // onto whichever side this actor's own bone actually sits on, rather
+        // than either convention being assumed.
+        const sideOf = (bone: THREE.Bone | undefined) => {
+          const x = bone?.getWorldPosition(new THREE.Vector3()).x ?? 0
+          return x < 0 ? -1 : 1
+        }
+        const onSide = (point: THREE.Vector3, sign: number) =>
+          new THREE.Vector3(Math.abs(point.x) * sign, point.y, point.z)
+
+        const leftSide = sideOf(map.leftUpperArm)
+        const rightSide = sideOf(map.rightUpperArm)
+        const leftShoulder = onSide(neutral.leftShoulder, leftSide)
+        const leftElbow = onSide(neutral.leftElbow, leftSide)
+        const leftWrist = onSide(neutral.leftWrist, leftSide)
+        const rightShoulder = onSide(neutral.rightShoulder, rightSide)
+        const rightElbow = onSide(neutral.rightElbow, rightSide)
+        const rightWrist = onSide(neutral.rightWrist, rightSide)
+
+        aim(map.leftUpperArm, leftShoulder, leftElbow)
+        aim(map.leftLowerArm, leftElbow, leftWrist)
+        aim(map.rightUpperArm, rightShoulder, rightElbow)
+        aim(map.rightLowerArm, rightElbow, rightWrist)
+        // The hand too, or it keeps the flat splayed one the A-stance was
+        // authored with: the arm hangs correctly and the palm still faces
+        // front with the fingers out sideways, which on a standing actor puts
+        // the whole hand through the front of the thigh and the fingertips out
+        // the far side. A relaxed hand carries on the line of its forearm, so
+        // that line is where it is aimed.
+        const carryOn = (from: THREE.Vector3, to: THREE.Vector3) => to.clone().multiplyScalar(2).sub(from)
+        aim(map.leftHand, leftWrist, carryOn(leftElbow, leftWrist))
+        aim(map.rightHand, rightWrist, carryOn(rightElbow, rightWrist))
         // Aiming fixes where a bone points, not how it is rolled about its own
         // length. A forearm still has to pronate or the palms face the lens.
         const roll = (bone: THREE.Bone | undefined, degrees: number) => {
