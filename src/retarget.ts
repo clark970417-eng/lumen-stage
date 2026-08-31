@@ -14,7 +14,7 @@
  */
 
 import * as THREE from 'three'
-import { elbowFlexion } from './ik.ts'
+import { elbowFlexion, type RigPoints } from './ik.ts'
 import { NEUTRAL_POSE, type HandPose, type ModelPose } from './pose.ts'
 import { applyFingerCurlDelta, applyWorldPoseDelta } from './retargetDelta.ts'
 
@@ -390,4 +390,114 @@ export function applyExpressionToMorphs(root: THREE.Object3D, pose: ModelPose) {
       mesh.morphTargetInfluences[index] = THREE.MathUtils.clamp(rule.value(pose), 0, 1)
     }
   })
+}
+
+// ---------------------------------------------------------------------------
+// Landing the hands on a body the pose was not measured on
+// ---------------------------------------------------------------------------
+
+/** How far the hand IK may carry a hand before the target is not believed. */
+const HAND_LANDING_LIMIT = 0.3
+
+/**
+ * Walks a chain so its end lands on a point, by cyclic coordinate descent.
+ *
+ * Each bone in turn is swung so the end of the chain points at the target,
+ * from the tip inward, a few times over. Started from a pose that is already
+ * nearly right it barely moves anything — which is what is wanted here, since
+ * the pose carries the intent and this only closes the last few centimetres.
+ */
+function reachTowards(chain: THREE.Bone[], end: THREE.Object3D, target: THREE.Vector3, passes: number) {
+  const bonePosition = new THREE.Vector3()
+  const endPosition = new THREE.Vector3()
+  const toEnd = new THREE.Vector3()
+  const toTarget = new THREE.Vector3()
+  const swing = new THREE.Quaternion()
+  const parentWorld = new THREE.Quaternion()
+  const boneWorld = new THREE.Quaternion()
+  for (let pass = 0; pass < passes; pass += 1) {
+    for (let index = chain.length - 1; index >= 0; index -= 1) {
+      const bone = chain[index]
+      if (!bone.parent) continue
+      bone.getWorldPosition(bonePosition)
+      end.getWorldPosition(endPosition)
+      toEnd.subVectors(endPosition, bonePosition)
+      toTarget.subVectors(target, bonePosition)
+      if (toEnd.lengthSq() < 1e-10 || toTarget.lengthSq() < 1e-10) continue
+      swing.setFromUnitVectors(toEnd.normalize(), toTarget.normalize())
+      bone.parent.getWorldQuaternion(parentWorld)
+      bone.getWorldQuaternion(boneWorld)
+      bone.quaternion.copy(parentWorld.invert()).multiply(swing.multiply(boneWorld))
+      bone.updateMatrixWorld(true)
+    }
+  }
+}
+
+/**
+ * Puts the hands where the pose meant them, on a body that is not the one the
+ * pose was measured on.
+ *
+ * The library stores angles, and angles only put a hand somewhere if the arm
+ * they turn is the length it was measured on. It is not: an actor's reach,
+ * shoulder width and torso height are all his own, so hands-on-hips left the
+ * hands beside the hips, arms-crossed folded them too high, and hand-to-chin
+ * stopped short of the chin. The direction was right every time; the distance
+ * was not.
+ *
+ * So the wrist the procedural figure would have is read in its own hips-local
+ * frame, rescaled by how much wider and taller this actor is, and the actor's
+ * own arm is then walked onto it. What the pose says still decides where the
+ * hand goes; the body decides how far it has to reach to get there.
+ */
+export function landHands(map: BoneMap, want: RigPoints, faceForward: number) {
+  const { hips, leftUpperArm, leftLowerArm, leftHand, rightUpperArm, rightLowerArm, rightHand } = map
+  if (!hips || !leftUpperArm || !rightUpperArm) return
+
+  const hipsWorld = hips.getWorldPosition(new THREE.Vector3())
+  const leftShoulder = leftUpperArm.getWorldPosition(new THREE.Vector3())
+  const rightShoulder = rightUpperArm.getWorldPosition(new THREE.Vector3())
+
+  const actorHalfWidth = leftShoulder.distanceTo(rightShoulder) / 2
+  const wantHalfWidth = want.leftShoulder.distanceTo(want.rightShoulder) / 2
+  const actorRise = (leftShoulder.y + rightShoulder.y) / 2 - hipsWorld.y
+  const wantRise = (want.leftShoulder.y + want.rightShoulder.y) / 2 - want.hips.y
+  if (wantHalfWidth < 1e-4 || Math.abs(wantRise) < 1e-4) return
+  const across = actorHalfWidth / wantHalfWidth
+  const along = actorRise / wantRise
+
+  // Which side of the centreline this rig calls its left. The two skeletons
+  // disagree, and a hand sent to the mirrored hip is worse than one left alone.
+  const mirror = (Math.sign(leftShoulder.x) || 1) * (Math.sign(want.leftShoulder.x) || -1) < 0 ? -1 : 1
+  const target = new THREE.Vector3()
+
+  // Whether an arm reaches across the body, judged on the figure the pose was
+  // measured on, where which arm is which is not in doubt. Mapping a wrist
+  // across from another skeleton is a good guess for a hand going to its own
+  // hip or its own face; once the arm crosses the centreline the two rigs
+  // disagree about which arm it is and the guess lands on the wrong one —
+  // asked to fold her arms, the actor spread them instead. Those poses are
+  // left to speak for themselves.
+  const reachesAcross = (wrist: THREE.Vector3, shoulder: THREE.Vector3) =>
+    Math.sign(wrist.x - want.hips.x) !== 0
+    && Math.sign(shoulder.x - want.hips.x) !== 0
+    && Math.sign(wrist.x - want.hips.x) !== Math.sign(shoulder.x - want.hips.x)
+
+  const land = (upper?: THREE.Bone, lower?: THREE.Bone, hand?: THREE.Bone, wrist?: THREE.Vector3, source?: THREE.Vector3) => {
+    if (!upper || !lower || !hand || !wrist || !source) return
+    if (reachesAcross(wrist, source)) return
+    // The offset is mirrored onto whichever side this rig calls left, and
+    // scaled by how much wider and taller this actor is than the figure the
+    // pose was measured on.
+    const sideways = (wrist.x - want.hips.x) * across * mirror
+    target.set(
+      hipsWorld.x + sideways,
+      hipsWorld.y + (wrist.y - want.hips.y) * along,
+      hipsWorld.z + (wrist.z - want.hips.z) * along * faceForward,
+    )
+    if (hand.getWorldPosition(new THREE.Vector3()).distanceTo(target) > HAND_LANDING_LIMIT) return
+    reachTowards([upper, lower], hand, target, 4)
+  }
+
+  land(leftUpperArm, leftLowerArm, leftHand, want.leftWrist, want.leftShoulder)
+  land(rightUpperArm, rightLowerArm, rightHand, want.rightWrist, want.rightShoulder)
 }

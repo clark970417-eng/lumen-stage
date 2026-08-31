@@ -18,7 +18,7 @@ import type { FigureAppearance } from './Figure'
 import { forwardKinematics } from '../ik'
 import { isSeatedPose, NEUTRAL_POSE, type ModelPose } from '../pose'
 import type { HairStyle } from '../wardrobe'
-import { applyExpressionToMorphs, applyPoseToSkeleton, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
+import { applyExpressionToMorphs, applyPoseToSkeleton, landHands, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
 import { SOCKET_PAINT_SPREAD, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
@@ -2277,6 +2277,11 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     const stanceSplay = THREE.MathUtils.radToDeg(Math.atan2(effectivePose.stanceWidth / 2 - 0.083, 0.865))
     object.position.y = rig.current.baseY + effectivePose.rootLift
     applyPoseToSkeleton(object, rig.current.map, rig.current.rest, effectivePose, stanceSplay)
+    // The pose has said where the hands should be; this walks the actor's own
+    // arms onto it, because an angle only lands a hand somewhere if the arm it
+    // turns is the length the angle was measured on.
+    object.updateMatrixWorld(true)
+    landHands(rig.current.map, forwardKinematics(effectivePose, appearanceRef.current.physique), FACE_FORWARD)
     applyExpressionToMorphs(object, effectivePose)
     object.updateMatrixWorld(true)
     if (!effectivePose.airborne && !isSeatedPose(effectivePose)) {
