@@ -114,6 +114,7 @@ const DICT = {
   // ── 服裝與髮型 ──────────────────────────────────────────
   'wardrobe.title': { en: 'Wardrobe', zh: '服裝造型', ja: 'ワードローブ' },
   'wardrobe.sub': { en: 'HAIR / OUTFIT / FABRIC', zh: '髮型 / 服裝 / 材質', ja: 'ヘア / 衣装 / 素材' },
+  'wardrobe.bakedNote': { en: 'This actor is photographed — hair, clothing and skin arrive as one baked map, with no second file to change into and no hair mesh to restyle. These stay as they are until an actor with separate garments is added.', zh: '這位演員是實拍烘焙的：頭髮、服裝與皮膚都在同一張貼圖上，沒有第二個檔案可換，也沒有可重塑的頭髮模型。要等到加入衣物分離的演員，這些選項才會生效。', ja: 'このアクターは実写ベースで、髪・衣装・肌が一枚のテクスチャに焼き込まれています。切り替える別ファイルも、作り直せる髪のメッシュもありません。衣装が分かれたアクターを追加するまで、ここは固定です。' },
   'wardrobe.hair': { en: 'Hair style', zh: '髮型', ja: 'ヘアスタイル' },
   'wardrobe.outfit': { en: 'Outfit', zh: '服裝', ja: '衣装' },
 
@@ -485,6 +486,7 @@ const DICT = {
 
   // ── 人物材質 ────────────────────────────────────────────
   'appearance.title': { en: 'Subject materials', zh: '人物材質', ja: '人物マテリアル' },
+  'appearance.bakedNote': { en: 'Colour is baked into this actor, so eyes, hair and make-up cannot be re-tinted — a skin colour laid over the body map takes the shirt with it. The three sliders above are how the surface answers the light, and they still apply.', zh: '這位演員的顏色已烘焙在貼圖上，眼睛、頭髮與妝容無法重新上色——把膚色疊在身體貼圖上，連襯衫也會一起變。上面三個滑桿控制的是表面如何回應光線，仍然有效。', ja: 'このアクターは色がテクスチャに焼き込まれているため、瞳・髪・メイクの色は変更できません。肌色をボディマップに重ねるとシャツまで染まります。上の3つのスライダーは光への反応を決めるもので、こちらは有効です。' },
   'appearance.skinRoughness': { en: 'skin roughness', zh: '皮膚粗糙度', ja: '肌のラフネス' },
   'appearance.skinOil': { en: 'skin sheen', zh: '皮膚油光', ja: '肌のテカリ' },
   'appearance.subsurface': { en: 'subsurface', zh: '皮下散射', ja: 'サブサーフェス' },

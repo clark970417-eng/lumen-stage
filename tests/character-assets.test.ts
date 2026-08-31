@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { FEMALE_CASUAL_URL, ROCKETBOX_FEMALE_URL, ROCKETBOX_MALE_URL, shippedHumanFor } from '../src/characterAssets.ts'
+import { appearanceIsBaked, FEMALE_CASUAL_URL, ROCKETBOX_FEMALE_URL, ROCKETBOX_MALE_URL, shippedHumanFor } from '../src/characterAssets.ts'
 import { PHYSIQUE_PRESETS } from '../src/physique.ts'
 
 function readGlbJson(url: string) {
@@ -51,4 +51,15 @@ test('the casual female actor ships the expected MakeHuman rig and motion librar
   const joints = new Set<number>(gltf.skins.flatMap((skin: { joints: number[] }) => skin.joints))
   assert.equal(joints.size, 53)
   assert.deepEqual(gltf.animations.map((animation: { name: string }) => animation.name).sort(), ['idle', 'run', 'walk', 'wave'])
+})
+
+test('the actors whose look is photographed are the ones the appearance controls cannot reach', () => {
+  // What the wardrobe and the colour pickers are disabled against. The
+  // MakeHuman actors keep separate garment materials and a hair mesh, so they
+  // still answer everything.
+  assert.ok(appearanceIsBaked(ROCKETBOX_MALE_URL))
+  assert.ok(appearanceIsBaked(ROCKETBOX_FEMALE_URL))
+  assert.ok(!appearanceIsBaked(FEMALE_CASUAL_URL))
+  assert.ok(!appearanceIsBaked(null))
+  assert.ok(!appearanceIsBaked('/models/someone-elses-import.glb'))
 })

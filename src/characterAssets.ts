@@ -32,6 +32,20 @@ export const FEMALE_GOWN_URL = assetHref('models/lumen-human/human-female-gown.g
 
 export const DEFAULT_HUMAN_NAME = 'Everyday Adult'
 
+/**
+ * Whether this actor wears its look rather than being given one.
+ *
+ * The Rocketbox pair are photographed: skin, clothing and hair arrive in one
+ * baked map with no seam a control could act on. Tinting the body material
+ * takes the shirt with it, there is no hair mesh to restyle, and the wardrobe
+ * has no second file to switch to. The controls that need one of those are
+ * shown as unavailable rather than left to do nothing — how the surface
+ * answers the light is still ours to set, and those controls stay live.
+ */
+export function appearanceIsBaked(url: string | null) {
+  return url === ROCKETBOX_MALE_URL || url === ROCKETBOX_FEMALE_URL
+}
+
 export function shippedHumanFor(physique: Physique, _outfit: OutfitStyle) {
   // The Rocketbox pair dress themselves — their clothing is baked into the
   // body texture — so the outfit control has nothing to switch between yet.

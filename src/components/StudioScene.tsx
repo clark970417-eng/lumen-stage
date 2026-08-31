@@ -19,7 +19,7 @@ import { forwardKinematics } from '../ik'
 import { isSeatedPose, NEUTRAL_POSE, type ModelPose } from '../pose'
 import type { HairStyle } from '../wardrobe'
 import { applyExpressionToMorphs, applyPoseToSkeleton, landHands, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { SOCKET_PAINT_SPREAD, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
+import { SOCKET_PAINT_SPREAD, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, bakedActorResponse, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -1286,6 +1286,32 @@ function applyActorGarment(material: THREE.MeshPhysicalMaterial, fabric: OutfitF
   material.needsUpdate = true
 }
 
+/**
+ * The response pass for an actor whose look is photographed.
+ *
+ * Colour and every map are left exactly as the file has them — that is the
+ * whole point of these two — but roughness, sebum and grazing-angle return
+ * are still ours to set, so the three skin sliders keep their photographic
+ * meaning instead of doing nothing.
+ *
+ * Not the cut-out materials, though: the eyelash cards are a texture with a
+ * hard alpha test, and giving them sebum and a sheen is meaningless at best.
+ */
+function applyBakedActorResponse(material: THREE.MeshPhysicalMaterial, appearance: FigureAppearance) {
+  if (material.alphaTest > 0) return
+  const response = bakedActorResponse(appearance.skinRoughness, appearance.skinOil, appearance.subsurface)
+  material.metalness = 0
+  material.roughness = response.roughness
+  material.clearcoat = response.clearcoat
+  material.clearcoatRoughness = response.clearcoatRoughness
+  material.sheen = response.sheen
+  material.sheenColor = new THREE.Color(SUBSURFACE_COLOR)
+  material.sheenRoughness = response.sheenRoughness
+  material.specularIntensity = response.specularIntensity
+  material.envMapIntensity = response.envMapIntensity
+  material.needsUpdate = true
+}
+
 /** Walks a loaded actor and re-applies everything the controls drive. */
 function applyActorAppearance(model: THREE.Object3D, appearance: FigureAppearance) {
   model.traverse((child) => {
@@ -1295,8 +1321,9 @@ function applyActorAppearance(model: THREE.Object3D, appearance: FigureAppearanc
       if (!(material instanceof THREE.MeshPhysicalMaterial)) return
       if (material.name === ACTOR_EYE_MATERIAL) return
       // Actors whose maps are already photographed skin and clothing, with
-      // their own cut-outs. Nothing here has anything to add to them.
-      if (material.userData.lumenBaked) return
+      // their own cut-outs. Nothing that recolours a surface can reach them,
+      // but how that surface answers the light still can.
+      if (material.userData.lumenBaked) { applyBakedActorResponse(material, appearance); return }
       if (material.name === STUDIO_HAIR_MATERIAL) applyStudioHairAppearance(material, appearance.hairColor, appearance.hairGloss)
       else if (material.name === ACTOR_IRIS_MATERIAL) retintIris(material, appearance.eyeColor)
       else if (isActorSkin(material)) applyActorSkin(material, appearance)
@@ -2012,14 +2039,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
                 // forces transparent to false — which turned the eyelash
                 // cut-outs back into the solid black cards they are drawn on.
                 physical.userData.lumenBaked = true
-                // Their maps are already lit-looking photography, so they want
-                // a plain response rather than the studio's skin model — but
-                // they still have to answer to the room, or they render as a
-                // silhouette with a shirt faintly visible in it.
-                physical.envMapIntensity = 1
-                physical.roughness = 0.68
-                physical.metalness = 0
-                physical.needsUpdate = true
+                applyBakedActorResponse(physical, appearanceRef.current)
                 return physical
               }
               if (isActorSkin(physical)) applyActorSkin(physical, appearanceRef.current)

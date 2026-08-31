@@ -21,6 +21,34 @@ export function studioSkinResponse(skinRoughness: number, skinOil: number, subsu
   }
 }
 
+/**
+ * How a photographed actor answers the room.
+ *
+ * The Rocketbox pair carry skin, clothing and hair in one baked map, so every
+ * control that recolours a surface has nothing to reach on them: tint their
+ * body material with a skin colour and the shirt goes with it. What still
+ * means something is the response — how sharp the specular is, how oily the
+ * skin reads, how much comes back at a grazing angle — because that is a
+ * property of the surface rather than of its colour.
+ *
+ * The range is centred on the value these two were shipped at, so the default
+ * look is the one already on screen and the slider moves either side of it.
+ * Their environment return stays high; these maps look lit already, but with
+ * a low return they render as a silhouette with a shirt faintly visible in it.
+ */
+export function bakedActorResponse(skinRoughness: number, skinOil: number, subsurface: number) {
+  const rough = THREE.MathUtils.clamp(skinRoughness / 100, 0, 1)
+  return {
+    roughness: THREE.MathUtils.lerp(0.42, 0.9, rough),
+    clearcoat: THREE.MathUtils.clamp(skinOil / 100, 0, 1) * 0.18,
+    clearcoatRoughness: THREE.MathUtils.lerp(0.45, 0.8, rough),
+    sheen: THREE.MathUtils.clamp(subsurface / 100, 0, 1) * 0.2,
+    sheenRoughness: 0.85,
+    specularIntensity: 0.35,
+    envMapIntensity: 1,
+  }
+}
+
 export function studioHairResponse(hairGloss: number) {
   const gloss = THREE.MathUtils.clamp(hairGloss / 100, 0, 1)
   return {

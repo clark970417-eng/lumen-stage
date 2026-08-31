@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
-import { EYE_DEPTH_BELOW_CROWN, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse } from '../src/studioHumanDetails.ts'
+import { EYE_DEPTH_BELOW_CROWN, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, bakedActorResponse } from '../src/studioHumanDetails.ts'
 
 test('shipped human eyeballs sit behind the measured eyelid, not in front of it', () => {
   // Both shipped actors, as measured from their meshes: the male's eyelid sits
@@ -116,4 +116,25 @@ test('every hairstyle in the catalogue changes the shipped actors shell', () => 
   assert.equal(studioHairPlan('short').mass, 'none')
   // An unknown style from an old saved project must still render hair.
   assert.ok(studioHairPlan('mullet').margin > 0)
+})
+
+test('a photographed actor keeps the finish it shipped with, and moves either side of it', () => {
+  // The three skin sliders are the only appearance controls these two can
+  // answer, so their range has to be centred on the look already on screen —
+  // a control that shifts the default finish the moment it appears is worse
+  // than one that does nothing.
+  const shipped = bakedActorResponse(55, 18, 40)
+  assert.ok(Math.abs(shipped.roughness - 0.68) < 0.01, 'the default is the finish the pair were shipped at')
+
+  const glossy = bakedActorResponse(0, 100, 100)
+  const matte = bakedActorResponse(100, 0, 0)
+  assert.ok(glossy.roughness < shipped.roughness && shipped.roughness < matte.roughness)
+  assert.ok(matte.roughness - glossy.roughness > 0.4, 'and the travel is wide enough to see')
+  assert.ok(glossy.clearcoat > 0.1 && matte.clearcoat === 0, 'sebum is a coat over the skin, not part of it')
+  assert.ok(glossy.sheen > matte.sheen)
+
+  // Their maps read as already lit, but a low environment return leaves them
+  // a silhouette with a shirt faintly visible in it.
+  assert.equal(shipped.envMapIntensity, 1)
+  assert.ok(shipped.envMapIntensity > studioSkinResponse(55, 18, 40).envMapIntensity)
 })

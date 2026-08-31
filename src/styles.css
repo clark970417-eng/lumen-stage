@@ -499,6 +499,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .appearance-controls span { color: #90978d; font-size: 10px; }
 .appearance-controls input { width: 28px; height: 24px; padding: 2px; border: 1px solid #4a5048; background: #101210; cursor: pointer; }
 .appearance-controls input::-webkit-color-swatch-wrapper { padding: 0; }.appearance-controls input::-webkit-color-swatch { border: 0; }
+.appearance-controls label:has(input:disabled) { opacity: .38; }
+.appearance-controls input:disabled { cursor: not-allowed; }
 .subject-material-block { margin-top: 8px; padding: 10px 9px 7px; border: 1px solid #30362f; background: linear-gradient(145deg, #171b17, #121512); }
 .subject-material-heading { display: flex; justify-content: space-between; align-items: center; padding-bottom: 7px; border-bottom: 1px solid #2c312b; }
 .subject-material-heading span { color: #c8cdc3; font: 600 10.5px var(--mono); letter-spacing: .08em; }
@@ -509,6 +511,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .subject-look-control > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .subject-look-control button { min-height: 27px; border: 1px solid #363c35; color: #858d82; background: #121512; font: 9.5px var(--mono); cursor: pointer; }
 .subject-look-control button.active { border-color: #b97824; color: #ffd08a; background: #20271a; box-shadow: inset 0 0 0 1px #3c481e; }
+.subject-look-control button:disabled { opacity: .32; cursor: not-allowed; }
 .material-colors { margin-top: 9px; }
 .light-chip > span { width: 28px; height: 28px; box-shadow: 0 0 15px currentColor; }
 .light-chip > div { display: flex; flex-direction: column; }
@@ -1143,7 +1146,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
   cursor: pointer;
   transition: border-color 0.12s, background 0.12s, color 0.12s;
 }
-.pose-grid button:hover { border-color: rgba(255,180,84, 0.35); color: #e9eee6; }
+.pose-grid button:hover:not(:disabled) { border-color: rgba(255,180,84, 0.35); color: #e9eee6; }
+.pose-grid button:disabled { opacity: .3; cursor: not-allowed; }
 .pose-grid button.active {
   border-color: rgba(255,180,84, 0.6);
   background: rgba(255,180,84, 0.12);

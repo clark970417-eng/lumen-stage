@@ -261,10 +261,12 @@ export function PhysiquePanel({ physique, onChange, onPreset }: { physique: Phys
 // Wardrobe
 // ---------------------------------------------------------------------------
 
-export function WardrobePanel({ hairStyle, outfit, fabric, onChange }: {
+export function WardrobePanel({ hairStyle, outfit, fabric, baked = false, onChange }: {
   hairStyle: HairStyle
   outfit: OutfitStyle
   fabric: FabricKind
+  /** True when the actor on stage wears its look, so none of this can act. */
+  baked?: boolean
   onChange: (patch: { hairStyle?: HairStyle; outfit?: OutfitStyle; fabric?: FabricKind }) => void
 }) {
   const t = useT()
@@ -276,22 +278,24 @@ export function WardrobePanel({ hairStyle, outfit, fabric, onChange }: {
       <div className="wardrobe-label">{t('wardrobe.hair')}</div>
       <div className="pose-grid" role="group" aria-label={t('wardrobe.hair')}>
         {HAIR_STYLES.map((item) => (
-          <button key={item.id} title={item.note} className={hairStyle === item.id ? 'active' : ''} onClick={() => onChange({ hairStyle: item.id })}>{ct(`hair.${item.id}`, item.label)}</button>
+          <button key={item.id} disabled={baked} title={item.note} className={hairStyle === item.id ? 'active' : ''} onClick={() => onChange({ hairStyle: item.id })}>{ct(`hair.${item.id}`, item.label)}</button>
         ))}
       </div>
       <div className="wardrobe-label">{t('wardrobe.outfit')}</div>
       <div className="pose-grid" role="group" aria-label={t('wardrobe.outfit')}>
         {OUTFITS.map((item) => (
-          <button key={item.id} title={item.note} className={outfit === item.id ? 'active' : ''} onClick={() => onChange({ outfit: item.id })}>{ct(`outfit.${item.id}`, item.label)}</button>
+          <button key={item.id} disabled={baked} title={item.note} className={outfit === item.id ? 'active' : ''} onClick={() => onChange({ outfit: item.id })}>{ct(`outfit.${item.id}`, item.label)}</button>
         ))}
       </div>
       <div className="wardrobe-label">{t('appearance.fabric')}</div>
       <div className="pose-grid" role="group" aria-label={t('appearance.fabric')}>
         {FABRICS.map((item) => (
-          <button key={item.id} title={item.note} className={fabric === item.id ? 'active' : ''} onClick={() => onChange({ fabric: item.id })}>{ct(`fabric.${item.id}`, item.label)}</button>
+          <button key={item.id} disabled={baked} title={item.note} className={fabric === item.id ? 'active' : ''} onClick={() => onChange({ fabric: item.id })}>{ct(`fabric.${item.id}`, item.label)}</button>
         ))}
       </div>
-      {activeFabric && <p className="pose-note">{activeFabric.note}</p>}
+      {baked
+        ? <p className="pose-note">{t('wardrobe.bakedNote')}</p>
+        : activeFabric && <p className="pose-note">{activeFabric.note}</p>}
     </div>
   )
 }
