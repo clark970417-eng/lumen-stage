@@ -33,6 +33,15 @@ export type HumanoidBone =
  * `Armature|`), the separators, and the case — which collapses `mixamorig:
  * LeftForeArm`, `left_fore_arm` and `LeftForearm` onto one string.
  */
+/**
+ * Which side of the centreline the pose library puts a left limb on.
+ *
+ * A property of the procedural figure the library is measured against, whose
+ * left shoulder sits at x = -0.169. A rig that disagrees needs its deltas
+ * reflected — see applyWorldPoseDelta.
+ */
+const LIBRARY_LEFT_SIDE = -1
+
 const PATTERNS: [HumanoidBone, RegExp][] = [
   ['hips', /^(hips?|pelvis|bip01pelvis|root(bone)?hips?)$/],
   ['spine', /^(spine|spine0?1|abdomen|lowerspine|torso)$/],
@@ -316,6 +325,19 @@ export function applyPoseToSkeleton(root: THREE.Object3D, map: BoneMap, rest: Re
     if (bone && !bySlot.has(bone)) bySlot.set(bone, slot)
   }
 
+  // Whether this rig calls left what the pose library calls right. Read once
+  // off the shoulders, because a bone's side is a fact about the skeleton and
+  // not about the pose being asked for.
+  const mirrored = (() => {
+    const hips = map.hips
+    const shoulder = map.leftUpperArm
+    if (!hips || !shoulder) return false
+    const hipsAt = hips.getWorldPosition(new THREE.Vector3())
+    const shoulderAt = shoulder.getWorldPosition(new THREE.Vector3())
+    const rigSide = Math.sign(shoulderAt.x - hipsAt.x)
+    return rigSide !== 0 && rigSide !== LIBRARY_LEFT_SIDE
+  })()
+
   const parentWorld = new THREE.Quaternion()
   const inverse = new THREE.Quaternion()
   const worldTarget = new THREE.Quaternion()
@@ -333,7 +355,7 @@ export function applyPoseToSkeleton(root: THREE.Object3D, map: BoneMap, rest: Re
         // only the delta from our neutral pose, instead of forcing their bones
         // into the procedural figure's axes. This preserves the arm roll and
         // keeps elbows, wrists and hands in front of the torso.
-        applyWorldPoseDelta(worldTarget, targets[slot]!, neutralTarget, restWorld)
+        applyWorldPoseDelta(worldTarget, targets[slot]!, neutralTarget, restWorld, mirrored)
         inverse.copy(posedParentWorld).invert()
         bone.quaternion.copy(inverse).multiply(worldTarget)
       } else if (restLocal) {
