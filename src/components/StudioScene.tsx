@@ -1466,6 +1466,121 @@ function paintOverSocket(model: THREE.Object3D, anchor: THREE.Vector3) {
  * The eyeball then sits behind the hole the way a real one sits behind a lid,
  * and the geometry left around the opening is the lid.
  */
+/**
+ * Subdivides the skin around the eyes before the aperture is cut.
+ *
+ * The cut drops whole triangles, so the hole it makes is only ever as precise
+ * as the mesh it is cutting. On these faces the triangles around the eye are
+ * about four millimetres across and the opening is twenty-two by nine, which
+ * means the ellipse gets quantised into a blob nearly as tall as it is wide —
+ * and a round hole in front of a round ball shows the whole white sphere. The
+ * lids have to clip the ball into an almond, and they cannot do that until the
+ * mesh can describe an almond.
+ *
+ * Midpoint subdivision, three levels, only on triangles touching the eye. A
+ * midpoint sits exactly on its edge, so a refined triangle beside an unrefined
+ * one leaves no crack — the extra vertex is simply unused by the neighbour.
+ */
+function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 3) {
+  const point = new THREE.Vector3()
+  model.updateMatrixWorld(true)
+  model.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return
+    const materials = Array.isArray(child.material) ? child.material : [child.material]
+    if (!materials.some((material) => isActorSkin(material))) return
+    const geometry = child.geometry
+    const index = geometry.getIndex()
+    const positionAttribute = geometry.getAttribute('position')
+    if (!index || !(positionAttribute instanceof THREE.BufferAttribute)) return
+
+    const names: string[] = []
+    const sizes = new Map<string, number>()
+    const arrays = new Map<string, number[]>()
+    for (const [name, attribute] of Object.entries(geometry.attributes)) {
+      if (!(attribute instanceof THREE.BufferAttribute)) return
+      names.push(name)
+      sizes.set(name, attribute.itemSize)
+      arrays.set(name, Array.from(attribute.array as ArrayLike<number>))
+    }
+    const position = arrays.get('position')!
+
+    // Wide enough that the boundary between refined and coarse skin falls
+    // clear of the aperture and the socket paint, tight enough that the face
+    // does not carry six times its triangles for a cut a centimetre across.
+    const reach = 1.5
+    const touchesEye = (vertex: number) => {
+      point.set(position[vertex * 3], position[vertex * 3 + 1], position[vertex * 3 + 2]).applyMatrix4(child.matrixWorld)
+      if (point.z * FACE_FORWARD < anchor.z * FACE_FORWARD - EYE_RADIUS) return false
+      for (const side of [-1, 1] as const) {
+        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / (EYE_APERTURE_HALF_WIDTH * reach)
+        const dy = (point.y - anchor.y) / (EYE_APERTURE_HALF_HEIGHT * reach)
+        if (dx * dx + dy * dy <= 1) return true
+      }
+      return false
+    }
+
+    let count = positionAttribute.count
+    const midpoints = new Map<string, number>()
+    const midpoint = (from: number, to: number) => {
+      const key = from < to ? `${from}:${to}` : `${to}:${from}`
+      const known = midpoints.get(key)
+      if (known !== undefined) return known
+      const vertex = count
+      count += 1
+      for (const name of names) {
+        const size = sizes.get(name)!
+        const array = arrays.get(name)!
+        for (let lane = 0; lane < size; lane += 1) {
+          // Bone assignments are not numbers to average — but every vertex in
+          // this region is bound to the head, so either end will do.
+          array[vertex * size + lane] = name === 'skinIndex'
+            ? array[from * size + lane]
+            : (array[from * size + lane] + array[to * size + lane]) / 2
+        }
+      }
+      const normal = arrays.get('normal')
+      if (normal) {
+        const length = Math.hypot(normal[vertex * 3], normal[vertex * 3 + 1], normal[vertex * 3 + 2]) || 1
+        for (let lane = 0; lane < 3; lane += 1) normal[vertex * 3 + lane] /= length
+      }
+      const weight = arrays.get('skinWeight')
+      if (weight) {
+        const size = sizes.get('skinWeight')!
+        let total = 0
+        for (let lane = 0; lane < size; lane += 1) total += weight[vertex * size + lane]
+        if (total > 1e-6) for (let lane = 0; lane < size; lane += 1) weight[vertex * size + lane] /= total
+      }
+      midpoints.set(key, vertex)
+      return vertex
+    }
+
+    let triangles = Array.from(index.array as ArrayLike<number>)
+    let split = 0
+    for (let level = 0; level < levels; level += 1) {
+      const next: number[] = []
+      for (let i = 0; i < triangles.length; i += 3) {
+        const [x, y, z] = [triangles[i], triangles[i + 1], triangles[i + 2]]
+        if (!touchesEye(x) && !touchesEye(y) && !touchesEye(z)) { next.push(x, y, z); continue }
+        const xy = midpoint(x, y)
+        const yz = midpoint(y, z)
+        const zx = midpoint(z, x)
+        next.push(x, xy, zx, xy, y, yz, zx, yz, z, xy, yz, zx)
+        split += 1
+      }
+      triangles = next
+    }
+    if (split === 0) return
+
+    for (const name of names) {
+      const attribute = geometry.getAttribute(name) as THREE.BufferAttribute
+      const Typed = attribute.array.constructor as new (values: number[]) => THREE.TypedArray
+      geometry.setAttribute(name, new THREE.BufferAttribute(new Typed(arrays.get(name)!), sizes.get(name)!, attribute.normalized))
+    }
+    geometry.setIndex(triangles)
+    geometry.computeBoundingSphere()
+  })
+}
+
 function cutEyeApertures(model: THREE.Object3D, anchor: THREE.Vector3) {
   const centre = new THREE.Vector3()
   const a = new THREE.Vector3()
@@ -1524,17 +1639,17 @@ function cutEyeApertures(model: THREE.Object3D, anchor: THREE.Vector3) {
  * Bands down the eyeball, as a fraction of pole-to-pole: v * 180 is the polar
  * angle from the pupil, so the iris edge sits at sin(38 deg) * EYE_RADIUS.
  *
- * Life-size would put the iris at 27 degrees, but the lids here are a cut in a
- * closed mesh rather than skin folded over a ball, so they open wider than a
- * real fissure and a life-size iris leaves a ring of bare white all the way
- * round — the "eyeball is all white" reading. Filling out to the lid margins
- * costs a millimetre of accuracy and buys an eye that looks like an eye.
+ * The ball is larger than life so that a nearly flush cornea still covers a
+ * real-sized opening, so these angles are wound back to suit: 22.8 degrees on
+ * a 16 mm sphere is a 12.4 mm iris, which is life size. Taller than the
+ * opening, so the lids clip it top and bottom and leave white only at the
+ * corners — which is what a real eye does.
  */
 const EYE_BANDS = {
-  pupil: 0.068,
-  pupilEdge: 0.088,
-  iris: 0.211,
-  limbus: 0.232,
+  pupil: 0.040,
+  pupilEdge: 0.052,
+  iris: 0.127,
+  limbus: 0.140,
 }
 
 function createEyeTexture(irisColor: string) {
@@ -1630,12 +1745,20 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     eyes.add(eye)
   }
 
+  // Every eye constant is in world metres, because the aperture is cut in world
+  // space off the measured face. The group is built under the model, though,
+  // which carries a normalising scale — 1.125 on the shipped pair — so without
+  // this the balls come out an eighth oversized and three and a half
+  // millimetres too far apart, each one sitting off-centre in its own hole.
+  eyes.scale.setScalar(1 / (model.scale.x || 1))
+
   const surface = measureEyeSurface(model, box.max.y)
   const anchor = studioEyeAnchor(surface ?? headPosition.z - 0.12, box.max.y, headPosition.x, box.max.y - headPosition.y)
   // attachHeadDetail converts the anchor in place, so the brows get their own.
   // Placed before the eyes are attached, because attachHeadDetail converts
   // the anchor to model space in place.
   addStudioBrows(model, head, anchor.clone(), hairColor)
+  refineEyeRegion(model, anchor)
   paintOverSocket(model, anchor)
   cutEyeApertures(model, anchor)
   attachHeadDetail(model, head, eyes, anchor)

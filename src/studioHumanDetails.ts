@@ -56,17 +56,22 @@ export const EYE_HALF_SEPARATION = 0.0311
 /**
  * How far the eyeball centre sits behind the measured face surface.
  *
- * Deep enough to read as an eye in a head, shallow enough that the ball is
- * still wider than the opening where the two meet. Set back a full centimetre
- * the sphere's cross-section at the face plane shrank below the aperture and
- * the gap between them showed through as a dark ring — dark circles under the
- * eyes, which is the one thing a portrait subject must not arrive with.
- * The ball is 12.5 mm in radius, so at 4.5 mm back it still spans 11.7 mm
- * either side of centre where it passes the lid, against an 11.2 mm opening.
- * The opening also has to clear the dark socket the skin texture paints, or
- * what is left of it rings the eye and reads as the same bruise.
+ * This is the constant that decides whether the eye sits in the head or hangs
+ * out of it. `faceZ` is the lid, so the apex of the ball stands EYE_RADIUS -
+ * EYEBALL_SET_BACK proud of it: at 4.5 mm back a 12.5 mm ball broke the face
+ * by eight millimetres and read as a marble stuck to a socket. A real cornea
+ * clears the lid by about a millimetre and a half, so that is the gap, and
+ * the set-back is the radius less that.
+ *
+ * Nearly flush, though, a ball only covers the opening as far out as it is
+ * still in front of the surrounding skin — which for a 12.5 mm sphere is
+ * about six millimetres, far short of a real eye opening, and the shortfall
+ * is what showed through as a dark ring the last time this was pushed back.
+ * A flatter ball covers further for the same clearance, so the sphere is
+ * enlarged past life size and the iris angle wound back to match: EYE_BANDS
+ * puts a life-size 12.4 mm iris on it either way.
  */
-export const EYEBALL_SET_BACK = 0.0045
+export const EYEBALL_SET_BACK = 0.0145
 
 /**
  * Which way is out of the face.
@@ -122,12 +127,20 @@ export function studioEyeAnchor(faceZ: number, modelTop: number, centreX = 0, cr
  * to a cheek, which is what a prosthetic standing proud of a closed face
  * always looks like.
  *
- * The ball has to be wider than the hole or the gap shows daylight, so the
- * aperture is kept comfortably inside the eyeball's silhouette.
+ * The ball has to stand in front of the surrounding skin everywhere the hole
+ * reaches, or the gap shows daylight, so the aperture is kept inside the
+ * eyeball's silhouette. See EYEBALL_SET_BACK for the arithmetic.
  */
-export const EYE_RADIUS = 0.0125
-export const EYE_APERTURE_HALF_WIDTH = 0.0112
-export const EYE_APERTURE_HALF_HEIGHT = 0.0060
+export const EYE_RADIUS = 0.016
+/**
+ * A little over two to one, which is a palpebral fissure rather than a
+ * porthole. Squarer than this and the lids stop clipping the eyeball's
+ * silhouette, so the whole white sphere shows through the hole and the eye
+ * reads as dug out of the face again. The ball's cross-section where it meets
+ * the face is 11.7mm, so the half-width has to stay comfortably under that.
+ */
+export const EYE_APERTURE_HALF_WIDTH = 0.0104
+export const EYE_APERTURE_HALF_HEIGHT = 0.0046
 
 /**
  * The eyebrow, in metres on a 1.82 m actor.
@@ -155,8 +168,17 @@ export const BROW_SAMPLE_RADIUS = 0.006
  * and how far that line wanders from vertex to vertex. Together they decide
  * how deep the fringe's teeth are.
  */
-/** How much wider than the eye opening the painted socket is covered. */
-export const SOCKET_PAINT_SPREAD = 1.75
+/**
+ * How much wider than the eye opening the painted socket is covered.
+ *
+ * Only wide enough to reach the rim of the texture's painted socket, because
+ * the fill is flat skin with none of the shading around it: spread far, it
+ * stops being a repair and becomes a pale oval sitting on the face, which
+ * reads as a great white eye the size of the patch. Most of the painted socket
+ * is inside the aperture and is cut away with the geometry, so what is left to
+ * cover is a rim.
+ */
+export const SOCKET_PAINT_SPREAD = 1.18
 
 export const HAIRLINE_CUT = 0.01
 export const HAIRLINE_JITTER = 0.17
