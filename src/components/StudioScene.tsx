@@ -1175,12 +1175,16 @@ function toActorPhysical(source: THREE.MeshStandardMaterial) {
     opacity: source.opacity,
   })
   material.name = source.name
-  // The source marks every surface as alpha-blended even though the baked
-  // textures are opaque. Opaque depth writing keeps hair, eyes, mouth and
-  // jacket layers from sorting into black cut-outs.
+  // The MakeHuman source marks every surface as alpha-blended even though its
+  // baked textures are opaque. Opaque depth writing keeps hair, eyes, mouth
+  // and jacket layers from sorting into black cut-outs.
+  //
+  // A material that genuinely cuts out keeps its test, though. Wiping it as
+  // well turned the Rocketbox eyelash cards — a few dozen strands drawn on a
+  // rectangle — into the rectangle.
   material.transparent = false
   material.opacity = 1
-  material.alphaTest = 0
+  material.alphaTest = source.alphaTest > 0 ? source.alphaTest : 0
   material.depthWrite = true
   return material
 }

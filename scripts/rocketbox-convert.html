@@ -167,7 +167,10 @@ async function convert(name, fbxUrl, prefix) {
         // as a dark smear over the eye and drags in transparent sort order
         // besides; a mask keeps every strand a hard edge and lets it stay in
         // the opaque pass. GLTFExporter writes this out as alphaMode MASK.
-        material.alphaTest = 0.35
+        // High, because the lash strands are drawn with a soft falloff: at a
+        // third the semi-transparent skirt of each card passes the test too
+        // and the lashes render as the solid black wedges they are painted on.
+        material.alphaTest = 0.9
         material.transparent = false
         material.side = THREE.DoubleSide
       }
