@@ -280,7 +280,24 @@ const HAND_CURL: Record<HandPose, { fingers: number; index: number; thumb: numbe
   grip: { fingers: 34, index: 31, thumb: 20 },
 }
 
-const FINGER_PATTERN = /(thumb|index|middle|ring|pinky|little)/
+const NAMED_FINGER = /(thumb|index|middle|ring|pinky|little)/
+/**
+ * A Biped rig numbers the digits instead of naming them — `Bip01_L_Finger0`
+ * through `Finger4`, thumb first — so nothing in the named pattern matched and
+ * every hand pose was a no-op on the Rocketbox actors. They stood with the
+ * flat, fanned hand the source was modelled with whether they were asked for a
+ * relaxed hand, a fist or a grip.
+ */
+const NUMBERED_FINGER = /finger(\d)/
+
+/** Which curl a finger bone takes, or null if the bone is not a finger. */
+function fingerRole(name: string): 'thumb' | 'index' | 'other' | null {
+  const named = name.match(NAMED_FINGER)
+  if (named) return named[1] === 'thumb' ? 'thumb' : named[1] === 'index' ? 'index' : 'other'
+  const numbered = name.match(NUMBERED_FINGER)
+  if (!numbered) return null
+  return numbered[1] === '0' ? 'thumb' : numbered[1] === '1' ? 'index' : 'other'
+}
 
 /**
  * Curls finger bones about their own local bend axis.
@@ -296,12 +313,9 @@ function applyFingers(hand: THREE.Bone | undefined, pose: HandPose, rest: RestPo
   hand.traverse((node) => {
     if (!(node as THREE.Bone).isBone || node === hand) return
     const bone = node as THREE.Bone
-    const name = canonicalName(bone.name)
-    const match = name.match(FINGER_PATTERN)
-    if (!match) return
-    const isThumb = match[1] === 'thumb'
-    const isIndex = match[1] === 'index'
-    const degrees = isThumb ? curl.thumb : isIndex ? curl.index : curl.fingers
+    const role = fingerRole(canonicalName(bone.name))
+    if (!role) return
+    const degrees = role === 'thumb' ? curl.thumb : role === 'index' ? curl.index : curl.fingers
     const restLocal = rest.localQuaternion.get(bone)
     if (!restLocal) return
     // MPFB exports already carry a relaxed finger arc. Treating that authored
@@ -487,26 +501,16 @@ export function landHands(map: BoneMap, want: RigPoints, faceForward: number) {
   const across = actorHalfWidth / wantHalfWidth
   const along = actorRise / wantRise
 
-  // Which side of the centreline this rig calls its left. The two skeletons
-  // disagree, and a hand sent to the mirrored hip is worse than one left alone.
-  const mirror = (Math.sign(leftShoulder.x) || 1) * (Math.sign(want.leftShoulder.x) || -1) < 0 ? -1 : 1
+  // Which side of its own centreline this rig calls its left. Measured from the
+  // hips, not from the world origin: an actor standing off to one side of the
+  // studio has both shoulders on the same side of x = 0, and read that way a
+  // rig would be called mirrored or not depending on where it was standing.
+  const side = (point: THREE.Vector3, origin: THREE.Vector3) => Math.sign(point.x - origin.x)
+  const mirror = side(leftShoulder, hipsWorld) * (side(want.leftShoulder, want.hips) || -1) < 0 ? -1 : 1
   const target = new THREE.Vector3()
 
-  // Whether an arm reaches across the body, judged on the figure the pose was
-  // measured on, where which arm is which is not in doubt. Mapping a wrist
-  // across from another skeleton is a good guess for a hand going to its own
-  // hip or its own face; once the arm crosses the centreline the two rigs
-  // disagree about which arm it is and the guess lands on the wrong one —
-  // asked to fold her arms, the actor spread them instead. Those poses are
-  // left to speak for themselves.
-  const reachesAcross = (wrist: THREE.Vector3, shoulder: THREE.Vector3) =>
-    Math.sign(wrist.x - want.hips.x) !== 0
-    && Math.sign(shoulder.x - want.hips.x) !== 0
-    && Math.sign(wrist.x - want.hips.x) !== Math.sign(shoulder.x - want.hips.x)
-
-  const land = (upper?: THREE.Bone, lower?: THREE.Bone, hand?: THREE.Bone, wrist?: THREE.Vector3, source?: THREE.Vector3) => {
-    if (!upper || !lower || !hand || !wrist || !source) return
-    if (reachesAcross(wrist, source)) return
+  const land = (upper?: THREE.Bone, lower?: THREE.Bone, hand?: THREE.Bone, wrist?: THREE.Vector3) => {
+    if (!upper || !lower || !hand || !wrist) return
     // The offset is mirrored onto whichever side this rig calls left, and
     // scaled by how much wider and taller this actor is than the figure the
     // pose was measured on.
@@ -520,6 +524,6 @@ export function landHands(map: BoneMap, want: RigPoints, faceForward: number) {
     reachTowards([upper, lower], hand, target, 4)
   }
 
-  land(leftUpperArm, leftLowerArm, leftHand, want.leftWrist, want.leftShoulder)
-  land(rightUpperArm, rightLowerArm, rightHand, want.rightWrist, want.rightShoulder)
+  land(leftUpperArm, leftLowerArm, leftHand, want.leftWrist)
+  land(rightUpperArm, rightLowerArm, rightHand, want.rightWrist)
 }
