@@ -19,7 +19,7 @@ import { forwardKinematics } from '../ik'
 import { isSeatedPose, NEUTRAL_POSE, type ModelPose } from '../pose'
 import type { HairStyle } from '../wardrobe'
 import { applyExpressionToMorphs, applyPoseToSkeleton, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
+import { HAIRLINE_CUT, HAIRLINE_JITTER, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -762,6 +762,45 @@ function createStudioHairTexture() {
 }
 
 /**
+ * Breaks the bottom edge of the scalp shell into strands.
+ *
+ * The shell is a closed dome, and rendered solid it ends in one hard,
+ * continuous line — a swim cap, not a head of hair. No hairline looks like
+ * that: it thins out into points. So the lowest band of the mesh is cut away
+ * along a ragged threshold, which leaves the fringe and the nape ending in
+ * teeth instead of a rim.
+ *
+ * The cut is driven off the vertex's own height in the shell rather than off
+ * its UVs, because this OBJ's UV direction is not something to guess at, and
+ * height is the axis a hairline actually runs across. Alpha-tested rather than
+ * blended, so the hair still writes depth and still casts a shadow.
+ */
+function featherHairline(geometry: THREE.BufferGeometry) {
+  const position = geometry.getAttribute('position')
+  if (!position || geometry.getAttribute('color')) return
+  geometry.computeBoundingBox()
+  const box = geometry.boundingBox
+  if (!box) return
+  const height = box.max.y - box.min.y
+  if (height <= 1e-6) return
+
+  const colors = new Float32Array(position.count * 4)
+  for (let i = 0; i < position.count; i += 1) {
+    const t = (position.getY(i) - box.min.y) / height
+    // A stable hash of the vertex, so the same head grows the same hairline
+    // every time it loads rather than shimmering between reloads.
+    const noise = Math.abs(Math.sin((position.getX(i) * 127.1 + position.getZ(i) * 311.7) * 43758.5453)) % 1
+    const cut = HAIRLINE_CUT + noise * HAIRLINE_JITTER
+    const alpha = t <= cut ? 0 : 1
+    colors[i * 4] = 1
+    colors[i * 4 + 1] = 1
+    colors[i * 4 + 2] = 1
+    colors[i * 4 + 3] = alpha
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 4))
+}
+
+/**
  * The upper skull, measured off the actor's own mesh.
  *
  * Everything above a fifth of the way up from the head bone and inside a
@@ -881,6 +920,8 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
     depthWrite: true,
     envMapIntensity: 0.24,
     side: THREE.DoubleSide,
+    vertexColors: true,
+    alphaTest: 0.5,
   })
   material.name = STUDIO_HAIR_MATERIAL
   material.userData.lumenHairMatte = plan.matte
@@ -893,6 +934,7 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
     child.material = material
     child.castShadow = true
     child.receiveShadow = true
+    featherHairline(child.geometry)
   })
 
   const fit = measureSkull(model, headPosition.y, box.max.y)
@@ -1401,8 +1443,10 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     const ball = new THREE.Mesh(geometry, material)
     // The texture's pole is the pupil; tip it to face the lens.
     ball.rotation.x = Math.PI / 2
+    // Neither: a shadow cast onto a ball sitting in a hole lands as a dark
+    // crescent along the lid, which is the bruise this is trying to avoid.
     ball.castShadow = false
-    ball.receiveShadow = true
+    ball.receiveShadow = false
     eye.add(ball)
     eyes.add(eye)
   }

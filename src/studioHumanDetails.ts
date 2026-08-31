@@ -61,10 +61,12 @@ export const EYE_HALF_SEPARATION = 0.0311
  * the sphere's cross-section at the face plane shrank below the aperture and
  * the gap between them showed through as a dark ring — dark circles under the
  * eyes, which is the one thing a portrait subject must not arrive with.
- * The ball is 12.5 mm in radius, so at 6.2 mm back it still spans 10.8 mm
- * either side of centre where it passes the lid, against a 9.5 mm opening.
+ * The ball is 12.5 mm in radius, so at 4.5 mm back it still spans 11.7 mm
+ * either side of centre where it passes the lid, against an 11.2 mm opening.
+ * The opening also has to clear the dark socket the skin texture paints, or
+ * what is left of it rings the eye and reads as the same bruise.
  */
-export const EYEBALL_SET_BACK = 0.0062
+export const EYEBALL_SET_BACK = 0.0045
 
 /**
  * Which way is out of the face.
@@ -124,8 +126,8 @@ export function studioEyeAnchor(faceZ: number, modelTop: number, centreX = 0, cr
  * aperture is kept comfortably inside the eyeball's silhouette.
  */
 export const EYE_RADIUS = 0.0125
-export const EYE_APERTURE_HALF_WIDTH = 0.0095
-export const EYE_APERTURE_HALF_HEIGHT = 0.0048
+export const EYE_APERTURE_HALF_WIDTH = 0.0112
+export const EYE_APERTURE_HALF_HEIGHT = 0.0060
 
 /**
  * The eyebrow, in metres on a 1.82 m actor.
@@ -145,6 +147,14 @@ export const BROW_THICKNESS = 0.0022
 export const BROW_SEGMENT_LENGTH = 0.0023
 export const BROW_PROUD_OF_FACE = 0.0012
 export const BROW_SAMPLE_RADIUS = 0.006
+
+/**
+ * Where the scalp shell stops being solid, as a fraction of its own height,
+ * and how far that line wanders from vertex to vertex. Together they decide
+ * how deep the fringe's teeth are.
+ */
+export const HAIRLINE_CUT = 0.01
+export const HAIRLINE_JITTER = 0.17
 
 /**
  * How much wider than the skull the scalp shell sits.
