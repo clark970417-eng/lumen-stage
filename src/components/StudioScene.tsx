@@ -2130,6 +2130,29 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
         // the whole hand through the front of the thigh and the fingertips out
         // the far side. A relaxed hand carries on the line of its forearm, so
         // that line is where it is aimed.
+        // And the legs, for the same reason the arms needed it. A pose delta is
+        // a world-space rotation applied to whatever the bone's rest is, so it
+        // only lands on the intended anatomical axis when the rest points where
+        // the library thinks it does. The arms are aimed, so they were right;
+        // the legs were not, and a Biped thigh does not run down -Y the way the
+        // MakeHuman rig's does. Every leg pose came out rotating about the
+        // wrong axis — asked to sit, the actor splayed her thighs sideways and
+        // stayed standing, and crouching, walking and all four seated poses did
+        // nothing at all.
+        const leftLegSide = sideOf(map.leftUpperLeg)
+        const rightLegSide = sideOf(map.rightUpperLeg)
+        const leftHip = onSide(neutral.leftHip, leftLegSide)
+        const leftKnee = onSide(neutral.leftKnee, leftLegSide)
+        const leftAnkle = onSide(neutral.leftAnkle, leftLegSide)
+        const rightHip = onSide(neutral.rightHip, rightLegSide)
+        const rightKnee = onSide(neutral.rightKnee, rightLegSide)
+        const rightAnkle = onSide(neutral.rightAnkle, rightLegSide)
+
+        aim(map.leftUpperLeg, leftHip, leftKnee)
+        aim(map.leftLowerLeg, leftKnee, leftAnkle)
+        aim(map.rightUpperLeg, rightHip, rightKnee)
+        aim(map.rightLowerLeg, rightKnee, rightAnkle)
+
         const carryOn = (from: THREE.Vector3, to: THREE.Vector3) => to.clone().multiplyScalar(2).sub(from)
         aim(map.leftHand, leftWrist, carryOn(leftElbow, leftWrist))
         aim(map.rightHand, rightWrist, carryOn(rightElbow, rightWrist))
