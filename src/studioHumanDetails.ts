@@ -56,10 +56,15 @@ export const EYE_HALF_SEPARATION = 0.0311
 /**
  * How far the eyeball centre sits behind the measured face surface.
  *
- * A real eye sits about a centimetre in, behind a lid. That only works once
- * there is an opening for it — see EYE_SET_IN_SOCKET below, which this is.
+ * Deep enough to read as an eye in a head, shallow enough that the ball is
+ * still wider than the opening where the two meet. Set back a full centimetre
+ * the sphere's cross-section at the face plane shrank below the aperture and
+ * the gap between them showed through as a dark ring — dark circles under the
+ * eyes, which is the one thing a portrait subject must not arrive with.
+ * The ball is 12.5 mm in radius, so at 6.2 mm back it still spans 10.8 mm
+ * either side of centre where it passes the lid, against a 9.5 mm opening.
  */
-export const EYEBALL_SET_BACK = 0.0092
+export const EYEBALL_SET_BACK = 0.0062
 
 /**
  * Which way is out of the face.
@@ -119,8 +124,8 @@ export function studioEyeAnchor(faceZ: number, modelTop: number, centreX = 0, cr
  * aperture is kept comfortably inside the eyeball's silhouette.
  */
 export const EYE_RADIUS = 0.0125
-export const EYE_APERTURE_HALF_WIDTH = 0.0113
-export const EYE_APERTURE_HALF_HEIGHT = 0.0055
+export const EYE_APERTURE_HALF_WIDTH = 0.0095
+export const EYE_APERTURE_HALF_HEIGHT = 0.0048
 
 /**
  * The eyebrow, in metres on a 1.82 m actor.
