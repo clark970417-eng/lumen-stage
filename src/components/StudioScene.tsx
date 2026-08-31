@@ -2253,10 +2253,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     if (!object || !rig.current) return
     const stanceSplay = THREE.MathUtils.radToDeg(Math.atan2(effectivePose.stanceWidth / 2 - 0.083, 0.865))
     object.position.y = rig.current.baseY + effectivePose.rootLift
-    // The pose library is still calibrated against the MakeHuman rest pose and
-    // lays a Biped rig flat on its back, so these actors keep the standing rest
-    // the arm aiming gives them until the retarget understands this skeleton.
-    if (!url.includes('rocketbox')) applyPoseToSkeleton(object, rig.current.map, rig.current.rest, effectivePose, stanceSplay)
+    applyPoseToSkeleton(object, rig.current.map, rig.current.rest, effectivePose, stanceSplay)
     applyExpressionToMorphs(object, effectivePose)
     object.updateMatrixWorld(true)
     if (!effectivePose.airborne && !isSeatedPose(effectivePose)) {

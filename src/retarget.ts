@@ -340,16 +340,20 @@ export function applyPoseToSkeleton(root: THREE.Object3D, map: BoneMap, rest: Re
         bone.quaternion.copy(restLocal)
       }
       posedWorld = parentWorld.copy(posedParentWorld).multiply(bone.quaternion).clone()
+    } else if (node !== root) {
+      // Groups between the root and the skeleton turn the world too. Passing
+      // the parent's orientation straight through them assumes they are all
+      // unrotated, which held for the MakeHuman exports and does not hold for
+      // a file that carries its axis conversion on a wrapper node: every bone
+      // below it was then solved ninety degrees out, and the actor posed lying
+      // on her back.
+      posedWorld = parentWorld.copy(posedParentWorld).multiply(node.quaternion).clone()
     }
     node.children.forEach((child) => walk(child, posedWorld))
   }
 
-  // The walk composes world orientations down from here, so it has to start at
-  // the root's own world orientation, not its parent's. They are the same
-  // thing only while the root itself is unrotated, which was true of the
-  // MakeHuman exports because the studio forced their stray root rotation to
-  // identity. A model that carries its axis conversion there instead had every
-  // bone come out turned by it, and the actor posed lying on her back.
+  // Seeded with the root's own world orientation, which the walk then carries
+  // down through every node between it and the skeleton.
   root.updateWorldMatrix(true, false)
   const rootWorld = root.getWorldQuaternion(new THREE.Quaternion())
   walk(root, rootWorld)
