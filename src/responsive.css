@@ -40,6 +40,60 @@ main.app-shell {
   header.topbar .project-actions { min-width: 0; }
 }
 
+/* A 13–14 inch laptop often reports roughly 1280–1500 CSS pixels even when
+   its Retina screenshot is much larger. Reflow the header at that *usable*
+   width so the action tray and right rail never sit beyond the browser edge. */
+@media (min-width: 1101px) and (max-width: 1500px) {
+  main.app-shell,
+  main.app-shell.bottom-panel-hidden {
+    grid-template-columns: clamp(178px, 15vw, 208px) minmax(360px, 1fr) clamp(226px, 20vw, 264px);
+    grid-template-rows: 108px minmax(250px, 1fr) 0;
+  }
+
+  main.app-shell.left-panel-hidden {
+    grid-template-columns: 0 minmax(360px, 1fr) clamp(226px, 20vw, 264px);
+  }
+
+  main.app-shell.right-panel-hidden {
+    grid-template-columns: clamp(178px, 15vw, 208px) minmax(360px, 1fr) 0;
+  }
+
+  main.app-shell.left-panel-hidden.right-panel-hidden {
+    grid-template-columns: 0 minmax(360px, 1fr) 0;
+  }
+
+  header.topbar {
+    grid-template-columns: clamp(178px, 15vw, 208px) minmax(0, 1fr) clamp(250px, 24vw, 320px);
+    grid-template-rows: 54px 54px;
+  }
+
+  header.topbar .brand {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+
+  header.topbar .project-title {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  header.topbar .workflow-navigation {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    border-right: 0;
+  }
+
+  header.topbar .project-actions {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+}
+
 .viewport-status-stack {
   position: absolute;
   inset-block-start: 13px;
@@ -592,5 +646,105 @@ html.public-site-root .legal-page {
 
   .drawer-control input {
     min-height: 28px;
+  }
+}
+
+/* Vite emits the shared responsive sheet before the studio's feature sheet.
+   These intentionally stronger selectors keep viewport rules authoritative
+   after code-splitting, rather than allowing the wide-canvas defaults to win. */
+body main.app-shell,
+body main.app-shell > * {
+  min-inline-size: 0;
+}
+
+body main.app-shell {
+  inline-size: 100%;
+  max-inline-size: 100vw;
+  min-block-size: 0;
+  block-size: 100dvh;
+  overflow: hidden;
+}
+
+@media (min-width: 1181px) and (max-width: 1500px) {
+  body main.app-shell,
+  body main.app-shell.bottom-panel-hidden {
+    grid-template-columns: clamp(178px, 15vw, 208px) minmax(360px, 1fr) clamp(226px, 20vw, 264px);
+    grid-template-rows: 108px minmax(250px, 1fr) 0;
+  }
+
+  body main.app-shell.left-panel-hidden {
+    grid-template-columns: 0 minmax(360px, 1fr) clamp(226px, 20vw, 264px);
+  }
+
+  body main.app-shell.right-panel-hidden {
+    grid-template-columns: clamp(178px, 15vw, 208px) minmax(360px, 1fr) 0;
+  }
+
+  body main.app-shell.left-panel-hidden.right-panel-hidden {
+    grid-template-columns: 0 minmax(360px, 1fr) 0;
+  }
+
+  body header.topbar {
+    grid-template-columns: clamp(178px, 15vw, 208px) minmax(0, 1fr) clamp(250px, 24vw, 320px);
+    grid-template-rows: 54px 54px;
+  }
+
+  body header.topbar .brand { grid-column: 1; grid-row: 1 / 3; }
+  body header.topbar .project-title { grid-column: 2; grid-row: 1; min-width: 0; }
+  body header.topbar .workflow-navigation { grid-column: 2; grid-row: 2; min-width: 0; border-right: 0; }
+  body header.topbar .project-actions { grid-column: 3; grid-row: 1 / 3; width: 100%; min-width: 0; margin: 0; }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  body main.app-shell,
+  body main.app-shell.bottom-panel-hidden {
+    min-width: 0;
+    grid-template-columns: clamp(150px, 18vw, 166px) minmax(320px, 1fr) clamp(198px, 23vw, 218px);
+    grid-template-rows: 108px minmax(250px, 1fr) 0;
+  }
+
+  body main.app-shell.left-panel-hidden { grid-template-columns: 0 minmax(320px, 1fr) clamp(198px, 23vw, 218px); }
+  body main.app-shell.right-panel-hidden { grid-template-columns: clamp(150px, 18vw, 166px) minmax(320px, 1fr) 0; }
+  body main.app-shell.left-panel-hidden.right-panel-hidden { grid-template-columns: 0 minmax(320px, 1fr) 0; }
+
+  body header.topbar {
+    grid-template-columns: clamp(150px, 18vw, 166px) minmax(0, 1fr) clamp(230px, 25vw, 264px);
+    grid-template-rows: 54px 54px;
+  }
+
+  body header.topbar .brand { grid-column: 1; grid-row: 1 / 3; }
+  body header.topbar .project-title { grid-column: 2; grid-row: 1; min-width: 0; }
+  body header.topbar .workflow-navigation { grid-column: 2; grid-row: 2; min-width: 0; border-right: 0; }
+  body header.topbar .project-actions { grid-column: 3; grid-row: 1 / 3; width: 100%; min-width: 0; margin: 0; }
+}
+
+@media (min-width: 760px) and (max-width: 900px) {
+  body main.app-shell,
+  body main.app-shell.bottom-panel-hidden {
+    min-width: 0;
+    grid-template-columns: 142px minmax(300px, 1fr) 190px;
+    grid-template-rows: 150px minmax(250px, 1fr) 0;
+  }
+
+  body header.topbar {
+    grid-template-columns: 142px minmax(0, 1fr);
+    grid-template-rows: 48px 50px 52px;
+  }
+
+  body header.topbar .brand { grid-column: 1; grid-row: 1; padding-inline: 10px; }
+  body header.topbar .project-title { grid-column: 2; grid-row: 1; }
+  body header.topbar .workflow-navigation { grid-column: 1 / -1; grid-row: 2; }
+  body header.topbar .project-actions { grid-column: 1 / -1; grid-row: 3; }
+}
+
+@media (max-width: 759px) {
+  body main.app-shell,
+  body main.app-shell.left-panel-hidden,
+  body main.app-shell.right-panel-hidden,
+  body main.app-shell.left-panel-hidden.right-panel-hidden,
+  body main.app-shell.bottom-panel-hidden {
+    min-width: 0;
+    grid-template-columns: 0 minmax(0, 1fr) 0;
+    grid-template-rows: 148px minmax(250px, 1fr) 0;
   }
 }
