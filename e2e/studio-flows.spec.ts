@@ -2,6 +2,59 @@ import { expect, test } from '@playwright/test'
 
 test.describe.configure({ mode: 'serial', timeout: 90_000 })
 
+function watchRuntimeHealth(page: import('@playwright/test').Page) {
+  const problems: string[] = []
+  page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`))
+  page.on('console', (message) => {
+    const text = message.text()
+    if (message.type() === 'error' || (message.type() === 'warning' && /shader error|webgl context lost|failed to (?:compile|link)|gltf.*(?:error|failed)/i.test(text))) {
+      problems.push(`${message.type()}: ${text}`)
+    }
+  })
+  page.on('requestfailed', (request) => {
+    if (new URL(request.url()).origin === 'http://127.0.0.1:4173') {
+      problems.push(`requestfailed: ${request.url()} ${request.failure()?.errorText ?? ''}`)
+    }
+  })
+  page.on('response', (response) => {
+    if (new URL(response.url()).origin === 'http://127.0.0.1:4173' && response.status() >= 400) {
+      problems.push(`response: ${response.status()} ${response.url()}`)
+    }
+  })
+  return problems
+}
+
+test('guides a first-time beginner through simple mode without runtime failures', async ({ page }) => {
+  const problems = watchRuntimeHealth(page)
+  await page.goto('/studio?ui=mobile')
+  await expect(page.getByRole('dialog', { name: 'Quick start tour' })).toBeVisible({ timeout: 50_000 })
+
+  for (let step = 0; step < 4; step += 1) await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await page.getByRole('button', { name: 'Start creating', exact: true }).click()
+
+  await expect(page.getByRole('dialog', { name: 'Quick start tour' })).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'Person' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Light' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Camera' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Layout' })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('lumen-stage:onboarding:v2:mobile'))).toBe('done')
+  expect(problems).toEqual([])
+})
+
+test('lets an experienced user enter professional mode immediately without runtime failures', async ({ page }) => {
+  const problems = watchRuntimeHealth(page)
+  await page.goto('/studio?ui=full')
+  await expect(page.getByRole('dialog', { name: 'Quick start tour' })).toBeVisible({ timeout: 50_000 })
+  await page.getByRole('button', { name: 'Skip', exact: true }).click()
+
+  await expect(page.getByRole('textbox', { name: 'Project name' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '+ Add to stage', exact: true })).toBeVisible()
+  for (const mode of ['Person', 'Light', 'Camera', 'Layout']) {
+    await expect(page.getByRole('button', { name: mode, exact: true })).toBeVisible()
+  }
+  expect(problems).toEqual([])
+})
+
 test('autosaves a renamed project and exports its backup', async ({ page }) => {
   await page.goto('/studio?ui=full')
   const projectName = page.getByRole('textbox', { name: 'Project name' })

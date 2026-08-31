@@ -2853,3 +2853,11 @@ header.topbar .project-actions.is-simplified .history-button:disabled {
     font-size: 17px;
   }
 }
+
+/* Keep all four workflow labels inside the compressed one-row header. The
+   original 92px minimum per item overflowed its track around laptop widths. */
+@media (min-width: 901px) and (max-width: 1180px) {
+  header.topbar .workflow-navigation {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

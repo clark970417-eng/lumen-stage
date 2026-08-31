@@ -1,15 +1,16 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 
-const [output, locale = 'en', widthArg = '1280', heightArg = '720', scaleArg = '1', url = 'http://127.0.0.1:5174/studio?ui=full', modeArg = '0', scrollSelector = ''] = process.argv.slice(2)
+const [output, locale = 'en', widthArg = '1280', heightArg = '720', scaleArg = '1', url = 'http://127.0.0.1:5173/studio?ui=full', modeArg = '0', scrollSelector = ''] = process.argv.slice(2)
 if (!output) throw new Error('Usage: node scripts/capture-ui.mjs <output> [locale] [width] [height] [scale] [url] [modeIndex]')
 
 const width = Number(widthArg)
 const height = Number(heightArg)
 const deviceScaleFactor = Number(scaleArg)
-const pages = await fetch('http://127.0.0.1:9223/json/list').then((response) => response.json())
-const page = pages.find((item) => item.type === 'page' && item.url.startsWith('http://127.0.0.1:5174/'))
-if (!page) throw new Error('No Lumen Stage page is connected to Chrome on port 9223')
+const browserPort = process.env.LUMEN_CHROME_PORT || '9224'
+const pages = await fetch(`http://127.0.0.1:${browserPort}/json/list`).then((response) => response.json())
+const page = pages.find((item) => item.type === 'page' && item.url.startsWith(new URL(url).origin)) ?? pages.find((item) => item.type === 'page')
+if (!page) throw new Error(`No Lumen Stage page is connected to Chrome on port ${browserPort}`)
 
 const socket = new WebSocket(page.webSocketDebuggerUrl)
 const pending = new Map()
