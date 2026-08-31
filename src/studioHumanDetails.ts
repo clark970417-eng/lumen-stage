@@ -140,7 +140,9 @@ export const EYE_APERTURE_HALF_HEIGHT = 0.0060
 export const BROW_SEGMENTS = 13
 export const BROW_INNER_X = 0.0125
 export const BROW_LENGTH = 0.0295
-export const BROW_RISE_ABOVE_EYE = 0.0124
+// Clear of the eyeball's own crown, which reaches EYE_RADIUS above the eye
+// centre — level with it the brow is half swallowed and renders as loose dots.
+export const BROW_RISE_ABOVE_EYE = 0.0192
 export const BROW_ARCH = 0.0042
 export const BROW_OUTER_DROP = 0.0036
 export const BROW_THICKNESS = 0.0022
@@ -153,6 +155,9 @@ export const BROW_SAMPLE_RADIUS = 0.006
  * and how far that line wanders from vertex to vertex. Together they decide
  * how deep the fringe's teeth are.
  */
+/** How much wider than the eye opening the painted socket is covered. */
+export const SOCKET_PAINT_SPREAD = 1.75
+
 export const HAIRLINE_CUT = 0.01
 export const HAIRLINE_JITTER = 0.17
 

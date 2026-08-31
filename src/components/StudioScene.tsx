@@ -19,7 +19,7 @@ import { forwardKinematics } from '../ik'
 import { isSeatedPose, NEUTRAL_POSE, type ModelPose } from '../pose'
 import type { HairStyle } from '../wardrobe'
 import { applyExpressionToMorphs, applyPoseToSkeleton, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { HAIRLINE_CUT, HAIRLINE_JITTER, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
+import { SOCKET_PAINT_SPREAD, HAIRLINE_CUT, HAIRLINE_JITTER, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -830,6 +830,23 @@ function measureSkull(model: THREE.Object3D, headBoneY: number, modelTop: number
 }
 
 /**
+ * Marks a generated hair piece fully opaque.
+ *
+ * The mass shares the shell's material, which reads vertex colour so the
+ * hairline can be feathered. A lathe or a capsule has no colour attribute, and
+ * an absent attribute reads as opaque black in the shader — which is what the
+ * nape and the side locks were rendering as: unlit black slabs hanging off the
+ * hair. They want no feathering, so white at full alpha.
+ */
+function paintOpaque(geometry: THREE.BufferGeometry) {
+  const position = geometry.getAttribute('position')
+  if (!position) return geometry
+  const colors = new Float32Array(position.count * 4).fill(1)
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 4))
+  return geometry
+}
+
+/**
  * The mass a style hangs behind the scalp shell.
  *
  * Built from the measured skull rather than from constants, so a nape length
@@ -846,7 +863,7 @@ function buildHairMass(mass: StudioHairMass, skull: THREE.Box3, material: THREE.
   const back = -FACE_FORWARD * depth * 0.28
 
   if (mass === 'knot') {
-    const knot = new THREE.Mesh(new THREE.SphereGeometry(width * 0.27, 20, 14), material)
+    const knot = new THREE.Mesh(paintOpaque(new THREE.SphereGeometry(width * 0.27, 20, 14)), material)
     knot.scale.set(1, 0.86, 0.86)
     knot.position.set(0, -size.y * 0.06, back - FACE_FORWARD * width * 0.2)
     knot.castShadow = true
@@ -855,7 +872,7 @@ function buildHairMass(mass: StudioHairMass, skull: THREE.Box3, material: THREE.
   }
 
   if (mass === 'tail') {
-    const tail = new THREE.Mesh(new THREE.CapsuleGeometry(width * 0.14, size.y * 0.95, 6, 16), material)
+    const tail = new THREE.Mesh(paintOpaque(new THREE.CapsuleGeometry(width * 0.14, size.y * 0.95, 6, 16)), material)
     tail.scale.set(1, 1, 0.78)
     tail.rotation.x = -FACE_FORWARD * 0.24
     tail.position.set(0, -size.y * 0.62, back - FACE_FORWARD * width * 0.14)
@@ -875,12 +892,12 @@ function buildHairMass(mass: StudioHairMass, skull: THREE.Box3, material: THREE.
     const flare = Math.sin(Math.min(1, 0.15 + t * 1.1) * Math.PI * 0.86)
     profile.push(new THREE.Vector2(width * 0.5 * (0.62 + 0.42 * flare), -drop * t))
   }
-  const sheet = new THREE.Mesh(new THREE.LatheGeometry(profile, 22, Math.PI * 0.52, Math.PI * 0.96), material)
+  const sheet = new THREE.Mesh(paintOpaque(new THREE.LatheGeometry(profile, 22, Math.PI * 0.52, Math.PI * 0.96)), material)
   sheet.rotation.y = FACE_FORWARD > 0 ? 0 : Math.PI
   sheet.scale.set(1, 1, depth / width)
   sheet.position.set(0, -size.y * 0.16, 0)
   sheet.castShadow = true
-  sheet.receiveShadow = true
+  sheet.receiveShadow = false
   group.add(sheet)
   return group
 }
@@ -933,7 +950,11 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
     if (!(child instanceof THREE.Mesh)) return
     child.material = material
     child.castShadow = true
-    child.receiveShadow = true
+    // A shadow map cannot resolve strands, so all it does on a shell this thin
+    // is drop the whole lower half of the hair into its own umbra and crush it
+    // to flat black below the jaw. The hair still casts onto the face and the
+    // shoulders; it just does not receive.
+    child.receiveShadow = false
     featherHairline(child.geometry)
   })
 
@@ -1151,11 +1172,28 @@ function applyActorAppearance(model: THREE.Object3D, appearance: FigureAppearanc
       if (!(material instanceof THREE.MeshPhysicalMaterial)) return
       if (material.name === ACTOR_EYE_MATERIAL) return
       if (material.name === STUDIO_HAIR_MATERIAL) applyStudioHairAppearance(material, appearance.hairColor, appearance.hairGloss)
-      else if (material.name === ACTOR_IRIS_MATERIAL) { material.color.set(appearance.eyeColor); material.needsUpdate = true }
+      else if (material.name === ACTOR_IRIS_MATERIAL) retintIris(material, appearance.eyeColor)
       else if (isActorSkin(material)) applyActorSkin(material, appearance)
       else applyActorGarment(material, appearance.outfitFabric)
     })
   })
+}
+
+/**
+ * Re-colours the iris when the control moves.
+ *
+ * The whole eyeball shares one material, so tinting `color` would multiply the
+ * sclera by the iris colour too and turn the white of the eye the same muddy
+ * brown as the ring — which is what made the eyes read as grey marbles. The
+ * colour lives in the texture instead, so a change repaints it.
+ */
+function retintIris(material: THREE.MeshPhysicalMaterial, eyeColor: string) {
+  if (material.userData.irisColor === eyeColor) return
+  material.userData.irisColor = eyeColor
+  material.map?.dispose()
+  material.map = createEyeTexture(eyeColor)
+  material.color.set('#ffffff')
+  material.needsUpdate = true
 }
 
 /**
@@ -1291,6 +1329,131 @@ function addStudioBrows(model: THREE.Group, head: THREE.Bone, eyeAnchor: THREE.V
 }
 
 /**
+ * Paints the socket off the skin.
+ *
+ * The MakeHuman skin has a dark eye socket painted into it — that is how these
+ * heads fake an eye without having one. It is wider than any opening that can
+ * be cut for an eyeball, because the eyeball has to be wider than its hole and
+ * the hole has to stay inside the eyeball's silhouette. So whatever is left of
+ * that paint frames the eye in exactly the shade it was drawn to suggest, and
+ * the subject arrives with dark circles.
+ *
+ * It is removed at the source instead: the triangles around the eye hand over
+ * their UVs, and that patch of the texture is filled with the skin colour
+ * sampled from just outside it, fading out at the edges so it blends. Almost
+ * all of it ends up behind the eyeball anyway — this is only about what shows
+ * around the rim.
+ */
+function paintOverSocket(model: THREE.Object3D, anchor: THREE.Vector3) {
+  const point = new THREE.Vector3()
+  const painted = new Set<THREE.Texture>()
+  model.updateMatrixWorld(true)
+
+  model.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return
+    const materials = Array.isArray(child.material) ? child.material : [child.material]
+    const skin = materials.find((material) => isActorSkin(material)) as THREE.MeshPhysicalMaterial | undefined
+    const map = skin?.map
+    const image = map?.image as (CanvasImageSource & { width: number; height: number }) | undefined
+    if (!skin || !map || !image?.width || painted.has(map)) return
+    const position = child.geometry.getAttribute('position')
+    const uv = child.geometry.getAttribute('uv')
+    const index = child.geometry.getIndex()
+    if (!position || !uv || !index) return
+
+    // Wider than the opening, because the paint is wider than the opening.
+    const halfWidth = EYE_APERTURE_HALF_WIDTH * SOCKET_PAINT_SPREAD
+    const halfHeight = EYE_APERTURE_HALF_HEIGHT * SOCKET_PAINT_SPREAD
+    const boxes = new Map<number, { u0: number; v0: number; u1: number; v1: number }>()
+
+    for (let i = 0; i < index.count; i += 1) {
+      const vertex = index.getX(i)
+      point.fromBufferAttribute(position as THREE.BufferAttribute, vertex).applyMatrix4(child.matrixWorld)
+      if (point.z * FACE_FORWARD < anchor.z * FACE_FORWARD) continue
+      for (const side of [-1, 1] as const) {
+        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / halfWidth
+        const dy = (point.y - anchor.y) / halfHeight
+        if (dx * dx + dy * dy > 1) continue
+        const u = uv.getX(vertex)
+        const v = uv.getY(vertex)
+        const box = boxes.get(side)
+        if (!box) boxes.set(side, { u0: u, v0: v, u1: u, v1: v })
+        else {
+          box.u0 = Math.min(box.u0, u); box.u1 = Math.max(box.u1, u)
+          box.v0 = Math.min(box.v0, v); box.v1 = Math.max(box.v1, v)
+        }
+      }
+    }
+    if (boxes.size === 0) return
+
+    const canvas = document.createElement('canvas')
+    canvas.width = image.width
+    canvas.height = image.height
+    const context = canvas.getContext('2d')!
+    context.drawImage(image, 0, 0)
+
+    for (const box of boxes.values()) {
+      // glTF textures are not flipped, so v runs down the image.
+      const x0 = box.u0 * canvas.width
+      const x1 = box.u1 * canvas.width
+      const y0 = box.v0 * canvas.height
+      const y1 = box.v1 * canvas.height
+      const cx = (x0 + x1) / 2
+      const cy = (y0 + y1) / 2
+      const rx = Math.max(2, (x1 - x0) / 2)
+      const ry = Math.max(2, (y1 - y0) / 2)
+
+      // The skin to fill with, read from a ring outside the patch.
+      const margin = Math.max(3, Math.round(Math.max(rx, ry) * 0.45))
+      const sx = Math.max(0, Math.round(cx - rx - margin))
+      const sy = Math.max(0, Math.round(cy - ry - margin))
+      const sw = Math.min(canvas.width - sx, Math.round((rx + margin) * 2))
+      const sh = Math.min(canvas.height - sy, Math.round((ry + margin) * 2))
+      const sample = context.getImageData(sx, sy, sw, sh).data
+      let r = 0; let g = 0; let b = 0; let n = 0
+      for (let y = 0; y < sh; y += 1) {
+        for (let x = 0; x < sw; x += 1) {
+          const insideX = Math.abs(sx + x - cx) < rx
+          const insideY = Math.abs(sy + y - cy) < ry
+          if (insideX && insideY) continue
+          const at = (y * sw + x) * 4
+          r += sample[at]; g += sample[at + 1]; b += sample[at + 2]; n += 1
+        }
+      }
+      if (n === 0) continue
+      const fill = `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})`
+
+      const spread = Math.max(rx, ry) * 1.18
+      const gradient = context.createRadialGradient(cx, cy, 0, cx, cy, spread)
+      gradient.addColorStop(0, fill)
+      gradient.addColorStop(0.72, fill)
+      gradient.addColorStop(1, fill.replace('rgb(', 'rgba(').replace(')', ',0)'))
+      context.save()
+      context.translate(cx, cy)
+      context.scale(1, ry / rx)
+      context.translate(-cx, -cy)
+      context.fillStyle = gradient
+      context.beginPath()
+      context.arc(cx, cy, spread, 0, Math.PI * 2)
+      context.fill()
+      context.restore()
+    }
+
+    const replacement = new THREE.CanvasTexture(canvas)
+    replacement.colorSpace = map.colorSpace
+    replacement.flipY = map.flipY
+    replacement.wrapS = map.wrapS
+    replacement.wrapT = map.wrapT
+    replacement.anisotropy = map.anisotropy
+    replacement.needsUpdate = true
+    painted.add(map)
+    materials.forEach((material) => {
+      if (isActorSkin(material)) (material as THREE.MeshPhysicalMaterial).map = replacement
+    })
+  })
+}
+
+/**
  * Cuts an eye opening in a closed face.
  *
  * These heads have no sockets — the only boundary loop in the whole head is
@@ -1357,11 +1520,21 @@ function cutEyeApertures(model: THREE.Object3D, anchor: THREE.Vector3) {
  * streaks in the same canvas become radial fibres in the iris, which is what
  * stops it reading as a flat disc of colour.
  */
+/**
+ * Bands down the eyeball, as a fraction of pole-to-pole: v * 180 is the polar
+ * angle from the pupil, so the iris edge sits at sin(38 deg) * EYE_RADIUS.
+ *
+ * Life-size would put the iris at 27 degrees, but the lids here are a cut in a
+ * closed mesh rather than skin folded over a ball, so they open wider than a
+ * real fissure and a life-size iris leaves a ring of bare white all the way
+ * round — the "eyeball is all white" reading. Filling out to the lid margins
+ * costs a millimetre of accuracy and buys an eye that looks like an eye.
+ */
 const EYE_BANDS = {
-  pupil: 0.052,
-  pupilEdge: 0.068,
-  iris: 0.152,
-  limbus: 0.172,
+  pupil: 0.068,
+  pupilEdge: 0.088,
+  iris: 0.211,
+  limbus: 0.232,
 }
 
 function createEyeTexture(irisColor: string) {
@@ -1392,7 +1565,7 @@ function createEyeTexture(irisColor: string) {
   context.fillRect(0, Math.round(0.46 * 256), 256, 256)
 
   row(EYE_BANDS.iris, EYE_BANDS.limbus, shade(-0.4))
-  row(EYE_BANDS.pupilEdge, EYE_BANDS.iris, shade(0.08))
+  row(EYE_BANDS.pupilEdge, EYE_BANDS.iris, shade(-0.04))
   for (let x = 0; x < 256; x += 2) {
     const mix = ((x * 2654435761) % 1000) / 1000
     context.strokeStyle = shade(mix > 0.5 ? 0.22 * (mix - 0.5) * 2 : -0.34 * (0.5 - mix) * 2)
@@ -1430,12 +1603,18 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
     map: createEyeTexture(eyeColor),
     roughness: 0.14,
     metalness: 0,
-    clearcoat: 1,
-    clearcoatRoughness: 0.03,
-    envMapIntensity: 0.55,
+    // A full-strength coat on a ball this small spreads the key's reflection
+    // across the whole iris; half of it still reads wet and leaves the colour.
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.05,
+    // The cornea should return a small catchlight from the key, not a sheet of
+    // sky. At 0.55 the environment reflected off a ball this smooth sat over
+    // the whole iris and turned every eye colour the same grey.
+    envMapIntensity: 0.18,
   })
   // Named so the appearance pass can re-tint the iris when the control moves.
   material.name = ACTOR_IRIS_MATERIAL
+  material.userData.irisColor = eyeColor
 
   for (const side of [-1, 1] as const) {
     const eye = new THREE.Group()
@@ -1457,6 +1636,7 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
   // Placed before the eyes are attached, because attachHeadDetail converts
   // the anchor to model space in place.
   addStudioBrows(model, head, anchor.clone(), hairColor)
+  paintOverSocket(model, anchor)
   cutEyeApertures(model, anchor)
   attachHeadDetail(model, head, eyes, anchor)
 }
