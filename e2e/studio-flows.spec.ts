@@ -25,6 +25,9 @@ function watchRuntimeHealth(page: import('@playwright/test').Page) {
 }
 
 test('guides a first-time beginner through simple mode without runtime failures', async ({ page }) => {
+  // Software-rendered WebGL on GitHub's shared runner is substantially slower
+  // than local hardware during the four animated onboarding transitions.
+  test.setTimeout(180_000)
   const problems = watchRuntimeHealth(page)
   await page.goto('/studio?ui=mobile')
   await expect(page.getByRole('dialog', { name: 'Quick start tour' })).toBeVisible({ timeout: 50_000 })
