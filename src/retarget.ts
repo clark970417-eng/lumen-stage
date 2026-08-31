@@ -51,11 +51,11 @@ const PATTERNS: [HumanoidBone, RegExp][] = [
   ['rightHand', /^(righthand|rhand|rightwrist)$/],
 
   ['leftUpperLeg', /^(left(up)?leg|leftthigh|lupleg|lthigh|lefthip)$/],
-  ['leftLowerLeg', /^(leftleg|leftlowerleg|leftshin|leftcalf|leftknee|lleg|lshin)$/],
+  ['leftLowerLeg', /^(leftleg|leftlowerleg|leftshin|leftcalf|leftknee|lleg|lshin|lcalf)$/],
   ['leftFoot', /^(leftfoot|lfoot|leftankle)$/],
 
   ['rightUpperLeg', /^(right(up)?leg|rightthigh|rupleg|rthigh|righthip)$/],
-  ['rightLowerLeg', /^(rightleg|rightlowerleg|rightshin|rightcalf|rightknee|rleg|rshin)$/],
+  ['rightLowerLeg', /^(rightleg|rightlowerleg|rightshin|rightcalf|rightknee|rleg|rshin|rcalf)$/],
   ['rightFoot', /^(rightfoot|rfoot|rightankle)$/],
 ]
 
@@ -344,9 +344,14 @@ export function applyPoseToSkeleton(root: THREE.Object3D, map: BoneMap, rest: Re
     node.children.forEach((child) => walk(child, posedWorld))
   }
 
-  const rootWorld = root.parent
-    ? root.parent.getWorldQuaternion(new THREE.Quaternion())
-    : new THREE.Quaternion()
+  // The walk composes world orientations down from here, so it has to start at
+  // the root's own world orientation, not its parent's. They are the same
+  // thing only while the root itself is unrotated, which was true of the
+  // MakeHuman exports because the studio forced their stray root rotation to
+  // identity. A model that carries its axis conversion there instead had every
+  // bone come out turned by it, and the actor posed lying on her back.
+  root.updateWorldMatrix(true, false)
+  const rootWorld = root.getWorldQuaternion(new THREE.Quaternion())
   walk(root, rootWorld)
 
   applyFingers(map.leftHand, pose.leftHand, rest)

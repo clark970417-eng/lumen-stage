@@ -19,7 +19,7 @@ import { forwardKinematics } from '../ik'
 import { isSeatedPose, NEUTRAL_POSE, type ModelPose } from '../pose'
 import type { HairStyle } from '../wardrobe'
 import { applyExpressionToMorphs, applyPoseToSkeleton, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { SOCKET_PAINT_SPREAD, HAIRLINE_CUT, HAIRLINE_JITTER, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
+import { SOCKET_PAINT_SPREAD, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -762,45 +762,6 @@ function createStudioHairTexture() {
 }
 
 /**
- * Breaks the bottom edge of the scalp shell into strands.
- *
- * The shell is a closed dome, and rendered solid it ends in one hard,
- * continuous line — a swim cap, not a head of hair. No hairline looks like
- * that: it thins out into points. So the lowest band of the mesh is cut away
- * along a ragged threshold, which leaves the fringe and the nape ending in
- * teeth instead of a rim.
- *
- * The cut is driven off the vertex's own height in the shell rather than off
- * its UVs, because this OBJ's UV direction is not something to guess at, and
- * height is the axis a hairline actually runs across. Alpha-tested rather than
- * blended, so the hair still writes depth and still casts a shadow.
- */
-function featherHairline(geometry: THREE.BufferGeometry) {
-  const position = geometry.getAttribute('position')
-  if (!position || geometry.getAttribute('color')) return
-  geometry.computeBoundingBox()
-  const box = geometry.boundingBox
-  if (!box) return
-  const height = box.max.y - box.min.y
-  if (height <= 1e-6) return
-
-  const colors = new Float32Array(position.count * 4)
-  for (let i = 0; i < position.count; i += 1) {
-    const t = (position.getY(i) - box.min.y) / height
-    // A stable hash of the vertex, so the same head grows the same hairline
-    // every time it loads rather than shimmering between reloads.
-    const noise = Math.abs(Math.sin((position.getX(i) * 127.1 + position.getZ(i) * 311.7) * 43758.5453)) % 1
-    const cut = HAIRLINE_CUT + noise * HAIRLINE_JITTER
-    const alpha = t <= cut ? 0 : 1
-    colors[i * 4] = 1
-    colors[i * 4 + 1] = 1
-    colors[i * 4 + 2] = 1
-    colors[i * 4 + 3] = alpha
-  }
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 4))
-}
-
-/**
  * The upper skull, measured off the actor's own mesh.
  *
  * Everything above a fifth of the way up from the head bone and inside a
@@ -812,6 +773,9 @@ function featherHairline(geometry: THREE.BufferGeometry) {
 function measureSkull(model: THREE.Object3D, headBoneY: number, modelTop: number) {
   const point = new THREE.Vector3()
   const box = new THREE.Box3()
+  // Kept, not just bounded: the shell is lifted off these rather than fitted
+  // to a box drawn round them.
+  const points: THREE.Vector3[] = []
   const floor = headBoneY + (modelTop - headBoneY) * 0.2
   model.updateMatrixWorld(true)
   model.traverse((child) => {
@@ -823,10 +787,108 @@ function measureSkull(model: THREE.Object3D, headBoneY: number, modelTop: number
       if (point.y < floor || point.y > modelTop + 1e-4) continue
       if (Math.abs(point.x) > 0.16) continue
       box.expandByPoint(point)
+      points.push(point.clone())
     }
   })
   if (box.isEmpty()) return null
-  return { box, width: box.getSize(new THREE.Vector3()).x }
+  return { box, width: box.getSize(new THREE.Vector3()).x, points }
+}
+
+/**
+ * The skull written as a radius per direction, seen from a point inside it.
+ *
+ * A shell cannot be fitted to a head by scaling, because scaling only matches
+ * a bounding box and the mismatch that matters is shape: wherever the actor's
+ * cranium is rounder than the wig was authored for, the scalp comes out
+ * through the hair, and scaling the wig up until it does not swallows the face
+ * before it covers the bald patch. What is needed is the skull's own outline,
+ * direction by direction, and this is it — a coarse spherical height map,
+ * which is enough because a cranium is smooth.
+ */
+function skullRadiusField(points: THREE.Vector3[], centre: THREE.Vector3) {
+  const columns = 48
+  const rows = 24
+  const field = new Float32Array(columns * rows)
+  const offset = new THREE.Vector3()
+  for (const point of points) {
+    offset.subVectors(point, centre)
+    const radius = offset.length()
+    if (radius < 1e-6) continue
+    const column = Math.min(columns - 1, Math.max(0, Math.floor(((Math.atan2(offset.x, offset.z) + Math.PI) / (Math.PI * 2)) * columns)))
+    const row = Math.min(rows - 1, Math.max(0, Math.floor((Math.acos(THREE.MathUtils.clamp(offset.y / radius, -1, 1)) / Math.PI) * rows)))
+    const cell = row * columns + column
+    if (radius > field[cell]) field[cell] = radius
+  }
+  // The largest of the neighbourhood rather than the cell itself, so a
+  // direction that happened to catch no sample still reads the skull beside it
+  // and the shell is never left resting on a hole in the measurement.
+  return (x: number, y: number, z: number) => {
+    const radius = Math.hypot(x, y, z)
+    if (radius < 1e-6) return 0
+    const column = Math.floor(((Math.atan2(x, z) + Math.PI) / (Math.PI * 2)) * columns)
+    const row = Math.floor((Math.acos(THREE.MathUtils.clamp(y / radius, -1, 1)) / Math.PI) * rows)
+    let widest = 0
+    for (let dr = -1; dr <= 1; dr += 1) {
+      const r = row + dr
+      if (r < 0 || r >= rows) continue
+      for (let dc = -1; dc <= 1; dc += 1) {
+        const c = ((column + dc) % columns + columns) % columns
+        const value = field[r * columns + c]
+        if (value > widest) widest = value
+      }
+    }
+    return widest
+  }
+}
+
+/**
+ * Lifts the scalp shell off the skull it is sitting inside.
+ *
+ * Every shell vertex that is nearer the middle of the head than the skull is
+ * gets pushed straight out along its own direction until it clears, plus the
+ * thickness of a bit of hair. Vertices already outside are left exactly where
+ * the wig put them, so the silhouette, the fringe and the hairline are the
+ * authored ones — this only takes away the penetration, it does not restyle
+ * anything. Directions the skull was never measured in are left alone too,
+ * which is what keeps the nape and the side locks hanging.
+ */
+function liftShellOffSkull(source: THREE.Object3D, centre: THREE.Vector3, skull: THREE.Vector3[], clearance: number) {
+  const radiusToward = skullRadiusField(skull, centre)
+  const world = new THREE.Vector3()
+  const toLocal = new THREE.Matrix4()
+  let lifted = 0
+  source.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return
+    const position = child.geometry.getAttribute('position')
+    if (!position) return
+    child.updateWorldMatrix(true, false)
+    toLocal.copy(child.matrixWorld).invert()
+    let moved = 0
+    for (let index = 0; index < position.count; index += 1) {
+      world.fromBufferAttribute(position as THREE.BufferAttribute, index).applyMatrix4(child.matrixWorld)
+      const x = world.x - centre.x
+      const y = world.y - centre.y
+      const z = world.z - centre.z
+      const radius = Math.hypot(x, y, z)
+      if (radius < 1e-6) continue
+      const skin = radiusToward(x, y, z)
+      if (skin <= 0) continue
+      const wanted = skin + clearance
+      if (radius >= wanted) continue
+      const scale = wanted / radius
+      world.set(centre.x + x * scale, centre.y + y * scale, centre.z + z * scale)
+      world.applyMatrix4(toLocal)
+      position.setXYZ(index, world.x, world.y, world.z)
+      moved += 1
+    }
+    if (moved > 0) {
+      position.needsUpdate = true
+      child.geometry.computeVertexNormals()
+      child.geometry.computeBoundingSphere()
+      lifted += moved
+    }
+  })
+  return lifted
 }
 
 /**
@@ -937,17 +999,32 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
     depthWrite: true,
     envMapIntensity: 0.24,
     side: THREE.DoubleSide,
-    vertexColors: true,
-    alphaTest: 0.5,
+    vertexColors: false,
+    alphaTest: 0,
   })
   material.name = STUDIO_HAIR_MATERIAL
   material.userData.lumenHairMatte = plan.matte
   applyStudioHairAppearance(material, hairColor, hairGloss)
+  const fillMaterial = material.clone()
+  fillMaterial.name = `${STUDIO_HAIR_MATERIAL}-fill`
+  fillMaterial.map = null
+  fillMaterial.normalMap = null
+  // The strand shell divides its tint by the texture's dark mean. A texture-
+  // free lining must use the requested colour directly or that compensation
+  // turns a brown crown into a silver cap.
+  fillMaterial.color.set(hairColor)
+  fillMaterial.roughness = Math.max(fillMaterial.roughness, 0.72)
+  fillMaterial.sheen = 0.12
+  fillMaterial.envMapIntensity = 0.1
 
   const hairstyle = new THREE.Group()
   hairstyle.name = 'studio-short04-hair'
   source.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return
+    // Object3D.clone() keeps the cached mesh geometry shared. This shell is
+    // reshaped for one skull, so it needs private positions or every hairstyle
+    // change would deform the cached source one more time.
+    child.geometry = child.geometry.clone()
     child.material = material
     child.castShadow = true
     // A shadow map cannot resolve strands, so all it does on a shell this thin
@@ -955,7 +1032,6 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
     // to flat black below the jaw. The hair still casts onto the face and the
     // shoulders; it just does not receive.
     child.receiveShadow = false
-    featherHairline(child.geometry)
   })
 
   const fit = measureSkull(model, headPosition.y, box.max.y)
@@ -992,11 +1068,27 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
   }
   hairstyle.add(source)
   if (skull) {
+    // The authored short04 shell has a real opening at the crown. A flat inner
+    // patch closes it while remaining below the outer strand silhouette.
+    const centre = skull.getCenter(new THREE.Vector3())
+    const skullSize = skull.getSize(new THREE.Vector3())
+    const crownRadius = Math.max(skullSize.x, skullSize.z) * 0.29 / modelScale
+    const crown = new THREE.Mesh(new THREE.CircleGeometry(crownRadius, 36), fillMaterial)
+    crown.name = 'studio-hair-crown-fill'
+    crown.position.set(
+      (centre.x - anchor.x) / modelScale,
+      (skull.max.y + 0.003 - anchor.y) / modelScale,
+      (centre.z - anchor.z) / modelScale,
+    )
+    crown.rotation.x = -Math.PI / 2
+    crown.castShadow = false
+    crown.receiveShadow = false
+    hairstyle.add(crown)
+
     const mass = buildHairMass(plan.mass, skull, material)
     // The mass is positioned in skull space; the shell's origin is its own
     // centre, so shift it onto the skull centre before adding it.
     if (mass) {
-      const centre = skull.getCenter(new THREE.Vector3())
       mass.position.set(
         (centre.x - anchor.x) / modelScale,
         (centre.y - anchor.y) / modelScale,
@@ -1007,6 +1099,12 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
     }
   }
   attachHeadDetail(model, head, hairstyle, anchor)
+  if (fit) {
+    model.updateWorldMatrix(true, true)
+    // The lining closes coarse triangular gaps, so six millimetres is enough
+    // clearance without stretching isolated crown vertices into spikes.
+    liftShellOffSkull(source, fit.box.getCenter(new THREE.Vector3()), fit.points, 0.006)
+  }
 }
 
 /*
@@ -1027,7 +1125,22 @@ function addStudioHair(model: THREE.Group, head: THREE.Bone, source: THREE.Group
 
 /** MakeHuman names the body material `Human.body`; everything else is worn. */
 function isActorSkin(material: THREE.Material) {
-  return /(^|[.\s_-])(body|skin)$/i.test(material.name)
+  return /(^|[.\s_-])(body|skin|head)$/i.test(material.name)
+}
+
+/**
+ * Whether this rig carries its own eyes.
+ *
+ * A model with eye bones has eyeballs, lids and brows modelled in, and wants
+ * none of the prosthetic head detail below — that machinery exists only
+ * because the MakeHuman exports ship a closed face with the eyes painted on.
+ */
+function hasRealEyes(model: THREE.Object3D) {
+  let found = false
+  model.traverse((node) => {
+    if (!found && (node as THREE.Bone).isBone && /eye/i.test(node.name)) found = true
+  })
+  return found
 }
 
 /**
@@ -1054,6 +1167,12 @@ function toActorPhysical(source: THREE.MeshStandardMaterial) {
     side: source.side,
     flatShading: source.flatShading,
     vertexColors: source.vertexColors,
+    // Without these a cut-out material stops cutting out, and an eyelash card
+    // renders as the black rectangle it is drawn on.
+    alphaMap: source.alphaMap,
+    alphaTest: source.alphaTest,
+    transparent: source.transparent,
+    opacity: source.opacity,
   })
   material.name = source.name
   // The source marks every surface as alpha-blended even though the baked
@@ -1171,6 +1290,9 @@ function applyActorAppearance(model: THREE.Object3D, appearance: FigureAppearanc
     materials.forEach((material) => {
       if (!(material instanceof THREE.MeshPhysicalMaterial)) return
       if (material.name === ACTOR_EYE_MATERIAL) return
+      // Actors whose maps are already photographed skin and clothing, with
+      // their own cut-outs. Nothing here has anything to add to them.
+      if (material.userData.lumenBaked) return
       if (material.name === STUDIO_HAIR_MATERIAL) applyStudioHairAppearance(material, appearance.hairColor, appearance.hairGloss)
       else if (material.name === ACTOR_IRIS_MATERIAL) retintIris(material, appearance.eyeColor)
       else if (isActorSkin(material)) applyActorSkin(material, appearance)
@@ -1344,7 +1466,17 @@ function addStudioBrows(model: THREE.Group, head: THREE.Bone, eyeAnchor: THREE.V
  * all of it ends up behind the eyeball anyway — this is only about what shows
  * around the rim.
  */
-function paintOverSocket(model: THREE.Object3D, anchor: THREE.Vector3) {
+/**
+ * The suited actor's left lid is authored a little more open than his right.
+ * Cutting both sides to the same ellipse exposed a round white ball on that
+ * side while the other lid still clipped it into an almond. Keep the eyeballs
+ * symmetric and trim only that actor's opening to match the visible right eye.
+ */
+const eyeApertureCorrection = (correctMaleLeft: boolean, side: -1 | 1) => correctMaleLeft && side === 1
+  ? { width: 0.96, height: 0.88 }
+  : { width: 1, height: 1 }
+
+function paintOverSocket(model: THREE.Object3D, anchor: THREE.Vector3, correctMaleLeft = false) {
   const point = new THREE.Vector3()
   const painted = new Set<THREE.Texture>()
   model.updateMatrixWorld(true)
@@ -1371,8 +1503,9 @@ function paintOverSocket(model: THREE.Object3D, anchor: THREE.Vector3) {
       point.fromBufferAttribute(position as THREE.BufferAttribute, vertex).applyMatrix4(child.matrixWorld)
       if (point.z * FACE_FORWARD < anchor.z * FACE_FORWARD) continue
       for (const side of [-1, 1] as const) {
-        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / halfWidth
-        const dy = (point.y - anchor.y) / halfHeight
+        const correction = eyeApertureCorrection(correctMaleLeft, side)
+        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / (halfWidth * correction.width)
+        const dy = (point.y - anchor.y) / (halfHeight * correction.height)
         if (dx * dx + dy * dy > 1) continue
         const u = uv.getX(vertex)
         const v = uv.getY(vertex)
@@ -1483,7 +1616,7 @@ function paintOverSocket(model: THREE.Object3D, anchor: THREE.Vector3) {
  * midpoint sits exactly on its edge, so a refined triangle beside an unrefined
  * one leaves no crack — the extra vertex is simply unused by the neighbour.
  */
-function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 5) {
+function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 5, correctMaleLeft = false) {
   const point = new THREE.Vector3()
   model.updateMatrixWorld(true)
   model.traverse((child) => {
@@ -1512,8 +1645,9 @@ function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 
       if (point.z * FACE_FORWARD < anchor.z * FACE_FORWARD - EYE_RADIUS) return Number.POSITIVE_INFINITY
       let nearest = Number.POSITIVE_INFINITY
       for (const side of [-1, 1] as const) {
-        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / EYE_APERTURE_HALF_WIDTH
-        const dy = (point.y - anchor.y) / EYE_APERTURE_HALF_HEIGHT
+        const correction = eyeApertureCorrection(correctMaleLeft, side)
+        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / (EYE_APERTURE_HALF_WIDTH * correction.width)
+        const dy = (point.y - anchor.y) / (EYE_APERTURE_HALF_HEIGHT * correction.height)
         nearest = Math.min(nearest, Math.hypot(dx, dy))
       }
       return nearest
@@ -1587,7 +1721,7 @@ function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 
   })
 }
 
-function cutEyeApertures(model: THREE.Object3D, anchor: THREE.Vector3) {
+function cutEyeApertures(model: THREE.Object3D, anchor: THREE.Vector3, correctMaleLeft = false) {
   const centre = new THREE.Vector3()
   const a = new THREE.Vector3()
   const b = new THREE.Vector3()
@@ -1605,8 +1739,9 @@ function cutEyeApertures(model: THREE.Object3D, anchor: THREE.Vector3) {
     const inAperture = (point: THREE.Vector3) => {
       if (point.z * FACE_FORWARD < anchor.z * FACE_FORWARD) return false
       for (const side of [-1, 1] as const) {
-        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / EYE_APERTURE_HALF_WIDTH
-        const dy = (point.y - anchor.y) / EYE_APERTURE_HALF_HEIGHT
+        const correction = eyeApertureCorrection(correctMaleLeft, side)
+        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / (EYE_APERTURE_HALF_WIDTH * correction.width)
+        const dy = (point.y - anchor.y) / (EYE_APERTURE_HALF_HEIGHT * correction.height)
         if (dx * dx + dy * dy <= 1) return true
       }
       return false
@@ -1716,7 +1851,7 @@ function createEyeTexture(irisColor: string) {
   return texture
 }
 
-function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, eyeColor: string, hairColor: string) {
+function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, eyeColor: string, hairColor: string, correctMaleLeft = false) {
   const eyes = new THREE.Group()
   eyes.name = 'studio-eyeballs'
   const geometry = new THREE.SphereGeometry(EYE_RADIUS, 44, 32)
@@ -1764,9 +1899,9 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
   // Placed before the eyes are attached, because attachHeadDetail converts
   // the anchor to model space in place.
   addStudioBrows(model, head, anchor.clone(), hairColor)
-  refineEyeRegion(model, anchor)
-  paintOverSocket(model, anchor)
-  cutEyeApertures(model, anchor)
+  refineEyeRegion(model, anchor, 5, correctMaleLeft)
+  paintOverSocket(model, anchor, correctMaleLeft)
+  cutEyeApertures(model, anchor, correctMaleLeft)
   attachHeadDetail(model, head, eyes, anchor)
 }
 
@@ -1863,6 +1998,26 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
               if (!(material instanceof THREE.MeshStandardMaterial)) return material
               const physical = material instanceof THREE.MeshPhysicalMaterial ? material : toActorPhysical(material)
               if (physical !== material) material.dispose()
+              // The Rocketbox pair bake skin and clothing into one map, so the
+              // skin pass and the fabric pass would both be answering for the
+              // same pixels — and the skin colour multiplied over a shirt took
+              // the whole figure to near black. Their maps are left as photographed.
+              if (url.includes('rocketbox')) {
+                // Marked so the appearance pass leaves them alone as well.
+                // It runs again on every control change, and its garment pass
+                // forces transparent to false — which turned the eyelash
+                // cut-outs back into the solid black cards they are drawn on.
+                physical.userData.lumenBaked = true
+                // Their maps are already lit-looking photography, so they want
+                // a plain response rather than the studio's skin model — but
+                // they still have to answer to the room, or they render as a
+                // silhouette with a shirt faintly visible in it.
+                physical.envMapIntensity = 1
+                physical.roughness = 0.68
+                physical.metalness = 0
+                physical.needsUpdate = true
+                return physical
+              }
               if (isActorSkin(physical)) applyActorSkin(physical, appearanceRef.current)
               else applyActorGarment(physical, appearanceRef.current.outfitFabric)
               return physical
@@ -1871,6 +2026,11 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
           }
         }
       })
+      // SkeletonUtils.clone hands back a hierarchy whose world matrices have
+      // never been computed, and Box3 only refreshes each node against its
+      // parent as it walks — which measured a standing actor as one lying on
+      // its back, and normalised it to a twentieth of its height.
+      model.updateMatrixWorld(true)
       const initialBox = new THREE.Box3().setFromObject(model)
       const size = initialBox.getSize(new THREE.Vector3())
       if (!Number.isFinite(size.y) || size.y <= 0) {
@@ -1890,10 +2050,10 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
 
       // The licensed MakeHuman studio model intentionally ships without hair
       // or separate eyeball meshes. Add both as head-bone details.
-      if (shippedHuman && map.head) {
+      if (shippedHuman && map.head && !hasRealEyes(model)) {
         const normalizedBox = new THREE.Box3().setFromObject(model)
         const headPosition = map.head.getWorldPosition(new THREE.Vector3())
-        addStudioEyes(model, map.head, normalizedBox, headPosition, appearanceRef.current.eyeColor, appearanceRef.current.hairColor)
+        addStudioEyes(model, map.head, normalizedBox, headPosition, appearanceRef.current.eyeColor, appearanceRef.current.hairColor, url.includes('/human-suited-runtime.glb'))
         new OBJLoader().load(STUDIO_HAIR_SOURCE_URL, (hair) => {
           if (!active) {
             hair.traverse((child) => {
@@ -2002,6 +2162,11 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       onRigReady?.(quality.usable ? map : null)
       if (reportStatus) setRigStatus(quality.usable ? 'rigged' : 'unrigged')
 
+      model.updateMatrixWorld(true)
+      const finalBox = new THREE.Box3().setFromObject(model)
+      // precise:true walks actual vertices, and for a skinned mesh that means
+      // after the bones have had their say — so this is the shape on screen.
+      const skinnedBox = new THREE.Box3().setFromObject(model, true)
       loadedObject = model
       setObject(model)
       if (reportStatus) setStatus('ready')
@@ -2088,7 +2253,10 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     if (!object || !rig.current) return
     const stanceSplay = THREE.MathUtils.radToDeg(Math.atan2(effectivePose.stanceWidth / 2 - 0.083, 0.865))
     object.position.y = rig.current.baseY + effectivePose.rootLift
-    applyPoseToSkeleton(object, rig.current.map, rig.current.rest, effectivePose, stanceSplay)
+    // The pose library is still calibrated against the MakeHuman rest pose and
+    // lays a Biped rig flat on its back, so these actors keep the standing rest
+    // the arm aiming gives them until the retarget understands this skeleton.
+    if (!url.includes('rocketbox')) applyPoseToSkeleton(object, rig.current.map, rig.current.rest, effectivePose, stanceSplay)
     applyExpressionToMorphs(object, effectivePose)
     object.updateMatrixWorld(true)
     if (!effectivePose.airborne && !isSeatedPose(effectivePose)) {
@@ -2101,7 +2269,13 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     }
   }, [effectivePose, object])
 
-  if (object) return <primitive object={object} rotation={url.includes('/models/lumen-human/') ? [0, 0, 0] : undefined} />
+  // The MakeHuman exports arrive with a stray root rotation that has to be
+  // flattened. The Rocketbox pair carry their Y-up conversion there instead,
+  // so zeroing it lays them on the floor — where they rendered as a red sliver
+  // while every measurement, taken before React applied this prop, insisted
+  // they were standing.
+  const flattenRoot = /\/human-(suited|female)-/.test(url)
+  if (object) return <primitive object={object} rotation={flattenRoot ? [0, 0, 0] : undefined} />
   return null
 }
 

@@ -11,7 +11,19 @@ const assetHref = (path: string) => `${assetBase}${path.replace(/^\/+/, '')}`
  * CC0 textures. Keeping their URLs in one place makes the selected GLB the
  * only product appearance and keeps loading transitions deterministic.
  */
-export const DEFAULT_HUMAN_URL = assetHref('models/lumen-human/human-suited-runtime.glb')
+/**
+ * The Rocketbox pair, which carry their own eyes.
+ *
+ * The MakeHuman exports have no eye geometry at all — no eyeballs, no lids, no
+ * brows — so the studio had to cut a hole in each face and park a sphere
+ * behind it, and that prosthetic never seated the same way on two different
+ * face profiles. These ship real eyeballs on their own bones, real lids that
+ * blink, and real brows. MIT licensed.
+ */
+export const ROCKETBOX_MALE_URL = assetHref('models/lumen-human/rocketbox-male.glb')
+export const ROCKETBOX_FEMALE_URL = assetHref('models/lumen-human/rocketbox-female.glb')
+
+export const DEFAULT_HUMAN_URL = assetHref('models/lumen-human/rocketbox-male.glb')
 export const SUITED_HUMAN_URL = assetHref('models/lumen-human/human-suited-runtime.glb')
 export const FEMALE_CASUAL_URL = assetHref('models/lumen-human/human-female-casual.glb')
 export const FEMALE_ACTIVEWEAR_URL = assetHref('models/lumen-human/human-female-activewear.glb')
@@ -20,12 +32,9 @@ export const FEMALE_GOWN_URL = assetHref('models/lumen-human/human-female-gown.g
 
 export const DEFAULT_HUMAN_NAME = 'Everyday Adult'
 
-export function shippedHumanFor(physique: Physique, outfit: OutfitStyle) {
-  if (physique.sex === 'feminine') {
-    if (outfit === 'dress') return FEMALE_DRESS_URL
-    if (outfit === 'gown') return FEMALE_GOWN_URL
-    if (outfit === 'activewear' || outfit === 'tank') return FEMALE_ACTIVEWEAR_URL
-    return FEMALE_CASUAL_URL
-  }
-  return SUITED_HUMAN_URL
+export function shippedHumanFor(physique: Physique, _outfit: OutfitStyle) {
+  // The Rocketbox pair dress themselves — their clothing is baked into the
+  // body texture — so the outfit control has nothing to switch between yet.
+  // Kept in the signature because the wardrobe still drives fabric response.
+  return physique.sex === 'feminine' ? ROCKETBOX_FEMALE_URL : ROCKETBOX_MALE_URL
 }

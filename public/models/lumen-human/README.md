@@ -1,6 +1,29 @@
-# Everyday Adult character
+# Studio subjects
 
-`human-suited-runtime.glb` is the built-in, fully skinned studio subject used by Lumen Stage.
+
+`rocketbox-male.glb` and `rocketbox-female.glb` are the built-in studio
+subjects.
+
+- Source: Microsoft Rocketbox `Male_Adult_01` and `Female_Adult_01`, from
+  <https://github.com/microsoft/Microsoft-Rocketbox>.
+- License: MIT.
+- Rig: 3ds Max Biped, 80 bones, including real eye bones (`Bip01_LEye`,
+  `Bip01_REye`), eyelid bones (`Bip01_LEyeBlinkTop` and friends) and eyebrow
+  bones — which is why the studio no longer cuts sockets into a face and parks
+  a sphere behind them.
+- Blendshapes: the 24 ARKit and FACS shapes the expression controls can drive,
+  pruned from the 175 the source ships. glTF stores a full set of per-vertex
+  deltas per target, and carrying all of them made a fifty megabyte file.
+- Built by `scripts/rocketbox-convert.html`, which is served by the dev server
+  and run in a browser: it loads the source FBX with three's FBXLoader, folds
+  the bind matrix into the geometry (glTF cannot express one), downsizes the
+  2048 TGA maps to 1024 JPEG, and exports through GLTFExporter. The source FBX
+  and TGA files are not vendored — they are ~180 MB and are fetched from the
+  upstream repository when the converter is re-run.
+
+## Previous MakeHuman subjects (no longer selected)
+
+`human-suited-runtime.glb` was the built-in studio subject.
 
 - Source: MakeHuman / MPFB 2 character distributed by the open-source `kunalkushwaha/vsim` project.
 - License: CC0 1.0. The generated human, skin, clothing and shoe assets are public-domain MakeHuman output.

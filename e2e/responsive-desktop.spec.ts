@@ -25,24 +25,28 @@ test('reflows immediately when a full studio window is resized', async ({ page }
   await page.goto('/studio?ui=full')
   await expect(page.getByRole('textbox', { name: 'Project name' })).toBeVisible({ timeout: 50_000 })
 
-  for (const size of [{ width: 1180, height: 820 }, { width: 900, height: 720 }, { width: 1470, height: 956 }]) {
+  for (const size of [{ width: 1180, height: 820 }, { width: 1024, height: 700 }, { width: 900, height: 720 }, { width: 1470, height: 956 }]) {
     await page.setViewportSize(size)
     await page.waitForTimeout(150)
     const fit = await page.evaluate(() => {
       const shell = document.querySelector('main.app-shell')?.getBoundingClientRect()
       const header = document.querySelector('header.topbar')?.getBoundingClientRect()
       const stage = document.querySelector('.viewport')?.getBoundingClientRect()
+      const workflow = document.querySelector('.workflow-navigation')?.getBoundingClientRect()
+      const workflowLabels = [...document.querySelectorAll('.workflow-navigation span')].map((label) => label.getBoundingClientRect())
       return {
         viewport: innerWidth,
         documentWidth: document.documentElement.scrollWidth,
         shellRight: shell?.right ?? Infinity,
         headerRight: header?.right ?? Infinity,
         stageWidth: stage?.width ?? 0,
+        workflowLabelsInside: Boolean(workflow && workflowLabels.every((label) => label.left >= workflow.left - 1 && label.right <= workflow.right + 1)),
       }
     })
     expect(fit.documentWidth).toBeLessThanOrEqual(fit.viewport + 1)
     expect(fit.shellRight).toBeLessThanOrEqual(fit.viewport + 1)
     expect(fit.headerRight).toBeLessThanOrEqual(fit.viewport + 1)
     expect(fit.stageWidth).toBeGreaterThanOrEqual(300)
+    expect(fit.workflowLabelsInside).toBeTruthy()
   }
 })

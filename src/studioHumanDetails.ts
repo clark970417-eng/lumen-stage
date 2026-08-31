@@ -25,11 +25,15 @@ export function studioHairResponse(hairGloss: number) {
   const gloss = THREE.MathUtils.clamp(hairGloss / 100, 0, 1)
   return {
     roughness: THREE.MathUtils.lerp(0.78, 0.5, gloss),
-    sheen: THREE.MathUtils.lerp(0.14, 0.38, gloss),
-    sheenRoughness: THREE.MathUtils.lerp(0.8, 0.54, gloss),
-    anisotropy: THREE.MathUtils.lerp(0.1, 0.38, gloss),
-    specularIntensity: THREE.MathUtils.lerp(0.22, 0.36, gloss),
-    envMapIntensity: 0.24,
+    // Near-black hair is read from the light it returns, not by lifting its
+    // diffuse colour toward grey. A broader fibre sheen and a restrained
+    // environment return preserve the chosen colour while keeping the form
+    // legible when the head turns away from the key.
+    sheen: THREE.MathUtils.lerp(0.25, 0.38, gloss),
+    sheenRoughness: THREE.MathUtils.lerp(0.74, 0.5, gloss),
+    anisotropy: THREE.MathUtils.lerp(0.18, 0.38, gloss),
+    specularIntensity: THREE.MathUtils.lerp(0.34, 0.36, gloss),
+    envMapIntensity: 0.38,
   }
 }
 
@@ -164,11 +168,6 @@ export const BROW_PROUD_OF_FACE = 0.0012
 export const BROW_SAMPLE_RADIUS = 0.006
 
 /**
- * Where the scalp shell stops being solid, as a fraction of its own height,
- * and how far that line wanders from vertex to vertex. Together they decide
- * how deep the fringe's teeth are.
- */
-/**
  * How much wider than the eye opening the painted socket is covered.
  *
  * Only wide enough to reach the rim of the texture's painted socket, because
@@ -179,9 +178,6 @@ export const BROW_SAMPLE_RADIUS = 0.006
  * cover is a rim.
  */
 export const SOCKET_PAINT_SPREAD = 1.18
-
-export const HAIRLINE_CUT = 0.01
-export const HAIRLINE_JITTER = 0.17
 
 /**
  * How much wider than the skull the scalp shell sits.

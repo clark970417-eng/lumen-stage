@@ -1,0 +1,220 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Rocketbox → GLB</title>
+<pre id="log">starting…</pre>
+<script type="module">
+import * as THREE from 'three'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
+import { TGALoader } from 'three/examples/jsm/loaders/TGALoader.js'
+import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
+
+const out = document.getElementById('log')
+const say = (m) => { out.textContent += '\n' + m; console.log('CONVERT', m) }
+
+// The FBX names its textures by absolute Windows path from the machine it was
+// authored on, so every request is rewritten to the basename we mirrored.
+const manager = new THREE.LoadingManager()
+manager.setURLModifier((url) => '/rocketbox-src/' + url.split(/[\\/]/).pop())
+manager.addHandler(/\.tga$/i, new TGALoader())
+
+/** TGALoader hands back raw pixels, not an <img>, so it is drawn by hand. */
+function shrink(texture, size) {
+  const image = texture.image
+  if (!image || !image.data) return null
+  const full = document.createElement('canvas')
+  full.width = image.width
+  full.height = image.height
+  const bytes = new Uint8ClampedArray(image.data.buffer.slice(0))
+  full.getContext('2d').putImageData(new ImageData(bytes, image.width, image.height), 0, 0)
+  const small = document.createElement('canvas')
+  const scale = Math.min(1, size / Math.max(image.width, image.height))
+  small.width = Math.round(image.width * scale)
+  small.height = Math.round(image.height * scale)
+  const context = small.getContext('2d')
+  context.imageSmoothingQuality = 'high'
+  // TGA arrives bottom-up; flip once here so the exported map is upright and
+  // the glTF does not have to carry a flipY the runtime would have to undo.
+  context.translate(0, small.height)
+  context.scale(1, -1)
+  context.drawImage(full, 0, 0, small.width, small.height)
+  return small
+}
+
+// Only the blendshapes the studio's expression sliders actually drive, matched
+// the same way retarget.ts matches them. glTF writes a full set of per-vertex
+// deltas for every target it is given, so carrying all fifty of Rocketbox's
+// ARKit and FACS shapes turned a two megabyte FBX into a fifty megabyte GLB —
+// most of it expressions nothing in the app can ask for.
+const WANTED = [
+  /mouthsmile/i, /^(smile|happy|joy|fun)$/i, /(jawopen|mouthopen)/i,
+  /(eyeblink|^blink)/i, /(eyesquint|squint)/i,
+  /(browinnerup|browouterup|browraise|browup)/i, /(browdown|browfurrow)/i,
+  /(mouthfunnel|mouthpucker|lippart)/i,
+]
+
+/**
+ * Folds a skinned mesh's bind matrix into its geometry.
+ *
+ * three carries the transform a mesh had when it was bound as a separate
+ * `bindMatrix`, and FBXLoader uses it for the file's axis conversion. glTF has
+ * no equivalent — a skin is only joints and inverse bind matrices — so the
+ * exporter drops it, and the result skins every vertex through a transform it
+ * was never posed for. On screen that was not a person but a red puddle on the
+ * floor, while every bounding box insisted it was standing.
+ *
+ * Applying the matrix to the vertices and then binding with the identity is
+ * the same deformation by a route glTF can express. Morph deltas are
+ * directions rather than points, so they take the matrix without its
+ * translation.
+ */
+function bakeBindMatrix(mesh) {
+  const bind = mesh.bindMatrix
+  if (!bind || bind.equals(new THREE.Matrix4())) return false
+  mesh.geometry.applyMatrix4(bind)
+  const linear = bind.clone().setPosition(0, 0, 0)
+  for (const attribute of mesh.geometry.morphAttributes?.position ?? []) {
+    const delta = new THREE.Vector3()
+    for (let i = 0; i < attribute.count; i += 1) {
+      delta.fromBufferAttribute(attribute, i).applyMatrix4(linear)
+      attribute.setXYZ(i, delta.x, delta.y, delta.z)
+    }
+    attribute.needsUpdate = true
+  }
+  mesh.bindMatrix.identity()
+  mesh.bindMatrixInverse.identity()
+  return true
+}
+
+function pruneMorphs(mesh) {
+  const dictionary = mesh.morphTargetDictionary
+  const positions = mesh.geometry.morphAttributes?.position
+  if (!dictionary || !positions) return
+  const keep = Object.entries(dictionary)
+    .filter(([name]) => WANTED.some((pattern) => pattern.test(name)))
+    .sort((a, b) => a[1] - b[1])
+  mesh.geometry.morphAttributes.position = keep.map(([, index]) => positions[index])
+  // Morph normals double the cost and the studio never reads them.
+  delete mesh.geometry.morphAttributes.normal
+  mesh.morphTargetDictionary = {}
+  keep.forEach(([name], slot) => { mesh.morphTargetDictionary[name] = slot })
+  mesh.morphTargetInfluences = keep.map(() => 0)
+}
+
+async function convert(name, fbxUrl, prefix) {
+  say(`loading ${fbxUrl}`)
+  const root = await new Promise((res, rej) => new FBXLoader(manager).load(fbxUrl, res, undefined, rej))
+
+  const meshes = []
+  root.traverse((child) => { if (child.isMesh || child.isSkinnedMesh) meshes.push(child) })
+  say(`${name}: ${meshes.length} meshes`)
+  for (const mesh of meshes) {
+    const names = Object.keys(mesh.morphTargetDictionary || {})
+    say(`  ${mesh.name}: ${mesh.geometry.attributes.position.count} verts, ${names.length} morphs`)
+    pruneMorphs(mesh)
+    const baked = bakeBindMatrix(mesh)
+    say(`  ${mesh.name}: kept ${Object.keys(mesh.morphTargetDictionary || {}).length} morphs, bindMatrix ${baked ? 'baked' : 'already identity'}`)
+  }
+
+  const tga = new TGALoader(manager)
+  const load = (file) => new Promise((res) => tga.load('/rocketbox-src/' + file, res, undefined, () => res(null)))
+  const colour = {
+    body: await load(`${prefix}_body_color.tga`),
+    head: await load(`${prefix}_head_color.tga`),
+    opacity: await load(`${prefix}_opacity_color.tga`),
+  }
+
+  // The material name only. The mesh is called "..._81_bones_opacity", so
+  // including it matched every material as hair and dressed the whole figure
+  // in the mostly-black lash-and-hair map.
+  const pick = (materialName) => {
+    const key = (materialName || '').toLowerCase()
+    if (/opacity|hair|lash|eyebrow/.test(key)) return colour.opacity
+    if (/head|face|eye|teeth|tongue|mouth/.test(key)) return colour.head
+    return colour.body
+  }
+
+  for (const mesh of meshes) {
+    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+    mesh.material = list.map((source) => {
+      const chosen = pick(source?.name ?? '')
+      // The lash and hair atlas keeps its full resolution: its content is
+      // strands a pixel or two wide, and halving it smears them into a mass.
+      const canvas = chosen ? shrink(chosen, chosen === colour.opacity ? 2048 : 1024) : null
+      const material = new THREE.MeshStandardMaterial({
+        name: source?.name || mesh.name,
+        color: 0xffffff,
+        roughness: 0.75,
+        metalness: 0,
+        side: THREE.FrontSide,
+      })
+      if (canvas) {
+        const map = new THREE.CanvasTexture(canvas)
+        map.colorSpace = THREE.SRGBColorSpace
+        map.flipY = false
+        // JPEG for the skin and clothing, because these are 2048 uncompressed
+        // source maps and PNG would put tens of megabytes into a file the
+        // browser has to download before anyone sees a subject. The lash and
+        // hair map is the exception: it is a cut-out, and JPEG has no alpha
+        // channel — exported that way the eyelashes stopped being lashes and
+        // became solid black quads sitting over both eyes.
+        map.userData.mimeType = chosen === colour.opacity ? 'image/png' : 'image/jpeg'
+        material.map = map
+      }
+      if (chosen === colour.opacity) {
+        // Alpha test, not blend. Blending a cut-out this fine leaves the card
+        // as a dark smear over the eye and drags in transparent sort order
+        // besides; a mask keeps every strand a hard edge and lets it stay in
+        // the opaque pass. GLTFExporter writes this out as alphaMode MASK.
+        material.alphaTest = 0.35
+        material.transparent = false
+        material.side = THREE.DoubleSide
+      }
+      return material
+    })
+    if (!Array.isArray(list)) mesh.material = mesh.material[0]
+  }
+
+  // The FBX is authored Z-up in centimetres, which the exporter carries
+  // straight through: the studio measured a subject 1.35 m wide, 0.34 m tall
+  // and 1.82 m deep, lying on its back off camera. Stand it up and put it in
+  // metres here, so the runtime gets a model in the axes it expects.
+  const before = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3())
+  say(`${name}: raw ${before.toArray().map((v) => v.toFixed(1)).join(' x ')}  rootRot=${root.rotation.x.toFixed(2)},${root.rotation.y.toFixed(2)},${root.rotation.z.toFixed(2)} rootScale=${root.scale.x}`)
+  const stood = root
+
+  say(`${name}: exporting…`)
+  const glb = await new Promise((res, rej) => new GLTFExporter().parse(
+    stood,
+    res,
+    rej,
+    { binary: true, onlyVisible: false, includeCustomExtensions: false },
+  ))
+  const bytes = new Uint8Array(glb)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000))
+  say(`${name}: ${(bytes.length / 1048576).toFixed(2)} MB`)
+
+  // Read the file back the way the studio will, because what the exporter
+  // wrote and what a loader makes of it are not always the same shape.
+  const back = await new Promise((res, rej) => new GLTFLoader().parse(glb.slice(0), '', res, rej))
+  const check = new THREE.Box3().setFromObject(back.scene).getSize(new THREE.Vector3())
+  say(`${name}: reloaded ${check.toArray().map((v) => v.toFixed(1)).join(' x ')}`)
+  const cloned = skeletonClone(back.scene)
+  const afterClone = new THREE.Box3().setFromObject(cloned).getSize(new THREE.Vector3())
+  say(`${name}: after SkeletonUtils.clone ${afterClone.toArray().map((v) => v.toFixed(1)).join(' x ')}`)
+
+  return btoa(binary)
+}
+
+window.__convert = async () => {
+  const result = {}
+  result.male = await convert('male', '/rocketbox-src/male.fbx', 'm002')
+  result.female = await convert('female', '/rocketbox-src/female.fbx', 'f001')
+  window.__glb = result
+  say('done')
+  return { male: result.male.length, female: result.female.length }
+}
+window.__convert().catch((error) => { say('FAILED ' + error.message); window.__error = String(error) })
+</script>
