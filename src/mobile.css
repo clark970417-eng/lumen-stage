@@ -35,7 +35,7 @@
 .m-lang button:last-child { border-right: 0; }
 .m-lang button.active { background: #31352f; color: var(--paper); }
 .m-top .copyright-mark.compact { position: static; flex: none; min-width: 44px; min-height: 44px; display: grid; place-items: center; }
-.m-top .copyright-mark.compact span { width: 20px; overflow: hidden; white-space: nowrap; color: #8e958a; font-size: 13px; }
+.m-top .copyright-mark.compact span { width: auto; max-width: 40px; overflow: hidden; white-space: nowrap; color: #8e958a; font-size: 9px; letter-spacing: 0; }
 .m-escape { min-width: 44px; min-height: 44px; padding: 0 8px; border: 1px solid var(--line); background: #171a17; color: #9ba097; font-size: 11px; cursor: pointer; touch-action: manipulation; }
 
 /* The viewport keeps the desktop rules; only its placement changes — and the

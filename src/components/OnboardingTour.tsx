@@ -10,7 +10,7 @@ type TourStep = {
   target: string | string[]
   title: MessageKey
   body: MessageKey
-  media: { kind: 'image'; src: string } | { kind: 'compare'; before: string; after: string }
+  media: { kind: 'image'; src: string } | { kind: 'video'; start: number } | { kind: 'compare'; before: string; after: string }
   aspect: 'wide' | 'panel' | 'strip'
   placement: 'below' | 'left' | 'above' | 'right'
   task: 'pose' | 'lighting' | 'camera' | 'render' | 'shot'
@@ -20,11 +20,11 @@ const STORAGE_PREFIX = 'lumen-stage:onboarding:v2:'
 
 const STEPS: Record<OnboardingScope, TourStep[]> = {
   desktop: [
-    { target: '.decision-console', title: 'tour.desktop.1.title', body: 'tour.desktop.1.body', media: { kind: 'compare', before: 'blueprint-before.webp', after: 'blueprint-after.webp' }, aspect: 'wide', placement: 'left', task: 'pose' },
-    { target: '.setup-library', title: 'tour.desktop.2.title', body: 'tour.desktop.2.body', media: { kind: 'compare', before: 'library-before.webp', after: 'library-after.webp' }, aspect: 'wide', placement: 'left', task: 'lighting' },
-    { target: '.decision-console', title: 'tour.desktop.3.title', body: 'tour.desktop.3.body', media: { kind: 'compare', before: 'exposure-before.webp', after: 'exposure-after.webp' }, aspect: 'wide', placement: 'left', task: 'camera' },
-    { target: '.view-mode-dock', title: 'tour.desktop.4.title', body: 'tour.desktop.4.body', media: { kind: 'compare', before: 'render-before.webp', after: 'render-after.webp' }, aspect: 'wide', placement: 'above', task: 'render' },
-    { target: '.shot-launcher', title: 'tour.desktop.5.title', body: 'tour.desktop.5.body', media: { kind: 'image', src: 'desktop-3.png' }, aspect: 'wide', placement: 'above', task: 'shot' },
+    { target: '.decision-console', title: 'tour.desktop.1.title', body: 'tour.desktop.1.body', media: { kind: 'video', start: 2.5 }, aspect: 'wide', placement: 'left', task: 'pose' },
+    { target: '.setup-library', title: 'tour.desktop.2.title', body: 'tour.desktop.2.body', media: { kind: 'video', start: 5 }, aspect: 'wide', placement: 'left', task: 'lighting' },
+    { target: '.decision-console', title: 'tour.desktop.3.title', body: 'tour.desktop.3.body', media: { kind: 'video', start: 7.5 }, aspect: 'wide', placement: 'left', task: 'camera' },
+    { target: '.view-mode-dock', title: 'tour.desktop.4.title', body: 'tour.desktop.4.body', media: { kind: 'video', start: 10 }, aspect: 'wide', placement: 'above', task: 'render' },
+    { target: '.shot-launcher', title: 'tour.desktop.5.title', body: 'tour.desktop.5.body', media: { kind: 'video', start: 12.5 }, aspect: 'wide', placement: 'above', task: 'shot' },
   ],
   mobile: [
     { target: ['.m-sheet-scroll', '#m-tab-planning'], title: 'tour.mobile.1.title', body: 'tour.mobile.1.body', media: { kind: 'image', src: 'mobile-0.png' }, aspect: 'wide', placement: 'above', task: 'pose' },
@@ -37,7 +37,6 @@ const STEPS: Record<OnboardingScope, TourStep[]> = {
 
 const MOBILE_TABS = ['#m-tab-planning', '#m-tab-lighting', '#m-tab-shooting', '#m-tab-shooting', '#m-tab-shooting']
 const DESKTOP_MODES = [0, 1, 2, 2, 2]
-const DESKTOP_VIDEO_STARTS = [2.5, 5, 7.5, 10, 12.5]
 
 export function shouldShowOnboarding(scope: OnboardingScope) {
   try { return localStorage.getItem(`${STORAGE_PREFIX}${scope}`) !== 'done' } catch { return true }
@@ -241,16 +240,15 @@ export function OnboardingTour({ open, scope, onClose, onOpenGuide }: {
       <div className="onboarding-shade" aria-hidden="true" />
       {highlightRect && <div className="onboarding-highlight" aria-hidden="true" style={highlightRect} />}
       <article ref={cardRef} className="onboarding-card" role="dialog" aria-modal="false" aria-label={t('tour.aria')} style={cardStyle}>
-        {media.kind === 'image'
+        {media.kind === 'video'
           ? <div className={`onboarding-media onboarding-media--${step.aspect}`}>
-              {scope === 'desktop'
-                ? <video key={`${locale}-${stepIndex}`} autoPlay muted loop playsInline preload="metadata" poster={assetHref(`site-demo/${locale}.jpg`)} aria-label={t(step.title)} onLoadedMetadata={(event) => { event.currentTarget.currentTime = DESKTOP_VIDEO_STARTS[stepIndex] }} onTimeUpdate={(event) => {
-                    const start = DESKTOP_VIDEO_STARTS[stepIndex]
-                    if (event.currentTarget.currentTime >= start + 2.95 || event.currentTarget.currentTime < start) event.currentTarget.currentTime = start
-                  }}><source src={assetHref(`site-demo/${locale}.mp4`)} type="video/mp4" /></video>
-                : <img src={assetHref(`onboarding/${locale}/${media.src}`)} alt={t(step.title)} />}
+              <video key={`${locale}-${stepIndex}`} autoPlay muted loop playsInline preload="metadata" poster={assetHref(`site-demo/${locale}.jpg`)} aria-label={t(step.title)} onLoadedMetadata={(event) => { event.currentTarget.currentTime = media.start }} onTimeUpdate={(event) => {
+                if (event.currentTarget.currentTime >= media.start + 2.45 || event.currentTarget.currentTime < media.start) event.currentTarget.currentTime = media.start
+              }}><source src={assetHref(`site-demo/${locale}.mp4`)} type="video/mp4" /></video>
             </div>
-          : <div className={`onboarding-media onboarding-media--${step.aspect} onboarding-compare${showAfter ? ' is-after' : ''}`}>
+          : media.kind === 'image'
+            ? <div className={`onboarding-media onboarding-media--${step.aspect}`}><img src={assetHref(`onboarding/${locale}/${media.src}`)} alt={t(step.title)} /></div>
+            : <div className={`onboarding-media onboarding-media--${step.aspect} onboarding-compare${showAfter ? ' is-after' : ''}`}>
               <img className="before" src={assetHref(`onboarding/${media.before}`)} alt={t('tour.beforeAlt', { title: t(step.title) })} />
               <img className="after" src={assetHref(`onboarding/${media.after}`)} alt={t('tour.afterAlt', { title: t(step.title) })} />
               <div className="onboarding-compare-switch" role="group" aria-label={t('tour.compare')}>

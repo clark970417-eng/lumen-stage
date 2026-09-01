@@ -763,7 +763,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .readout .ev strong { color: var(--signal); }
 .readout .ev i { position: absolute; left: 65px; right: 18px; bottom: 20px; height: 2px; background: linear-gradient(to right, var(--signal) var(--meter), #333731 var(--meter)); }
 .copyright-mark { position: absolute; right: 16px; top: 13px; padding: 0; display: flex; align-items: center; gap: 8px; border: 0; background: transparent; color: #7d847a; cursor: pointer; }
-.copyright-mark span { color: inherit; font: 9px var(--mono); letter-spacing: .06em; }
+.copyright-mark span { max-width: 100%; overflow: hidden; color: inherit; font: 9px var(--mono); letter-spacing: .04em; line-height: 1; text-overflow: clip; white-space: nowrap; }
 .copyright-mark small { padding-left: 8px; border-left: 1px solid #343934; color: #9ba197; font: 9px var(--mono); }
 .copyright-mark:hover, .copyright-mark:focus-visible { color: var(--signal); }
 
@@ -2779,8 +2779,7 @@ header.topbar .project-actions.is-simplified > .copyright-mark {
   box-sizing: border-box;
 }
 header.topbar .project-actions.is-simplified > .copyright-mark span,
-header.topbar .project-actions.is-simplified > .copyright-mark small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-header.topbar .project-actions.is-simplified > .copyright-mark span { overflow: visible; text-overflow: clip; }
+header.topbar .project-actions.is-simplified > .copyright-mark small { overflow: hidden; white-space: nowrap; text-overflow: clip; }
 header.topbar .project-actions.is-simplified > .copyright-mark small { display: none; }
 header.topbar .project-actions.is-simplified .history-button {
   min-height: 38px;
@@ -2827,16 +2826,6 @@ header.topbar .project-actions.is-simplified .history-button:disabled {
 @media (max-width: 1280px) {
   header.topbar .project-actions.is-simplified {
     grid-template-columns: 36px 36px 66px 66px minmax(0, 1fr) !important;
-  }
-}
-
-@media (max-width: 1180px) {
-  header.topbar .project-actions.is-simplified > .copyright-mark span {
-    font-size: 0;
-  }
-  header.topbar .project-actions.is-simplified > .copyright-mark span::before {
-    content: '©';
-    font: 10px var(--mono);
   }
 }
 

@@ -2,17 +2,16 @@ import { useRef } from 'react'
 import { useT } from '../i18n'
 import { useDialogFocus } from './DialogFocus'
 import { assetHref } from '../routing'
+import { COPYRIGHT_BUTTON_LABEL } from '../copyright'
 
 export const SITE_OWNER = 'YuYing'
 
 export function CopyrightMark({ onOpen, compact = false }: { onOpen: () => void; compact?: boolean }) {
   const t = useT()
-  const year = new Date().getFullYear()
 
   return (
     <button className={compact ? 'copyright-mark compact' : 'copyright-mark'} onClick={onOpen} aria-label={t('about.open')}>
-      <span aria-hidden="true">{compact ? '©' : `© ${year} ${SITE_OWNER}`}</span>
-      {!compact && <small>{t('about.open')}</small>}
+      <span aria-hidden="true">{COPYRIGHT_BUTTON_LABEL}</span>
     </button>
   )
 }

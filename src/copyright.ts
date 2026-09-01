@@ -1,0 +1,1 @@
+export const COPYRIGHT_BUTTON_LABEL = 'C 2026'

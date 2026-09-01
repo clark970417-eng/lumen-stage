@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { translate, type Locale, type MessageKey } from '../src/i18n.ts'
+import { COPYRIGHT_BUTTON_LABEL } from '../src/copyright.ts'
 
 const ONBOARDING_COPY: MessageKey[] = [
   'tour.desktop.1.title', 'tour.desktop.1.body',
@@ -24,4 +25,8 @@ test('onboarding copy is complete in every supported language', () => {
       assert.ok(copy.trim().length > 3, `${locale} copy is too short for ${key}`)
     }
   }
+})
+
+test('copyright control uses the compact non-overlapping label', () => {
+  assert.equal(COPYRIGHT_BUTTON_LABEL, 'C 2026')
 })
