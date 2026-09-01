@@ -63,8 +63,8 @@ export function seatedModelY(seat: number, hipLocalY: number, modelScale: number
  * placed on, so the two cannot drift apart. The seating code reads it from
  * SEAT_HEIGHT below and the mesh builds the slab around it.
  */
-export const CHAIR_SEAT_TOP = 0.54
-export const CHAIR_SEAT_THICKNESS = 0.1
+export const CHAIR_SEAT_TOP = 0.47
+export const CHAIR_SEAT_THICKNESS = 0.055
 
 /**
  * How far a sitter's hip joint rides above the surface they are sitting on.
@@ -110,7 +110,9 @@ export const FOOTPRINT = {
   product: 0.18,
   /** A C-stand holding a flag or reflector. */
   gripStand: 0.38,
-  chair: 0.36,
+  /** Reach from the chair's centre to count as sitting on it — a little over
+      half its seat, so an actor has to be over the seat rather than beside it. */
+  chair: 0.28,
   table: 0.72,
   plinth: 0.44,
   cube: 0.42,

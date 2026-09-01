@@ -2666,30 +2666,35 @@ function StudioObjectMesh({ object }: { object: StudioObject }) {
   // Seat and table tops land exactly on the heights in layout.ts, so a figure
   // placed on one sits on the surface instead of a centimetre inside it.
   if (object.type === 'chair') return <>
-    <RoundedBox castShadow receiveShadow args={[0.7, CHAIR_SEAT_THICKNESS, 0.64]} radius={0.03} smoothness={5} position={[0, CHAIR_SEAT_TOP - CHAIR_SEAT_THICKNESS / 2, 0]} material={material} />
-    <RoundedBox castShadow receiveShadow args={[0.72, 0.055, 0.66]} radius={0.018} smoothness={4} position={[0, 0.418, 0]} material={material} />
+    {/* A dining chair, at the size dining chairs are: a 46 by 44 cm seat, 47 cm
+        off the floor, with the back reaching 93. It used to be half as big
+        again in every direction, which made every actor sat on it look like a
+        child — and left her back a hand's width clear of a backrest that was
+        further away than a person is deep. */}
+    <RoundedBox castShadow receiveShadow args={[0.46, CHAIR_SEAT_THICKNESS, 0.44]} radius={0.022} smoothness={5} position={[0, CHAIR_SEAT_TOP - CHAIR_SEAT_THICKNESS / 2, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[0.47, 0.028, 0.45]} radius={0.012} smoothness={4} position={[0, 0.405, 0]} material={material} />
     {/* The back starts above the seat, not on it. The gap is what your eye
         reads as a chair rather than as a block with a slab behind it.
         It sits at -Z, behind a sitter: everything else in the studio faces +Z,
         the actor included, and a back on the +Z side put the chair's own back
         across her chest the moment she sat on it. */}
-    <RoundedBox castShadow receiveShadow args={[0.62, 0.48, 0.075]} radius={0.035} smoothness={5} position={[0, 0.91, -0.302]} rotation={[0.11, 0, 0]} material={material} />
-    <RoundedBox castShadow receiveShadow args={[0.66, 0.07, 0.085]} radius={0.033} smoothness={5} position={[0, 1.166, -0.332]} rotation={[0.11, 0, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[0.4, 0.3, 0.045]} radius={0.02} smoothness={5} position={[0, 0.735, -0.195]} rotation={[0.11, 0, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[0.44, 0.055, 0.055]} radius={0.024} smoothness={5} position={[0, 0.905, -0.214]} rotation={[0.11, 0, 0]} material={material} />
     {/* Legs splay. Drawn between two known ends so the feet stay on the floor
         whatever the splay, which is exactly what four independently placed
         cylinders could not promise. */}
     {([[-1, -1], [1, -1], [-1, 1], [1, 1]] as const).map(([sx, sz], index) => (
       <group key={index}>
         <Strut
-          from={[sx * 0.247, 0.4, sz * 0.221]}
-          to={[sx * 0.302, 0, sz * 0.27]}
-          radius={0.021}
+          from={[sx * 0.175, 0.4, sz * 0.16]}
+          to={[sx * 0.215, 0, sz * 0.195]}
+          radius={0.016}
           taper={1.6}
           material={material}
           segments={16}
         />
-        <mesh castShadow position={[sx * 0.302, 0.006, sz * 0.27]}>
-          <cylinderGeometry args={[0.026, 0.028, 0.012, 14]} />
+        <mesh castShadow position={[sx * 0.215, 0.005, sz * 0.195]}>
+          <cylinderGeometry args={[0.019, 0.021, 0.01, 14]} />
           <meshStandardMaterial color="#1a1c1a" roughness={0.9} />
         </mesh>
       </group>
@@ -2698,9 +2703,9 @@ function StudioObjectMesh({ object }: { object: StudioObject }) {
         separates a chair from four sticks under a slab. They meet the legs on
         the splay, so they land on the taper rather than floating beside it. */}
     {([-1, 1] as const).map((sx) => (
-      <Strut key={sx} from={[sx * 0.281, 0.15, -0.252]} to={[sx * 0.281, 0.15, 0.252]} radius={0.015} material={material} />
+      <Strut key={sx} from={[sx * 0.198, 0.14, -0.178]} to={[sx * 0.198, 0.14, 0.178]} radius={0.011} material={material} />
     ))}
-    <Strut from={[-0.281, 0.15, 0]} to={[0.281, 0.15, 0]} radius={0.015} material={material} />
+    <Strut from={[-0.198, 0.14, 0]} to={[0.198, 0.14, 0]} radius={0.011} material={material} />
     {/* Back uprights, carrying the panel down to the seat frame. */}
     {([-0.28, 0.28] as const).map((x) => (
       <Strut key={x} from={[x, 0.42, 0.268]} to={[x * 0.98, 1.19, 0.345]} radius={0.019} material={material} segments={14} />
@@ -2747,8 +2752,8 @@ function MovableStudioObject({ object }: { object: StudioObject }) {
   const setTransform = useStudio((state) => state.setStudioObjectTransform)
   const group = useRef<THREE.Group>(null)
   const transformControl = useRef<TransformControlsImpl>(null)
-  const outlineSize: [number, number, number] = object.type === 'subject' ? [0.95, object.subjectHeight + 0.12, 0.65] : object.type === 'dog' ? [0.85, 1, 1.15] : object.type === 'cat' ? [0.65, 0.95, 0.75] : object.type === 'product' ? [0.55, 0.8, 0.55] : object.type === 'table' ? [1.5, 1, 0.9] : object.type === 'chair' ? [0.85, 1.4, 0.8] : object.type === 'plinth' ? [1, 1.25, 1] : [1, 1, 1]
-  const yOffset = object.type === 'subject' ? object.subjectHeight / 2 : object.type === 'dog' ? 0.45 : object.type === 'cat' ? 0.42 : object.type === 'product' ? 0.35 : object.type === 'table' ? 0.45 : object.type === 'chair' ? 0.65 : object.type === 'plinth' ? 0.55 : 0
+  const outlineSize: [number, number, number] = object.type === 'subject' ? [0.95, object.subjectHeight + 0.12, 0.65] : object.type === 'dog' ? [0.85, 1, 1.15] : object.type === 'cat' ? [0.65, 0.95, 0.75] : object.type === 'product' ? [0.55, 0.8, 0.55] : object.type === 'table' ? [1.5, 1, 0.9] : object.type === 'chair' ? [0.56, 0.98, 0.54] : object.type === 'plinth' ? [1, 1.25, 1] : [1, 1, 1]
+  const yOffset = object.type === 'subject' ? object.subjectHeight / 2 : object.type === 'dog' ? 0.45 : object.type === 'cat' ? 0.42 : object.type === 'product' ? 0.35 : object.type === 'table' ? 0.45 : object.type === 'chair' ? 0.47 : object.type === 'plinth' ? 0.55 : 0
   const content = <group ref={group} position={object.position} rotation={[0, object.rotationY, 0]} scale={object.type === 'subject' ? 1 : object.scale} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(object.id) }}>
     <StudioObjectMesh object={object} />
     {canControl && selected && view !== 'camera' && <mesh position={[0, yOffset, 0]}><boxGeometry args={outlineSize} /><meshBasicMaterial color={object.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={0.48} /></mesh>}

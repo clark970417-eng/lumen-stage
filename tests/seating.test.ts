@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { CHAIR_SEAT_TOP, DEFAULT_SEAT_HEIGHT, SEAT_TO_HIP, seatedHipHeight, seatedModelY, seatHeightOf } from '../src/layout.ts'
+import { CHAIR_SEAT_TOP, DEFAULT_SEAT_HEIGHT, FOOTPRINT, SEAT_TO_HIP, seatedHipHeight, seatedModelY, seatHeightOf } from '../src/layout.ts'
 import { pelvisHeight } from '../src/ik.ts'
 import { NEUTRAL_POSE, POSE_LIBRARY, type ModelPose } from '../src/pose.ts'
 
@@ -81,4 +81,14 @@ test('a sitter rests on the seat rather than inside it', () => {
   // The solver, the drag handles and the imported actor all read it from here.
   const pose = { ...NEUTRAL_POSE, seated: true } as ModelPose
   assert.equal(pelvisHeight(pose, chair), hip)
+})
+
+test('a chair is the size chairs are, and only catches an actor over its seat', () => {
+  // It was half as big again in every direction, which made every actor sat on
+  // it look like a child.
+  assert.ok(CHAIR_SEAT_TOP >= 0.43 && CHAIR_SEAT_TOP <= 0.48, 'a dining chair seat height')
+  // And the reach that decides whether an actor is sitting on it has to follow
+  // the seat down, or a smaller chair still captures someone standing beside it.
+  assert.ok(FOOTPRINT.chair > 0.23, 'forgiving enough to place by hand')
+  assert.ok(FOOTPRINT.chair < 0.35, 'but not wider than the seat it stands for')
 })
