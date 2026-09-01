@@ -269,10 +269,12 @@ function accumulate(pose: ModelPose, stanceSplay: number): Partial<Record<Humano
 
 /** Finger deltas layered over the imported hand's authored rest shape. */
 const HAND_CURL: Record<HandPose, { fingers: number; index: number; thumb: number }> = {
-  // A hand at rest is not a flat hand. The MPFB export ships one with the
-  // fingers straight and fanned — a glove on a rack — so even "relaxed" has to
-  // close it, or every standing pose ends in two starfish.
-  relaxed: { fingers: 15, index: 13, thumb: 7 },
+  // A hand at rest is not a flat hand. Both shipped actors are modelled with
+  // the fingers straight and fanned — a glove on a rack — so even "relaxed"
+  // has to close it, or every standing pose ends in two starfish. Fifteen
+  // degrees was set against an export that already carried some of the arc;
+  // these carry none of it.
+  relaxed: { fingers: 26, index: 23, thumb: 12 },
   open: { fingers: -6, index: -6, thumb: -3 },
   fist: { fingers: 40, index: 40, thumb: 24 },
   point: { fingers: 40, index: -6, thumb: 16 },
@@ -397,6 +399,70 @@ export function applyPoseToSkeleton(root: THREE.Object3D, map: BoneMap, rest: Re
   applyFingers(map.leftHand, pose.leftHand, rest)
   applyFingers(map.rightHand, pose.rightHand, rest)
   root.updateMatrixWorld(true)
+}
+
+// ---------------------------------------------------------------------------
+// Gaze
+// ---------------------------------------------------------------------------
+
+/**
+ * The eyeball bones, on a rig that has them.
+ *
+ * Deliberately not part of the humanoid map: an eye is not a link in the pose
+ * chain, and the map's job is the chain. `Bip01_LEyeBlinkTop` and
+ * `Bip01_LOuterEyebrow` normalize to something longer, so only the eyeballs
+ * themselves match.
+ */
+const EYE_PATTERN = /^(left|l|right|r)eye$/
+
+/** How far the eye may roll up, and down, before the lids give it away. */
+const EYE_RAISE_LIMIT = 20
+const EYE_LOWER_LIMIT = 26
+
+export function findEyeBones(root: THREE.Object3D): THREE.Bone[] {
+  const found: THREE.Bone[] = []
+  root.traverse((node) => {
+    if ((node as THREE.Bone).isBone && EYE_PATTERN.test(canonicalName(node.name))) found.push(node as THREE.Bone)
+  })
+  return found
+}
+
+/**
+ * Points the eyes, on a rig whose eyeballs are its own bones.
+ *
+ * Until now only the prosthetic eyeballs the studio adds to an eyeless import
+ * could be aimed, so the two actors that came with real eyes were the two whose
+ * eyes never moved — and eyes that never move are most of what reads as "not a
+ * person". Their gaze sliders, and "eyes follow the lens", did nothing at all.
+ *
+ * The angles are meant relative to the head — chin down, eyes up — so the turn
+ * is built in the anatomical frame and then expressed in the head's own
+ * coordinates using the rest pose. Which axis a Biped calls up is then beside
+ * the point, and the offset stays put when the head turns.
+ */
+export function aimEyes(map: BoneMap, rest: RestPose, eyes: THREE.Bone[], yaw: number, pitch: number, faceForward: number) {
+  const head = map.head
+  const headRest = head && rest.worldQuaternion.get(head)
+  if (!headRest || eyes.length === 0) return
+  // Positive yaw swings the gaze toward +X and positive pitch drops it, the
+  // sense the pose values are authored in and the same one the prosthetic eyes
+  // already used.
+  //
+  // Upward travel is held short of the slider's range. A real eye rolled that
+  // far takes the iris up behind the lid, and the lid does not rise with it
+  // here — what renders is a person showing the whites of their eyes rather
+  // than a person glancing up. A prosthetic sphere with no lid around it had
+  // no such limit, which is why this one lives with the rig that has a socket.
+  const inSocket = THREE.MathUtils.clamp(pitch, -EYE_RAISE_LIMIT, EYE_LOWER_LIMIT)
+  const turn = new THREE.Quaternion()
+    .setFromAxisAngle(Y, rad(yaw) * faceForward)
+    .multiply(new THREE.Quaternion().setFromAxisAngle(X, rad(inSocket)))
+  const inHead = headRest.clone().invert().multiply(turn).multiply(headRest)
+  for (const eye of eyes) {
+    const eyeRest = rest.localQuaternion.get(eye)
+    if (!eyeRest) continue
+    eye.quaternion.copy(inHead).multiply(eyeRest)
+  }
 }
 
 // ---------------------------------------------------------------------------

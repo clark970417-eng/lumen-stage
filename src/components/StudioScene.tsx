@@ -18,13 +18,13 @@ import type { FigureAppearance } from './Figure'
 import { forwardKinematics } from '../ik'
 import { isSeatedPose, NEUTRAL_POSE, type ModelPose } from '../pose'
 import type { HairStyle } from '../wardrobe'
-import { applyExpressionToMorphs, applyPoseToSkeleton, landHands, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
+import { aimEyes, applyExpressionToMorphs, applyPoseToSkeleton, findEyeBones, landHands, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
 import { SOCKET_PAINT_SPREAD, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, bakedActorResponse, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
 import { getBackdrop, type BackdropProfile } from '../backdrops'
-import { FOOTPRINT, seatHeightOf } from '../layout'
+import { DEFAULT_SEAT_HEIGHT, FOOTPRINT, seatedModelY, seatHeightOf } from '../layout'
 import { PoseRig } from './PoseRig'
 import { applyGelTint, geledTemperature, getGel } from '../gels'
 import { brickNormalMap, canvasNormalMap, concreteNormalMap, fabricNormalMap, fabricRoughnessMap, hairNormalMap, mottleMap, paperNormalMap, plasterNormalMap, skinNormalMap, skinRoughnessMap, woodNormalMap } from '../textures'
@@ -1943,12 +1943,14 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
  * onto the bones. If the file has no recognisable humanoid skeleton the model
  * still renders — it just stands in its rest pose, and the inspector says so.
  */
-function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOverride, appearance: appearanceOverride, reportStatus = true, onRigReady }: {
+function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOverride, appearance: appearanceOverride, seatHeight = null, reportStatus = true, onRigReady }: {
   url: string
   pose?: ModelPose
   lookAtCamera?: boolean
   /** A standalone figure carries its own look; the main subject reads the store. */
   appearance?: FigureAppearance
+  /** Height of whatever this actor is sitting on, or null for the floor. */
+  seatHeight?: number | null
   reportStatus?: boolean
   onRigReady?: (map: BoneMap | null) => void
 }) {
@@ -1972,7 +1974,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   const mainPhysique = useStudio((state) => state.physique)
   const mainHairStyle = useStudio((state) => state.hairStyle)
   const mainOutfitStyle = useStudio((state) => state.outfitStyle)
-  const rig = useRef<{ map: BoneMap; rest: RestPose; restFootY: number; baseY: number } | null>(null)
+  const rig = useRef<{ map: BoneMap; rest: RestPose; eyes: THREE.Bone[]; restFootY: number; baseY: number } | null>(null)
   // The scalp shell as it came off disk, kept so a style change can rebuild it
   // without fetching the actor again.
   const hairSource = useRef<{ model: THREE.Group; head: THREE.Bone; source: THREE.Group } | null>(null)
@@ -2203,6 +2205,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       rig.current = quality.usable ? {
         map,
         rest: captureRestPose(model, map),
+        eyes: findEyeBones(model),
         restFootY: Number.isFinite(restFootY) ? restFootY : 0,
         baseY: model.position.y,
       } : null
@@ -2286,17 +2289,6 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   const gazePitch = !poseOverride && eyesAtCamera ? -effectivePose.headTilt : effectivePose.gazePitch
 
   useEffect(() => {
-    const eyes = object?.getObjectByName('studio-eyeballs')
-    if (!eyes) return
-    // The eye looks down +Z, the same way the rig faces, so a positive turn
-    // about Y swings the gaze toward +X — which is the sense the pose values
-    // are authored in — and a positive turn about X drops it.
-    eyes.children.forEach((eye) => {
-      eye.rotation.set(THREE.MathUtils.degToRad(gazePitch), THREE.MathUtils.degToRad(gazeYaw), 0)
-    })
-  }, [gazePitch, gazeYaw, object])
-
-  useEffect(() => {
     if (!object || !rig.current) return
     const stanceSplay = THREE.MathUtils.radToDeg(Math.atan2(effectivePose.stanceWidth / 2 - 0.083, 0.865))
     object.position.y = rig.current.baseY + effectivePose.rootLift
@@ -2308,15 +2300,48 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     landHands(rig.current.map, forwardKinematics(effectivePose, appearanceRef.current.physique), FACE_FORWARD)
     applyExpressionToMorphs(object, effectivePose)
     object.updateMatrixWorld(true)
-    if (!effectivePose.airborne && !isSeatedPose(effectivePose)) {
-      const footY = (bone: THREE.Bone | undefined) => bone
-        ? object.worldToLocal(bone.getWorldPosition(new THREE.Vector3())).y
-        : Number.POSITIVE_INFINITY
-      const posedFootY = Math.min(footY(rig.current.map.leftFoot), footY(rig.current.map.rightFoot))
+    const localY = (bone: THREE.Bone | undefined) => bone
+      ? object.worldToLocal(bone.getWorldPosition(new THREE.Vector3())).y
+      : Number.POSITIVE_INFINITY
+    if (isSeatedPose(effectivePose)) {
+      // A seated actor is placed by the pelvis, the way a standing one is
+      // placed by the feet. The group used to be raised by the seat height
+      // instead, which left the actor's own pelvis exactly where standing had
+      // put it and floated her a chair's height above the chair.
+      //
+      // The seat is measured in the room, and this position is inside a group
+      // the height control scales, so it is divided back out — otherwise a
+      // 1.6 m actor would sit above a chair a 2 m one sits below.
+      const posedHipY = localY(rig.current.map.hips)
+      const groupScale = object.parent?.getWorldScale(new THREE.Vector3()).y || 1
+      if (Number.isFinite(posedHipY)) {
+        object.position.y = seatedModelY(seatHeight ?? DEFAULT_SEAT_HEIGHT, posedHipY, object.scale.y, groupScale, effectivePose.rootLift)
+      }
+      object.updateMatrixWorld(true)
+    } else if (!effectivePose.airborne) {
+      const posedFootY = Math.min(localY(rig.current.map.leftFoot), localY(rig.current.map.rightFoot))
       if (Number.isFinite(posedFootY)) object.position.y += (rig.current.restFootY - posedFootY) * object.scale.y
       object.updateMatrixWorld(true)
     }
-  }, [effectivePose, object])
+  }, [effectivePose, object, seatHeight])
+
+  // Gaze, after the pose, because writing the pose puts every bone the pose
+  // does not name back to its rest — the eyes included.
+  useEffect(() => {
+    const prosthetic = object?.getObjectByName('studio-eyeballs')
+    if (prosthetic) {
+      // The eye looks down +Z, the same way the rig faces, so a positive turn
+      // about Y swings the gaze toward +X — which is the sense the pose values
+      // are authored in — and a positive turn about X drops it.
+      prosthetic.children.forEach((eye) => {
+        eye.rotation.set(THREE.MathUtils.degToRad(gazePitch), THREE.MathUtils.degToRad(gazeYaw), 0)
+      })
+      return
+    }
+    if (!object || !rig.current) return
+    aimEyes(rig.current.map, rig.current.rest, rig.current.eyes, gazeYaw, gazePitch, FACE_FORWARD)
+    object.updateMatrixWorld(true)
+  }, [effectivePose, gazePitch, gazeYaw, object])
 
   // The MakeHuman exports arrive with a stray root rotation that has to be
   // flattened. The Rocketbox pair carry their Y-up conversion there instead,
@@ -2350,7 +2375,6 @@ function Mannequin() {
   const modelRigStatus = useStudio((state) => state.modelRigStatus)
   const activeModelUrl = modelAssetUrl ?? shippedHumanFor(physique, outfitStyle)
   const seatHeight = useSeatHeight(position)
-  const seatedLift = isSeatedPose(modelPose) ? seatHeight ?? 0.46 : 0
   const group = useRef<THREE.Group>(null)
   const [boneMap, setBoneMap] = useState<BoneMap | null>(null)
   const transformControl = useRef<TransformControlsImpl>(null)
@@ -2362,14 +2386,14 @@ function Mannequin() {
   // identities keep unrelated store renders from writing the old coordinates
   // back into the group between pointer events, which presented as shaking.
   const renderedPosition = useMemo<[number, number, number]>(
-    () => [position[0], position[1] + seatedLift, position[2]],
-    [position, seatedLift],
+    () => [position[0], position[1], position[2]],
+    [position],
   )
   const renderedRotation = useMemo<[number, number, number]>(() => [0, rotation, 0], [rotation])
 
   const model = (
     <group ref={group} position={renderedPosition} rotation={renderedRotation} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('model') }}>
-      <ImportedModel url={activeModelUrl} onRigReady={setBoneMap} />
+      <ImportedModel url={activeModelUrl} seatHeight={seatHeight} onRigReady={setBoneMap} />
       {showHandles && (
         <PoseRig
           pose={modelPose}
@@ -2404,7 +2428,7 @@ function Mannequin() {
           if (!group.current) return
           const nextPosition: [number, number, number] = [
             Number(group.current.position.x.toFixed(2)),
-            Number(Math.min(3, Math.max(0, group.current.position.y - seatedLift)).toFixed(2)),
+            Number(Math.min(3, Math.max(0, group.current.position.y)).toFixed(2)),
             Number(group.current.position.z.toFixed(2)),
           ]
           setModelTransform(nextPosition, group.current.rotation.y, effectiveTransformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined)
@@ -2417,7 +2441,6 @@ function Mannequin() {
 /** A standalone person, seated on whatever furniture it happens to be over. */
 function StandaloneFigure({ object }: { object: StudioObject }) {
   const seatHeight = useSeatHeight(object.position)
-  const seatedLift = isSeatedPose(object.subjectPose) ? seatHeight ?? 0.46 : 0
   const poseHandles = useStudio((state) => state.poseHandles)
   const selected = useStudio((state) => state.selected === object.id)
   const view = useStudio((state) => state.view)
@@ -2425,7 +2448,7 @@ function StandaloneFigure({ object }: { object: StudioObject }) {
   const group = useRef<THREE.Group>(null)
   const [boneMap, setBoneMap] = useState<BoneMap | null>(null)
   return (
-    <group ref={group} position={[0, seatedLift, 0]} scale={object.subjectHeight / 1.82}>
+    <group ref={group} scale={object.subjectHeight / 1.82}>
       {poseHandles && selected && view !== 'camera' && (
         <PoseRig
           pose={object.subjectPose}
@@ -2438,6 +2461,7 @@ function StandaloneFigure({ object }: { object: StudioObject }) {
       )}
       <ImportedModel
         url={shippedHumanFor(object.subjectPhysique, object.subjectOutfitStyle)}
+        seatHeight={seatHeight}
         pose={object.subjectPose}
         lookAtCamera={false}
         appearance={{

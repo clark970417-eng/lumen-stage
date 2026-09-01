@@ -31,6 +31,33 @@ export type Occupant = {
  * the whole reason a chair is in a lighting tool: it changes the eye line, and
  * the eye line is what the key light is set to.
  */
+/**
+ * Seat height for a figure asked to sit with nothing under it.
+ *
+ * A chair, near enough. A seated pose with no prop still has to put the pelvis
+ * somewhere, and the alternative — treating it as standing — reads as a person
+ * squatting in mid-air.
+ */
+export const DEFAULT_SEAT_HEIGHT = 0.46
+
+/**
+ * Where an actor's model belongs inside its own group so the pelvis lands on
+ * the seat.
+ *
+ * A standing actor is placed by the feet; a seated one has to be placed by the
+ * pelvis, because the feet no longer touch anything. The group used to be
+ * raised by the seat height instead, which left the actor's pelvis exactly
+ * where standing had put it and floated the whole figure a chair's height
+ * above the chair.
+ *
+ * `hipLocalY` is measured in the model's own units, before its normalising
+ * scale; `groupScale` is the height control, which the seat has to be divided
+ * back out of, or a short actor would sit above a chair a tall one sits below.
+ */
+export function seatedModelY(seat: number, hipLocalY: number, modelScale: number, groupScale: number, rootLift = 0) {
+  return seat / (groupScale || 1) - hipLocalY * modelScale + rootLift
+}
+
 export const SEAT_HEIGHT: Partial<Record<string, number>> = {
   chair: 0.54,
   table: 0.88,

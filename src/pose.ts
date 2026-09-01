@@ -120,10 +120,14 @@ export const NEUTRAL_POSE: ModelPose = {
   headYaw: 0, headTilt: 0, headRoll: 0, neckExtend: 0,
   torsoYaw: 0, spineBend: 0, spineSide: 0, chestLift: 18,
   leftShoulder: -1, rightShoulder: -1,
-  leftArm: -8, rightArm: 8,
-  leftArmForward: 1, rightArmForward: 1,
+  // Solved so the wrist lands beside the thigh rather than a hand's width out
+  // from it. Eight degrees of splay is what a figure drawn from the shoulders
+  // wants; on a body it left both arms standing off the hips with daylight
+  // under them, which is the first thing that reads as a mannequin.
+  leftArm: -2.1, rightArm: 2.1,
+  leftArmForward: 1.7, rightArmForward: 1.7,
   leftArmTwist: 0, rightArmTwist: 0,
-  leftElbow: 5, rightElbow: -5,
+  leftElbow: 4.1, rightElbow: -4.1,
   leftForearmTwist: 0, rightForearmTwist: 0,
   leftWrist: 0, rightWrist: 0,
   leftHand: 'relaxed', rightHand: 'relaxed',
