@@ -178,7 +178,7 @@ async function saveCanvasFrame(page, target, denoise = false) {
 
 async function captureRenderComparison(page, locale) {
   await page.setViewportSize({ width: 1920, height: 1080 })
-  await setFullGender(page, locale, 'Feminine')
+  await setFullGender(page, locale, 'Masculine')
   await page.locator('.workflow-navigation button').nth(2).click()
   await page.locator('.view-mode-dock button').nth(2).click()
   await page.waitForTimeout(900)
@@ -189,26 +189,24 @@ async function captureRenderComparison(page, locale) {
     return shell?.classList.contains('left-panel-hidden') && shell.classList.contains('right-panel-hidden') && shell.classList.contains('top-panel-hidden')
   })
   await page.waitForTimeout(400)
+  await saveCanvasFrame(page, resolve(root, 'public/onboarding/render-after.webp'))
+
+  // Build the matching "before" through the real studio controls: isolate the
+  // weaker fill through the exposure panel's SOLO control, then return to the
+  // exact same camera view.
+  await page.keyboard.press('Tab')
+  await page.locator('.workflow-navigation button').nth(2).click()
+  await page.locator('.verify-actions button').first().click()
+  const soloLights = page.locator('.solo-metering > button')
+  if (await soloLights.count() < 2) throw new Error('Comparison capture needs both key and fill lights')
+  await soloLights.nth(1).click()
+  await soloLights.nth(1).filter({ hasText: 'SOLO' }).waitFor({ state: 'visible', timeout: 30_000 })
+  await page.locator('.exposure-panel > header button').click()
+  await page.locator('.view-mode-dock button').nth(2).click()
+  await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
+  await page.keyboard.press('Tab')
+  await page.waitForTimeout(500)
   await saveCanvasFrame(page, resolve(root, 'public/onboarding/render-before.webp'))
-  // Keep the public comparison tied to the current model even when an imported
-  // character uses a path-tracer material feature that is still unsupported.
-  // The second frame is rendered from the live canvas at full output size with
-  // the same light rig and a light denoise pass; HQ mode is validated below.
-  await saveCanvasFrame(page, resolve(root, 'public/onboarding/render-after.webp'), true)
-  await page.keyboard.press('4')
-  await page.locator('.render-toolbar').waitFor({ state: 'visible', timeout: 120_000 })
-  const deadline = Date.now() + 240_000
-  let samples = 0
-  while (samples < 32 && Date.now() < deadline) {
-    await page.waitForTimeout(5_000)
-    const renderText = await page.locator('.render-toolbar').innerText()
-    if (/error/i.test(renderText)) throw new Error(`High-quality render failed: ${renderText}`)
-    samples = Number.parseFloat(await page.locator('.render-progress strong').innerText()) || 0
-    console.log(`render samples: ${samples.toFixed(1)} / 32`)
-  }
-  if (samples < 32) throw new Error(`High-quality render stopped at ${samples.toFixed(1)} SPP`)
-  await page.keyboard.press('Space')
-  await page.waitForTimeout(250)
 }
 
 try {
