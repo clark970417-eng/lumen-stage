@@ -24,7 +24,7 @@ import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } fr
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
 import { getBackdrop, type BackdropProfile } from '../backdrops'
-import { CHAIR_SEAT_THICKNESS, CHAIR_SEAT_TOP, DEFAULT_SEAT_HEIGHT, FOOTPRINT, seatedModelY, seatHeightOf } from '../layout'
+import { CHAIR_SEAT_THICKNESS, CHAIR_SEAT_TOP, FOOTPRINT, seatedHipHeight, seatedModelY, seatHeightOf } from '../layout'
 import { PoseRig } from './PoseRig'
 import { applyGelTint, geledTemperature, getGel } from '../gels'
 import { brickNormalMap, canvasNormalMap, concreteNormalMap, fabricNormalMap, fabricRoughnessMap, hairNormalMap, mottleMap, paperNormalMap, plasterNormalMap, skinNormalMap, skinRoughnessMap, woodNormalMap } from '../textures'
@@ -2315,7 +2315,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       const posedHipY = localY(rig.current.map.hips)
       const groupScale = object.parent?.getWorldScale(new THREE.Vector3()).y || 1
       if (Number.isFinite(posedHipY)) {
-        object.position.y = seatedModelY(seatHeight ?? DEFAULT_SEAT_HEIGHT, posedHipY, object.scale.y, groupScale, effectivePose.rootLift)
+        object.position.y = seatedModelY(seatedHipHeight(seatHeight), posedHipY, object.scale.y, groupScale, effectivePose.rootLift)
       }
       object.updateMatrixWorld(true)
     } else if (!effectivePose.airborne) {

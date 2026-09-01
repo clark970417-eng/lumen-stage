@@ -66,6 +66,22 @@ export function seatedModelY(seat: number, hipLocalY: number, modelScale: number
 export const CHAIR_SEAT_TOP = 0.54
 export const CHAIR_SEAT_THICKNESS = 0.1
 
+/**
+ * How far a sitter's hip joint rides above the surface they are sitting on.
+ *
+ * The joint is not on the seat: the femoral head and the flesh of the buttock
+ * are between them. Placed level with the surface, the thigh — which is about
+ * this thick — spends its lower half inside the seat, and the hands come down
+ * within a couple of centimetres of it. That is what reads as the actor
+ * passing through the chair.
+ */
+export const SEAT_TO_HIP = 0.07
+
+/** Where a seated figure's pelvis belongs, given what is under it. */
+export function seatedHipHeight(seat: number | null) {
+  return (seat ?? DEFAULT_SEAT_HEIGHT) + SEAT_TO_HIP
+}
+
 export const SEAT_HEIGHT: Partial<Record<string, number>> = {
   chair: CHAIR_SEAT_TOP,
   table: 0.88,
