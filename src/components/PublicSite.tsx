@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { DEMO_STEP_MOVEMENT_STARTS, demoStepAt } from '../demoTimeline'
 import { LOCALES, useLocaleStore, type Locale } from '../i18n'
 import { assetHref, routeHref, studioHref, type PublicRoute } from '../routing'
 import { SETUP_LIBRARY } from '../setups'
@@ -181,9 +182,6 @@ const DEMO_LIVE_LABEL: Record<Locale, string> = {
   ja: 'ライブシーン',
 }
 
-const demoStepAt = (time: number) => time < 2.5 ? 0 : time < 5 ? 1 : time < 7.5 ? 2 : time < 10 ? 3 : time < 12.5 ? 4 : 5
-const DEMO_STEP_STARTS = [0, 2.5, 5, 7.5, 10, 12.5] as const
-
 function currentReleaseDate(date = new Date()) {
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}`
@@ -314,9 +312,9 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
   const seekDemo = (step: number) => {
     const video = demoRef.current
     if (!video) return
-    video.currentTime = DEMO_STEP_STARTS[step]
+    video.currentTime = DEMO_STEP_MOVEMENT_STARTS[step]
     setDemoStep(step)
-    setDemoProgress((DEMO_STEP_STARTS[step] / (video.duration || 15)) * 100)
+    setDemoProgress((DEMO_STEP_MOVEMENT_STARTS[step] / (video.duration || 15)) * 100)
     void video.play()
   }
   const toggleDemo = () => {

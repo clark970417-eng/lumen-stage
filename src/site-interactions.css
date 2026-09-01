@@ -139,7 +139,7 @@
 .result-compare h2,
 .release-proof h2 { margin: 0; font-size: clamp(38px, 5vw, 76px); font-weight: 500; line-height: .98; letter-spacing: -.052em; text-wrap: balance; }
 .result-compare header p { margin: 0; color: #8fa1a9; font-size: 15px; line-height: 1.75; }
-.compare-stage { max-width: 1480px; aspect-ratio: 16 / 9; margin: auto; position: relative; overflow: hidden; border: 1px solid rgba(116, 221, 255, .28); border-radius: 20px; background: #020405; box-shadow: 0 38px 110px rgba(0, 0, 0, .42); }
+.compare-stage { max-width: 1480px; aspect-ratio: 16 / 9; margin: auto; padding: 0; box-sizing: border-box; position: relative; overflow: hidden; border: 1px solid rgba(116, 221, 255, .28); border-radius: 20px; background: #020405; box-shadow: 0 38px 110px rgba(0, 0, 0, .42); }
 .compare-stage > img,
 .compare-after,
 .compare-after img { width: 100%; height: 100%; display: block; object-fit: cover; }
