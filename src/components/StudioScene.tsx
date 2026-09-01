@@ -24,7 +24,7 @@ import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } fr
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
 import { getBackdrop, type BackdropProfile } from '../backdrops'
-import { DEFAULT_SEAT_HEIGHT, FOOTPRINT, seatedModelY, seatHeightOf } from '../layout'
+import { CHAIR_SEAT_THICKNESS, CHAIR_SEAT_TOP, DEFAULT_SEAT_HEIGHT, FOOTPRINT, seatedModelY, seatHeightOf } from '../layout'
 import { PoseRig } from './PoseRig'
 import { applyGelTint, geledTemperature, getGel } from '../gels'
 import { brickNormalMap, canvasNormalMap, concreteNormalMap, fabricNormalMap, fabricRoughnessMap, hairNormalMap, mottleMap, paperNormalMap, plasterNormalMap, skinNormalMap, skinRoughnessMap, woodNormalMap } from '../textures'
@@ -2666,12 +2666,15 @@ function StudioObjectMesh({ object }: { object: StudioObject }) {
   // Seat and table tops land exactly on the heights in layout.ts, so a figure
   // placed on one sits on the surface instead of a centimetre inside it.
   if (object.type === 'chair') return <>
-    <RoundedBox castShadow receiveShadow args={[0.7, 0.1, 0.64]} radius={0.03} smoothness={5} position={[0, 0.49, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[0.7, CHAIR_SEAT_THICKNESS, 0.64]} radius={0.03} smoothness={5} position={[0, CHAIR_SEAT_TOP - CHAIR_SEAT_THICKNESS / 2, 0]} material={material} />
     <RoundedBox castShadow receiveShadow args={[0.72, 0.055, 0.66]} radius={0.018} smoothness={4} position={[0, 0.418, 0]} material={material} />
     {/* The back starts above the seat, not on it. The gap is what your eye
-        reads as a chair rather than as a block with a slab behind it. */}
-    <RoundedBox castShadow receiveShadow args={[0.62, 0.48, 0.075]} radius={0.035} smoothness={5} position={[0, 0.91, 0.302]} rotation={[-0.11, 0, 0]} material={material} />
-    <RoundedBox castShadow receiveShadow args={[0.66, 0.07, 0.085]} radius={0.033} smoothness={5} position={[0, 1.166, 0.332]} rotation={[-0.11, 0, 0]} material={material} />
+        reads as a chair rather than as a block with a slab behind it.
+        It sits at -Z, behind a sitter: everything else in the studio faces +Z,
+        the actor included, and a back on the +Z side put the chair's own back
+        across her chest the moment she sat on it. */}
+    <RoundedBox castShadow receiveShadow args={[0.62, 0.48, 0.075]} radius={0.035} smoothness={5} position={[0, 0.91, -0.302]} rotation={[0.11, 0, 0]} material={material} />
+    <RoundedBox castShadow receiveShadow args={[0.66, 0.07, 0.085]} radius={0.033} smoothness={5} position={[0, 1.166, -0.332]} rotation={[0.11, 0, 0]} material={material} />
     {/* Legs splay. Drawn between two known ends so the feet stay on the floor
         whatever the splay, which is exactly what four independently placed
         cylinders could not promise. */}

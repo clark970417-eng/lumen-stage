@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULT_SEAT_HEIGHT, seatedModelY, seatHeightOf } from '../src/layout.ts'
+import { CHAIR_SEAT_TOP, DEFAULT_SEAT_HEIGHT, seatedModelY, seatHeightOf } from '../src/layout.ts'
 import { pelvisHeight } from '../src/ik.ts'
 import { NEUTRAL_POSE, POSE_LIBRARY, type ModelPose } from '../src/pose.ts'
 
@@ -55,4 +55,12 @@ test('sitting on nothing still puts the pelvis at a chair height, on both rigs',
 test('a standing pose is still placed by the feet, not the pelvis', () => {
   const standing = { ...NEUTRAL_POSE } as ModelPose
   assert.ok(pelvisHeight(standing, null) > DEFAULT_SEAT_HEIGHT + 0.3, 'a standing pelvis is nowhere near a seat')
+})
+
+test('the height a sitter is placed at is the height the seat is drawn at', () => {
+  // The chair mesh builds its slab around this, so the surface you can see and
+  // the surface the pelvis lands on are the same number rather than two that
+  // happen to agree today.
+  assert.equal(seatHeightOf('chair'), CHAIR_SEAT_TOP)
+  assert.ok(Math.abs(pelvisInRoom(seatHeightOf('chair')!, 0.94, 1, 1) - CHAIR_SEAT_TOP) < 1e-9)
 })

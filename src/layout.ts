@@ -58,8 +58,16 @@ export function seatedModelY(seat: number, hipLocalY: number, modelScale: number
   return seat / (groupScale || 1) - hipLocalY * modelScale + rootLift
 }
 
+/**
+ * The chair's seat surface — both the thing you see and the thing a sitter is
+ * placed on, so the two cannot drift apart. The seating code reads it from
+ * SEAT_HEIGHT below and the mesh builds the slab around it.
+ */
+export const CHAIR_SEAT_TOP = 0.54
+export const CHAIR_SEAT_THICKNESS = 0.1
+
 export const SEAT_HEIGHT: Partial<Record<string, number>> = {
-  chair: 0.54,
+  chair: CHAIR_SEAT_TOP,
   table: 0.88,
   plinth: 1.10,
   cube: 0.82,
