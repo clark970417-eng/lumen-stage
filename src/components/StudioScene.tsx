@@ -18,7 +18,7 @@ import type { FigureAppearance } from './Figure'
 import { forwardKinematics } from '../ik'
 import { isSeatedPose, NEUTRAL_POSE, type ModelPose } from '../pose'
 import type { HairStyle } from '../wardrobe'
-import { aimEyes, applyExpressionToMorphs, applyPoseToSkeleton, findEyeBones, landHands, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
+import { aimEyes, applyExpressionToMorphs, applyPoseToSkeleton, findEyeBones, landFeet, landHands, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
 import { SOCKET_PAINT_SPREAD, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, bakedActorResponse, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
@@ -2317,6 +2317,10 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       if (Number.isFinite(posedHipY)) {
         object.position.y = seatedModelY(seatedHipHeight(seatHeight), posedHipY, object.scale.y, groupScale, effectivePose.rootLift)
       }
+      object.updateMatrixWorld(true)
+      // The pelvis is on the seat, so the legs are what has to reach the floor.
+      // Where the floor is, is where the feet stood before the actor sat down.
+      landFeet(rig.current.map, object, rig.current.baseY + rig.current.restFootY * object.scale.y)
       object.updateMatrixWorld(true)
     } else if (!effectivePose.airborne) {
       const posedFootY = Math.min(localY(rig.current.map.leftFoot), localY(rig.current.map.rightFoot))

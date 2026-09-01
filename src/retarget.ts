@@ -593,3 +593,42 @@ export function landHands(map: BoneMap, want: RigPoints, faceForward: number) {
   land(leftUpperArm, leftLowerArm, leftHand, want.leftWrist)
   land(rightUpperArm, rightLowerArm, rightHand, want.rightWrist)
 }
+
+/**
+ * Puts a seated actor's feet on the floor.
+ *
+ * A standing actor is planted by moving the whole model until the lower foot
+ * touches. A seated one cannot be: the pelvis is on the seat and that is what
+ * fixes the height, so the legs have to make up the difference themselves. Left
+ * to the pose angles alone they did not — the library writes a hip and a knee
+ * in degrees, and degrees only reach the floor for the leg length and the seat
+ * height they were written against. On the studio's own chair every seated pose
+ * left both feet about seven centimetres in the air.
+ *
+ * Only the height is corrected. The target keeps the foot's own x and z, so an
+ * asymmetric pose stays asymmetric and crossed legs stay crossed; what changes
+ * is how far the knee opens. A seat too tall to reach the floor from — a plinth,
+ * a stool — leaves the chain reaching and the leg hanging, which is what a leg
+ * does when it cannot reach the floor.
+ *
+ * `plantedY` is the height the foot bone stands at with the sole down, measured
+ * in the frame the model's own position lives in. It has to be that frame and
+ * not the model's: matching a height inside the model only means "on the floor"
+ * while the model has not moved, and a seated one has just been lifted onto a
+ * seat — asked for its resting height there, the leg drove the foot a further
+ * twenty centimetres through the floor.
+ */
+export function landFeet(map: BoneMap, model: THREE.Object3D, plantedY: number) {
+  const target = new THREE.Vector3()
+  const parent = model.parent
+  const land = (upper?: THREE.Bone, lower?: THREE.Bone, foot?: THREE.Bone) => {
+    if (!upper || !lower || !foot) return
+    foot.getWorldPosition(target)
+    if (parent) parent.worldToLocal(target)
+    target.y = plantedY
+    if (parent) parent.localToWorld(target)
+    reachTowards([upper, lower], foot, target, 5)
+  }
+  land(map.leftUpperLeg, map.leftLowerLeg, map.leftFoot)
+  land(map.rightUpperLeg, map.rightLowerLeg, map.rightFoot)
+}
