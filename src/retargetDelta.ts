@@ -34,11 +34,24 @@ export function applyWorldPoseDelta(
   return output.multiply(importedRestWorld)
 }
 
-/** Applies a local finger delta without replacing the imported relaxed arc. */
-export function applyFingerCurlDelta(output: THREE.Quaternion, importedRestLocal: THREE.Quaternion, degrees: number) {
-  const bend = new THREE.Quaternion().setFromAxisAngle(
-    new THREE.Vector3(0, 0, 1),
-    THREE.MathUtils.degToRad(-degrees),
-  )
+/** The bend axis to fall back on when the hand is too sparse to measure one. */
+const DEFAULT_FINGER_AXIS = new THREE.Vector3(0, 0, 1)
+
+/**
+ * Applies a local finger delta without replacing the imported relaxed arc.
+ *
+ * `axis` is in the bone's own frame. It used to be hard-coded to Z, which is
+ * the flexion axis of the rig this was written against and the *spread* axis of
+ * a Biped: asked for a fist, the shipped actors opened their fingers a
+ * centimetre and fanned them wider. Which axis a finger bends about is a fact
+ * about the rig, so it is measured off the hand — see fingerCurlAxis.
+ */
+export function applyFingerCurlDelta(
+  output: THREE.Quaternion,
+  importedRestLocal: THREE.Quaternion,
+  degrees: number,
+  axis: THREE.Vector3 = DEFAULT_FINGER_AXIS,
+) {
+  const bend = new THREE.Quaternion().setFromAxisAngle(axis, THREE.MathUtils.degToRad(-degrees))
   return output.copy(importedRestLocal).multiply(bend)
 }

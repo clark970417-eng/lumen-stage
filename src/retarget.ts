@@ -293,12 +293,63 @@ const NAMED_FINGER = /(thumb|index|middle|ring|pinky|little)/
 const NUMBERED_FINGER = /finger(\d)/
 
 /** Which curl a finger bone takes, or null if the bone is not a finger. */
-function fingerRole(name: string): 'thumb' | 'index' | 'other' | null {
+function fingerRole(name: string): 'thumb' | 'index' | 'pinky' | 'other' | null {
   const named = name.match(NAMED_FINGER)
-  if (named) return named[1] === 'thumb' ? 'thumb' : named[1] === 'index' ? 'index' : 'other'
+  if (named) {
+    if (named[1] === 'thumb') return 'thumb'
+    if (named[1] === 'index') return 'index'
+    return named[1] === 'pinky' || named[1] === 'little' ? 'pinky' : 'other'
+  }
   const numbered = name.match(NUMBERED_FINGER)
   if (!numbered) return null
-  return numbered[1] === '0' ? 'thumb' : numbered[1] === '1' ? 'index' : 'other'
+  if (numbered[1] === '0') return 'thumb'
+  if (numbered[1] === '1') return 'index'
+  return numbered[1] === '4' ? 'pinky' : 'other'
+}
+
+/** The far end of a finger, for measuring which way it points. */
+function fingerTip(root: THREE.Object3D): THREE.Object3D {
+  let tip = root
+  for (;;) {
+    const next = tip.children.find((node) => (node as THREE.Bone).isBone)
+    if (!next) return tip
+    tip = next
+  }
+}
+
+/**
+ * The axis a finger bends about, measured off the hand rather than assumed.
+ *
+ * A finger's flexion axis is whatever the rigger chose, and the rigs disagree:
+ * bending about the local Z that suits one of them fans a Biped's fingers apart
+ * instead of closing them, so a fist opened the hand a centimetre and spread it
+ * wider. What every hand agrees on is that a finger curls about the line
+ * through the knuckles, so that line is what gets measured — in the room, then
+ * expressed in each bone's own frame by the caller.
+ *
+ * Which way along that line closes the hand rather than opening it cannot be
+ * read off the axis, because a left hand and a right hand mirror. It is settled
+ * by asking whether turning that way carries the fingertip toward the wrist.
+ */
+function fingerCurlAxis(hand: THREE.Bone): THREE.Vector3 | null {
+  const roots = hand.children.filter((node) => (node as THREE.Bone).isBone)
+  const rootFor = (role: string) => roots.find((node) => fingerRole(canonicalName(node.name)) === role)
+  const index = rootFor('index')
+  const pinky = rootFor('pinky')
+  if (!index || !pinky) return null
+  const across = pinky.getWorldPosition(new THREE.Vector3()).sub(index.getWorldPosition(new THREE.Vector3()))
+  if (across.lengthSq() < 1e-10) return null
+  across.normalize()
+
+  const knuckle = index.getWorldPosition(new THREE.Vector3())
+  const tip = fingerTip(index).getWorldPosition(new THREE.Vector3())
+  const reach = tip.clone().sub(knuckle)
+  if (reach.lengthSq() < 1e-10) return null
+  // Turning about `across` moves the tip by across x reach. Curling is the
+  // sense of that which brings it back toward the wrist.
+  const swing = new THREE.Vector3().crossVectors(across, reach)
+  const towardWrist = hand.getWorldPosition(new THREE.Vector3()).sub(tip)
+  return swing.dot(towardWrist) < 0 ? across.negate() : across
 }
 
 /**
@@ -312,6 +363,9 @@ function fingerRole(name: string): 'thumb' | 'index' | 'other' | null {
 function applyFingers(hand: THREE.Bone | undefined, pose: HandPose, rest: RestPose) {
   if (!hand) return
   const curl = HAND_CURL[pose]
+  const across = fingerCurlAxis(hand)
+  const inBone = new THREE.Vector3()
+  const boneWorld = new THREE.Quaternion()
   hand.traverse((node) => {
     if (!(node as THREE.Bone).isBone || node === hand) return
     const bone = node as THREE.Bone
@@ -322,7 +376,9 @@ function applyFingers(hand: THREE.Bone | undefined, pose: HandPose, rest: RestPo
     if (!restLocal) return
     // MPFB exports already carry a relaxed finger arc. Treating that authored
     // arc as zero prevents every pose from curling it a second time into a hook.
-    applyFingerCurlDelta(bone.quaternion, restLocal, degrees)
+    if (!across) { applyFingerCurlDelta(bone.quaternion, restLocal, degrees); return }
+    bone.getWorldQuaternion(boneWorld)
+    applyFingerCurlDelta(bone.quaternion, restLocal, degrees, inBone.copy(across).applyQuaternion(boneWorld.invert()))
   })
 }
 
@@ -396,6 +452,9 @@ export function applyPoseToSkeleton(root: THREE.Object3D, map: BoneMap, rest: Re
   const rootWorld = root.getWorldQuaternion(new THREE.Quaternion())
   walk(root, rootWorld)
 
+  // The walk wrote local rotations only, so the hands are not where the matrices
+  // say yet — and the bend axis is measured in the room.
+  root.updateMatrixWorld(true)
   applyFingers(map.leftHand, pose.leftHand, rest)
   applyFingers(map.rightHand, pose.rightHand, rest)
   root.updateMatrixWorld(true)
