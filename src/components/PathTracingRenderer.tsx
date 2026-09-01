@@ -9,6 +9,32 @@ import { useRenderProgress } from '../renderProgress'
 
 const SENSOR_WIDTH = { 'full-frame': 36, 'aps-c': 23.5, mft: 17.3 } as const
 
+function createPathTracingFallbackEnvironment() {
+  const width = 32
+  const height = 16
+  const data = new Uint16Array(width * height * 4)
+  for (let y = 0; y < height; y += 1) {
+    const elevation = 1 - y / (height - 1)
+    for (let x = 0; x < width; x += 1) {
+      const azimuth = x / width
+      const keyGlow = Math.exp(-Math.pow((azimuth - 0.72) / 0.14, 2))
+      const fill = 0.7 + elevation * 0.9 + keyGlow * 0.8
+      const offset = (y * width + x) * 4
+      data[offset] = THREE.DataUtils.toHalfFloat(fill * 1.02)
+      data[offset + 1] = THREE.DataUtils.toHalfFloat(fill)
+      data[offset + 2] = THREE.DataUtils.toHalfFloat(fill * 0.94)
+      data[offset + 3] = THREE.DataUtils.toHalfFloat(1)
+    }
+  }
+  const texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat, THREE.HalfFloatType)
+  texture.mapping = THREE.EquirectangularReflectionMapping
+  texture.minFilter = THREE.LinearFilter
+  texture.magFilter = THREE.LinearFilter
+  texture.generateMipmaps = false
+  texture.needsUpdate = true
+  return texture
+}
+
 /** Loaded only when the user enables the substantially heavier path renderer. */
 export default function PathTracingRenderer() {
   const { gl, scene, camera } = useThree()
@@ -58,6 +84,7 @@ export default function PathTracingRenderer() {
   const setSamples = useRenderProgress((state) => state.setSamples)
   const tracer = useMemo(() => new WebGLPathTracer(gl), [gl])
   const physicalCamera = useMemo(() => new PhysicalCamera(), [])
+  const fallbackEnvironment = useMemo(createPathTracingFallbackEnvironment, [])
   const ready = useRef(false)
   const lastReport = useRef(0)
 
@@ -77,9 +104,10 @@ export default function PathTracingRenderer() {
     return () => {
       ready.current = false
       tracer.dispose()
+      fallbackEnvironment.dispose()
       useRenderProgress.getState().reset()
     }
-  }, [tracer])
+  }, [fallbackEnvironment, tracer])
 
   useEffect(() => {
     try {
@@ -103,7 +131,29 @@ export default function PathTracingRenderer() {
       physicalCamera.updateProjectionMatrix()
       physicalCamera.updateMatrixWorld(true)
 
-      tracer.setScene(scene, physicalCamera)
+      // PMREM textures are ideal for the live WebGL preview, but they do not
+      // expose CPU pixel data. three-gpu-pathtracer treats every non-cube
+      // environment as an equirectangular data texture and otherwise crashes
+      // while building its importance map. Keep valid HDR/cube environments;
+      // replace the preview-only PMREM texture with a CPU-readable neutral
+      // studio environment for the path-traced scene build. This both avoids
+      // the crash and preserves the subtle room fill visible in live preview.
+      const previewEnvironment = scene.environment
+      const environmentImage = previewEnvironment?.image as { data?: ArrayLike<number> } | undefined
+      const pathEnvironmentSupported = previewEnvironment === null
+        || Boolean((previewEnvironment as THREE.CubeTexture | null)?.isCubeTexture)
+        || Boolean(environmentImage?.data)
+      const previewEnvironmentIntensity = scene.environmentIntensity
+      if (!pathEnvironmentSupported) {
+        scene.environment = fallbackEnvironment
+        scene.environmentIntensity = 0.65
+      }
+      try {
+        tracer.setScene(scene, physicalCamera)
+      } finally {
+        scene.environment = previewEnvironment
+        scene.environmentIntensity = previewEnvironmentIntensity
+      }
       ready.current = true
       lastReport.current = 0
       setStatus(paused ? 'paused' : 'rendering')
@@ -114,7 +164,7 @@ export default function PathTracingRenderer() {
   }, [
     ambientLevel, ambientTemperature, anamorphic, aperture, camera, cameraMode, cameraPosition, cameraTarget, floorColor, focalLength, focusDistance, haze, hdriUrl, iesUrl, lensBreathing, lensOpticsEnabled, lensProfileId, lights, modifiers, roomDepth, roomHeight, roomWidth, studioObjects,
     modelHeight, modelImportStatus, modelPose, modelPosition, modelRotation, outfitColor, physicalCamera, renderRevision, skinColor, soloLightId,
-    scene, sensorFormat, setStatus, shutter, sunAzimuth, sunElevation, sunEnabled, sunIntensity, syncSpeed, tracer, tStop, wallColor, windowEnabled,
+    fallbackEnvironment, scene, sensorFormat, setStatus, shutter, sunAzimuth, sunElevation, sunEnabled, sunIntensity, syncSpeed, tracer, tStop, wallColor, windowEnabled,
   ])
 
   useEffect(() => {

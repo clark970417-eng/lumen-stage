@@ -24,6 +24,45 @@ RENDERER = Path(os.environ.get(
 LOCALES = ("en", "zh", "ja")
 
 
+def cursor_choreography(mode: str) -> tuple[list[list[float]], list[float]]:
+    """Follow the visible controls: arrive, pause, click, then change scene."""
+    setup = (462, 1104)
+    if mode == "full":
+        person = (806, 46)
+        light = (989, 46)
+        camera = (1172, 46)
+        layout = (1355, 46)
+        more = (1587, 46)
+        setup_sheet = (1501, 383)
+        return (
+            [
+                [0.0, 1435, 70], [1.65, *setup], [2.36, *setup], [2.5, *setup],
+                [3.25, *person], [3.75, *person], [4.40, *light], [4.82, *light], [5.0, *light],
+                [6.85, *camera], [7.32, *camera], [7.5, *camera],
+                [9.15, *layout], [9.82, *layout], [10.0, *layout],
+                [11.75, *more], [12.32, *more], [12.5, *more],
+                [13.65, *setup_sheet], [15.0, *setup_sheet],
+            ],
+            [2.28, 3.55, 4.72, 7.22, 9.72, 12.22, 14.55],
+        )
+
+    person = (1512, 102)
+    light = (1611, 102)
+    camera = (1711, 102)
+    layout = (1810, 102)
+    sheet_handle = (1884, 102)
+    return (
+        [
+            [0.0, 1435, 70], [1.65, *setup], [2.36, *setup], [2.5, *setup],
+            [3.25, *person], [3.75, *person], [4.40, *light], [4.82, *light], [5.0, *light],
+            [6.85, *camera], [7.32, *camera], [7.5, *camera],
+            [9.15, *layout], [9.82, *layout], [10.0, *layout],
+            [11.75, *sheet_handle], [12.32, *sheet_handle], [15.0, *sheet_handle],
+        ],
+        [2.28, 3.55, 4.72, 7.22, 9.72, 12.22],
+    )
+
+
 def cursor_asset() -> Path:
     target = CONFIGS / "cursor.png"
     image = Image.new("RGBA", (40, 52), (0, 0, 0, 0))
@@ -42,6 +81,7 @@ def render(locale: str, mode: str, cursor: Path) -> None:
         f"shot{index}": str(CAPTURES / locale / f"video-{mode}-{index}.png")
         for index in range(6)
     }
+    cursor_keys, click_times = cursor_choreography(mode)
     config = {
         "duration": 15,
         "fps": 60,
@@ -54,16 +94,9 @@ def render(locale: str, mode: str, cursor: Path) -> None:
         "rotation_strength_degrees": 5,
         "shots": shots,
         "scene_starts": [[index * 2.5, f"shot{index}", "fade"] for index in range(6)],
-        "cursor_keys": [
-            [0.0, 280, 230], [2.25, 1450, 1120],
-            [2.5, 1040, 130], [4.75, 1250, 660],
-            [5.0, 1180, 130], [7.25, 1340, 760],
-            [7.5, 1320, 130], [9.75, 1040, 710],
-            [10.0, 1510, 130], [12.25, 1120, 1050],
-            [12.5, 1660, 150], [14.9, 1540, 1160],
-        ],
+        "cursor_keys": cursor_keys,
         "camera_keys": [[0.0, 960, 720, 1.0], [15.0, 960, 720, 1.0]],
-        "click_times": [2.3, 4.8, 7.3, 9.8, 12.3],
+        "click_times": click_times,
         "preset": "veryfast",
         "crf": 17,
     }
