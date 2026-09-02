@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { aimEyes, captureRestPose, findEyeBones, mapSkeleton } from '../src/retarget.ts'
+import { NEUTRAL_POSE, type ModelPose } from '../src/pose.ts'
+import { aimEyes, applyExpressionToMorphs, captureRestPose, findEyeBones, mapSkeleton } from '../src/retarget.ts'
 
 /** A head with two eyeballs, and the neighbours that must not be mistaken for them. */
 function buildHead(headTurn = 0) {
@@ -94,4 +95,44 @@ test('a rig facing the other way looks the other way', () => {
   forward.root.updateMatrixWorld(true)
   backward.root.updateMatrixWorld(true)
   assert.ok(gazeDirection(forward.left).x * gazeDirection(backward.left).x < 0)
+})
+
+/** A face carrying whichever blendshape naming the file happens to use. */
+function faceWith(names: string[]) {
+  const mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial())
+  mesh.morphTargetDictionary = Object.fromEntries(names.map((name, i) => [name, i]))
+  mesh.morphTargetInfluences = names.map(() => 0)
+  const root = new THREE.Group()
+  root.add(mesh)
+  return { root, mesh, at: (name: string) => mesh.morphTargetInfluences![mesh.morphTargetDictionary![name]] }
+}
+
+const ARKIT = [
+  'blendShape1.AK_03_BrowInnerUp', 'blendShape1.AK_04_BrowOuterUpLeft',
+  'blendShape1.AK_19_EyeSquintLeft', 'blendShape1.AK_20_EyeSquintRight',
+  'blendShape1.AK_44_MouthSmileLeft',
+]
+const FACS = [
+  'blendShape1.AU_01_InnerBrowRaiser', 'blendShape1.AU_02_OuterBrowRaiser',
+  'blendShape1.AU_44_Squint', 'blendShape1.AU_44_L_Squint', 'blendShape1.AU_44_R_Squint',
+  'blendShape1.HB_07_MouthSmile',
+]
+
+test('a face that describes itself twice is only driven once', () => {
+  // These actors ship the same expressions in two namings, and the FACS half
+  // repeats itself again as whole-face shapes beside their own halves. Driven
+  // by name, a squint went on three times over: forty-five per cent of one shut
+  // the eye completely and the eyeball disappeared behind the lid.
+  const face = faceWith([...ARKIT, ...FACS])
+  applyExpressionToMorphs(face.root, { ...NEUTRAL_POSE, squint: 50, browRaise: 100, smile: 100 } as ModelPose)
+  assert.equal(face.at('blendShape1.AK_19_EyeSquintLeft'), 0.5, 'the ARKit squint is driven')
+  for (const name of FACS) assert.equal(face.at(name), 0, `${name} is left alone`)
+})
+
+test('a face that only speaks FACS is still driven', () => {
+  // The rule is about a file saying the same thing twice, not about disliking
+  // one of the two namings.
+  const face = faceWith(FACS)
+  applyExpressionToMorphs(face.root, { ...NEUTRAL_POSE, squint: 50 } as ModelPose)
+  assert.equal(face.at('blendShape1.AU_44_Squint'), 0.5)
 })

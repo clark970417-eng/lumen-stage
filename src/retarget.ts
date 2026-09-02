@@ -593,12 +593,31 @@ const MORPH_TARGETS: { pattern: RegExp; value: (pose: ModelPose) => number }[] =
   { pattern: /(mouthfunnel|lippart|mouthpucker)/i, value: (pose) => pose.lipPart / 100 },
 ]
 
+/**
+ * A shape from the ARKit set, and one from the FACS set that repeats it.
+ *
+ * These actors ship the same face twice over: a complete ARKit set (AK_) and a
+ * FACS set (AU_, HB_) describing the same actions again — and the FACS half
+ * carries whole-face shapes beside their own left and right halves, so it
+ * repeats itself as well. A slider matched by name drove all of them at once: a
+ * squint went on three times over, and forty-five per cent of one shut the eye
+ * completely.
+ *
+ * So where a file offers both, the ARKit set is driven and the other left at
+ * zero. It is the complete one, and it says each thing once.
+ */
+const ARKIT_SHAPE = /(^|\W)AK_\d/
+const FACS_SHAPE = /(^|\W)(AU|HB)_\d/
+
 /** Drives whatever blendshapes the file happens to ship. Silently no-ops otherwise. */
 export function applyExpressionToMorphs(root: THREE.Object3D, pose: ModelPose) {
   root.traverse((node) => {
     const mesh = node as THREE.Mesh
     if (!mesh.isMesh || !mesh.morphTargetDictionary || !mesh.morphTargetInfluences) return
+    const names = Object.keys(mesh.morphTargetDictionary)
+    const duplicated = names.some((name) => ARKIT_SHAPE.test(name)) && names.some((name) => FACS_SHAPE.test(name))
     for (const [name, index] of Object.entries(mesh.morphTargetDictionary)) {
+      if (duplicated && FACS_SHAPE.test(name)) { mesh.morphTargetInfluences[index] = 0; continue }
       const rule = MORPH_TARGETS.find((item) => item.pattern.test(name))
       if (!rule) continue
       mesh.morphTargetInfluences[index] = THREE.MathUtils.clamp(rule.value(pose), 0, 1)
