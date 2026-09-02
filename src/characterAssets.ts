@@ -39,11 +39,6 @@ export const ROCKETBOX_BUSINESS_FEMALE_URL = assetHref('models/lumen-human/rocke
 const TAILORED: OutfitStyle[] = ['suit', 'coat', 'shirt']
 
 export const DEFAULT_HUMAN_URL = assetHref('models/lumen-human/rocketbox-male.glb')
-export const SUITED_HUMAN_URL = assetHref('models/lumen-human/human-suited-runtime.glb')
-export const FEMALE_CASUAL_URL = assetHref('models/lumen-human/human-female-casual.glb')
-export const FEMALE_ACTIVEWEAR_URL = assetHref('models/lumen-human/human-female-activewear.glb')
-export const FEMALE_DRESS_URL = assetHref('models/lumen-human/human-female-dress.glb')
-export const FEMALE_GOWN_URL = assetHref('models/lumen-human/human-female-gown.glb')
 
 export const DEFAULT_HUMAN_NAME = 'Everyday Adult'
 

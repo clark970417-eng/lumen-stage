@@ -1497,17 +1497,7 @@ function addStudioBrows(model: THREE.Group, head: THREE.Bone, eyeAnchor: THREE.V
  * all of it ends up behind the eyeball anyway — this is only about what shows
  * around the rim.
  */
-/**
- * The suited actor's left lid is authored a little more open than his right.
- * Cutting both sides to the same ellipse exposed a round white ball on that
- * side while the other lid still clipped it into an almond. Keep the eyeballs
- * symmetric and trim only that actor's opening to match the visible right eye.
- */
-const eyeApertureCorrection = (correctMaleLeft: boolean, side: -1 | 1) => correctMaleLeft && side === 1
-  ? { width: 0.96, height: 0.88 }
-  : { width: 1, height: 1 }
-
-function paintOverSocket(model: THREE.Object3D, anchor: THREE.Vector3, correctMaleLeft = false) {
+function paintOverSocket(model: THREE.Object3D, anchor: THREE.Vector3) {
   const point = new THREE.Vector3()
   const painted = new Set<THREE.Texture>()
   model.updateMatrixWorld(true)
@@ -1534,9 +1524,8 @@ function paintOverSocket(model: THREE.Object3D, anchor: THREE.Vector3, correctMa
       point.fromBufferAttribute(position as THREE.BufferAttribute, vertex).applyMatrix4(child.matrixWorld)
       if (point.z * FACE_FORWARD < anchor.z * FACE_FORWARD) continue
       for (const side of [-1, 1] as const) {
-        const correction = eyeApertureCorrection(correctMaleLeft, side)
-        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / (halfWidth * correction.width)
-        const dy = (point.y - anchor.y) / (halfHeight * correction.height)
+        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / halfWidth
+        const dy = (point.y - anchor.y) / halfHeight
         if (dx * dx + dy * dy > 1) continue
         const u = uv.getX(vertex)
         const v = uv.getY(vertex)
@@ -1647,7 +1636,7 @@ function paintOverSocket(model: THREE.Object3D, anchor: THREE.Vector3, correctMa
  * midpoint sits exactly on its edge, so a refined triangle beside an unrefined
  * one leaves no crack — the extra vertex is simply unused by the neighbour.
  */
-function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 5, correctMaleLeft = false) {
+function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 5) {
   const point = new THREE.Vector3()
   model.updateMatrixWorld(true)
   model.traverse((child) => {
@@ -1676,9 +1665,8 @@ function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 
       if (point.z * FACE_FORWARD < anchor.z * FACE_FORWARD - EYE_RADIUS) return Number.POSITIVE_INFINITY
       let nearest = Number.POSITIVE_INFINITY
       for (const side of [-1, 1] as const) {
-        const correction = eyeApertureCorrection(correctMaleLeft, side)
-        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / (EYE_APERTURE_HALF_WIDTH * correction.width)
-        const dy = (point.y - anchor.y) / (EYE_APERTURE_HALF_HEIGHT * correction.height)
+        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / EYE_APERTURE_HALF_WIDTH
+        const dy = (point.y - anchor.y) / EYE_APERTURE_HALF_HEIGHT
         nearest = Math.min(nearest, Math.hypot(dx, dy))
       }
       return nearest
@@ -1752,7 +1740,7 @@ function refineEyeRegion(model: THREE.Object3D, anchor: THREE.Vector3, levels = 
   })
 }
 
-function cutEyeApertures(model: THREE.Object3D, anchor: THREE.Vector3, correctMaleLeft = false) {
+function cutEyeApertures(model: THREE.Object3D, anchor: THREE.Vector3) {
   const centre = new THREE.Vector3()
   const a = new THREE.Vector3()
   const b = new THREE.Vector3()
@@ -1770,9 +1758,8 @@ function cutEyeApertures(model: THREE.Object3D, anchor: THREE.Vector3, correctMa
     const inAperture = (point: THREE.Vector3) => {
       if (point.z * FACE_FORWARD < anchor.z * FACE_FORWARD) return false
       for (const side of [-1, 1] as const) {
-        const correction = eyeApertureCorrection(correctMaleLeft, side)
-        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / (EYE_APERTURE_HALF_WIDTH * correction.width)
-        const dy = (point.y - anchor.y) / (EYE_APERTURE_HALF_HEIGHT * correction.height)
+        const dx = (point.x - (anchor.x + side * EYE_HALF_SEPARATION)) / EYE_APERTURE_HALF_WIDTH
+        const dy = (point.y - anchor.y) / EYE_APERTURE_HALF_HEIGHT
         if (dx * dx + dy * dy <= 1) return true
       }
       return false
@@ -1882,7 +1869,7 @@ function createEyeTexture(irisColor: string) {
   return texture
 }
 
-function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, eyeColor: string, hairColor: string, correctMaleLeft = false) {
+function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, headPosition: THREE.Vector3, eyeColor: string, hairColor: string) {
   const eyes = new THREE.Group()
   eyes.name = 'studio-eyeballs'
   const geometry = new THREE.SphereGeometry(EYE_RADIUS, 44, 32)
@@ -1930,9 +1917,9 @@ function addStudioEyes(model: THREE.Group, head: THREE.Bone, box: THREE.Box3, he
   // Placed before the eyes are attached, because attachHeadDetail converts
   // the anchor to model space in place.
   addStudioBrows(model, head, anchor.clone(), hairColor)
-  refineEyeRegion(model, anchor, 5, correctMaleLeft)
-  paintOverSocket(model, anchor, correctMaleLeft)
-  cutEyeApertures(model, anchor, correctMaleLeft)
+  refineEyeRegion(model, anchor, 5)
+  paintOverSocket(model, anchor)
+  cutEyeApertures(model, anchor)
   attachHeadDetail(model, head, eyes, anchor)
 }
 
@@ -2079,7 +2066,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       if (shippedHuman && map.head && !hasRealEyes(model)) {
         const normalizedBox = new THREE.Box3().setFromObject(model)
         const headPosition = map.head.getWorldPosition(new THREE.Vector3())
-        addStudioEyes(model, map.head, normalizedBox, headPosition, appearanceRef.current.eyeColor, appearanceRef.current.hairColor, url.includes('/human-suited-runtime.glb'))
+        addStudioEyes(model, map.head, normalizedBox, headPosition, appearanceRef.current.eyeColor, appearanceRef.current.hairColor)
         new OBJLoader().load(STUDIO_HAIR_SOURCE_URL, (hair) => {
           if (!active) {
             hair.traverse((child) => {
@@ -2347,13 +2334,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     object.updateMatrixWorld(true)
   }, [effectivePose, gazePitch, gazeYaw, object])
 
-  // The MakeHuman exports arrive with a stray root rotation that has to be
-  // flattened. The Rocketbox pair carry their Y-up conversion there instead,
-  // so zeroing it lays them on the floor — where they rendered as a red sliver
-  // while every measurement, taken before React applied this prop, insisted
-  // they were standing.
-  const flattenRoot = /\/human-(suited|female)-/.test(url)
-  if (object) return <primitive object={object} rotation={flattenRoot ? [0, 0, 0] : undefined} />
+  if (object) return <primitive object={object} />
   return null
 }
 

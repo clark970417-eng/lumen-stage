@@ -49,15 +49,22 @@ Every converted actor is then passed through `scripts/shrink-morphs.mjs`.
   21.8 MB with no visible difference at full expression.
 - It is idempotent, so re-running it over an already-converted actor is safe.
 
-## Previous MakeHuman subjects (no longer selected)
+## Removed MakeHuman subjects
 
-`human-suited-runtime.glb` was the built-in studio subject.
+`human-suited-runtime.glb` and the four `human-female-*.glb` actors were the
+studio's original subjects, replaced by the Rocketbox pair because they ship no
+eye geometry at all — no eyeballs, no lids, no brows — which is why the studio
+used to cut a socket into each face and park a sphere behind it.
 
-- Source: MakeHuman / MPFB 2 character distributed by the open-source `kunalkushwaha/vsim` project.
-- License: CC0 1.0. The generated human, skin, clothing and shoe assets are public-domain MakeHuman output.
-- Rig: 53-bone humanoid skeleton.
-- Embedded motion clips: idle, walk, run and wave.
-- Runtime treatment: normalized to 1.82 m, opaque PBR materials, shadow casting, real eyeball geometry, and head-bone accessories.
+They were deleted once the wardrobe learned to pick an actor, which was the last
+thing they could still have been used for. They were 19.8 MB of a deploy nothing
+could select. Their provenance, licences (CC0 1.0, MakeHuman / MPFB 2 via the
+`kunalkushwaha/vsim` project) and the conversion notes are in the git history at
+the commit that removed them, and the files come back with a checkout if a
+matching Rocketbox avatar is ever wanted for each outfit.
+
+The socket-cutting and prosthetic-eye code stays, because it is what makes an
+eyeless model somebody imports themselves usable.
 
 `hair/short04.obj` is the complete scalp-shell hairstyle used by the built-in subjects. Its original `short04.mhmat` is preserved beside it.
 
