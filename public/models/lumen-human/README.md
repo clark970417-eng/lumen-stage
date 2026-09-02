@@ -36,6 +36,19 @@ Rocketbox avatar wears its clothes in its body map.
 - Same rig, same 24 blendshapes, same 0.9 alpha cutoff on the lash atlas, so
   every pose, expression, gaze and hand shape already works on them.
 
+Every converted actor is then passed through `scripts/shrink-morphs.mjs`.
+
+- glTF stores a morph target as a delta for every vertex in the mesh, moving or
+  not, and the source FBX leaves float noise on most of the ones that do not
+  move. Measured across the shipped four: 56% of the deltas are exactly zero,
+  another 42% move less than a micron, and about 2% move far enough to see on a
+  1.74 m figure. That data was 58-66% of every file.
+- The script drops deltas below ten microns and stores the rest as sparse
+  accessors, which is what sparse accessors are for. Largest resulting change to
+  any vertex in any shape: two microns. The four actors went from 47.8 MB to
+  21.8 MB with no visible difference at full expression.
+- It is idempotent, so re-running it over an already-converted actor is safe.
+
 ## Previous MakeHuman subjects (no longer selected)
 
 `human-suited-runtime.glb` was the built-in studio subject.

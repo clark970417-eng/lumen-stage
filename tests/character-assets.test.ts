@@ -65,3 +65,40 @@ test('the actors whose look is photographed are the ones the appearance controls
   assert.ok(!appearanceIsBaked(null))
   assert.ok(!appearanceIsBaked('/models/someone-elses-import.glb'))
 })
+
+test('the shipped actors carry their morph targets sparsely', () => {
+  // glTF stores a morph target as a delta for every vertex in the mesh whether
+  // it moves or not, and the FBX these came from leaves float noise on most of
+  // the rest: 56% of the deltas were exactly zero and another 42% moved less
+  // than a micron. That was well over half of every actor file.
+  //
+  // scripts/shrink-morphs.mjs drops the ones below ten microns and stores the
+  // rest as sparse accessors. Re-run the converter without it and this fails.
+  for (const url of [ROCKETBOX_MALE_URL, ROCKETBOX_FEMALE_URL, ROCKETBOX_BUSINESS_MALE_URL, ROCKETBOX_BUSINESS_FEMALE_URL]) {
+    const gltf = readGlbJson(url)
+    const targets = new Set<number>()
+    for (const mesh of gltf.meshes as { primitives: { targets?: { POSITION?: number }[] }[] }[]) {
+      for (const primitive of mesh.primitives) {
+        for (const target of primitive.targets ?? []) {
+          if (target.POSITION !== undefined) targets.add(target.POSITION)
+        }
+      }
+    }
+    assert.equal(targets.size, 24, `${url} still has its 24 shapes`)
+    for (const index of targets) {
+      const accessor = gltf.accessors[index]
+      assert.equal(accessor.bufferView, undefined, `${url} target ${index} keeps a dense buffer`)
+      assert.ok(accessor.sparse, `${url} target ${index} is not sparse`)
+      // A face shape moves a small share of a whole body.
+      assert.ok(accessor.sparse.count < accessor.count * 0.2, `${url} target ${index} stores ${accessor.sparse.count} of ${accessor.count}`)
+    }
+  }
+})
+
+test('an actor is small enough to be worth downloading', () => {
+  // The four of them are what a visitor pays for before anything appears.
+  for (const url of [ROCKETBOX_MALE_URL, ROCKETBOX_FEMALE_URL, ROCKETBOX_BUSINESS_MALE_URL, ROCKETBOX_BUSINESS_FEMALE_URL]) {
+    const bytes = readFileSync(`public${url}`).length
+    assert.ok(bytes < 8 * 1024 * 1024, `${url} is ${(bytes / 1048576).toFixed(1)} MB`)
+  }
+})
