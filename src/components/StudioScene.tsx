@@ -2297,7 +2297,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     // arms onto it, because an angle only lands a hand somewhere if the arm it
     // turns is the length the angle was measured on.
     object.updateMatrixWorld(true)
-    landHands(rig.current.map, forwardKinematics(effectivePose, appearanceRef.current.physique), FACE_FORWARD)
+    landHands(rig.current.map, forwardKinematics(effectivePose, appearanceRef.current.physique), FACE_FORWARD, object)
     applyExpressionToMorphs(object, effectivePose)
     object.updateMatrixWorld(true)
     const localY = (bone: THREE.Bone | undefined) => bone
@@ -2394,7 +2394,6 @@ function Mannequin() {
     [position],
   )
   const renderedRotation = useMemo<[number, number, number]>(() => [0, rotation, 0], [rotation])
-
   const model = (
     <group ref={group} position={renderedPosition} rotation={renderedRotation} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('model') }}>
       <ImportedModel url={activeModelUrl} seatHeight={seatHeight} onRigReady={setBoneMap} />

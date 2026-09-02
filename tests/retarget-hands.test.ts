@@ -59,7 +59,7 @@ test('a folded arm is carried across the body, on whichever side the rig calls l
   const rest = captureRestPose(root, map)
   applyPoseToSkeleton(root, map, rest, pose, 0)
   root.updateMatrixWorld(true)
-  landHands(map, want, 1)
+  landHands(map, want, 1, root)
   root.updateMatrixWorld(true)
 
   const hips = map.hips!.getWorldPosition(new THREE.Vector3())
@@ -80,7 +80,7 @@ test('which side a rig calls left does not depend on where it is standing', () =
     const rest = captureRestPose(root, map)
     applyPoseToSkeleton(root, map, rest, pose, 0)
     root.updateMatrixWorld(true)
-    landHands(map, want, 1)
+    landHands(map, want, 1, root)
     root.updateMatrixWorld(true)
     return left.hand.getWorldPosition(new THREE.Vector3()).x - map.hips!.getWorldPosition(new THREE.Vector3()).x
   }

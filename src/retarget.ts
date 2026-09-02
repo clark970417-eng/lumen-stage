@@ -405,7 +405,7 @@ function applyFingers(hand: THREE.Bone | undefined, pose: HandPose, rest: RestPo
  * with the rest of the pose on a rig that numbers its sides the other way,
  * because a weight shift is only worth anything against the leg it is over.
  */
-function shiftHips(map: BoneMap, rest: RestPose, hipShift: number, mirrored: boolean) {
+function shiftHips(map: BoneMap, rest: RestPose, hipShift: number, mirrored: boolean, root: THREE.Object3D) {
   const hips = map.hips
   const restLocal = hips && rest.localPosition.get(hips)
   if (!hips || !restLocal) return
@@ -413,8 +413,11 @@ function shiftHips(map: BoneMap, rest: RestPose, hipShift: number, mirrored: boo
   const parent = hips.parent
   const parentWorld = parent ? parent.getWorldQuaternion(new THREE.Quaternion()) : new THREE.Quaternion()
   const scale = parent ? parent.getWorldScale(new THREE.Vector3()).x || 1 : 1
+  // Sideways for the actor, not for the room: a figure turned to face the wall
+  // still steps onto its own left foot, not onto the wall.
+  const inModel = root.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(parentWorld)
   const offset = new THREE.Vector3((mirrored ? -hipShift : hipShift) / scale, 0, 0)
-  hips.position.copy(restLocal).add(offset.applyQuaternion(parentWorld.invert()))
+  hips.position.copy(restLocal).add(offset.applyQuaternion(inModel.invert()))
 }
 
 /**
@@ -441,7 +444,12 @@ export function applyPoseToSkeleton(root: THREE.Object3D, map: BoneMap, rest: Re
     if (!hips || !shoulder) return false
     const hipsAt = hips.getWorldPosition(new THREE.Vector3())
     const shoulderAt = shoulder.getWorldPosition(new THREE.Vector3())
-    const rigSide = Math.sign(shoulderAt.x - hipsAt.x)
+    // Against the actor's own right, not the room's. Which side of itself a rig
+    // calls left is a fact about the skeleton; read against the room it changed
+    // with the direction the actor happened to be facing, and a quarter turn
+    // was enough to decide the arms belonged the other way round.
+    const bodyRight = new THREE.Vector3(1, 0, 0).applyQuaternion(root.getWorldQuaternion(new THREE.Quaternion()))
+    const rigSide = Math.sign(shoulderAt.sub(hipsAt).dot(bodyRight))
     return rigSide !== 0 && rigSide !== LIBRARY_LEFT_SIDE
   })()
 
@@ -481,17 +489,24 @@ export function applyPoseToSkeleton(root: THREE.Object3D, map: BoneMap, rest: Re
     node.children.forEach((child) => walk(child, posedWorld))
   }
 
-  // Seeded with the root's own world orientation, which the walk then carries
-  // down through every node between it and the skeleton.
+  // Seeded with the root's own orientation rather than its orientation in the
+  // room, because that is the frame the rest pose was recorded in: the model is
+  // still detached when captureRestPose runs, so every restWorld is measured
+  // against the model and knows nothing about where it was later put.
+  //
+  // Seeded with the world orientation instead, the two frames disagreed by
+  // exactly however far the actor had been turned, and each bone's local
+  // rotation came out carrying the opposite of it. The skeleton cancelled the
+  // turn: reopen a project with the subject facing away and the group was
+  // rotated, the mesh was not, and the facing was silently lost.
   root.updateWorldMatrix(true, false)
-  const rootWorld = root.getWorldQuaternion(new THREE.Quaternion())
-  walk(root, rootWorld)
+  walk(root, root.quaternion.clone())
 
   // The walk wrote local rotations only, so nothing is where the matrices say
   // yet — and both the pelvis offset and the finger bend axis are measured in
   // the room.
   root.updateMatrixWorld(true)
-  shiftHips(map, rest, pose.hipShift, mirrored)
+  shiftHips(map, rest, pose.hipShift, mirrored, root)
   root.updateMatrixWorld(true)
   applyFingers(map.leftHand, pose.leftHand, rest)
   applyFingers(map.rightHand, pose.rightHand, rest)
@@ -648,9 +663,16 @@ function reachTowards(chain: THREE.Bone[], end: THREE.Object3D, target: THREE.Ve
  * own arm is then walked onto it. What the pose says still decides where the
  * hand goes; the body decides how far it has to reach to get there.
  */
-export function landHands(map: BoneMap, want: RigPoints, faceForward: number) {
+export function landHands(map: BoneMap, want: RigPoints, faceForward: number, root: THREE.Object3D) {
   const { hips, leftUpperArm, leftLowerArm, leftHand, rightUpperArm, rightLowerArm, rightHand } = map
   if (!hips || !leftUpperArm || !rightUpperArm) return
+  // Which way this actor is facing in the room. The pose describes a hand's
+  // place on the body — a hip, a chin, the far shoulder — and those travel with
+  // the body. Measured against the room's axes instead, turning the actor left
+  // the targets behind: at a right angle the wrists were sent out in front of
+  // the hips rather than beside them.
+  const facing = root.getWorldQuaternion(new THREE.Quaternion())
+  const bodyRight = new THREE.Vector3(1, 0, 0).applyQuaternion(facing)
 
   const hipsWorld = hips.getWorldPosition(new THREE.Vector3())
   const leftShoulder = leftUpperArm.getWorldPosition(new THREE.Vector3())
@@ -668,8 +690,8 @@ export function landHands(map: BoneMap, want: RigPoints, faceForward: number) {
   // hips, not from the world origin: an actor standing off to one side of the
   // studio has both shoulders on the same side of x = 0, and read that way a
   // rig would be called mirrored or not depending on where it was standing.
-  const side = (point: THREE.Vector3, origin: THREE.Vector3) => Math.sign(point.x - origin.x)
-  const mirror = side(leftShoulder, hipsWorld) * (side(want.leftShoulder, want.hips) || -1) < 0 ? -1 : 1
+  const side = (point: THREE.Vector3, origin: THREE.Vector3) => Math.sign(point.clone().sub(origin).dot(bodyRight))
+  const mirror = side(leftShoulder, hipsWorld) * (Math.sign(want.leftShoulder.x - want.hips.x) || -1) < 0 ? -1 : 1
   const target = new THREE.Vector3()
 
   const land = (upper?: THREE.Bone, lower?: THREE.Bone, hand?: THREE.Bone, wrist?: THREE.Vector3) => {
@@ -678,11 +700,10 @@ export function landHands(map: BoneMap, want: RigPoints, faceForward: number) {
     // scaled by how much wider and taller this actor is than the figure the
     // pose was measured on.
     const sideways = (wrist.x - want.hips.x) * across * mirror
-    target.set(
-      hipsWorld.x + sideways,
-      hipsWorld.y + (wrist.y - want.hips.y) * along,
-      hipsWorld.z + (wrist.z - want.hips.z) * along * faceForward,
-    )
+    target
+      .set(sideways, (wrist.y - want.hips.y) * along, (wrist.z - want.hips.z) * along * faceForward)
+      .applyQuaternion(facing)
+      .add(hipsWorld)
     if (hand.getWorldPosition(new THREE.Vector3()).distanceTo(target) > HAND_LANDING_LIMIT) return
     reachTowards([upper, lower], hand, target, 4)
   }
