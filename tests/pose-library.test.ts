@@ -24,7 +24,11 @@ test('walking pose keeps a readable counter-swing and grounded stride', () => {
 
 test('pose categories carry explicit floor-contact semantics', () => {
   for (const entry of POSE_LIBRARY) {
-    assert.equal(isSeatedPose(entry.pose), entry.category === 'seated', `${entry.id} has the wrong seated state`)
+    // Captured poses are grouped by where they came from rather than by what
+    // the body is doing, so the seated ones sit in their own category. They
+    // still have to declare it: the placement code reads the flag, not the tab.
+    const expected = entry.category === 'captured' ? entry.id.includes('seat') : entry.category === 'seated'
+    assert.equal(isSeatedPose(entry.pose), expected, `${entry.id} has the wrong seated state`)
     if (entry.id !== 'jump') {
       assert.equal(entry.pose.airborne, false, `${entry.id} must stay grounded`)
       assert.equal(entry.pose.rootLift, 0, `${entry.id} must not receive an airborne lift`)

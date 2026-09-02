@@ -17,6 +17,7 @@ import * as THREE from 'three'
 import { elbowFlexion, type RigPoints } from './ik.ts'
 import { CHEST_LIFT_NECK_RETURN, chestLiftDegrees, NEUTRAL_POSE, type HandPose, type ModelPose } from './pose.ts'
 import { applyFingerCurlDelta, applyWorldPoseDelta } from './retargetDelta.ts'
+import type { CapturedPose } from './capturedPoses.ts'
 
 /** Every joint the rig can drive. Anything else in the skeleton is left alone. */
 export type HumanoidBone =
@@ -755,17 +756,147 @@ export function landHands(map: BoneMap, want: RigPoints, faceForward: number, ro
  * seat — asked for its resting height there, the leg drove the foot a further
  * twenty centimetres through the floor.
  */
-export function landFeet(map: BoneMap, model: THREE.Object3D, plantedY: number) {
+export function landFeet(map: BoneMap, model: THREE.Object3D, plantedY: number, fold = false) {
   const target = new THREE.Vector3()
+  const hip = new THREE.Vector3()
   const parent = model.parent
   const land = (upper?: THREE.Bone, lower?: THREE.Bone, foot?: THREE.Bone) => {
     if (!upper || !lower || !foot) return
     foot.getWorldPosition(target)
     if (parent) parent.worldToLocal(target)
+    if (fold) {
+      // Fold the leg along the line from the hip to where the foot is, rather
+      // than lifting the foot straight up and leaving it where it stood.
+      //
+      // A captured sit was performed on whatever the studio that recorded it
+      // had, and ours is a chair: the frames come in wanting half a metre of
+      // drop from pelvis to ankle where a 0.46 m seat gives 0.42. Lifting the
+      // ankle those centimetres in place is a demand to straighten a bent leg,
+      // and the knee answers by swinging out to the side. Moving the foot back
+      // toward the hip as it rises is the same thing a person does — the knee
+      // folds instead.
+      upper.getWorldPosition(hip)
+      if (parent) parent.worldToLocal(hip)
+      const drop = hip.y - target.y
+      if (drop > 1e-4) target.lerpVectors(hip, target, (hip.y - plantedY) / drop)
+    }
     target.y = plantedY
     if (parent) parent.localToWorld(target)
     reachTowards([upper, lower], foot, target, 5)
   }
   land(map.leftUpperLeg, map.leftLowerLeg, map.leftFoot)
   land(map.rightUpperLeg, map.rightLowerLeg, map.rightFoot)
+}
+
+/**
+ * Writes a captured frame onto the skeleton.
+ *
+ * The frame is stored as a rotation delta from the rest of the rig it was read
+ * off, and is applied as a delta here too: every bone starts from *this*
+ * actor's rest and turns by however far the performer turned theirs. Writing
+ * the recorded rotations straight on would import the source rig's rest along
+ * with the pose, and the two shipped actors' bones sit up to fourteen degrees
+ * apart — enough to round a straight back or unbend a wrist.
+ *
+ * Bones the frame does not name go back to rest, the same as a solved pose, so
+ * switching between the two leaves nothing behind.
+ *
+ * Returns how many of the recorded bones this skeleton actually has. A caller
+ * can tell a frame that landed from one aimed at a rig that never had these
+ * names, which is every imported model that is not a Rocketbox actor.
+ */
+export function applyCapturedPose(root: THREE.Object3D, rest: RestPose, capture: CapturedPose): number {
+  const delta = new THREE.Quaternion()
+  let matched = 0
+  root.traverse((node) => {
+    if (!(node as THREE.Bone).isBone) return
+    const bone = node as THREE.Bone
+    const restLocal = rest.localQuaternion.get(bone)
+    if (!restLocal) return
+    const recorded = capture.rotation[bone.name]
+    if (recorded) {
+      matched += 1
+      // Normalized because the stored components are rounded to four decimals
+      // to keep the library small, which leaves them a hair off unit length.
+      // Composed down a chain of fifty bones that becomes a visible scale.
+      delta.set(recorded[0], recorded[1], recorded[2], recorded[3]).normalize()
+      bone.quaternion.copy(restLocal).multiply(delta)
+    } else {
+      bone.quaternion.copy(restLocal)
+    }
+  })
+  return matched
+}
+
+/**
+ * Puts the hands back on what they were resting on.
+ *
+ * A captured frame carries joint angles, and joint angles only land a hand
+ * somewhere on the body it was measured on. The shipped actors are not the
+ * same build — one has arms thirteen percent longer on calves six percent
+ * shorter — so replaying the frame drifts a hand two to six centimetres off
+ * the chin or thigh it was touching. That reads as a hand hovering.
+ *
+ * The offset was recorded in the local frame of the bone the hand rested on,
+ * so it travels with that bone: the chin stays the chin however the head is
+ * turned. It is scaled by how much taller this actor is than the one the frame
+ * came from, which is why `stature` is measured at rest, in the model's own
+ * units, the same way on both.
+ */
+export function landCapturedContacts(map: BoneMap, root: THREE.Object3D, capture: CapturedPose, stature: number) {
+  if (!capture.contacts.length || !(stature > 0) || !(capture.stature > 0)) return
+  const byName = new Map<string, THREE.Bone>()
+  root.traverse((node) => {
+    if ((node as THREE.Bone).isBone) byName.set(node.name, node as THREE.Bone)
+  })
+  const scale = stature / capture.stature
+  const target = new THREE.Vector3()
+  for (const contact of capture.contacts) {
+    const anchor = byName.get(contact.anchor)
+    const upper = contact.hand === 'left' ? map.leftUpperArm : map.rightUpperArm
+    const lower = contact.hand === 'left' ? map.leftLowerArm : map.rightLowerArm
+    const hand = contact.hand === 'left' ? map.leftHand : map.rightHand
+    if (!anchor || !upper || !lower || !hand) continue
+    target.fromArray(contact.offset).multiplyScalar(scale)
+    anchor.localToWorld(target)
+    reachTowards([upper, lower], hand, target, 6)
+  }
+}
+
+/**
+ * Turns a replayed head toward the camera.
+ *
+ * A captured frame owns the head, which costs the photographer the one control
+ * they reach for most: three of these performances look down, and asking the
+ * subject to look at the lens is not an unreasonable thing to want from a
+ * person who is standing in your studio. The pose's own headYaw cannot say it,
+ * because a capture does not read joint values.
+ *
+ * So the head is turned from where the performance left it, by the difference
+ * between that and the lens. Clamped hard, and measured as a rotation from the
+ * head's rest rather than from any assumed local axis: on this skeleton the
+ * head bone's own forward is not the direction the face points.
+ */
+export function aimCapturedHead(head: THREE.Bone | undefined, rest: RestPose, model: THREE.Object3D, cameraYaw: number) {
+  const restHead = head ? rest.worldQuaternion.get(head) : undefined
+  if (!head || !head.parent || !restHead) return
+  const modelWorld = model.getWorldQuaternion(new THREE.Quaternion())
+  const posedInModel = modelWorld.clone().invert().multiply(head.getWorldQuaternion(new THREE.Quaternion()))
+  const facing = new THREE.Vector3(0, 0, 1).applyQuaternion(posedInModel.multiply(restHead.clone().invert()))
+  const yaw = THREE.MathUtils.radToDeg(Math.atan2(facing.x, facing.z))
+  const pitch = THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(facing.y, -1, 1)))
+
+  // Enough to lift a lowered chin and turn a head across a shoulder, not enough
+  // to take the neck anywhere a neck does not go.
+  const turn = THREE.MathUtils.clamp(THREE.MathUtils.clamp(cameraYaw, -72, 72) - yaw, -38, 38)
+  const lift = THREE.MathUtils.clamp(pitch, -24, 24)
+  if (Math.abs(turn) < 0.05 && Math.abs(lift) < 0.05) return
+
+  const headWorld = head.getWorldQuaternion(new THREE.Quaternion())
+  // Down about the model's own right levels the face; about the room's right it
+  // would tip the head sideways as soon as the actor was turned.
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(modelWorld)
+  headWorld.premultiply(new THREE.Quaternion().setFromAxisAngle(right, THREE.MathUtils.degToRad(lift)))
+  headWorld.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(turn)))
+  head.quaternion.copy(head.parent.getWorldQuaternion(new THREE.Quaternion()).invert()).multiply(headWorld)
 }

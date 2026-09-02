@@ -16,8 +16,9 @@ import { breathingAdjustedFocalLength, calculateDepthOfField } from '../optics'
 import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjectType, type StudioLight, type StudioModifier, type StudioObject, type TransformAxis } from '../store'
 import { forwardKinematics } from '../ik'
 import { isSeatedPose, NEUTRAL_POSE, type ModelPose } from '../pose'
+import { getCapturedPose } from '../capturedPoses'
 import type { HairStyle } from '../wardrobe'
-import { aimEyes, applyExpressionToMorphs, applyPoseToSkeleton, findEyeBones, landFeet, landHands, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
+import { aimCapturedHead, aimEyes, applyCapturedPose, applyExpressionToMorphs, applyPoseToSkeleton, findEyeBones, landCapturedContacts, landFeet, landHands, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
 import { SOCKET_PAINT_SPREAD, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, bakedActorResponse, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type ActorAppearance, type StudioHairMass } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
@@ -682,6 +683,15 @@ function attachHeadDetail(model: THREE.Group, head: THREE.Bone, detail: THREE.Gr
  */
 /** How far the forearms pronate, so the palms face the thighs not the lens. */
 const REST_FOREARM_ROLL = 24
+
+/**
+ * How many of a captured frame's bones a skeleton must have before the frame is
+ * played on it. The shipped actors match all fifty-odd; an imported model with
+ * its own naming matches none, and a handful of accidental collisions would
+ * pose an arm and leave the rest of the body at rest, which looks broken in a
+ * way that falling back to the joint values does not.
+ */
+const CAPTURE_MIN_BONES = 20
 
 /** Material names the appearance pass looks for on a loaded actor. */
 const STUDIO_HAIR_MATERIAL = 'studio-hair-material'
@@ -1960,7 +1970,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   const mainPhysique = useStudio((state) => state.physique)
   const mainHairStyle = useStudio((state) => state.hairStyle)
   const mainOutfitStyle = useStudio((state) => state.outfitStyle)
-  const rig = useRef<{ map: BoneMap; rest: RestPose; eyes: THREE.Bone[]; restFootY: number; baseY: number } | null>(null)
+  const rig = useRef<{ map: BoneMap; rest: RestPose; fileRest: RestPose; eyes: THREE.Bone[]; restFootY: number; restStature: number; baseY: number } | null>(null)
   // The scalp shell as it came off disk, kept so a style change can rebuild it
   // without fetching the actor again.
   const hairSource = useRef<{ model: THREE.Group; head: THREE.Bone; source: THREE.Group } | null>(null)
@@ -2081,6 +2091,14 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
         })
       }
 
+      // The rest the file itself shipped, recorded before the arms are moved
+      // below. Solved poses want the rig's neutral stance to measure from;
+      // captured frames want this one, because that is the rest they were read
+      // off. Measured against the neutral instead, the arm-aiming below was
+      // added to every captured frame on top of the performance, and an actor
+      // asked to hold her palms out stood there with her arms down.
+      const fileRest = captureRestPose(model, map)
+
       // This source is authored in a wide A-stance with straight arms and flat,
       // splayed hands — a modelling pose, not a standing one, and not the pose
       // the library measures from either. Every pose an actor is given is a
@@ -2188,11 +2206,18 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
         ? model.worldToLocal(bone.getWorldPosition(new THREE.Vector3())).y
         : Number.POSITIVE_INFINITY
       const restFootY = Math.min(footY(map.leftFoot), footY(map.rightFoot))
+      // How tall this actor is in its own units, read at rest. Captured frames
+      // record where a hand was resting as an offset in the source rig's units,
+      // and this is what scales that onto an actor of another size.
+      const restHeadY = footY(map.head)
+      const restStature = Number.isFinite(restHeadY) && Number.isFinite(restFootY) ? restHeadY - restFootY : 0
       rig.current = quality.usable ? {
         map,
         rest: captureRestPose(model, map),
+        fileRest,
         eyes: findEyeBones(model),
         restFootY: Number.isFinite(restFootY) ? restFootY : 0,
+        restStature,
         baseY: model.position.y,
       } : null
       onRigReady?.(quality.usable ? map : null)
@@ -2262,7 +2287,11 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   // The imported figure gets the same head-tracking behaviour as the built-in one.
   const cameraYaw = THREE.MathUtils.radToDeg(Math.atan2(cameraPosition[0] - modelPosition[0], cameraPosition[2] - modelPosition[2]) - modelRotation)
   const effectivePose = useMemo(
-    () => lookAtCamera ? { ...pose, headYaw: THREE.MathUtils.clamp(cameraYaw, -72, 72) } : pose,
+    // A captured pose owns the head: the turn of it is part of the performance
+    // that was recorded, and there is no joint value left for this to write on.
+    // The eyes still find the lens — see the gaze effect, which reads where the
+    // head actually ended up rather than where a slider says it is.
+    () => lookAtCamera && !pose.capture ? { ...pose, headYaw: THREE.MathUtils.clamp(cameraYaw, -72, 72) } : pose,
     [cameraYaw, lookAtCamera, pose],
   )
 
@@ -2278,12 +2307,27 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     if (!object || !rig.current) return
     const stanceSplay = THREE.MathUtils.radToDeg(Math.atan2(effectivePose.stanceWidth / 2 - 0.083, 0.865))
     object.position.y = rig.current.baseY + effectivePose.rootLift
-    applyPoseToSkeleton(object, rig.current.map, rig.current.rest, effectivePose, stanceSplay)
-    // The pose has said where the hands should be; this walks the actor's own
-    // arms onto it, because an angle only lands a hand somewhere if the arm it
-    // turns is the length the angle was measured on.
-    object.updateMatrixWorld(true)
-    landHands(rig.current.map, forwardKinematics(effectivePose, appearanceRef.current.physique), FACE_FORWARD, object)
+    // A captured frame carries the whole skeleton, so it replaces the solve
+    // rather than seeding it. It only fits a rig that has the bone names it was
+    // recorded against, though — an imported model has its own — so a frame
+    // that finds almost nothing to write falls back to the joint values, which
+    // every pose still carries underneath its capture.
+    const capture = getCapturedPose(effectivePose.capture)
+    const captured = capture ? applyCapturedPose(object, rig.current.fileRest, capture) : 0
+    const replayed = capture !== undefined && captured >= CAPTURE_MIN_BONES
+    if (replayed) {
+      object.updateMatrixWorld(true)
+      if (lookAtCamera) aimCapturedHead(rig.current.map.head, rig.current.fileRest, object, cameraYaw)
+      object.updateMatrixWorld(true)
+      landCapturedContacts(rig.current.map, object, capture!, rig.current.restStature)
+    } else {
+      applyPoseToSkeleton(object, rig.current.map, rig.current.rest, effectivePose, stanceSplay)
+      // The pose has said where the hands should be; this walks the actor's own
+      // arms onto it, because an angle only lands a hand somewhere if the arm it
+      // turns is the length the angle was measured on.
+      object.updateMatrixWorld(true)
+      landHands(rig.current.map, forwardKinematics(effectivePose, appearanceRef.current.physique), FACE_FORWARD, object)
+    }
     applyExpressionToMorphs(object, effectivePose)
     object.updateMatrixWorld(true)
     const localY = (bone: THREE.Bone | undefined) => bone
@@ -2306,14 +2350,24 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       object.updateMatrixWorld(true)
       // The pelvis is on the seat, so the legs are what has to reach the floor.
       // Where the floor is, is where the feet stood before the actor sat down.
-      landFeet(rig.current.map, object, rig.current.baseY + rig.current.restFootY * object.scale.y)
+      // Only a replayed sit needs the leg folded toward the hip: a solved one
+      // was authored against this seat height and already reaches the floor.
+      landFeet(rig.current.map, object, rig.current.baseY + rig.current.restFootY * object.scale.y, replayed)
       object.updateMatrixWorld(true)
     } else if (!effectivePose.airborne) {
       const posedFootY = Math.min(localY(rig.current.map.leftFoot), localY(rig.current.map.rightFoot))
       if (Number.isFinite(posedFootY)) object.position.y += (rig.current.restFootY - posedFootY) * object.scale.y
       object.updateMatrixWorld(true)
+      // A solved stance is authored symmetric, so dropping the group by the
+      // lower foot lands both. A recorded one is not: the performer had their
+      // weight somewhere, and on an actor with calves six percent shorter than
+      // hers the trailing foot comes down through the floor or hangs above it.
+      if (replayed) {
+        landFeet(rig.current.map, object, rig.current.baseY + rig.current.restFootY * object.scale.y)
+        object.updateMatrixWorld(true)
+      }
     }
-  }, [effectivePose, object, seatHeight])
+  }, [cameraYaw, effectivePose, lookAtCamera, object, seatHeight])
 
   // Gaze, after the pose, because writing the pose puts every bone the pose
   // does not name back to its rest — the eyes included.
@@ -2329,9 +2383,26 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       return
     }
     if (!object || !rig.current) return
-    aimEyes(rig.current.map, rig.current.rest, rig.current.eyes, gazeYaw, gazePitch, FACE_FORWARD)
+    let yaw = gazeYaw
+    let pitch = gazePitch
+    const head = rig.current.map.head
+    const restHead = head ? rig.current.fileRest.worldQuaternion.get(head) : undefined
+    if (eyesAtCamera && !poseOverride && effectivePose.capture && head && restHead) {
+      // Where the head is actually pointing, since a captured frame turned it
+      // without going through headYaw. Read as the rotation from the head's
+      // rest to its posed orientation, both in the model's own frame, so no
+      // guess is made about which local axis this rig calls forward — on this
+      // skeleton it is not the one the eyes use.
+      const model = object.getWorldQuaternion(new THREE.Quaternion()).invert()
+      const posed = model.multiply(head.getWorldQuaternion(new THREE.Quaternion()))
+      const turned = new THREE.Vector3(0, 0, 1)
+        .applyQuaternion(posed.multiply(restHead.clone().invert()))
+      yaw = THREE.MathUtils.clamp(cameraYaw - THREE.MathUtils.radToDeg(Math.atan2(turned.x, turned.z)), -35, 35)
+      pitch = THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(Math.asin(THREE.MathUtils.clamp(turned.y, -1, 1))), -30, 30)
+    }
+    aimEyes(rig.current.map, rig.current.rest, rig.current.eyes, yaw, pitch, FACE_FORWARD)
     object.updateMatrixWorld(true)
-  }, [effectivePose, gazePitch, gazeYaw, object])
+  }, [cameraYaw, effectivePose, eyesAtCamera, gazePitch, gazeYaw, object, poseOverride])
 
   if (object) return <primitive object={object} />
   return null

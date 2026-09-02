@@ -43,7 +43,9 @@ test('sitting on nothing still puts the pelvis at a chair height, on both rigs',
   // The solver and the imported actor have to agree, or the drag handles and
   // the person they belong to sit at different heights.
   const seated = POSE_LIBRARY.filter((entry) => entry.pose.seated)
-  assert.equal(seated.length, 4)
+  // Four solved and three captured. A count rather than a floor, so adding a
+  // seated pose without checking it lands on the chair trips this.
+  assert.equal(seated.length, 7)
   for (const entry of seated) {
     const pose = { ...NEUTRAL_POSE, ...entry.pose } as ModelPose
     assert.equal(pelvisHeight(pose, null), DEFAULT_SEAT_HEIGHT + SEAT_TO_HIP, entry.id)

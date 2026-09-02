@@ -1,0 +1,97 @@
+<!doctype html><meta charset="utf-8"><title>capture build</title><pre id="out" style="color:#cfc;background:#111;font:11px ui-monospace;padding:8px;white-space:pre-wrap"></pre>
+<!--
+  Rebuilds src/capturedPoses.ts from Rocketbox motion clips.
+
+  The clips are not in this repository — they are ~2-7 MB each and only needed
+  when the pose set changes. Fetch the ones PICKS names into public/anim-src/
+  from microsoft/Microsoft-Rocketbox (MIT), under
+  Assets/Animations/all_animations_max_motextr_static/<name>.max.fbx, then open
+  this page and copy window.__json. scripts/capture-poses.html renders a clip's
+  frames side by side, which is how a frame number here gets chosen.
+-->
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
+
+// Frames chosen off the contact sheets, and what each hand is resting on in the
+// frame that was chosen. The contacts are declared rather than inferred from
+// distance: at capture time a hand hanging beside a thigh and a hand pressed to
+// one are the same few centimetres apart, and only one of them should be held.
+const PICKS = [
+  { id: 'captured-relaxed', clip: 'f_idle_neutral_01.fbx', frame: 5,
+    contacts: [['left', 'Bip01_L_Thigh'], ['right', 'Bip01_R_Thigh']] },
+  { id: 'captured-hands-hips', clip: 'f_idle_waiting_01.fbx', frame: 5,
+    contacts: [['left', 'Bip01_L_Thigh'], ['right', 'Bip01_R_Thigh']] },
+  { id: 'captured-touch-face', clip: 'f_idle_touch_face_01.fbx', frame: 3,
+    contacts: [['right', 'Bip01_Head'], ['left', 'Bip01_L_Thigh']] },
+  { id: 'captured-chin-rest', clip: 'f_gestic_thoughtful_01.fbx', frame: 3,
+    contacts: [['right', 'Bip01_Head'], ['left', 'Bip01_Spine1']] },
+  { id: 'captured-open-palms', clip: 'f_gestic_talk_relaxed_01.fbx', frame: 4,
+    contacts: [] },
+  { id: 'captured-seat-upright', clip: 'f_sit_chair_idle_relaxed_01.fbx', frame: 4,
+    contacts: [['left', 'Bip01_L_Thigh'], ['right', 'Bip01_R_Thigh']] },
+  { id: 'captured-seat-crossed', clip: 'f_sit_chair_idle_relaxed_01.fbx', frame: 8,
+    contacts: [['left', 'Bip01_L_Thigh'], ['right', 'Bip01_R_Thigh']] },
+  { id: 'captured-seat-chin', clip: 'f_sit_chair_gestic_thoughtful.fbx', frame: 7,
+    contacts: [['right', 'Bip01_Head'], ['left', 'Bip01_Spine1']] },
+]
+const SAMPLES = 10
+// The clips animate the face too — eyes, jaw, tongue, lip. Those bones belong to
+// gaze and expression, which the studio drives from its own controls; a frame
+// that froze them would stare wherever the performer happened to be looking.
+const FACIAL = /eye|lip|jaw|tongue|brow/i
+const round = (v, p) => Math.round(v * p) / p
+
+const lines = []
+try {
+  const gltf = await new Promise((r, j) => new GLTFLoader().load('/models/lumen-human/rocketbox-female.glb', r, undefined, j))
+  const bones = new Map()
+  gltf.scene.traverse((n) => { if (n.isBone) bones.set(n.name, n) })
+  const rest = new Map([...bones].map(([n, b]) => [n, b.quaternion.clone()]))
+  const stature = () => bones.get('Bip01_Head').getWorldPosition(new THREE.Vector3()).y
+    - bones.get('Bip01_L_Foot').getWorldPosition(new THREE.Vector3()).y
+  const sourceStature = stature()
+
+  const clips = new Map()
+  for (const file of new Set(PICKS.map((p) => p.clip))) {
+    const fbx = await new Promise((r, j) => new FBXLoader().load('/anim-src/' + file, r, undefined, j))
+    const s = fbx.animations[0]
+    clips.set(file, new THREE.AnimationClip(s.name, s.duration,
+      s.tracks.filter((t) => t.name.endsWith('.quaternion') && bones.has(t.name.split('.')[0]))))
+  }
+
+  const out = []
+  for (const pick of PICKS) {
+    const clip = clips.get(pick.clip)
+    const mixer = new THREE.AnimationMixer(gltf.scene)
+    const action = mixer.clipAction(clip)
+    action.play()
+    const at = (pick.frame + 0.5) / SAMPLES * clip.duration
+    mixer.setTime(at)
+    gltf.scene.updateMatrixWorld(true)
+
+    const rotation = {}
+    for (const [name, bone] of bones) {
+      if (FACIAL.test(name)) continue
+      const d = rest.get(name).clone().invert().multiply(bone.quaternion)
+      // Bones the frame leaves at rest are left out: the actor this is replayed
+      // on has its own rest, and its own is the better answer for them.
+      if (2 * Math.acos(Math.min(1, Math.abs(d.w))) * 180 / Math.PI < 0.5) continue
+      rotation[name] = [d.x, d.y, d.z, d.w].map((v) => round(v, 10000))
+    }
+    const contacts = pick.contacts.map(([hand, anchor]) => {
+      const at = bones.get(hand === 'left' ? 'Bip01_L_Hand' : 'Bip01_R_Hand').getWorldPosition(new THREE.Vector3())
+      const local = bones.get(anchor).worldToLocal(at)
+      return { hand, anchor, offset: local.toArray().map((v) => round(v, 100)) }
+    })
+    out.push({ id: pick.id, source: `${pick.clip.replace(/\.fbx$/, '')} @${at.toFixed(2)}s`, stature: round(sourceStature, 100), rotation, contacts })
+    lines.push(`${pick.id.padEnd(24)} ${Object.keys(rotation).length} bones, ${contacts.length} contacts`)
+    action.stop(); mixer.uncacheClip(clip)
+    for (const [n, b] of bones) b.quaternion.copy(rest.get(n))
+  }
+  window.__json = JSON.stringify(out)
+  lines.push('', `${(window.__json.length / 1024).toFixed(1)} KB`)
+} catch (e) { lines.push('FAILED ' + e + '\n' + e.stack) }
+window.__out = lines.join('\n'); document.getElementById('out').textContent = window.__out; window.__ready = true
+</script>

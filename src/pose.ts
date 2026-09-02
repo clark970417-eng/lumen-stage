@@ -12,6 +12,8 @@
  * each field. Distances are metres on a 1.82 m figure and scale with height.
  */
 
+import { getCapturedPose } from './capturedPoses.ts'
+
 export type HandPose = 'relaxed' | 'open' | 'fist' | 'point' | 'pocket' | 'grip'
 
 export type ModelPose = {
@@ -113,6 +115,15 @@ export type ModelPose = {
   /** Gaze away from the head axis, degrees. */
   gazeYaw: number
   gazePitch: number
+
+  // --- Captured performance ------------------------------------------------
+  /**
+   * Id of a frame in the captured-pose library, when this pose is a recorded
+   * one. A capture drives every joint at once from a performance, so while it
+   * is set the joint values above are inert: they are kept, not applied, and
+   * come back the moment the capture is cleared.
+   */
+  capture?: string
 }
 
 /** The chest lift the figure stands at when nothing has asked for more. */
@@ -164,6 +175,7 @@ export const NEUTRAL_POSE: ModelPose = {
   leftFootTurn: 6, rightFootTurn: 6,
   browRaise: 0, eyeOpen: 100, squint: 0, smile: 0, mouthOpen: 0, lipPart: 0, jawSet: 0,
   gazeYaw: 0, gazePitch: 0,
+  capture: undefined,
 }
 
 /** Fills in every joint an older saved scene never knew about. */
@@ -180,12 +192,15 @@ export function normalizePose(partial: Partial<ModelPose> | undefined | null): M
   // Hand poses arrive as free-form strings from imported project files.
   if (!HAND_POSES.includes(pose.leftHand)) pose.leftHand = 'relaxed'
   if (!HAND_POSES.includes(pose.rightHand)) pose.rightHand = 'relaxed'
+  // A project saved against a capture that has since been renamed away should
+  // open on its joint values, not on nothing.
+  if (typeof pose.capture !== 'string' || !getCapturedPose(pose.capture)) pose.capture = undefined
   return pose
 }
 
 export const HAND_POSES: HandPose[] = ['relaxed', 'open', 'fist', 'point', 'pocket', 'grip']
 
-export type PoseCategory = 'standing' | 'seated' | 'dynamic' | 'beauty' | 'commercial'
+export type PoseCategory = 'standing' | 'seated' | 'dynamic' | 'beauty' | 'commercial' | 'captured'
 
 export type PoseEntry = {
   id: string
@@ -243,9 +258,28 @@ export const POSE_LIBRARY: PoseEntry[] = [
   { id: 'holding', category: 'commercial', label: 'Holding a product', note: 'Both hands in front — a specular product wants a large soft key.', pose: p({ leftArm: 8, rightArm: -8, leftArmForward: 4, rightArmForward: 4, leftArmTwist: 7, rightArmTwist: -7, leftElbow: 101, rightElbow: -100, leftForearmTwist: -22, rightForearmTwist: 22, leftWrist: -3, rightWrist: 3, leftHand: 'grip', rightHand: 'grip', headTilt: 6, gazePitch: 10, chestLift: 30 }) },
   { id: 'thinking', category: 'commercial', label: 'Hand to chin', note: 'The forearm cuts across the neck. Fill from below or lose the jaw.', pose: p({ rightArm: -4.2, rightArmForward: 79.6, rightArmTwist: -33.3, rightElbow: -140.6, rightForearmTwist: 32, rightWrist: 8, rightHand: 'fist', leftArm: -4.8, leftArmForward: 7.1, leftArmTwist: 63.2, leftElbow: 109.2, leftForearmTwist: -12, leftHand: 'grip', headTilt: -3, headYaw: -10, browRaise: -7, chestLift: 27 }) },
   { id: 'greeting', category: 'commercial', label: 'Waving', note: 'Raised open hand — the brightest thing in frame unless flagged.', pose: p({ rightArm: 132, rightArmForward: 4, rightArmTwist: 0, rightElbow: -46, rightForearmTwist: 10, rightHand: 'open', rightWrist: -6, leftArm: -10, leftArmForward: 2, leftElbow: 14, smile: 52, squint: 16, headRoll: -4, chestLift: 30 }) },
+
+  // --- Captured ------------------------------------------------------------
+  // Single frames lifted from recorded performance rather than solved from
+  // joint angles. A person standing still is doing a hundred small things at
+  // once — a shoulder dropped, a wrist rolled, weight off one heel — and those
+  // are what the eye reads as alive. None of them are worth a slider, and all
+  // of them are in the frame for free.
+  //
+  // The whole skeleton comes from the recording, so the joint controls have
+  // nothing left to say while one of these is picked. Expression, gaze and the
+  // camera still work: the capture never touches the face.
+  { id: 'captured-relaxed', category: 'captured', label: 'Relaxed stand', note: 'Weight off one heel, shoulders unequal. The default when you want a person, not a pose.', pose: p({ capture: 'captured-relaxed' }) },
+  { id: 'captured-hands-hips', category: 'captured', label: 'Hands on hips', note: 'Elbows make two triangles of background. Watch what they let through.', pose: p({ capture: 'captured-hands-hips' }) },
+  { id: 'captured-touch-face', category: 'captured', label: 'Hand to cheek', note: 'The hand takes light meant for the face — expect a bounce along the jaw.', pose: p({ capture: 'captured-touch-face' }) },
+  { id: 'captured-chin-rest', category: 'captured', label: 'Chin rest', note: 'Supported elbow, knuckles under the chin. The forearm crosses the neck shadow.', pose: p({ capture: 'captured-chin-rest' }) },
+  { id: 'captured-open-palms', category: 'captured', label: 'Open palms', note: 'Both hands out, mid-sentence. Palms face the key and go bright first.', pose: p({ capture: 'captured-open-palms' }) },
+  { id: 'captured-seat-upright', category: 'captured', label: 'Seated, hands on knees', note: 'Square and settled. Drop the key or you light the top of the head.', pose: p({ capture: 'captured-seat-upright', seated: true }) },
+  { id: 'captured-seat-crossed', category: 'captured', label: 'Seated, legs crossed', note: 'The knee comes forward — the nearest thing to the lens is a trouser leg.', pose: p({ capture: 'captured-seat-crossed', seated: true }) },
+  { id: 'captured-seat-chin', category: 'captured', label: 'Seated, chin rest', note: 'Leaning on one hand, head tipped toward it. Fill from the open side.', pose: p({ capture: 'captured-seat-chin', seated: true }) },
 ]
 
-export const POSE_CATEGORIES: PoseCategory[] = ['standing', 'seated', 'dynamic', 'beauty', 'commercial']
+export const POSE_CATEGORIES: PoseCategory[] = ['standing', 'seated', 'dynamic', 'beauty', 'commercial', 'captured']
 
 export function getPoseEntry(id: string): PoseEntry | undefined {
   return POSE_LIBRARY.find((entry) => entry.id === id)

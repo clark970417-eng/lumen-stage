@@ -133,6 +133,10 @@ export function PoseControls({ pose, baked = false, onChange }: { pose: ModelPos
   const t = useT()
   const ct = useCatalogT()
   const set = (key: keyof ModelPose) => (value: number) => onChange({ [key]: value } as Partial<ModelPose>)
+  // A captured pose is a recorded performance driving every joint at once, so
+  // there is nothing for these to write on. The values underneath are kept, not
+  // discarded: pick any other pose and they answer again.
+  const captured = Boolean(pose.capture)
   const weightLabel = pose.weightShift < -0.15 ? t('pose.weight.left') : pose.weightShift > 0.15 ? t('pose.weight.right') : t('pose.weight.even')
 
   const handPicker = (side: 'leftHand' | 'rightHand') => (
@@ -140,7 +144,7 @@ export function PoseControls({ pose, baked = false, onChange }: { pose: ModelPos
       <span>{t(side === 'leftHand' ? 'pose.leftHand' : 'pose.rightHand')}</span>
       <div role="group" aria-label={t(side === 'leftHand' ? 'pose.leftHand' : 'pose.rightHand')}>
         {HAND_POSES.map((item: HandPose) => (
-          <button key={item} className={pose[side] === item ? 'active' : ''} onClick={() => onChange({ [side]: item } as Partial<ModelPose>)}>
+          <button key={item} className={pose[side] === item ? 'active' : ''} disabled={captured} onClick={() => onChange({ [side]: item } as Partial<ModelPose>)}>
             {ct(`hand.${item}`, item)}
           </button>
         ))}
@@ -151,41 +155,42 @@ export function PoseControls({ pose, baked = false, onChange }: { pose: ModelPos
   return (
     <div className="joint-rig">
       <div className="joint-rig-actions">
-        <button onClick={() => onChange(mirrorPose(pose))}>{t('pose.mirror')}</button>
+        <button disabled={captured} onClick={() => onChange(mirrorPose(pose))}>{t('pose.mirror')}</button>
       </div>
+      {captured ? <p className="joint-rig-note">{t('pose.capturedNote')}</p> : null}
 
       <JointGroup title={t('pose.group.head')} count={4} defaultOpen>
-        <Range label={t('pose.headYaw')} value={pose.headYaw} min={-75} max={75} unit="°" onChange={set('headYaw')} />
-        <Range label={t('pose.headTilt')} value={pose.headTilt} min={-32} max={32} unit="°" onChange={set('headTilt')} />
-        <Range label={t('pose.headRoll')} value={pose.headRoll} min={-28} max={28} unit="°" onChange={set('headRoll')} />
-        <Range label={t('pose.neckExtend')} value={pose.neckExtend} min={-10} max={25} unit="°" onChange={set('neckExtend')} />
+        <Range label={t('pose.headYaw')} value={pose.headYaw} min={-75} max={75} unit="°" disabled={captured} onChange={set('headYaw')} />
+        <Range label={t('pose.headTilt')} value={pose.headTilt} min={-32} max={32} unit="°" disabled={captured} onChange={set('headTilt')} />
+        <Range label={t('pose.headRoll')} value={pose.headRoll} min={-28} max={28} unit="°" disabled={captured} onChange={set('headRoll')} />
+        <Range label={t('pose.neckExtend')} value={pose.neckExtend} min={-10} max={25} unit="°" disabled={captured} onChange={set('neckExtend')} />
       </JointGroup>
 
       <JointGroup title={t('pose.group.spine')} count={7}>
-        <Range label={t('pose.torsoYaw')} value={pose.torsoYaw} min={-130} max={130} unit="°" onChange={set('torsoYaw')} />
-        <Range label={t('pose.spineBend')} value={pose.spineBend} min={-25} max={40} unit="°" onChange={set('spineBend')} />
-        <Range label={t('pose.spineSide')} value={pose.spineSide} min={-25} max={25} unit="°" onChange={set('spineSide')} />
-        <Range label={t('pose.chestLift')} value={pose.chestLift} min={0} max={100} unit="%" onChange={set('chestLift')} />
-        <Range label={t('pose.hipShift')} value={pose.hipShift} min={-0.16} max={0.16} step={0.005} displayValue={`${(pose.hipShift * 100).toFixed(0)} cm`} onChange={set('hipShift')} />
-        <Range label={t('pose.hipTilt')} value={pose.hipTilt} min={-18} max={18} unit="°" onChange={set('hipTilt')} />
-        <Range label={t('pose.hipYaw')} value={pose.hipYaw} min={-130} max={130} unit="°" onChange={set('hipYaw')} />
+        <Range label={t('pose.torsoYaw')} value={pose.torsoYaw} min={-130} max={130} unit="°" disabled={captured} onChange={set('torsoYaw')} />
+        <Range label={t('pose.spineBend')} value={pose.spineBend} min={-25} max={40} unit="°" disabled={captured} onChange={set('spineBend')} />
+        <Range label={t('pose.spineSide')} value={pose.spineSide} min={-25} max={25} unit="°" disabled={captured} onChange={set('spineSide')} />
+        <Range label={t('pose.chestLift')} value={pose.chestLift} min={0} max={100} unit="%" disabled={captured} onChange={set('chestLift')} />
+        <Range label={t('pose.hipShift')} value={pose.hipShift} min={-0.16} max={0.16} step={0.005} displayValue={`${(pose.hipShift * 100).toFixed(0)} cm`} disabled={captured} onChange={set('hipShift')} />
+        <Range label={t('pose.hipTilt')} value={pose.hipTilt} min={-18} max={18} unit="°" disabled={captured} onChange={set('hipTilt')} />
+        <Range label={t('pose.hipYaw')} value={pose.hipYaw} min={-130} max={130} unit="°" disabled={captured} onChange={set('hipYaw')} />
       </JointGroup>
 
       <JointGroup title={t('pose.group.arms')} count={12}>
-        <Range label={t('pose.leftArm')} value={pose.leftArm} min={-175} max={60} unit="°" onChange={set('leftArm')} />
-        <Range label={t('pose.leftArmForward')} value={pose.leftArmForward} min={-70} max={110} unit="°" onChange={set('leftArmForward')} />
-        <Range label={t('pose.leftArmTwist')} value={pose.leftArmTwist} min={-80} max={80} unit="°" onChange={set('leftArmTwist')} />
-        <Range label={t('pose.leftElbow')} value={pose.leftElbow} min={-10} max={145} unit="°" onChange={set('leftElbow')} />
-        <Range label={t('pose.leftForearmTwist')} value={pose.leftForearmTwist} min={-90} max={90} unit="°" onChange={set('leftForearmTwist')} />
-        <Range label={t('pose.leftWrist')} value={pose.leftWrist} min={-60} max={60} unit="°" onChange={set('leftWrist')} />
-        <Range label={t('pose.rightArm')} value={pose.rightArm} min={-60} max={175} unit="°" onChange={set('rightArm')} />
-        <Range label={t('pose.rightArmForward')} value={pose.rightArmForward} min={-70} max={110} unit="°" onChange={set('rightArmForward')} />
-        <Range label={t('pose.rightArmTwist')} value={pose.rightArmTwist} min={-80} max={80} unit="°" onChange={set('rightArmTwist')} />
-        <Range label={t('pose.rightElbow')} value={pose.rightElbow} min={-145} max={10} unit="°" onChange={set('rightElbow')} />
-        <Range label={t('pose.rightForearmTwist')} value={pose.rightForearmTwist} min={-90} max={90} unit="°" onChange={set('rightForearmTwist')} />
-        <Range label={t('pose.rightWrist')} value={pose.rightWrist} min={-60} max={60} unit="°" onChange={set('rightWrist')} />
-        <Range label={t('pose.leftShoulder')} value={pose.leftShoulder} min={-25} max={45} unit="°" onChange={set('leftShoulder')} />
-        <Range label={t('pose.rightShoulder')} value={pose.rightShoulder} min={-25} max={45} unit="°" onChange={set('rightShoulder')} />
+        <Range label={t('pose.leftArm')} value={pose.leftArm} min={-175} max={60} unit="°" disabled={captured} onChange={set('leftArm')} />
+        <Range label={t('pose.leftArmForward')} value={pose.leftArmForward} min={-70} max={110} unit="°" disabled={captured} onChange={set('leftArmForward')} />
+        <Range label={t('pose.leftArmTwist')} value={pose.leftArmTwist} min={-80} max={80} unit="°" disabled={captured} onChange={set('leftArmTwist')} />
+        <Range label={t('pose.leftElbow')} value={pose.leftElbow} min={-10} max={145} unit="°" disabled={captured} onChange={set('leftElbow')} />
+        <Range label={t('pose.leftForearmTwist')} value={pose.leftForearmTwist} min={-90} max={90} unit="°" disabled={captured} onChange={set('leftForearmTwist')} />
+        <Range label={t('pose.leftWrist')} value={pose.leftWrist} min={-60} max={60} unit="°" disabled={captured} onChange={set('leftWrist')} />
+        <Range label={t('pose.rightArm')} value={pose.rightArm} min={-60} max={175} unit="°" disabled={captured} onChange={set('rightArm')} />
+        <Range label={t('pose.rightArmForward')} value={pose.rightArmForward} min={-70} max={110} unit="°" disabled={captured} onChange={set('rightArmForward')} />
+        <Range label={t('pose.rightArmTwist')} value={pose.rightArmTwist} min={-80} max={80} unit="°" disabled={captured} onChange={set('rightArmTwist')} />
+        <Range label={t('pose.rightElbow')} value={pose.rightElbow} min={-145} max={10} unit="°" disabled={captured} onChange={set('rightElbow')} />
+        <Range label={t('pose.rightForearmTwist')} value={pose.rightForearmTwist} min={-90} max={90} unit="°" disabled={captured} onChange={set('rightForearmTwist')} />
+        <Range label={t('pose.rightWrist')} value={pose.rightWrist} min={-60} max={60} unit="°" disabled={captured} onChange={set('rightWrist')} />
+        <Range label={t('pose.leftShoulder')} value={pose.leftShoulder} min={-25} max={45} unit="°" disabled={captured} onChange={set('leftShoulder')} />
+        <Range label={t('pose.rightShoulder')} value={pose.rightShoulder} min={-25} max={45} unit="°" disabled={captured} onChange={set('rightShoulder')} />
       </JointGroup>
 
       <JointGroup title={t('pose.group.hands')} count={2}>
@@ -194,18 +199,18 @@ export function PoseControls({ pose, baked = false, onChange }: { pose: ModelPos
       </JointGroup>
 
       <JointGroup title={t('pose.group.legs')} count={12}>
-        <Range label={t('pose.stanceWidth')} value={pose.stanceWidth} min={0.08} max={0.9} step={0.01} displayValue={`${(pose.stanceWidth * 100).toFixed(0)} cm`} onChange={set('stanceWidth')} />
-        <Range label={t('pose.weightShift')} value={pose.weightShift} min={-1} max={1} step={0.05} displayValue={weightLabel} onChange={set('weightShift')} />
-        <Range label={t('pose.leftLeg')} value={pose.leftLeg} min={-30} max={120} unit="°" onChange={set('leftLeg')} />
-        <Range label={t('pose.leftKnee')} value={pose.leftKnee} min={0} max={135} unit="°" onChange={set('leftKnee')} />
-        <Range label={t('pose.leftLegSplay')} value={pose.leftLegSplay} min={-45} max={45} unit="°" onChange={set('leftLegSplay')} />
-        <Range label={t('pose.leftAnkle')} value={pose.leftAnkle} min={-35} max={45} unit="°" onChange={set('leftAnkle')} />
-        <Range label={t('pose.leftFootTurn')} value={pose.leftFootTurn} min={-30} max={50} unit="°" onChange={set('leftFootTurn')} />
-        <Range label={t('pose.rightLeg')} value={pose.rightLeg} min={-30} max={120} unit="°" onChange={set('rightLeg')} />
-        <Range label={t('pose.rightKnee')} value={pose.rightKnee} min={0} max={135} unit="°" onChange={set('rightKnee')} />
-        <Range label={t('pose.rightLegSplay')} value={pose.rightLegSplay} min={-45} max={45} unit="°" onChange={set('rightLegSplay')} />
-        <Range label={t('pose.rightAnkle')} value={pose.rightAnkle} min={-35} max={45} unit="°" onChange={set('rightAnkle')} />
-        <Range label={t('pose.rightFootTurn')} value={pose.rightFootTurn} min={-30} max={50} unit="°" onChange={set('rightFootTurn')} />
+        <Range label={t('pose.stanceWidth')} value={pose.stanceWidth} min={0.08} max={0.9} step={0.01} displayValue={`${(pose.stanceWidth * 100).toFixed(0)} cm`} disabled={captured} onChange={set('stanceWidth')} />
+        <Range label={t('pose.weightShift')} value={pose.weightShift} min={-1} max={1} step={0.05} displayValue={weightLabel} disabled={captured} onChange={set('weightShift')} />
+        <Range label={t('pose.leftLeg')} value={pose.leftLeg} min={-30} max={120} unit="°" disabled={captured} onChange={set('leftLeg')} />
+        <Range label={t('pose.leftKnee')} value={pose.leftKnee} min={0} max={135} unit="°" disabled={captured} onChange={set('leftKnee')} />
+        <Range label={t('pose.leftLegSplay')} value={pose.leftLegSplay} min={-45} max={45} unit="°" disabled={captured} onChange={set('leftLegSplay')} />
+        <Range label={t('pose.leftAnkle')} value={pose.leftAnkle} min={-35} max={45} unit="°" disabled={captured} onChange={set('leftAnkle')} />
+        <Range label={t('pose.leftFootTurn')} value={pose.leftFootTurn} min={-30} max={50} unit="°" disabled={captured} onChange={set('leftFootTurn')} />
+        <Range label={t('pose.rightLeg')} value={pose.rightLeg} min={-30} max={120} unit="°" disabled={captured} onChange={set('rightLeg')} />
+        <Range label={t('pose.rightKnee')} value={pose.rightKnee} min={0} max={135} unit="°" disabled={captured} onChange={set('rightKnee')} />
+        <Range label={t('pose.rightLegSplay')} value={pose.rightLegSplay} min={-45} max={45} unit="°" disabled={captured} onChange={set('rightLegSplay')} />
+        <Range label={t('pose.rightAnkle')} value={pose.rightAnkle} min={-35} max={45} unit="°" disabled={captured} onChange={set('rightAnkle')} />
+        <Range label={t('pose.rightFootTurn')} value={pose.rightFootTurn} min={-30} max={50} unit="°" disabled={captured} onChange={set('rightFootTurn')} />
       </JointGroup>
 
       <JointGroup title={t('pose.group.face')} count={9}>

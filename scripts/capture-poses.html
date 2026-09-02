@@ -1,0 +1,82 @@
+<!doctype html><meta charset="utf-8"><title>capture poses</title>
+<style>html,body{margin:0;background:#101210;overflow:hidden}#log{position:fixed;left:6px;top:4px;color:#8fb;font:11px ui-monospace;z-index:9}</style>
+<div id="log"></div>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
+
+const say = (m) => { document.getElementById('log').textContent = m }
+const params = new URLSearchParams(location.search)
+const clipFile = params.get('clip')
+const count = Number(params.get('n') || 10)
+const actorUrl = params.get('actor') || '/models/lumen-human/rocketbox-female.glb'
+
+try {
+  say('loading actor')
+  const gltf = await new Promise((res, rej) => new GLTFLoader().load(actorUrl, res, undefined, rej))
+  const joints = new Set()
+  gltf.scene.traverse((n) => { if (n.isBone) joints.add(n.name) })
+
+  say('loading clip')
+  const fbx = await new Promise((res, rej) => new FBXLoader().load('/anim-src/' + clipFile, res, undefined, rej))
+  const source = fbx.animations[0]
+  // Rotation only. Position and scale are the animator's stage placement, and
+  // the studio has its own: a standing actor is planted by the feet and a
+  // seated one by the pelvis, both after the pose is written.
+  const clip = new THREE.AnimationClip(source.name, source.duration,
+    source.tracks.filter((t) => t.name.endsWith('.quaternion') && joints.has(t.name.split('.')[0])))
+
+  const scene = new THREE.Scene()
+  scene.background = new THREE.Color('#101210')
+  scene.add(new THREE.HemisphereLight('#dfe6ff', '#2a2622', 1.5))
+  const key = new THREE.DirectionalLight('#fff4e6', 2.2)
+  key.position.set(2, 3.4, 3)
+  scene.add(key)
+
+  const frames = []
+  const spacing = 0.78
+  for (let i = 0; i < count; i += 1) {
+    const at = (i + 0.5) / count * clip.duration
+    const figure = skeletonClone(gltf.scene)
+    const mixer = new THREE.AnimationMixer(figure)
+    mixer.clipAction(clip).play()
+    mixer.setTime(at)
+    figure.updateMatrixWorld(true)
+    const rotations = {}
+    figure.traverse((n) => {
+      if (n.isBone && joints.has(n.name)) {
+        rotations[n.name] = [n.quaternion.x, n.quaternion.y, n.quaternion.z, n.quaternion.w].map((v) => Math.round(v * 10000) / 10000)
+      }
+    })
+    frames.push({ index: i, at: Math.round(at * 100) / 100, rotations })
+    figure.scale.setScalar(0.01)
+    const box = new THREE.Box3().setFromObject(figure)
+    figure.position.set((i - (count - 1) / 2) * spacing, -box.min.y, 0)
+    scene.add(figure)
+  }
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true })
+  renderer.setSize(window.innerWidth, window.innerHeight)
+  renderer.setPixelRatio(1)
+  document.body.appendChild(renderer.domElement)
+  const aspect = window.innerWidth / window.innerHeight
+  const camera = new THREE.PerspectiveCamera(30, aspect, 0.1, 60)
+  // Frame the row by its width, not its height: the sheet is a wide strip and
+  // the figures should fill it.
+  const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(30) / 2) * aspect)
+  const span = count * spacing
+  const eye = 1.05
+  camera.position.set(0, eye, (span / 2) / Math.tan(halfH) * 1.04)
+  camera.lookAt(0, eye, 0)
+  renderer.render(scene, camera)
+
+  window.__frames = frames
+  window.__ready = true
+  say(`${clipFile}  ${clip.duration.toFixed(1)}s  ${count} frames  ${Object.keys(frames[0].rotations).length} bones each`)
+} catch (error) {
+  window.__error = String(error)
+  say('FAILED ' + error)
+}
+</script>
