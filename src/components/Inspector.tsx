@@ -560,7 +560,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             ...(patch.hairGloss !== undefined ? { subjectHairGloss: patch.hairGloss } : {}),
           })} />
           <Range label={t('subject.height')} value={studioObject.subjectHeight} min={1.45} max={2.2} step={0.01} unit=" m" onChange={(value) => state.updateStudioObject(studioObject.id, { subjectHeight: Number(value.toFixed(2)) })} />
-          <PhysiquePanel physique={studioObject.subjectPhysique}
+          <PhysiquePanel physique={studioObject.subjectPhysique} baked={bakedSubject}
             onChange={(patch) => state.updateStudioSubjectPhysique(studioObject.id, patch)}
             onPreset={(id) => state.applyStudioSubjectPhysique(studioObject.id, id)} />
           <WardrobePanel baked={bakedSubject} hairStyle={studioObject.subjectHairStyle} outfit={studioObject.subjectOutfitStyle} fabric={studioObject.subjectOutfitFabric} onChange={(patch) => state.updateStudioObject(studioObject.id, {
@@ -568,7 +568,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             ...(patch.outfit ? { subjectOutfitStyle: patch.outfit } : {}),
             ...(patch.fabric ? { subjectOutfitFabric: patch.fabric } : {}),
           })} />
-          <PoseControls pose={studioObject.subjectPose} onChange={(patch) => state.updateStudioSubjectPose(studioObject.id, patch)} />
+          <PoseControls pose={studioObject.subjectPose} baked={bakedSubject} onChange={(patch) => state.updateStudioSubjectPose(studioObject.id, patch)} />
         </>}
         <div className="coordinate-label"><span>{t('axis.posAndFacing')}</span><small>{meta.metersDeg}</small></div>
         <Range label={t('axis.x')} disabled={studioObject.locked} value={studioObject.position[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setStudioObjectTransform(studioObject.id, [value, studioObject.position[1], studioObject.position[2]])} />
@@ -593,7 +593,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
         {state.modelRigStatus === 'rigged' && (
           <>
             <p className="pose-note">{t('pose.retargetNote')}</p>
-            <PoseControls pose={state.modelPose} onChange={state.updateModelPose} />
+            <PoseControls pose={state.modelPose} baked={bakedMain} onChange={state.updateModelPose} />
           </>
         )}
         {state.modelRigStatus === 'unrigged' && <p className="pose-note">{t('pose.unriggedNote')}</p>}
@@ -611,7 +611,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             if (patch.hairColor) setValue('hairColor', patch.hairColor)
             if (patch.hairGloss !== undefined) setValue('hairGloss', patch.hairGloss)
           }} />
-          <PhysiquePanel physique={state.physique} onChange={state.updatePhysique} onPreset={state.applyPhysiquePreset} />
+          <PhysiquePanel physique={state.physique} baked={bakedMain} onChange={state.updatePhysique} onPreset={state.applyPhysiquePreset} />
           <WardrobePanel baked={bakedMain} hairStyle={state.hairStyle} outfit={state.outfitStyle} fabric={state.outfitFabric} onChange={(patch) => {
             if (patch.hairStyle) setValue('hairStyle', patch.hairStyle)
             if (patch.outfit) setValue('outfitStyle', patch.outfit)

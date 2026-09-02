@@ -115,10 +115,37 @@ export type ModelPose = {
   gazePitch: number
 }
 
+/** The chest lift the figure stands at when nothing has asked for more. */
+export const NEUTRAL_CHEST_LIFT = 18
+
+/**
+ * Sternum lift, as degrees of thoracic extension.
+ *
+ * The control sat in the panel and in twenty-three of the library's poses and
+ * was read by nothing at all — not by the imported actors, not by the solver,
+ * not by the figure the library is measured against. It is a posture, so it is
+ * a rotation: the ribcage tilts back off the pelvis and the chest opens.
+ *
+ * Measured from the neutral stance rather than from zero, so the pose every
+ * rest and every delta is written against does not move.
+ */
+export const chestLiftDegrees = (chestLift: number) => (chestLift - NEUTRAL_CHEST_LIFT) * 0.12
+
+/**
+ * How much of that the neck takes back.
+ *
+ * Standing tall is not leaning back. Extend the thoracic spine alone and the
+ * head goes with it — at full lift the eyes travelled seven centimetres
+ * backwards, which reads as recoiling rather than as good posture. A real chest
+ * lift arches below and flexes above, so most of the tilt is returned at the
+ * neck and the head stays over the feet.
+ */
+export const CHEST_LIFT_NECK_RETURN = 0.6
+
 export const NEUTRAL_POSE: ModelPose = {
   airborne: false, seated: false, rootLift: 0,
   headYaw: 0, headTilt: 0, headRoll: 0, neckExtend: 0,
-  torsoYaw: 0, spineBend: 0, spineSide: 0, chestLift: 18,
+  torsoYaw: 0, spineBend: 0, spineSide: 0, chestLift: NEUTRAL_CHEST_LIFT,
   leftShoulder: -1, rightShoulder: -1,
   // Solved so the wrist lands beside the thigh rather than a hand's width out
   // from it. Eight degrees of splay is what a figure drawn from the shoulders

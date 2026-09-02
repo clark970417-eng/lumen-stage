@@ -16,7 +16,7 @@
 import * as THREE from 'three'
 import { HEAD, resolvePhysique, SEGMENT, type Physique } from './anatomy.ts'
 import { seatedHipHeight } from './layout.ts'
-import { isSeatedPose, type ModelPose } from './pose.ts'
+import { CHEST_LIFT_NECK_RETURN, chestLiftDegrees, isSeatedPose, type ModelPose } from './pose.ts'
 
 const rad = THREE.MathUtils.degToRad
 const deg = THREE.MathUtils.radToDeg
@@ -104,7 +104,8 @@ export function rigFrames(pose: ModelPose, physique: Physique, seatHeight: numbe
   const p = resolvePhysique(physique)
   const pelvisPosition = new THREE.Vector3(pose.hipShift, pelvisHeight(pose, seatHeight), 0)
   const pelvisRotation = euler(0, pose.hipYaw, -pose.hipTilt + pose.weightShift * 2.5)
-  const spineRotation = pelvisRotation.clone().multiply(euler(pose.spineBend, pose.torsoYaw - pose.hipYaw, -pose.spineSide))
+  // A lifted chest is the ribcage tilting back off the pelvis.
+  const spineRotation = pelvisRotation.clone().multiply(euler(pose.spineBend - chestLiftDegrees(pose.chestLift), pose.torsoYaw - pose.hipYaw, -pose.spineSide))
 
   return {
     pelvisPosition,
@@ -161,7 +162,10 @@ export function forwardKinematics(pose: ModelPose, physique: Physique, seatHeigh
 
   const neck = new THREE.Vector3(0, SEGMENT.torso + 0.040, 0).applyQuaternion(frames.spineRotation).add(frames.pelvisPosition)
   const chest = new THREE.Vector3(0, SEGMENT.torso * 0.62, 0).applyQuaternion(frames.spineRotation).add(frames.pelvisPosition)
-  const headRotation = frames.spineRotation.clone().multiply(euler(pose.headTilt, pose.headYaw, -pose.headRoll))
+  // The neck gives back most of the chest lift, so standing tall keeps the head
+  // over the feet instead of carrying it backwards.
+  const carry = chestLiftDegrees(pose.chestLift) * CHEST_LIFT_NECK_RETURN
+  const headRotation = frames.spineRotation.clone().multiply(euler(pose.headTilt + carry, pose.headYaw, -pose.headRoll))
   const head = new THREE.Vector3(0, SEGMENT.neckLength + 0.004 + HEAD.eyeY, pose.neckExtend * 0.0007)
     .applyQuaternion(headRotation).add(neck)
 

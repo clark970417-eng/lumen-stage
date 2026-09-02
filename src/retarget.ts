@@ -15,7 +15,7 @@
 
 import * as THREE from 'three'
 import { elbowFlexion, type RigPoints } from './ik.ts'
-import { NEUTRAL_POSE, type HandPose, type ModelPose } from './pose.ts'
+import { CHEST_LIFT_NECK_RETURN, chestLiftDegrees, NEUTRAL_POSE, type HandPose, type ModelPose } from './pose.ts'
 import { applyFingerCurlDelta, applyWorldPoseDelta } from './retargetDelta.ts'
 
 /** Every joint the rig can drive. Anything else in the skeleton is left alone. */
@@ -127,6 +127,8 @@ export function mappingQuality(map: BoneMap) {
 export type RestPose = {
   /** Local rotation each bone had in the file. */
   localQuaternion: Map<THREE.Bone, THREE.Quaternion>
+  /** Local position each bone had in the file, for the one joint that moves. */
+  localPosition: Map<THREE.Bone, THREE.Vector3>
   /** World rotation each bone had in the file. */
   worldQuaternion: Map<THREE.Bone, THREE.Quaternion>
   /**
@@ -176,6 +178,7 @@ export function boneDirection(bone: THREE.Bone): THREE.Vector3 | null {
 export function captureRestPose(root: THREE.Object3D, map: BoneMap): RestPose {
   root.updateWorldMatrix(true, true)
   const localQuaternion = new Map<THREE.Bone, THREE.Quaternion>()
+  const localPosition = new Map<THREE.Bone, THREE.Vector3>()
   const worldQuaternion = new Map<THREE.Bone, THREE.Quaternion>()
   const normalize = new Map<THREE.Bone, THREE.Quaternion>()
 
@@ -183,6 +186,7 @@ export function captureRestPose(root: THREE.Object3D, map: BoneMap): RestPose {
     if (!(node as THREE.Bone).isBone) return
     const bone = node as THREE.Bone
     localQuaternion.set(bone, bone.quaternion.clone())
+    localPosition.set(bone, bone.position.clone())
     worldQuaternion.set(bone, bone.getWorldQuaternion(new THREE.Quaternion()))
   })
 
@@ -194,7 +198,7 @@ export function captureRestPose(root: THREE.Object3D, map: BoneMap): RestPose {
     normalize.set(bone, new THREE.Quaternion().setFromUnitVectors(direction, reference.clone().normalize()))
   }
 
-  return { localQuaternion, worldQuaternion, normalize }
+  return { localQuaternion, localPosition, worldQuaternion, normalize }
 }
 
 // ---------------------------------------------------------------------------
@@ -219,10 +223,15 @@ function accumulate(pose: ModelPose, stanceSplay: number): Partial<Record<Humano
   const chain = (...parts: THREE.Quaternion[]) => parts.reduce((total, part) => total.multiply(part), new THREE.Quaternion())
 
   const hips = chain(axis(Y, pose.hipYaw), axis(Z, -pose.hipTilt + pose.weightShift * 2.5))
-  const spine = chain(hips.clone(), axis(X, pose.spineBend * 0.45), axis(Y, (pose.torsoYaw - pose.hipYaw) * 0.45), axis(Z, -pose.spineSide * 0.5))
-  const chest = chain(hips.clone(), axis(X, pose.spineBend), axis(Y, pose.torsoYaw - pose.hipYaw), axis(Z, -pose.spineSide))
-  const neck = chain(chest.clone(), axis(X, pose.neckExtend * -0.25))
-  const head = chain(chest.clone(), axis(X, pose.headTilt), axis(Y, pose.headYaw), axis(Z, -pose.headRoll))
+  // A lifted chest is the ribcage tilting back off the pelvis — the same
+  // rotation the solver applies, so the handles and the actor agree.
+  const lift = chestLiftDegrees(pose.chestLift)
+  const bend = pose.spineBend - lift
+  const spine = chain(hips.clone(), axis(X, bend * 0.45), axis(Y, (pose.torsoYaw - pose.hipYaw) * 0.45), axis(Z, -pose.spineSide * 0.5))
+  const chest = chain(hips.clone(), axis(X, bend), axis(Y, pose.torsoYaw - pose.hipYaw), axis(Z, -pose.spineSide))
+  const carry = lift * CHEST_LIFT_NECK_RETURN
+  const neck = chain(chest.clone(), axis(X, pose.neckExtend * -0.25 + carry))
+  const head = chain(chest.clone(), axis(X, pose.headTilt + carry), axis(Y, pose.headYaw), axis(Z, -pose.headRoll))
 
   const armChain = (side: -1 | 1) => {
     const left = side === -1
@@ -383,6 +392,32 @@ function applyFingers(hand: THREE.Bone | undefined, pose: HandPose, rest: RestPo
 }
 
 /**
+ * Slides the pelvis sideways, which is the one thing a pose asks for that is a
+ * move rather than a turn.
+ *
+ * Every other joint the library drives is a rotation, so the retarget was built
+ * to carry rotations and quietly dropped this. The drag handle wrote it and the
+ * solver read it, so pulling the hips across moved the handle and left the
+ * actor standing where she was.
+ *
+ * The offset is given in the room, so it is turned into the pelvis' parent
+ * frame and divided by the scale the actor was normalised with. It reflects
+ * with the rest of the pose on a rig that numbers its sides the other way,
+ * because a weight shift is only worth anything against the leg it is over.
+ */
+function shiftHips(map: BoneMap, rest: RestPose, hipShift: number, mirrored: boolean) {
+  const hips = map.hips
+  const restLocal = hips && rest.localPosition.get(hips)
+  if (!hips || !restLocal) return
+  if (Math.abs(hipShift) < 1e-6) { hips.position.copy(restLocal); return }
+  const parent = hips.parent
+  const parentWorld = parent ? parent.getWorldQuaternion(new THREE.Quaternion()) : new THREE.Quaternion()
+  const scale = parent ? parent.getWorldScale(new THREE.Vector3()).x || 1 : 1
+  const offset = new THREE.Vector3((mirrored ? -hipShift : hipShift) / scale, 0, 0)
+  hips.position.copy(restLocal).add(offset.applyQuaternion(parentWorld.invert()))
+}
+
+/**
  * Writes a pose onto an imported skeleton.
  *
  * Root-first, so each bone's local rotation is solved against a parent that has
@@ -452,8 +487,11 @@ export function applyPoseToSkeleton(root: THREE.Object3D, map: BoneMap, rest: Re
   const rootWorld = root.getWorldQuaternion(new THREE.Quaternion())
   walk(root, rootWorld)
 
-  // The walk wrote local rotations only, so the hands are not where the matrices
-  // say yet — and the bend axis is measured in the room.
+  // The walk wrote local rotations only, so nothing is where the matrices say
+  // yet — and both the pelvis offset and the finger bend axis are measured in
+  // the room.
+  root.updateMatrixWorld(true)
+  shiftHips(map, rest, pose.hipShift, mirrored)
   root.updateMatrixWorld(true)
   applyFingers(map.leftHand, pose.leftHand, rest)
   applyFingers(map.rightHand, pose.rightHand, rest)

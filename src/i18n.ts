@@ -102,6 +102,7 @@ const DICT = {
   'physique.neutral': { en: 'Neutral', zh: '中性', ja: '中性' },
   'physique.age': { en: 'Appearance age', zh: '外觀年齡', ja: '見た目の年齢' },
   'physique.years': { en: ' yrs', zh: ' 歲', ja: ' 歳' },
+  'physique.bakedNote': { en: 'This actor is photographed, so nothing here changes the shape you see. Build, muscle, shoulders and hips still adjust where the rig aims the arms; face, waist, bust and age reach nothing at all.', zh: '這位演員是實拍的,所以這裡改不動你看到的身形。體格、肌肉、肩寬與臀圍仍會微調手臂瞄準的位置;臉型變化、腰、胸與年齡則完全沒有作用。', ja: 'このアクターは実写ベースのため、ここで見た目の体型は変わりません。体格・筋肉・肩幅・腰まわりは腕を狙う位置の微調整には効きますが、顔の個体差・ウエスト・バスト・年齢は何にも届きません。' },
   'physique.presets': { en: 'Body presets', zh: '體型預設', ja: '体型プリセット' },
   'physique.face': { en: 'Face variation', zh: '臉部變化', ja: '顔のバリエーション' },
   'physique.build': { en: 'Build', zh: '體脂', ja: '体格' },

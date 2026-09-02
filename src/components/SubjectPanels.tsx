@@ -22,18 +22,19 @@ type RangeProps = {
   step?: number
   unit?: string
   displayValue?: string
+  disabled?: boolean
   onChange: (value: number) => void
 }
 
 const beginRangeEdit = () => useStudio.getState().beginHistoryTransaction()
 const endRangeEdit = () => useStudio.getState().endHistoryTransaction()
 
-function Range({ label, value, min, max, step = 1, unit = '', displayValue, onChange }: RangeProps) {
+function Range({ label, value, min, max, step = 1, unit = '', displayValue, disabled = false, onChange }: RangeProps) {
   const progress = ((value - min) / (max - min)) * 100
   return (
     <label className="control-row">
       <span>{label}</span><output>{displayValue ?? `${value}${unit}`}</output>
-      <input aria-label={label} type="range" min={min} max={max} step={step} value={value} style={{ '--progress': `${progress}%` } as React.CSSProperties} onPointerDown={beginRangeEdit} onPointerUp={endRangeEdit} onPointerCancel={endRangeEdit} onChange={(event) => onChange(Number(event.target.value))} />
+      <input aria-label={label} disabled={disabled} type="range" min={min} max={max} step={step} value={value} style={{ '--progress': `${progress}%` } as React.CSSProperties} onPointerDown={beginRangeEdit} onPointerUp={endRangeEdit} onPointerCancel={endRangeEdit} onChange={(event) => onChange(Number(event.target.value))} />
     </label>
   )
 }
@@ -128,7 +129,7 @@ export function mirrorPose(pose: ModelPose): Partial<ModelPose> {
   }
 }
 
-export function PoseControls({ pose, onChange }: { pose: ModelPose; onChange: (patch: Partial<ModelPose>) => void }) {
+export function PoseControls({ pose, baked = false, onChange }: { pose: ModelPose; /** True when the actor's head is photographed, so the jaw cannot be reshaped. */ baked?: boolean; onChange: (patch: Partial<ModelPose>) => void }) {
   const t = useT()
   const ct = useCatalogT()
   const set = (key: keyof ModelPose) => (value: number) => onChange({ [key]: value } as Partial<ModelPose>)
@@ -214,7 +215,7 @@ export function PoseControls({ pose, onChange }: { pose: ModelPose; onChange: (p
         <Range label={t('pose.smile')} value={pose.smile} min={-40} max={100} unit="%" onChange={set('smile')} />
         <Range label={t('pose.lipPart')} value={pose.lipPart} min={0} max={100} unit="%" onChange={set('lipPart')} />
         <Range label={t('pose.mouthOpen')} value={pose.mouthOpen} min={0} max={100} unit="%" onChange={set('mouthOpen')} />
-        <Range label={t('pose.jawSet')} value={pose.jawSet} min={-30} max={40} unit="%" onChange={set('jawSet')} />
+        <Range label={t('pose.jawSet')} value={pose.jawSet} min={-30} max={40} unit="%" disabled={baked} onChange={set('jawSet')} />
         <Range label={t('pose.gazeYaw')} value={pose.gazeYaw} min={-35} max={35} unit="°" onChange={set('gazeYaw')} />
         <Range label={t('pose.gazePitch')} value={pose.gazePitch} min={-30} max={30} unit="°" onChange={set('gazePitch')} />
       </JointGroup>
@@ -226,7 +227,7 @@ export function PoseControls({ pose, onChange }: { pose: ModelPose; onChange: (p
 // Physique
 // ---------------------------------------------------------------------------
 
-export function PhysiquePanel({ physique, onChange, onPreset }: { physique: Physique; onChange: (patch: Partial<Physique>) => void; onPreset: (id: string) => void }) {
+export function PhysiquePanel({ physique, baked = false, onChange, onPreset }: { physique: Physique; /** True when the actor's body is photographed and cannot be reshaped. */ baked?: boolean; onChange: (patch: Partial<Physique>) => void; onPreset: (id: string) => void }) {
   const t = useT()
   const ct = useCatalogT()
   return (
@@ -240,19 +241,20 @@ export function PhysiquePanel({ physique, onChange, onPreset }: { physique: Phys
           ))}
         </div>
       </div>
-      <Range label={t('physique.age')} value={physique.age ?? 28} min={18} max={80} unit={t('physique.years')} onChange={(value) => onChange({ age: value })} />
+      <Range label={t('physique.age')} value={physique.age ?? 28} min={18} max={80} unit={t('physique.years')} disabled={baked} onChange={(value) => onChange({ age: value })} />
       <div className="pose-grid physique-presets" role="group" aria-label={t('physique.presets')}>
         {Object.keys(PHYSIQUE_PRESETS).map((id) => (
           <button key={id} onClick={() => onPreset(id)}>{ct(`physique.${id}`, id)}</button>
         ))}
       </div>
-      <Range label={t('physique.face')} value={physique.face} min={0} max={100} onChange={(value) => onChange({ face: value })} />
+      <Range label={t('physique.face')} value={physique.face} min={0} max={100} disabled={baked} onChange={(value) => onChange({ face: value })} />
       <Range label={t('physique.build')} value={physique.build} min={0} max={100} unit="%" onChange={(value) => onChange({ build: value })} />
       <Range label={t('physique.muscle')} value={physique.muscle} min={0} max={100} unit="%" onChange={(value) => onChange({ muscle: value })} />
       <Range label={t('physique.shoulders')} value={physique.shoulders} min={-50} max={50} onChange={(value) => onChange({ shoulders: value })} />
-      <Range label={t('physique.waist')} value={physique.waist} min={-50} max={50} onChange={(value) => onChange({ waist: value })} />
+      <Range label={t('physique.waist')} value={physique.waist} min={-50} max={50} disabled={baked} onChange={(value) => onChange({ waist: value })} />
       <Range label={t('physique.hips')} value={physique.hips} min={-50} max={50} onChange={(value) => onChange({ hips: value })} />
-      <Range label={t('physique.bust')} value={physique.bust} min={-50} max={50} onChange={(value) => onChange({ bust: value })} />
+      <Range label={t('physique.bust')} value={physique.bust} min={-50} max={50} disabled={baked} onChange={(value) => onChange({ bust: value })} />
+      {baked && <p className="pose-note">{t('physique.bakedNote')}</p>}
     </div>
   )
 }
