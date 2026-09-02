@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { appearanceIsBaked, FEMALE_CASUAL_URL, ROCKETBOX_FEMALE_URL, ROCKETBOX_MALE_URL, shippedHumanFor } from '../src/characterAssets.ts'
+import { appearanceIsBaked, FEMALE_CASUAL_URL, ROCKETBOX_BUSINESS_FEMALE_URL, ROCKETBOX_BUSINESS_MALE_URL, ROCKETBOX_FEMALE_URL, ROCKETBOX_MALE_URL, shippedHumanFor } from '../src/characterAssets.ts'
 import { PHYSIQUE_PRESETS } from '../src/physique.ts'
 
 function readGlbJson(url: string) {
@@ -11,27 +11,27 @@ function readGlbJson(url: string) {
   return JSON.parse(glb.subarray(20, 20 + jsonLength).toString())
 }
 
-test('every wardrobe choice routes to the Rocketbox actor for that sex', () => {
-  // The Rocketbox pair dress themselves — their clothing is painted into the
-  // body map — so the wardrobe no longer selects a file. It still drives
-  // fabric response, and the outfit-specific MakeHuman actors are kept in the
-  // registry for when a matching Rocketbox avatar is chosen for each.
-  for (const outfit of ['dress', 'gown', 'activewear', 'tank', 'tshirt', 'shirt', 'suit', 'coat'] as const) {
-    assert.equal(shippedHumanFor(PHYSIQUE_PRESETS.average, outfit), ROCKETBOX_FEMALE_URL)
+test('the wardrobe picks an actor, because these actors wear their clothes', () => {
+  // Their clothing is painted into the body map, so a garment is not something
+  // that can be put on somebody — it is somebody else. Anything tailored brings
+  // out the business pair; everything else is the everyday pair.
+  for (const outfit of ['suit', 'coat', 'shirt'] as const) {
+    assert.equal(shippedHumanFor(PHYSIQUE_PRESETS.average, outfit), ROCKETBOX_BUSINESS_FEMALE_URL, outfit)
+    assert.equal(shippedHumanFor(PHYSIQUE_PRESETS.athletic, outfit), ROCKETBOX_BUSINESS_MALE_URL, outfit)
   }
+  for (const outfit of ['dress', 'gown', 'activewear', 'tank', 'tshirt'] as const) {
+    assert.equal(shippedHumanFor(PHYSIQUE_PRESETS.average, outfit), ROCKETBOX_FEMALE_URL, outfit)
+    assert.equal(shippedHumanFor(PHYSIQUE_PRESETS.athletic, outfit), ROCKETBOX_MALE_URL, outfit)
+  }
+  // Sex decides which of the pair, and it is the only physique field that does.
   assert.equal(shippedHumanFor(PHYSIQUE_PRESETS.curvy, 'gown'), ROCKETBOX_FEMALE_URL)
-  assert.equal(shippedHumanFor(PHYSIQUE_PRESETS['athletic-f'], 'activewear'), ROCKETBOX_FEMALE_URL)
-})
-
-test('the masculine actor is the Rocketbox male whatever the wardrobe says', () => {
-  assert.equal(shippedHumanFor(PHYSIQUE_PRESETS.athletic, 'suit'), ROCKETBOX_MALE_URL)
-  assert.equal(shippedHumanFor(PHYSIQUE_PRESETS.athletic, 'dress'), ROCKETBOX_MALE_URL)
+  assert.equal(shippedHumanFor(PHYSIQUE_PRESETS.heavy, 'suit'), ROCKETBOX_BUSINESS_MALE_URL)
 })
 
 test('both actors carry their own eyes, lids and brows', () => {
   // The whole reason for the swap: these rigs have real eyes, so the studio
   // does not have to cut a socket into a closed face and park a sphere in it.
-  for (const url of [ROCKETBOX_MALE_URL, ROCKETBOX_FEMALE_URL]) {
+  for (const url of [ROCKETBOX_MALE_URL, ROCKETBOX_FEMALE_URL, ROCKETBOX_BUSINESS_MALE_URL, ROCKETBOX_BUSINESS_FEMALE_URL]) {
     const gltf = readGlbJson(url)
     const joints = new Set<number>(gltf.skins.flatMap((skin: { joints: number[] }) => skin.joints))
     const names: string[] = gltf.nodes.map((node: { name?: string }) => node.name ?? '')
@@ -59,6 +59,8 @@ test('the actors whose look is photographed are the ones the appearance controls
   // still answer everything.
   assert.ok(appearanceIsBaked(ROCKETBOX_MALE_URL))
   assert.ok(appearanceIsBaked(ROCKETBOX_FEMALE_URL))
+  assert.ok(appearanceIsBaked(ROCKETBOX_BUSINESS_MALE_URL))
+  assert.ok(appearanceIsBaked(ROCKETBOX_BUSINESS_FEMALE_URL))
   assert.ok(!appearanceIsBaked(FEMALE_CASUAL_URL))
   assert.ok(!appearanceIsBaked(null))
   assert.ok(!appearanceIsBaked('/models/someone-elses-import.glb'))

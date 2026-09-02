@@ -23,6 +23,21 @@ const assetHref = (path: string) => `${assetBase}${path.replace(/^\/+/, '')}`
 export const ROCKETBOX_MALE_URL = assetHref('models/lumen-human/rocketbox-male.glb')
 export const ROCKETBOX_FEMALE_URL = assetHref('models/lumen-human/rocketbox-female.glb')
 
+/**
+ * The same pair in business dress.
+ *
+ * A Rocketbox avatar wears its clothes in its body map, so a wardrobe here is
+ * not a garment to put on somebody — it is somebody else. These are
+ * `Business_Male_01` and `Business_Female_01`, built by the same converter and
+ * carrying the same rig, so every pose, expression and gaze already works on
+ * them.
+ */
+export const ROCKETBOX_BUSINESS_MALE_URL = assetHref('models/lumen-human/rocketbox-business-male.glb')
+export const ROCKETBOX_BUSINESS_FEMALE_URL = assetHref('models/lumen-human/rocketbox-business-female.glb')
+
+/** The wardrobe choices the tailored pair stand for. */
+const TAILORED: OutfitStyle[] = ['suit', 'coat', 'shirt']
+
 export const DEFAULT_HUMAN_URL = assetHref('models/lumen-human/rocketbox-male.glb')
 export const SUITED_HUMAN_URL = assetHref('models/lumen-human/human-suited-runtime.glb')
 export const FEMALE_CASUAL_URL = assetHref('models/lumen-human/human-female-casual.glb')
@@ -44,11 +59,15 @@ export const DEFAULT_HUMAN_NAME = 'Everyday Adult'
  */
 export function appearanceIsBaked(url: string | null) {
   return url === ROCKETBOX_MALE_URL || url === ROCKETBOX_FEMALE_URL
+    || url === ROCKETBOX_BUSINESS_MALE_URL || url === ROCKETBOX_BUSINESS_FEMALE_URL
 }
 
-export function shippedHumanFor(physique: Physique, _outfit: OutfitStyle) {
-  // The Rocketbox pair dress themselves — their clothing is baked into the
-  // body texture — so the outfit control has nothing to switch between yet.
-  // Kept in the signature because the wardrobe still drives fabric response.
-  return physique.sex === 'feminine' ? ROCKETBOX_FEMALE_URL : ROCKETBOX_MALE_URL
+export function shippedHumanFor(physique: Physique, outfit: OutfitStyle) {
+  // These actors dress themselves — the clothing is painted into the body map
+  // — so the wardrobe picks an actor rather than a garment. Two looks a side is
+  // what the studio ships, so everything the tailored pair can stand for goes
+  // to them and the rest goes to the everyday pair.
+  const feminine = physique.sex === 'feminine'
+  if (TAILORED.includes(outfit)) return feminine ? ROCKETBOX_BUSINESS_FEMALE_URL : ROCKETBOX_BUSINESS_MALE_URL
+  return feminine ? ROCKETBOX_FEMALE_URL : ROCKETBOX_MALE_URL
 }

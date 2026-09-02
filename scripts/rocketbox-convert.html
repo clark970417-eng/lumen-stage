@@ -211,13 +211,28 @@ async function convert(name, fbxUrl, prefix) {
   return btoa(binary)
 }
 
+/**
+ * Which avatars to build, as `name:fbx:texturePrefix` separated by commas.
+ *
+ * Rocketbox ships a hundred and seventeen of these and they are all laid out
+ * the same way, so the two that happened to be converted first do not belong
+ * hard-coded in here. Defaults to that pair, so a bare load still rebuilds
+ * exactly what the studio ships today.
+ */
+const JOBS = (new URLSearchParams(location.search).get('jobs')
+  || 'male:male:m002,female:female:f001')
+  .split(',')
+  .map((job) => job.split(':'))
+  .map(([name, fbx, prefix]) => ({ name, fbx: fbx || name, prefix }))
+
 window.__convert = async () => {
   const result = {}
-  result.male = await convert('male', '/rocketbox-src/male.fbx', 'm002')
-  result.female = await convert('female', '/rocketbox-src/female.fbx', 'f001')
+  for (const job of JOBS) {
+    result[job.name] = await convert(job.name, `/rocketbox-src/${job.fbx}.fbx`, job.prefix)
+  }
   window.__glb = result
   say('done')
-  return { male: result.male.length, female: result.female.length }
+  return Object.fromEntries(Object.entries(result).map(([name, data]) => [name, data.length]))
 }
 window.__convert().catch((error) => { say('FAILED ' + error.message); window.__error = String(error) })
 </script>

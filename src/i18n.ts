@@ -115,7 +115,7 @@ const DICT = {
   // ── 服裝與髮型 ──────────────────────────────────────────
   'wardrobe.title': { en: 'Wardrobe', zh: '服裝造型', ja: 'ワードローブ' },
   'wardrobe.sub': { en: 'HAIR / OUTFIT / FABRIC', zh: '髮型 / 服裝 / 材質', ja: 'ヘア / 衣装 / 素材' },
-  'wardrobe.bakedNote': { en: 'This actor is photographed — hair, clothing and skin arrive as one baked map, with no second file to change into and no hair mesh to restyle. These stay as they are until an actor with separate garments is added.', zh: '這位演員是實拍烘焙的：頭髮、服裝與皮膚都在同一張貼圖上，沒有第二個檔案可換，也沒有可重塑的頭髮模型。要等到加入衣物分離的演員，這些選項才會生效。', ja: 'このアクターは実写ベースで、髪・衣装・肌が一枚のテクスチャに焼き込まれています。切り替える別ファイルも、作り直せる髪のメッシュもありません。衣装が分かれたアクターを追加するまで、ここは固定です。' },
+  'wardrobe.bakedNote': { en: 'These actors wear their clothes in their body map, so the wardrobe picks an actor rather than a garment: a suit, a coat or a shirt brings out the tailored pair, anything else the everyday pair. Hair and fabric have nothing to act on — there is no hair mesh to restyle, and no cloth the light can be told about apart from the skin beside it.', zh: '這幾位演員的衣服是畫在身體貼圖上的，所以「服裝」選的是人而不是衣服：西裝、長大衣或襯衫會換成正裝那一組，其餘則是日常那一組。髮型與布料則無從作用——沒有可重塑的頭髮模型，也沒有能與旁邊皮膚分開對光的布料。', ja: 'このアクターたちは衣服がボディマップに描き込まれているため、ワードローブは衣装ではなく人を選びます。スーツ・コート・シャツはフォーマルな二人に、それ以外は普段着の二人になります。髪と素材は働きかける先がありません。' },
   'wardrobe.hair': { en: 'Hair style', zh: '髮型', ja: 'ヘアスタイル' },
   'wardrobe.outfit': { en: 'Outfit', zh: '服裝', ja: '衣装' },
 

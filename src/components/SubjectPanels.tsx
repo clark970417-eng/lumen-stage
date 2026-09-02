@@ -286,7 +286,7 @@ export function WardrobePanel({ hairStyle, outfit, fabric, baked = false, onChan
       <div className="wardrobe-label">{t('wardrobe.outfit')}</div>
       <div className="pose-grid" role="group" aria-label={t('wardrobe.outfit')}>
         {OUTFITS.map((item) => (
-          <button key={item.id} disabled={baked} title={item.note} className={outfit === item.id ? 'active' : ''} onClick={() => onChange({ outfit: item.id })}>{ct(`outfit.${item.id}`, item.label)}</button>
+          <button key={item.id} title={item.note} className={outfit === item.id ? 'active' : ''} onClick={() => onChange({ outfit: item.id })}>{ct(`outfit.${item.id}`, item.label)}</button>
         ))}
       </div>
       <div className="wardrobe-label">{t('appearance.fabric')}</div>

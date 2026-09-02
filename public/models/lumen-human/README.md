@@ -21,6 +21,21 @@ subjects.
   and TGA files are not vendored — they are ~180 MB and are fetched from the
   upstream repository when the converter is re-run.
 
+`rocketbox-business-male.glb` and `rocketbox-business-female.glb` are the same
+two people in business dress — which here means two different people, because a
+Rocketbox avatar wears its clothes in its body map.
+
+- Source: Microsoft Rocketbox `Business_Male_01` and `Business_Female_01`, from
+  the same repository and under the same MIT license.
+- Built by the same converter, which now takes the avatars to build from the
+  query string (`?jobs=name:fbx:prefix,...`) rather than having the first two
+  it ever converted written into it. Per avatar it needs four files from
+  upstream: the `_facial.fbx` export and the `body_color`, `head_color` and
+  `opacity_color` TGA maps, about 42 MB. The normal and specular maps are not
+  used and are not fetched.
+- Same rig, same 24 blendshapes, same 0.9 alpha cutoff on the lash atlas, so
+  every pose, expression, gaze and hand shape already works on them.
+
 ## Previous MakeHuman subjects (no longer selected)
 
 `human-suited-runtime.glb` was the built-in studio subject.
