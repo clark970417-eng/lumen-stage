@@ -14,12 +14,11 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import type { TransformControls as TransformControlsImpl } from 'three-stdlib'
 import { breathingAdjustedFocalLength, calculateDepthOfField } from '../optics'
 import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjectType, type StudioLight, type StudioModifier, type StudioObject, type TransformAxis } from '../store'
-import type { FigureAppearance } from './Figure'
 import { forwardKinematics } from '../ik'
 import { isSeatedPose, NEUTRAL_POSE, type ModelPose } from '../pose'
 import type { HairStyle } from '../wardrobe'
 import { aimEyes, applyExpressionToMorphs, applyPoseToSkeleton, findEyeBones, landFeet, landHands, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
-import { SOCKET_PAINT_SPREAD, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, bakedActorResponse, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type StudioHairMass } from '../studioHumanDetails'
+import { SOCKET_PAINT_SPREAD, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, bakedActorResponse, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type ActorAppearance, type StudioHairMass } from '../studioHumanDetails'
 import { captureLightOutput, PATHTRACE_CANDELA_SCALE, PREVIEW_CANDELA_SCALE } from '../lightProfiles'
 import { CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, whiteBalanceGains } from '../colorScience'
@@ -1201,7 +1200,7 @@ const SUBSURFACE_COLOR = '#d99a86'
  * The skin response shared by every shipped actor, so a control has the same
  * photographic meaning when physique or wardrobe selects a different GLB.
  */
-function applyActorSkin(material: THREE.MeshPhysicalMaterial, appearance: FigureAppearance) {
+function applyActorSkin(material: THREE.MeshPhysicalMaterial, appearance: ActorAppearance) {
   const response = studioSkinResponse(appearance.skinRoughness, appearance.skinOil, appearance.subsurface, appearance.physique.age)
   // Pores, on every actor. This started out filling in only the male body's
   // missing map — the difference between a broken highlight and one flat
@@ -1297,7 +1296,7 @@ function applyActorGarment(material: THREE.MeshPhysicalMaterial, fabric: OutfitF
  * Not the cut-out materials, though: the eyelash cards are a texture with a
  * hard alpha test, and giving them sebum and a sheen is meaningless at best.
  */
-function applyBakedActorResponse(material: THREE.MeshPhysicalMaterial, appearance: FigureAppearance) {
+function applyBakedActorResponse(material: THREE.MeshPhysicalMaterial, appearance: ActorAppearance) {
   if (material.alphaTest > 0) return
   const response = bakedActorResponse(appearance.skinRoughness, appearance.skinOil, appearance.subsurface)
   material.metalness = 0
@@ -1313,7 +1312,7 @@ function applyBakedActorResponse(material: THREE.MeshPhysicalMaterial, appearanc
 }
 
 /** Walks a loaded actor and re-applies everything the controls drive. */
-function applyActorAppearance(model: THREE.Object3D, appearance: FigureAppearance) {
+function applyActorAppearance(model: THREE.Object3D, appearance: ActorAppearance) {
   model.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return
     const materials = Array.isArray(child.material) ? child.material : [child.material]
@@ -1935,7 +1934,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   pose?: ModelPose
   lookAtCamera?: boolean
   /** A standalone figure carries its own look; the main subject reads the store. */
-  appearance?: FigureAppearance
+  appearance?: ActorAppearance
   /** Height of whatever this actor is sitting on, or null for the floor. */
   seatHeight?: number | null
   reportStatus?: boolean
@@ -1970,7 +1969,7 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
 
   // Every extra subject used to render with the main subject's hair colour,
   // because that was the only appearance value this component read.
-  const appearance: FigureAppearance = useMemo(() => appearanceOverride ?? {
+  const appearance: ActorAppearance = useMemo(() => appearanceOverride ?? {
     skinRoughness: mainSkinRoughness,
     skinOil: mainSkinOil,
     subsurface: mainSubsurface,

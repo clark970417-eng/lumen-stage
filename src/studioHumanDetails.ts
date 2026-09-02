@@ -1,7 +1,32 @@
 import * as THREE from 'three'
+import type { Physique } from './physique.ts'
+import type { MakeupStyle } from './store.ts'
+import type { FabricKind, HairStyle, OutfitStyle } from './wardrobe.ts'
 
 const assetBase = (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/'
 const assetHref = (path: string) => `${assetBase}${path.replace(/^\/+/, '')}`
+
+/**
+ * Everything the appearance and wardrobe controls say about an actor.
+ *
+ * This lived on the procedural figure, which is the one thing in the studio
+ * that never has to be told any of it — it was built from these values. The
+ * figure is gone; the actors that replaced it are files, and this is what gets
+ * applied to one after it loads.
+ */
+export type ActorAppearance = {
+  skinRoughness: number
+  skinOil: number
+  subsurface: number
+  makeup: MakeupStyle
+  eyeColor: string
+  hairColor: string
+  hairGloss: number
+  outfitFabric: FabricKind
+  physique: Physique
+  hairStyle: HairStyle
+  outfit: OutfitStyle
+}
 
 export const STUDIO_HAIR_SOURCE_URL = assetHref('models/lumen-human/hair/short04.obj')
 export const STUDIO_HAIR_SOURCE_SCALE = 0.108
