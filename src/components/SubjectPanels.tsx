@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import { PHYSIQUE_PRESETS, type Physique } from '../physique'
 import { HAND_POSES, POSE_CATEGORIES, POSE_LIBRARY, type HandPose, type ModelPose, type PoseCategory } from '../pose'
+import { motionSeconds, motionWindowFor } from '../capturedMotion'
 import { FABRICS, HAIR_STYLES, OUTFITS, type FabricKind, type HairStyle, type OutfitStyle } from '../wardrobe'
 import { useCatalogT, useT, type MessageKey } from '../i18n'
 import { useStudio } from '../store'
@@ -137,6 +138,10 @@ export function PoseControls({ pose, baked = false, onChange }: { pose: ModelPos
   // there is nothing for these to write on. The values underneath are kept, not
   // discarded: pick any other pose and they answer again.
   const captured = Boolean(pose.capture)
+  // The performance this pose was cut from, so the photographer can go looking
+  // for a better moment than the one that shipped.
+  const performance = motionWindowFor(pose.capture)
+  const frame = pose.captureFrame ?? performance?.defaultFrame ?? 0
   const weightLabel = pose.weightShift < -0.15 ? t('pose.weight.left') : pose.weightShift > 0.15 ? t('pose.weight.right') : t('pose.weight.even')
 
   const handPicker = (side: 'leftHand' | 'rightHand') => (
@@ -158,6 +163,25 @@ export function PoseControls({ pose, baked = false, onChange }: { pose: ModelPos
         <button disabled={captured} onClick={() => onChange(mirrorPose(pose))}>{t('pose.mirror')}</button>
       </div>
       {captured ? <p className="joint-rig-note">{t('pose.capturedNote')}</p> : null}
+      {performance ? (
+        <div className="joint-rig-scrub">
+          <Range
+            label={t('pose.captureFrame')}
+            value={frame}
+            min={0}
+            max={performance.count - 1}
+            step={1}
+            displayValue={`${motionSeconds(performance, frame).toFixed(2)} s`}
+            onChange={(value) => onChange({ captureFrame: Math.round(value) })}
+          />
+          <button
+            disabled={frame === performance.defaultFrame}
+            onClick={() => onChange({ captureFrame: performance.defaultFrame })}
+          >
+            {t('pose.captureFrameReset')}
+          </button>
+        </div>
+      ) : null}
 
       <JointGroup title={t('pose.group.head')} count={4} defaultOpen>
         <Range label={t('pose.headYaw')} value={pose.headYaw} min={-75} max={75} unit="°" disabled={captured} onChange={set('headYaw')} />

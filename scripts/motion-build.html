@@ -1,0 +1,121 @@
+<!doctype html><meta charset="utf-8"><title>motion build</title><pre id="out" style="color:#cfc;background:#111;font:11px ui-monospace;padding:8px;white-space:pre-wrap"></pre>
+<!--
+  Builds public/models/lumen-human/captured-motion.bin and src/capturedMotion.ts:
+  a short window of each captured performance, so a frame can be scrubbed for
+  instead of only the one that was picked.
+
+  Needs the same clips as scripts/capture-build.html in public/anim-src/, and
+  takes its window centres from that file's PICKS — keep the two in step.
+-->
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
+
+const PICKS = [
+  { id: 'captured-relaxed', clip: 'f_idle_neutral_01.fbx', frame: 5,
+    contacts: [['left', 'Bip01_L_Thigh'], ['right', 'Bip01_R_Thigh']] },
+  { id: 'captured-hands-hips', clip: 'f_idle_waiting_01.fbx', frame: 5,
+    contacts: [['left', 'Bip01_L_Thigh'], ['right', 'Bip01_R_Thigh']] },
+  { id: 'captured-touch-face', clip: 'f_idle_touch_face_01.fbx', frame: 3,
+    contacts: [['right', 'Bip01_Head'], ['left', 'Bip01_L_Thigh']] },
+  { id: 'captured-chin-rest', clip: 'f_gestic_thoughtful_01.fbx', frame: 3,
+    contacts: [['right', 'Bip01_Head'], ['left', 'Bip01_Spine1']] },
+  { id: 'captured-open-palms', clip: 'f_gestic_talk_relaxed_01.fbx', frame: 4,
+    contacts: [] },
+  { id: 'captured-seat-upright', clip: 'f_sit_chair_idle_relaxed_01.fbx', frame: 4,
+    contacts: [['left', 'Bip01_L_Thigh'], ['right', 'Bip01_R_Thigh']] },
+  { id: 'captured-seat-crossed', clip: 'f_sit_chair_idle_relaxed_01.fbx', frame: 8,
+    contacts: [['left', 'Bip01_L_Thigh'], ['right', 'Bip01_R_Thigh']] },
+  { id: 'captured-seat-chin', clip: 'f_sit_chair_gestic_thoughtful.fbx', frame: 7,
+    contacts: [['right', 'Bip01_Head'], ['left', 'Bip01_Spine1']] },
+]
+const SAMPLES = 10       // how PICKS frame numbers were indexed
+const FPS = 12
+const REACH = 3.5        // seconds either side of the picked moment
+const FACIAL = /eye|lip|jaw|tongue|brow/i
+const CONTACT_SCALE = 100   // centimetres at 0.01 precision
+
+const lines = []
+try {
+  const gltf = await new Promise((r, j) => new GLTFLoader().load('/models/lumen-human/rocketbox-female.glb', r, undefined, j))
+  const bones = new Map()
+  gltf.scene.traverse((n) => { if (n.isBone) bones.set(n.name, n) })
+  const rest = new Map([...bones].map(([n, b]) => [n, b.quaternion.clone()]))
+  // One bone order for the whole file, so a frame is a flat run of numbers.
+  const order = [...bones.keys()].filter((n) => !FACIAL.test(n))
+  const stature = bones.get('Bip01_Head').getWorldPosition(new THREE.Vector3()).y
+    - bones.get('Bip01_L_Foot').getWorldPosition(new THREE.Vector3()).y
+
+  const clips = new Map()
+  for (const file of new Set(PICKS.map((p) => p.clip))) {
+    const fbx = await new Promise((r, j) => new FBXLoader().load('/anim-src/' + file, r, undefined, j))
+    const s = fbx.animations[0]
+    clips.set(file, new THREE.AnimationClip(s.name, s.duration,
+      s.tracks.filter((t) => t.name.endsWith('.quaternion') && bones.has(t.name.split('.')[0]))))
+  }
+
+  const rotationBytes = []
+  const contactBytes = []
+  const index = []
+  const q = new THREE.Quaternion()
+  for (const pick of PICKS) {
+    const clip = clips.get(pick.clip)
+    const centre = (pick.frame + 0.5) / SAMPLES * clip.duration
+    const start = Math.max(0, centre - REACH)
+    const end = Math.min(clip.duration, centre + REACH)
+    const count = Math.max(1, Math.round((end - start) * FPS) + 1)
+    const mixer = new THREE.AnimationMixer(gltf.scene)
+    const action = mixer.clipAction(clip)
+    action.play()
+
+    const rotationAt = rotationBytes.length
+    const contactAt = contactBytes.length
+    for (let f = 0; f < count; f += 1) {
+      mixer.setTime(start + f / FPS)
+      gltf.scene.updateMatrixWorld(true)
+      for (const name of order) {
+        q.copy(rest.get(name)).invert().multiply(bones.get(name).quaternion)
+        // w is dropped and rebuilt from the other three. Negating a quaternion
+        // names the same rotation, so forcing w positive costs nothing and
+        // saves a quarter of the file.
+        if (q.w < 0) { q.x = -q.x; q.y = -q.y; q.z = -q.z; q.w = -q.w }
+        rotationBytes.push(Math.round(THREE.MathUtils.clamp(q.x, -1, 1) * 32767))
+        rotationBytes.push(Math.round(THREE.MathUtils.clamp(q.y, -1, 1) * 32767))
+        rotationBytes.push(Math.round(THREE.MathUtils.clamp(q.z, -1, 1) * 32767))
+      }
+      for (const [hand, anchor] of pick.contacts) {
+        const at = bones.get(hand === 'left' ? 'Bip01_L_Hand' : 'Bip01_R_Hand').getWorldPosition(new THREE.Vector3())
+        const local = bones.get(anchor).worldToLocal(at)
+        for (const v of local.toArray()) contactBytes.push(Math.round(THREE.MathUtils.clamp(v, -327, 327) * CONTACT_SCALE))
+      }
+    }
+    index.push({
+      id: pick.id, count, fps: FPS,
+      start: Math.round(start * 1000) / 1000,
+      defaultFrame: Math.min(count - 1, Math.max(0, Math.round((centre - start) * FPS))),
+      rotationAt, contactAt,
+      contacts: pick.contacts.map(([hand, anchor]) => ({ hand, anchor })),
+    })
+    lines.push(`${pick.id.padEnd(24)} ${(end - start).toFixed(1)}s  ${count} frames  default ${index.at(-1).defaultFrame}`)
+    action.stop(); mixer.uncacheClip(clip)
+    for (const [n, b] of bones) b.quaternion.copy(rest.get(n))
+  }
+
+  const rot = new Int16Array(rotationBytes)
+  const con = new Int16Array(contactBytes)
+  const blob = new Uint8Array(rot.byteLength + con.byteLength)
+  blob.set(new Uint8Array(rot.buffer), 0)
+  blob.set(new Uint8Array(con.buffer), rot.byteLength)
+  let binary = ''
+  for (let i = 0; i < blob.length; i += 8192) binary += String.fromCharCode(...blob.subarray(i, i + 8192))
+  window.__bin = btoa(binary)
+  window.__index = JSON.stringify({
+    bones: order, stature: Math.round(stature * 100) / 100,
+    contactScale: CONTACT_SCALE, rotationCount: rot.length, poses: index,
+  })
+  lines.push('', `${order.length} bones  ${rot.length / 3 / order.length} frames total`,
+    `binary ${(blob.length / 1024).toFixed(1)} KB (rotation ${(rot.byteLength / 1024).toFixed(1)} KB, contacts ${(con.byteLength / 1024).toFixed(1)} KB)`)
+} catch (e) { lines.push('FAILED ' + e + '\n' + e.stack) }
+window.__out = lines.join('\n'); document.getElementById('out').textContent = window.__out; window.__ready = true
+</script>

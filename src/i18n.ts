@@ -43,6 +43,8 @@ const DICT = {
   'pose.category.commercial': { en: 'Commercial', zh: '商業', ja: 'コマーシャル' },
   'pose.category.captured': { en: 'Captured', zh: '實拍動作', ja: 'モーション' },
   'pose.capturedNote': { en: 'A recorded performance is driving every joint. Expression, gaze and height still apply. Pick another pose to get the joints back.', zh: '目前由實拍動作驅動全身關節，表情、視線與身高仍可調整；選其他姿勢即可恢復關節控制。', ja: '収録モーションが全関節を動かしています。表情・視線・身長は調整できます。他のポーズを選ぶと関節操作が戻ります。' },
+  'pose.captureFrame': { en: 'Moment', zh: '時間點', ja: '瞬間' },
+  'pose.captureFrameReset': { en: 'Shipped frame', zh: '預設幀', ja: '既定フレーム' },
   'pose.group.head': { en: 'Head and neck', zh: '頭部與頸部', ja: '頭と首' },
   'pose.group.spine': { en: 'Spine and hips', zh: '脊椎與髖部', ja: '背骨と腰' },
   'pose.group.arms': { en: 'Arms', zh: '手臂', ja: '腕' },

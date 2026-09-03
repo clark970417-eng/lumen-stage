@@ -17,6 +17,7 @@ import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjec
 import { forwardKinematics } from '../ik'
 import { isSeatedPose, NEUTRAL_POSE, type ModelPose } from '../pose'
 import { getCapturedPose } from '../capturedPoses'
+import { loadCapturedMotion, motionFrame, motionWindowFor, type CapturedMotion } from '../capturedMotion'
 import type { HairStyle } from '../wardrobe'
 import { aimCapturedHead, aimEyes, applyCapturedPose, applyExpressionToMorphs, applyPoseToSkeleton, findEyeBones, landCapturedContacts, landFeet, landHands, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
 import { SOCKET_PAINT_SPREAD, STUDIO_HAIR_SKULL_MARGIN, BROW_ARCH, BROW_INNER_X, BROW_LENGTH, BROW_OUTER_DROP, BROW_PROUD_OF_FACE, BROW_RISE_ABOVE_EYE, BROW_SAMPLE_RADIUS, BROW_SEGMENT_LENGTH, BROW_SEGMENTS, BROW_THICKNESS, EYE_APERTURE_HALF_HEIGHT, EYE_APERTURE_HALF_WIDTH, EYE_BAND_HALF_HEIGHT, EYE_DEPTH_BELOW_CROWN, EYE_HALF_SEPARATION, EYE_RADIUS, EYE_SAMPLE_X, FACE_FORWARD, STUDIO_HAIR_SOURCE_SCALE, STUDIO_HAIR_SOURCE_URL, bakedActorResponse, studioEyeAnchor, studioHairAnchor, studioHairPlan, studioHairResponse, studioSkinResponse, type ActorAppearance, type StudioHairMass } from '../studioHumanDetails'
@@ -1971,6 +1972,10 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   const mainHairStyle = useStudio((state) => state.hairStyle)
   const mainOutfitStyle = useStudio((state) => state.outfitStyle)
   const rig = useRef<{ map: BoneMap; rest: RestPose; fileRest: RestPose; eyes: THREE.Bone[]; restFootY: number; restStature: number; baseY: number } | null>(null)
+  // The performances behind the captured poses. Null until one is wanted, and
+  // still null if the fetch failed — in both cases the shipped frame is what
+  // gets posed, so a slow or broken network costs the scrub, not the pose.
+  const [motion, setMotion] = useState<CapturedMotion | null>(null)
   // The scalp shell as it came off disk, kept so a style change can rebuild it
   // without fetching the actor again.
   const hairSource = useRef<{ model: THREE.Group; head: THREE.Bone; source: THREE.Group } | null>(null)
@@ -2312,7 +2317,13 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     // recorded against, though — an imported model has its own — so a frame
     // that finds almost nothing to write falls back to the joint values, which
     // every pose still carries underneath its capture.
-    const capture = getCapturedPose(effectivePose.capture)
+    const shipped = getCapturedPose(effectivePose.capture)
+    // The scrubbed frame if the performance is here and has been moved off the
+    // one the pose ships; the shipped frame otherwise.
+    const window = motionWindowFor(effectivePose.capture)
+    const capture = shipped && motion && window && effectivePose.captureFrame !== undefined
+      ? motionFrame(motion, window, effectivePose.captureFrame, shipped)
+      : shipped
     const captured = capture ? applyCapturedPose(object, rig.current.fileRest, capture) : 0
     const replayed = capture !== undefined && captured >= CAPTURE_MIN_BONES
     if (replayed) {
@@ -2367,7 +2378,16 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
         object.updateMatrixWorld(true)
       }
     }
-  }, [cameraYaw, effectivePose, lookAtCamera, object, seatHeight])
+  }, [cameraYaw, effectivePose, lookAtCamera, motion, object, seatHeight])
+
+  // Fetch the performances the first time a captured pose is chosen. Not at
+  // load: most sessions never pick one, and it is a quarter of a megabyte.
+  useEffect(() => {
+    if (!effectivePose.capture || motion) return
+    let live = true
+    loadCapturedMotion().then((loaded) => { if (live && loaded) setMotion(loaded) })
+    return () => { live = false }
+  }, [effectivePose.capture, motion])
 
   // Gaze, after the pose, because writing the pose puts every bone the pose
   // does not name back to its rest — the eyes included.

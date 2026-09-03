@@ -13,6 +13,7 @@
  */
 
 import { getCapturedPose } from './capturedPoses.ts'
+import { motionWindowFor } from './capturedMotion.ts'
 
 export type HandPose = 'relaxed' | 'open' | 'fist' | 'point' | 'pocket' | 'grip'
 
@@ -124,6 +125,12 @@ export type ModelPose = {
    * come back the moment the capture is cleared.
    */
   capture?: string
+  /**
+   * Which frame of that capture's performance to hold, when the photographer
+   * has scrubbed off the one the pose ships. Undefined means the shipped
+   * frame, which is also what is shown until the performance has loaded.
+   */
+  captureFrame?: number
 }
 
 /** The chest lift the figure stands at when nothing has asked for more. */
@@ -175,7 +182,7 @@ export const NEUTRAL_POSE: ModelPose = {
   leftFootTurn: 6, rightFootTurn: 6,
   browRaise: 0, eyeOpen: 100, squint: 0, smile: 0, mouthOpen: 0, lipPart: 0, jawSet: 0,
   gazeYaw: 0, gazePitch: 0,
-  capture: undefined,
+  capture: undefined, captureFrame: undefined,
 }
 
 /** Fills in every joint an older saved scene never knew about. */
@@ -195,6 +202,12 @@ export function normalizePose(partial: Partial<ModelPose> | undefined | null): M
   // A project saved against a capture that has since been renamed away should
   // open on its joint values, not on nothing.
   if (typeof pose.capture !== 'string' || !getCapturedPose(pose.capture)) pose.capture = undefined
+  // A scrub position only means anything against the performance it indexes,
+  // and a project saved against a longer one should not read off the end.
+  const window = pose.capture ? motionWindowFor(pose.capture) : undefined
+  pose.captureFrame = window && Number.isFinite(pose.captureFrame)
+    ? Math.min(window.count - 1, Math.max(0, Math.round(pose.captureFrame as number)))
+    : undefined
   return pose
 }
 

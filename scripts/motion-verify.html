@@ -1,0 +1,78 @@
+<!doctype html><meta charset="utf-8"><title>motion verify</title>
+<style>html,body{margin:0;background:#101210;overflow:hidden}#log{position:fixed;left:6px;top:4px;color:#8fb;font:11px ui-monospace;z-index:9}</style>
+<div id="log"></div>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { getCapturedPose } from '/src/capturedPoses.ts'
+import { loadCapturedMotion, motionFrame, motionSeconds, motionWindowFor } from '/src/capturedMotion.ts'
+import { applyCapturedPose, captureRestPose, landCapturedContacts, landFeet, mapSkeleton } from '/src/retarget.ts'
+import { CHAIR_SEAT_TOP as SEAT_TOP, SEAT_TO_HIP } from '/src/layout.ts'
+
+const params = new URLSearchParams(location.search)
+const poseId = params.get('pose') || 'captured-chin-rest'
+const actorUrl = params.get('actor') || '/models/lumen-human/rocketbox-female.glb'
+const columns = Number(params.get('n') || 10)
+try {
+  const gltf = await new Promise((r, j) => new GLTFLoader().load(actorUrl, r, undefined, j))
+  const motion = await loadCapturedMotion()
+  const window_ = motionWindowFor(poseId)
+  const shipped = getCapturedPose(poseId)
+  if (!motion) throw new Error('the performance did not load')
+  if (!window_ || !shipped) throw new Error('no such captured pose: ' + poseId)
+
+  const scene = new THREE.Scene()
+  scene.background = new THREE.Color('#101210')
+  scene.add(new THREE.HemisphereLight('#dfe6ff', '#2a2622', 1.5))
+  const key = new THREE.DirectionalLight('#fff4e6', 2.2)
+  key.position.set(2, 3.4, 3)
+  scene.add(key)
+
+  const spacing = 0.78
+  const seated = poseId.includes('seat')
+  const labels = []
+  for (let i = 0; i < columns; i += 1) {
+    const frame = Math.round(i / (columns - 1) * (window_.count - 1))
+    const figure = skeletonClone(gltf.scene)
+    const holder = new THREE.Group()
+    holder.add(figure)
+    scene.add(holder)
+    figure.scale.setScalar(0.01)
+    figure.updateMatrixWorld(true)
+    const map = mapSkeleton(figure)
+    const rest = captureRestPose(figure, map)
+    const footY = (b) => b ? figure.worldToLocal(b.getWorldPosition(new THREE.Vector3())).y : Infinity
+    const restFootY = Math.min(footY(map.leftFoot), footY(map.rightFoot))
+    const headY = footY(map.head)
+    applyCapturedPose(figure, rest, motionFrame(motion, window_, frame, shipped))
+    figure.updateMatrixWorld(true)
+    landCapturedContacts(map, figure, motionFrame(motion, window_, frame, shipped), headY - restFootY)
+    figure.updateMatrixWorld(true)
+    if (seated) {
+      const hipY = map.hips.getWorldPosition(new THREE.Vector3()).y - figure.position.y
+      figure.position.y = SEAT_TOP + SEAT_TO_HIP - hipY
+    } else {
+      figure.position.y += (restFootY - Math.min(footY(map.leftFoot), footY(map.rightFoot))) * figure.scale.y
+    }
+    figure.updateMatrixWorld(true)
+    landFeet(map, figure, restFootY * figure.scale.y, seated)
+    holder.position.x = (i - (columns - 1) / 2) * spacing
+    labels.push(`${frame}@${motionSeconds(window_, frame).toFixed(1)}s${frame === window_.defaultFrame ? '*' : ''}`)
+  }
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true })
+  renderer.setSize(window.innerWidth, window.innerHeight)
+  renderer.setPixelRatio(1)
+  document.body.appendChild(renderer.domElement)
+  const aspect = window.innerWidth / window.innerHeight
+  const camera = new THREE.PerspectiveCamera(30, aspect, 0.1, 60)
+  const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(30) / 2) * aspect)
+  camera.position.set(0, 1.05, (columns * spacing / 2) / Math.tan(halfH) * 1.04)
+  camera.lookAt(0, 1.05, 0)
+  renderer.render(scene, camera)
+  window.__out = `${poseId} — ${window_.count} frames, shipped ${window_.defaultFrame}* — ` + labels.join('  ')
+} catch (e) { window.__out = 'FAILED ' + e + '\n' + e.stack }
+document.getElementById('log').textContent = window.__out
+window.__ready = true
+</script>
