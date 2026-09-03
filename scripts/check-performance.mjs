@@ -27,7 +27,43 @@ const checks = [
   ['initial homepage JavaScript', initialHomepageJavaScript, budget.initialHomepageJavaScriptBytes],
 ]
 
+/**
+ * Everything the build is about to publish, so the check can speak for the
+ * whole site rather than only its JavaScript.
+ *
+ * Vite copies all of `public/` into `dist/`, which is exactly what makes it a
+ * good place to stage the sources an offline converter reads — and exactly how
+ * 306 MB of FBX and TGA went up to the deployed site behind a .gitignore that
+ * looked like it was keeping them out. A .gitignore keeps files out of the
+ * repository; nothing was keeping them out of the build.
+ */
+async function walk(dir) {
+  const out = []
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) out.push(...await walk(full))
+    else out.push({ file: full, bytes: (await stat(full)).size })
+  }
+  return out
+}
+const published = await walk(fileURLToPath(new URL('dist', root)))
+const SOURCE_ASSET = /\.(fbx|tga|psd|blend|max|exr|zip)$/i
+const strays = published.filter((entry) => SOURCE_ASSET.test(entry.file))
+const publishedBytes = published.reduce((sum, entry) => sum + entry.bytes, 0)
+
 let failed = false
+if (strays.length) {
+  failed = true
+  const total = strays.reduce((sum, entry) => sum + entry.bytes, 0)
+  console.log(`FAIL source assets in the build: ${strays.length} files, ${(total / 1048576).toFixed(1)} MiB`)
+  for (const entry of strays.slice(0, 5)) console.log(`     ${entry.file.split('/dist/')[1]}`)
+  if (strays.length > 5) console.log(`     and ${strays.length - 5} more`)
+}
+const publishedLimit = budget.publishedBytes ?? 200 * 1024 * 1024
+const publishedOk = publishedBytes <= publishedLimit
+failed ||= !publishedOk
+console.log(`${publishedOk ? 'PASS' : 'FAIL'} published site: ${(publishedBytes / 1048576).toFixed(1)} MiB / ${(publishedLimit / 1048576).toFixed(1)} MiB`)
+
 for (const [label, actual, limit] of checks) {
   const passed = actual <= limit
   failed ||= !passed

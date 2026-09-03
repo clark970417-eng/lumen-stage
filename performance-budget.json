@@ -3,5 +3,6 @@
   "totalJavaScriptBytes": 2500000,
   "largestStylesheetBytes": 200000,
   "totalStylesheetBytes": 300000,
-  "initialHomepageJavaScriptBytes": 350000
+  "initialHomepageJavaScriptBytes": 350000,
+  "publishedBytes": 167772160
 }

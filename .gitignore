@@ -16,9 +16,9 @@ playwright-report/
 test-results/
 blob-report/
 
-# Motion clips for scripts/capture-build.html — fetched on demand, several MB each.
-public/anim-src/
-
-# Avatar sources for scripts/rocketbox-convert.html — hundreds of megabytes of
-# FBX and TGA, needed only when the cast changes.
-public/rocketbox-src/
+# Sources the offline converters read. They do not live under public/ any more:
+# a .gitignore keeps files out of the repository, and nothing was keeping them
+# out of the build — Vite copies all of public/ into dist/, and 306 MB of them
+# went up to the deployed site. Staged outside the project while converting.
+rocketbox-src/
+anim-src/
