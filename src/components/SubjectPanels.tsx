@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react'
 import { PHYSIQUE_PRESETS, type Physique } from '../physique'
 import { HAND_POSES, POSE_CATEGORIES, POSE_LIBRARY, type HandPose, type ModelPose, type PoseCategory } from '../pose'
 import { motionSeconds, motionWindowFor } from '../capturedMotion'
+import { CAST, castMember } from '../actorCast'
 import { FABRICS, HAIR_STYLES, OUTFITS, type FabricKind, type HairStyle, type OutfitStyle } from '../wardrobe'
 import { useCatalogT, useT, type MessageKey } from '../i18n'
 import { useStudio } from '../store'
@@ -248,6 +249,45 @@ export function PoseControls({ pose, baked = false, onChange }: { pose: ModelPos
         <Range label={t('pose.gazeYaw')} value={pose.gazeYaw} min={-35} max={35} unit="°" onChange={set('gazeYaw')} />
         <Range label={t('pose.gazePitch')} value={pose.gazePitch} min={-30} max={30} unit="°" onChange={set('gazePitch')} />
       </JointGroup>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Casting
+// ---------------------------------------------------------------------------
+
+/**
+ * Who to photograph.
+ *
+ * On a photographed actor this is the appearance control: the build, the age,
+ * the skin and the clothes all arrived baked into two texture maps, so the way
+ * to change them is to change who is standing there. Ordered by measured torso
+ * width, so the row reads as a range rather than a list.
+ */
+export function CastPanel({ current, onCast }: { current: string | null; onCast: (id: string) => void }) {
+  const t = useT()
+  const ct = useCatalogT()
+  const active = castMember(current)
+  return (
+    <div className="subject-material-block">
+      <div className="subject-material-heading"><span>{t('cast.title')}</span><small>{t('cast.sub')}</small></div>
+      <div className="cast-grid" role="group" aria-label={t('cast.title')}>
+        {CAST.map((member) => (
+          <button
+            key={member.id}
+            className={member.id === current ? 'active' : ''}
+            aria-pressed={member.id === current}
+            title={ct(`cast.note.${member.id}`, member.note)}
+            onClick={() => onCast(member.id)}
+          >
+            <img src={member.thumb} alt="" loading="lazy" />
+            <span>{ct(`cast.${member.id}`, member.label)}</span>
+            <small>{member.height.toFixed(2)} m</small>
+          </button>
+        ))}
+      </div>
+      <p className="pose-note">{active ? ct(`cast.note.${active.id}`, active.note) : t('cast.none')}</p>
     </div>
   )
 }

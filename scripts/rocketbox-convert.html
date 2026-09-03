@@ -124,24 +124,36 @@ async function convert(name, fbxUrl, prefix) {
     head: await load(`${prefix}_head_color.tga`),
     opacity: await load(`${prefix}_opacity_color.tga`),
   }
+  // Not every avatar ships all three. The ones with no separate lash-and-hair
+  // atlas keep those strands in the head map, and a missing map left the
+  // material with no texture at all — a solid card where the hair should be.
+  const ownOpacity = Boolean(colour.opacity)
+  colour.head ??= colour.body
+  colour.opacity ??= colour.head
+  say(`  maps: body=${colour.body ? 'ok' : 'MISSING'} head=${colour.head ? 'ok' : 'MISSING'} opacity=${ownOpacity ? 'ok' : 'falls back to head'}`)
 
   // The material name only. The mesh is called "..._81_bones_opacity", so
   // including it matched every material as hair and dressed the whole figure
   // in the mostly-black lash-and-hair map.
+  //
+  // Whether a map is the lash atlas is answered by where it came from, not by
+  // comparing it to `colour.opacity` — that field holds the head map on the
+  // avatars that ship no atlas, so the comparison called a face a lash sheet
+  // and stored it at twice the resolution it needs.
   const pick = (materialName) => {
     const key = (materialName || '').toLowerCase()
-    if (/opacity|hair|lash|eyebrow/.test(key)) return colour.opacity
-    if (/head|face|eye|teeth|tongue|mouth/.test(key)) return colour.head
-    return colour.body
+    if (/opacity|hair|lash|eyebrow/.test(key)) return { map: colour.opacity, atlas: ownOpacity }
+    if (/head|face|eye|teeth|tongue|mouth/.test(key)) return { map: colour.head, atlas: false }
+    return { map: colour.body, atlas: false }
   }
 
   for (const mesh of meshes) {
     const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     mesh.material = list.map((source) => {
-      const chosen = pick(source?.name ?? '')
+      const { map: chosen, atlas } = pick(source?.name ?? '')
       // The lash and hair atlas keeps its full resolution: its content is
       // strands a pixel or two wide, and halving it smears them into a mass.
-      const canvas = chosen ? shrink(chosen, chosen === colour.opacity ? 2048 : 1024) : null
+      const canvas = chosen ? shrink(chosen, atlas ? 2048 : 1024) : null
       const material = new THREE.MeshStandardMaterial({
         name: source?.name || mesh.name,
         color: 0xffffff,

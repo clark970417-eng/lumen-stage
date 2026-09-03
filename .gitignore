@@ -18,3 +18,7 @@ blob-report/
 
 # Motion clips for scripts/capture-build.html — fetched on demand, several MB each.
 public/anim-src/
+
+# Avatar sources for scripts/rocketbox-convert.html — hundreds of megabytes of
+# FBX and TGA, needed only when the cast changes.
+public/rocketbox-src/

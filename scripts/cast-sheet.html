@@ -1,0 +1,76 @@
+<!doctype html><meta charset="utf-8"><title>cast</title>
+<style>html,body{margin:0;background:#101210;overflow:hidden}#log{position:fixed;left:6px;top:4px;color:#8fb;font:11px ui-monospace;z-index:9;white-space:pre}</style>
+<div id="log"></div>
+<!--
+  Stands the whole shipped cast side by side, at each avatar's own authored
+  height rather than normalised, so the range of builds and the two children
+  can be judged in one frame. Also reports how many bones a captured pose
+  reaches on each, which is what catches a badly converted actor.
+
+  ?pose=<captured pose id> to stand them in something other than the default.
+  New actors are converted with scripts/rocketbox-convert.html and measured
+  from their reference renders — see src/actorCast.ts.
+-->
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { getCapturedPose } from '/src/capturedPoses.ts'
+import { applyCapturedPose, captureRestPose, landCapturedContacts, mapSkeleton } from '/src/retarget.ts'
+
+const ACTORS = [
+  'rocketbox-female', 'rocketbox-female-adult-07', 'rocketbox-female-adult-08', 'rocketbox-sports-female-01',
+  'rocketbox-business-female', 'rocketbox-female-child-01',
+  'rocketbox-male', 'rocketbox-male-adult-04', 'rocketbox-male-adult-05', 'rocketbox-sports-male-01',
+  'rocketbox-business-male', 'rocketbox-male-child-02',
+]
+const pose = getCapturedPose(new URLSearchParams(location.search).get('pose') || 'captured-relaxed')
+const lines = []
+try {
+  const scene = new THREE.Scene()
+  scene.background = new THREE.Color('#101210')
+  scene.add(new THREE.HemisphereLight('#dfe6ff', '#2a2622', 1.6))
+  const key = new THREE.DirectionalLight('#fff4e6', 2.2)
+  key.position.set(2, 3.4, 3)
+  scene.add(key)
+
+  const spacing = 0.62
+  for (const [index, name] of ACTORS.entries()) {
+    const gltf = await new Promise((r, j) => new GLTFLoader().load(`/models/lumen-human/${name}.glb`, r, undefined, j))
+    const figure = gltf.scene
+    scene.add(figure)
+    figure.updateMatrixWorld(true)
+    // The file's own height, in metres, so the cast stands at true relative
+    // size instead of every one of them normalised to the same 1.82 m.
+    const raw = new THREE.Box3().setFromObject(figure).getSize(new THREE.Vector3()).y
+    figure.scale.setScalar(0.01)
+    figure.updateMatrixWorld(true)
+    const map = mapSkeleton(figure)
+    const rest = captureRestPose(figure, map)
+    const matched = applyCapturedPose(figure, rest, pose)
+    figure.updateMatrixWorld(true)
+    const footY = (b) => b ? figure.worldToLocal(b.getWorldPosition(new THREE.Vector3())).y : Infinity
+    const restFootY = Math.min(footY(map.leftFoot), footY(map.rightFoot))
+    landCapturedContacts(map, figure, pose, footY(map.head) - restFootY)
+    figure.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(figure)
+    figure.position.set((index - (ACTORS.length - 1) / 2) * spacing, -box.min.y, 0)
+    const morphs = []
+    figure.traverse((n) => { if (n.isMesh && n.morphTargetDictionary) morphs.push(Object.keys(n.morphTargetDictionary).length) })
+    lines.push(`${name.replace('rocketbox-', '').padEnd(20)} ${(raw / 100).toFixed(2)}m  bones ${matched}  morphs ${Math.max(0, ...morphs)}`)
+  }
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true })
+  renderer.setSize(window.innerWidth, window.innerHeight)
+  renderer.setPixelRatio(1)
+  document.body.appendChild(renderer.domElement)
+  const aspect = window.innerWidth / window.innerHeight
+  const camera = new THREE.PerspectiveCamera(30, aspect, 0.1, 60)
+  const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(30) / 2) * aspect)
+  camera.position.set(0, 0.95, (ACTORS.length * spacing / 2) / Math.tan(halfH) * 1.02)
+  camera.lookAt(0, 0.95, 0)
+  renderer.render(scene, camera)
+} catch (e) { lines.push('FAILED ' + e + '\n' + e.stack) }
+window.__out = lines.join('\n')
+document.getElementById('log').textContent = window.__out
+window.__ready = true
+</script>

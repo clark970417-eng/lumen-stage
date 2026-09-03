@@ -4,9 +4,10 @@ import { calculateDepthOfField } from '../optics'
 import { effectiveLightOutput, flashSyncFactor, lightWattage, opticTransmission, percentForWattage, wattageLimit } from '../lightProfiles'
 import { automaticLensProfileId, CAMERA_BODIES, LENS_PROFILES } from '../cameraProfiles'
 import { COLOR_PROFILES, type ColorProfileId } from '../colorScience'
-import { useLocaleStore, useT, type MessageKey } from '../i18n'
+import { useCatalogT, useLocaleStore, useT, type MessageKey } from '../i18n'
 import { GEL_CATEGORIES, GELS, gelStopLoss, geledTemperature, getGel, type GelCategory } from '../gels'
-import { PhysiquePanel, PoseControls, PoseLibraryPanel, WardrobePanel } from './SubjectPanels'
+import { CastPanel, PhysiquePanel, PoseControls, PoseLibraryPanel, WardrobePanel } from './SubjectPanels'
+import { castMember } from '../actorCast'
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
 import { appearanceIsBaked, DEFAULT_HUMAN_NAME, shippedHumanFor } from '../characterAssets'
 import { useWorkflow } from '../workflow'
@@ -176,7 +177,7 @@ function InspectorFooter({ mode }: { mode: WorkflowMode }) {
         : mode === 'layout'
           ? captureStudio(state, ['roomWidth', 'roomDepth', 'roomHeight', 'backdropId', 'backdropWidth', 'backdropDistance', 'wallColor', 'floorColor', 'windowEnabled', 'sunEnabled', 'sunAzimuth', 'sunElevation', 'sunIntensity', 'haze'] as const)
           : state.selected === 'model'
-            ? captureStudio(state, ['modelPosition', 'modelRotation', 'modelHeight', 'skinColor', 'outfitColor', 'skinRoughness', 'skinOil', 'skinSubsurface', 'makeupStyle', 'eyeColor', 'hairColor', 'hairGloss', 'outfitFabric', 'posePreset', 'physique', 'hairStyle', 'outfitStyle', 'modelPose'] as const)
+            ? captureStudio(state, ['modelPosition', 'modelRotation', 'modelHeight', 'skinColor', 'outfitColor', 'skinRoughness', 'skinOil', 'skinSubsurface', 'makeupStyle', 'eyeColor', 'hairColor', 'hairGloss', 'outfitFabric', 'posePreset', 'physique', 'hairStyle', 'outfitStyle', 'actorId', 'modelPose'] as const)
             : structuredClone(state.studioObjects.find((item) => item.id === state.selected) ?? {})
     try {
       localStorage.setItem(storageKey, JSON.stringify({ savedAt: Date.now(), value }))
@@ -300,6 +301,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
   const state = useStudio()
   const mode = useWorkflow((workflow) => workflowModeForStage(workflow.stage))
   const t = useT()
+  const ct = useCatalogT()
   const locale = useLocaleStore((item) => item.locale)
   const [search, setSearch] = useState('')
   const [searchCount, setSearchCount] = useState(0)
@@ -559,7 +561,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             ...(patch.hairColor ? { subjectHairColor: patch.hairColor } : {}),
             ...(patch.hairGloss !== undefined ? { subjectHairGloss: patch.hairGloss } : {}),
           })} />
-          <Range label={t('subject.height')} value={studioObject.subjectHeight} min={1.45} max={2.2} step={0.01} unit=" m" onChange={(value) => state.updateStudioObject(studioObject.id, { subjectHeight: Number(value.toFixed(2)) })} />
+          <Range label={t('subject.height')} value={studioObject.subjectHeight} min={1.15} max={2.2} step={0.01} unit=" m" onChange={(value) => state.updateStudioObject(studioObject.id, { subjectHeight: Number(value.toFixed(2)) })} />
           <PhysiquePanel physique={studioObject.subjectPhysique} baked={bakedSubject} captured={Boolean(studioObject.subjectPose.capture)}
             onChange={(patch) => state.updateStudioSubjectPhysique(studioObject.id, patch)}
             onPreset={(id) => state.applyStudioSubjectPhysique(studioObject.id, id)} />
@@ -578,13 +580,13 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
       </InspectorDrawer>}
 
       {mode === 'person' && state.selected === 'model' && <section className="inspector-section model-inspector model-inspector-direct">
-        <div className="selection-chip"><span className="model-silhouette" /><div><strong>{state.modelAssetName || DEFAULT_HUMAN_NAME}</strong><small>{state.modelImportStatus === 'ready' ? 'Rigged human · 1.82 m normalized' : state.modelImportStatus === 'error' ? 'Model failed · procedural fallback' : 'Loading realistic human…'}</small></div><b>SELECTED</b></div>
+        <div className="selection-chip"><span className="model-silhouette" /><div><strong>{state.modelAssetName || (castMember(state.actorId) ? ct(`cast.${state.actorId}`, castMember(state.actorId)!.label) : DEFAULT_HUMAN_NAME)}</strong><small>{state.modelImportStatus === 'ready' ? 'Rigged human · 1.82 m normalized' : state.modelImportStatus === 'error' ? 'Model failed · procedural fallback' : 'Loading realistic human…'}</small></div><b>SELECTED</b></div>
         <div className="object-management main-subject-management"><span>{t('subject.main')}</span><button className="danger" onClick={state.deleteMainSubject}>{t('common.delete')}</button></div>
         <Range label={t('axis.x')} value={state.modelPosition[0]} min={-3} max={3} step={0.05} onChange={(value) => state.setModelTransform([value, state.modelPosition[1], state.modelPosition[2]])} />
         <Range label={t('axis.y')} value={state.modelPosition[1]} min={0} max={3} step={0.05} unit=" m" onChange={(value) => state.setModelTransform([state.modelPosition[0], value, state.modelPosition[2]])} />
         <Range label={t('axis.z')} value={state.modelPosition[2]} min={-1} max={4} step={0.05} onChange={(value) => state.setModelTransform([state.modelPosition[0], state.modelPosition[1], value])} />
         <Range label={t('model.facing')} value={Math.round(THREE_RAD_TO_DEG * state.modelRotation)} min={-180} max={180} step={5} unit="°" onChange={(value) => state.setModelTransform(state.modelPosition, value / THREE_RAD_TO_DEG)} />
-        <Range label={t('subject.height')} value={state.modelHeight} min={1.45} max={2.2} step={0.01} unit=" m" onChange={(value) => setValue('modelHeight', Number(value.toFixed(2)))} />
+        <Range label={t('subject.height')} value={state.modelHeight} min={1.15} max={2.2} step={0.01} unit=" m" onChange={(value) => setValue('modelHeight', Number(value.toFixed(2)))} />
         <div className="pose-heading">
           <span>{t('pose.section')}</span>
           <small>{state.modelRigStatus === 'rigged' ? t('pose.retargeted') : state.modelRigStatus === 'unrigged' ? t('pose.unrigged') : 'LOADING SKELETON'}</small>
@@ -611,6 +613,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             if (patch.hairColor) setValue('hairColor', patch.hairColor)
             if (patch.hairGloss !== undefined) setValue('hairGloss', patch.hairGloss)
           }} />
+          {editableBuiltin && <CastPanel current={state.actorId} onCast={state.castActor} />}
           <PhysiquePanel physique={state.physique} baked={bakedMain} captured={Boolean(state.modelPose.capture)} onChange={state.updatePhysique} onPreset={state.applyPhysiquePreset} />
           <WardrobePanel baked={bakedMain} hairStyle={state.hairStyle} outfit={state.outfitStyle} fabric={state.outfitFabric} onChange={(patch) => {
             if (patch.hairStyle) setValue('hairStyle', patch.hairStyle)

@@ -1,5 +1,6 @@
 import type { OutfitStyle } from './wardrobe'
 import type { Physique } from './physique'
+import { castMemberForUrl } from './actorCast.ts'
 
 const assetBase = (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/'
 const assetHref = (path: string) => `${assetBase}${path.replace(/^\/+/, '')}`
@@ -53,8 +54,9 @@ export const DEFAULT_HUMAN_NAME = 'Everyday Adult'
  * answers the light is still ours to set, and those controls stay live.
  */
 export function appearanceIsBaked(url: string | null) {
-  return url === ROCKETBOX_MALE_URL || url === ROCKETBOX_FEMALE_URL
-    || url === ROCKETBOX_BUSINESS_MALE_URL || url === ROCKETBOX_BUSINESS_FEMALE_URL
+  // Every actor the studio ships is photographed, so the question is only
+  // whether this url is one of ours rather than a model somebody imported.
+  return castMemberForUrl(url) !== undefined
 }
 
 export function shippedHumanFor(physique: Physique, outfit: OutfitStyle) {

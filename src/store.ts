@@ -5,6 +5,7 @@ import type { ShutterMode } from './sensorProcessing'
 import { DEFAULT_HEAD_ID, getModifier, LIGHT_HEADS, MODIFIERS } from './gear'
 import { getPoseEntry, NEUTRAL_POSE, normalizePose, type ModelPose } from './pose'
 import { DEFAULT_PHYSIQUE, PHYSIQUE_PRESETS, type FigureSex, type Physique } from './physique'
+import { castMember, MAX_SUBJECT_HEIGHT, MIN_SUBJECT_HEIGHT } from './actorCast.ts'
 import { asFabric, asHairStyle, asOutfit, DEFAULT_HAIR_STYLE, DEFAULT_OUTFIT, type FabricKind, type HairStyle, type OutfitStyle } from './wardrobe'
 import { BACKDROPS, DEFAULT_BACKDROP_ID, getBackdrop } from './backdrops'
 import { GELS } from './gels'
@@ -238,6 +239,7 @@ type SceneSnapshot = {
   physique: Physique
   hairStyle: HairStyle
   outfitStyle: OutfitStyle
+  actorId: string | null
   shots?: StudioShot[]
 }
 
@@ -368,6 +370,13 @@ export type StudioState = {
   physique: Physique
   hairStyle: HairStyle
   outfitStyle: OutfitStyle
+  /**
+   * Who is being photographed, out of the shipped cast.
+   *
+   * Null means the project predates casting and still derives its actor from
+   * the sex and wardrobe controls, which is what it was saved against.
+   */
+  actorId: string | null
   modelAssetUrl: string | null
   modelAssetName: string | null
   modelImportStatus: 'idle' | 'loading' | 'ready' | 'error'
@@ -421,6 +430,8 @@ export type StudioState = {
   applyPosePreset: (preset: PosePreset) => void
   updateModelPose: (patch: Partial<ModelPose>) => void
   updatePhysique: (patch: Partial<Physique>) => void
+  /** Photograph a different person out of the shipped cast. */
+  castActor: (id: string) => void
   applyPhysiquePreset: (id: string) => void
   selectBackdrop: (id: string) => void
   applyLightingSetup: (id: string) => void
@@ -643,6 +654,7 @@ const snapshotFrom = (state: StudioState, includeShots = false): SceneSnapshot =
   physique: { ...state.physique },
   hairStyle: state.hairStyle,
   outfitStyle: state.outfitStyle,
+  actorId: state.actorId,
   modelPose: { ...state.modelPose },
   ...(includeShots ? { shots: state.shots } : {}),
 })
@@ -746,6 +758,7 @@ const snapshotState = (snapshot: SceneSnapshot) => ({
   physique: { ...snapshot.physique },
   hairStyle: snapshot.hairStyle,
   outfitStyle: snapshot.outfitStyle,
+  actorId: snapshot.actorId ?? null,
   modelPose: { ...snapshot.modelPose },
 })
 
@@ -864,7 +877,7 @@ const normalizeStudioObject = (object: Partial<StudioObject>, index: number): St
   color: typeof object.color === 'string' && /^#[0-9a-f]{6}$/i.test(object.color) ? object.color : '#858b82',
   material: object.material === 'glossy' || object.material === 'metal' ? object.material : 'matte',
   locked: object.locked ?? false,
-  subjectHeight: Number.isFinite(object.subjectHeight) ? Math.min(2.2, Math.max(1.45, Number(object.subjectHeight))) : 1.82,
+  subjectHeight: Number.isFinite(object.subjectHeight) ? Math.min(MAX_SUBJECT_HEIGHT, Math.max(MIN_SUBJECT_HEIGHT, Number(object.subjectHeight))) : 1.82,
   subjectSkinColor: typeof object.subjectSkinColor === 'string' && /^#[0-9a-f]{6}$/i.test(object.subjectSkinColor) ? object.subjectSkinColor : '#b9826b',
   subjectOutfitColor: typeof object.subjectOutfitColor === 'string' && /^#[0-9a-f]{6}$/i.test(object.subjectOutfitColor) ? object.subjectOutfitColor : '#343c48',
   subjectSkinRoughness: Number.isFinite(Number(object.subjectSkinRoughness)) ? Math.min(100, Math.max(0, Number(object.subjectSkinRoughness))) : 55,
@@ -960,7 +973,7 @@ const normalizeSnapshot = (value: unknown): SceneSnapshot => {
       ? [Number(raw.modelPosition[0]) || 0, 0, Number(raw.modelPosition[2]) || 0]
       : raw.modelPosition.map(Number) as [number, number, number],
     modelRotation: Number(raw.modelRotation) || 0,
-    modelHeight: Number.isFinite(Number(raw.modelHeight)) ? Math.min(2.2, Math.max(1.45, Number(raw.modelHeight))) : 1.82,
+    modelHeight: Number.isFinite(Number(raw.modelHeight)) ? Math.min(MAX_SUBJECT_HEIGHT, Math.max(MIN_SUBJECT_HEIGHT, Number(raw.modelHeight))) : 1.82,
     skinColor: typeof raw.skinColor === 'string' && /^#[0-9a-f]{6}$/i.test(raw.skinColor) ? raw.skinColor : '#ad7962',
     outfitColor: typeof raw.outfitColor === 'string' && /^#[0-9a-f]{6}$/i.test(raw.outfitColor) ? raw.outfitColor : '#191b1a',
     skinRoughness: Number.isFinite(Number(raw.skinRoughness)) ? Math.min(100, Math.max(0, Number(raw.skinRoughness))) : 55,
@@ -1011,6 +1024,9 @@ const normalizeSnapshot = (value: unknown): SceneSnapshot => {
     physique: normalizePhysique(raw.physique),
     hairStyle: asHairStyle(raw.hairStyle),
     outfitStyle: asOutfit(raw.outfitStyle),
+    // A cast that has been renamed since the project was saved falls back to
+    // deriving the actor, rather than opening on nobody.
+    actorId: castMember(typeof raw.actorId === 'string' ? raw.actorId : null)?.id ?? null,
     shots: Array.isArray(raw.shots) ? raw.shots.flatMap((shot) => {
       if (!shot || typeof shot !== 'object') return []
       const item = shot as Record<string, unknown>
@@ -1167,6 +1183,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   physique: { ...DEFAULT_PHYSIQUE },
   hairStyle: DEFAULT_HAIR_STYLE,
   outfitStyle: DEFAULT_OUTFIT,
+  actorId: null,
   modelPose: { ...NEUTRAL_POSE },
   modelAssetUrl: null,
   modelAssetName: null,
@@ -1501,6 +1518,22 @@ export const useStudio = create<StudioState>((set, get) => ({
   applyPosePreset: (preset) => set((state) => ({ posePreset: preset, modelPose: { ...(getPoseEntry(preset)?.pose ?? NEUTRAL_POSE) }, undoStack: withUndo(state), redoStack: [] })),
   updateModelPose: (patch) => set((state) => ({ posePreset: 'custom', modelPose: { ...state.modelPose, ...patch }, undoStack: withUndo(state), redoStack: [] })),
   updatePhysique: (patch) => set((state) => ({ physique: { ...state.physique, ...patch }, undoStack: withUndo(state), redoStack: [] })),
+  castActor: (id) => set((state) => {
+    const member = castMember(id)
+    if (!member) return {}
+    return {
+      actorId: member.id,
+      // The sex control still feeds the rest of the rig, so it follows who was
+      // cast rather than contradicting them.
+      physique: { ...state.physique, sex: member.sex },
+      // And the height follows the person: a child left at the adult default
+      // stands there as a giant child, which is the first thing anyone would
+      // report as a bug.
+      modelHeight: member.height,
+      undoStack: withUndo(state),
+      redoStack: [],
+    }
+  }),
   /**
    * Drops a whole lighting pattern into the scene.
    *

@@ -1208,6 +1208,36 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .joint-rig-scrub button:hover:not(:disabled) { border-color: rgba(255, 180, 84, 0.4); color: #ffb454; }
 .joint-rig-scrub button:disabled { opacity: 0.3; cursor: default; }
 
+/* Casting. A photographed actor cannot be reshaped, so the picture of who is
+   standing there is the control, and it has to be legible at a glance. */
+.cast-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.cast-grid button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 3px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(233, 238, 230, 0.72);
+  font: inherit;
+  font-size: 9.5px;
+  line-height: 1.25;
+  text-align: center;
+  cursor: pointer;
+}
+.cast-grid button img {
+  width: 100%;
+  height: 74px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: #0e1013;
+}
+.cast-grid button small { color: rgba(233, 238, 230, 0.34); font-size: 9px; }
+.cast-grid button:hover { border-color: rgba(255, 180, 84, 0.4); color: #ffb454; }
+.cast-grid button.active { border-color: #ffb454; background: rgba(255, 180, 84, 0.1); color: #ffb454; }
+
 .joint-group { border-top: 1px solid rgba(255, 255, 255, 0.05); }
 .joint-group:last-child { border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
 .joint-group-header {

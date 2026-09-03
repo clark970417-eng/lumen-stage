@@ -17,6 +17,7 @@ import { useStudio, type OutfitFabric, type SceneObjectMaterial, type SceneObjec
 import { forwardKinematics } from '../ik'
 import { isSeatedPose, NEUTRAL_POSE, type ModelPose } from '../pose'
 import { getCapturedPose } from '../capturedPoses'
+import { castMember } from '../actorCast'
 import { loadCapturedMotion, motionFrame, motionWindowFor, type CapturedMotion } from '../capturedMotion'
 import type { HairStyle } from '../wardrobe'
 import { aimCapturedHead, aimEyes, applyCapturedPose, applyExpressionToMorphs, applyPoseToSkeleton, findEyeBones, landCapturedContacts, landFeet, landHands, boneDirection, captureRestPose, mappingQuality, mapSkeleton, type BoneMap, type RestPose } from '../retarget'
@@ -2448,7 +2449,12 @@ function Mannequin() {
   const updateModelPose = useStudio((state) => state.updateModelPose)
   const poseHandles = useStudio((state) => state.poseHandles)
   const modelRigStatus = useStudio((state) => state.modelRigStatus)
-  const activeModelUrl = modelAssetUrl ?? shippedHumanFor(physique, outfitStyle)
+  // Who is being photographed: the person cast, or — for a project saved
+  // before the cast existed — whoever the sex and wardrobe controls imply.
+  const actorId = useStudio((state) => state.actorId)
+  const activeModelUrl = modelAssetUrl
+    ?? castMember(actorId)?.url
+    ?? shippedHumanFor(physique, outfitStyle)
   const seatHeight = useSeatHeight(position)
   const group = useRef<THREE.Group>(null)
   const [boneMap, setBoneMap] = useState<BoneMap | null>(null)
