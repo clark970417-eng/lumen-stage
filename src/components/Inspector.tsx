@@ -560,7 +560,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             ...(patch.hairGloss !== undefined ? { subjectHairGloss: patch.hairGloss } : {}),
           })} />
           <Range label={t('subject.height')} value={studioObject.subjectHeight} min={1.45} max={2.2} step={0.01} unit=" m" onChange={(value) => state.updateStudioObject(studioObject.id, { subjectHeight: Number(value.toFixed(2)) })} />
-          <PhysiquePanel physique={studioObject.subjectPhysique} baked={bakedSubject}
+          <PhysiquePanel physique={studioObject.subjectPhysique} baked={bakedSubject} captured={Boolean(studioObject.subjectPose.capture)}
             onChange={(patch) => state.updateStudioSubjectPhysique(studioObject.id, patch)}
             onPreset={(id) => state.applyStudioSubjectPhysique(studioObject.id, id)} />
           <WardrobePanel baked={bakedSubject} hairStyle={studioObject.subjectHairStyle} outfit={studioObject.subjectOutfitStyle} fabric={studioObject.subjectOutfitFabric} onChange={(patch) => state.updateStudioObject(studioObject.id, {
@@ -611,7 +611,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             if (patch.hairColor) setValue('hairColor', patch.hairColor)
             if (patch.hairGloss !== undefined) setValue('hairGloss', patch.hairGloss)
           }} />
-          <PhysiquePanel physique={state.physique} baked={bakedMain} onChange={state.updatePhysique} onPreset={state.applyPhysiquePreset} />
+          <PhysiquePanel physique={state.physique} baked={bakedMain} captured={Boolean(state.modelPose.capture)} onChange={state.updatePhysique} onPreset={state.applyPhysiquePreset} />
           <WardrobePanel baked={bakedMain} hairStyle={state.hairStyle} outfit={state.outfitStyle} fabric={state.outfitFabric} onChange={(patch) => {
             if (patch.hairStyle) setValue('hairStyle', patch.hairStyle)
             if (patch.outfit) setValue('outfitStyle', patch.outfit)

@@ -256,7 +256,22 @@ export function PoseControls({ pose, baked = false, onChange }: { pose: ModelPos
 // Physique
 // ---------------------------------------------------------------------------
 
-export function PhysiquePanel({ physique, baked = false, onChange, onPreset }: { physique: Physique; /** True when the actor's body is photographed and cannot be reshaped. */ baked?: boolean; onChange: (patch: Partial<Physique>) => void; onPreset: (id: string) => void }) {
+export function PhysiquePanel({ physique, baked = false, captured = false, onChange, onPreset }: {
+  physique: Physique
+  /** True when the actor's body is photographed and cannot be reshaped. */
+  baked?: boolean
+  /**
+   * True when a recorded performance is posing this actor.
+   *
+   * On a photographed actor the four measurements below reach nothing but the
+   * arm aiming — which is the step a captured pose replaces outright, because
+   * the performer's own arms already say where the hands went. So under a
+   * capture they reach nothing at all, and should not pretend otherwise.
+   */
+  captured?: boolean
+  onChange: (patch: Partial<Physique>) => void
+  onPreset: (id: string) => void
+}) {
   const t = useT()
   const ct = useCatalogT()
   return (
@@ -277,13 +292,13 @@ export function PhysiquePanel({ physique, baked = false, onChange, onPreset }: {
         ))}
       </div>
       <Range label={t('physique.face')} value={physique.face} min={0} max={100} disabled={baked} onChange={(value) => onChange({ face: value })} />
-      <Range label={t('physique.build')} value={physique.build} min={0} max={100} unit="%" onChange={(value) => onChange({ build: value })} />
-      <Range label={t('physique.muscle')} value={physique.muscle} min={0} max={100} unit="%" onChange={(value) => onChange({ muscle: value })} />
-      <Range label={t('physique.shoulders')} value={physique.shoulders} min={-50} max={50} onChange={(value) => onChange({ shoulders: value })} />
+      <Range label={t('physique.build')} value={physique.build} min={0} max={100} unit="%" disabled={baked && captured} onChange={(value) => onChange({ build: value })} />
+      <Range label={t('physique.muscle')} value={physique.muscle} min={0} max={100} unit="%" disabled={baked && captured} onChange={(value) => onChange({ muscle: value })} />
+      <Range label={t('physique.shoulders')} value={physique.shoulders} min={-50} max={50} disabled={baked && captured} onChange={(value) => onChange({ shoulders: value })} />
       <Range label={t('physique.waist')} value={physique.waist} min={-50} max={50} disabled={baked} onChange={(value) => onChange({ waist: value })} />
-      <Range label={t('physique.hips')} value={physique.hips} min={-50} max={50} onChange={(value) => onChange({ hips: value })} />
+      <Range label={t('physique.hips')} value={physique.hips} min={-50} max={50} disabled={baked && captured} onChange={(value) => onChange({ hips: value })} />
       <Range label={t('physique.bust')} value={physique.bust} min={-50} max={50} disabled={baked} onChange={(value) => onChange({ bust: value })} />
-      {baked && <p className="pose-note">{t('physique.bakedNote')}</p>}
+      {baked && <p className="pose-note">{t(captured ? 'physique.capturedNote' : 'physique.bakedNote')}</p>}
     </div>
   )
 }

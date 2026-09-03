@@ -107,6 +107,7 @@ const DICT = {
   'physique.age': { en: 'Appearance age', zh: '外觀年齡', ja: '見た目の年齢' },
   'physique.years': { en: ' yrs', zh: ' 歲', ja: ' 歳' },
   'physique.bakedNote': { en: 'This actor is photographed, so nothing here changes the shape you see. Build, muscle, shoulders and hips still adjust where the rig aims the arms; face, waist, bust and age reach nothing at all.', zh: '這位演員是實拍的,所以這裡改不動你看到的身形。體格、肌肉、肩寬與臀圍仍會微調手臂瞄準的位置;臉型變化、腰、胸與年齡則完全沒有作用。', ja: 'このアクターは実写ベースのため、ここで見た目の体型は変わりません。体格・筋肉・肩幅・腰まわりは腕を狙う位置の微調整には効きますが、顔の個体差・ウエスト・バスト・年齢は何にも届きません。' },
+  'physique.capturedNote': { en: 'This actor is photographed, so nothing here changes the shape you see. On a solved pose, build, muscle, shoulders and hips still nudge where the rig aims the arms — but a captured pose brings its own arms, so under one they reach nothing at all. Pick another pose to get them back.', zh: '這位演員是實拍的,所以這裡改不動你看到的身形。在解算姿勢下,體格、肌肉、肩寬與臀圍還會微調手臂瞄準的位置;但實拍姿勢自己帶著手臂,所以選了實拍姿勢時這四項完全沒有作用。換一個姿勢就會恢復。', ja: 'このアクターは実写ベースのため、ここで見た目の体型は変わりません。計算ポーズなら体格・筋肉・肩幅・腰まわりが腕を狙う位置を微調整しますが、収録ポーズは腕を自前で持っているため、その間はどこにも届きません。他のポーズを選ぶと戻ります。' },
   'physique.presets': { en: 'Body presets', zh: '體型預設', ja: '体型プリセット' },
   'physique.face': { en: 'Face variation', zh: '臉部變化', ja: '顔のバリエーション' },
   'physique.build': { en: 'Build', zh: '體脂', ja: '体格' },
