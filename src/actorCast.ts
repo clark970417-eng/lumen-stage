@@ -84,6 +84,7 @@ export const CAST: CastMember[] = [
   member('sports-male-01', 'Sports_Male_01', 'Trunks, athletic', 'Bare torso, wide shoulders to a narrow waist. Rim lighting has an edge to sit on.', 'masculine', 0.166, 1.80),
   member('male-adult-15', 'Male_Adult_15', 'Thobe', 'Plain white to the floor, no seams to break it. A wall of highlight — feather the key or lose every fold.', 'masculine', 0.217, 1.82, { robed: true }),
   member('male-adult-19', 'Male_Adult_19', 'Thobe and keffiyeh', 'The headdress lays a hard edge across the brow and drops a shadow into the eyes. Fill from low or lose them.', 'masculine', 0.215, 1.81, { robed: true }),
+  member('male-adult-21', 'Male_Adult_21', 'Thobe, patterned keffiyeh', 'A second headdress, a different weave and a different face under it. The pattern is fine enough to alias — worth a look at full resolution before you shoot it.', 'masculine', 0.213, 1.82, { robed: true }),
   member('business-male', 'Business_Male_01', 'Business', 'Black suit, white shirt — the widest brightness range in the cast, in one frame.', 'masculine', 0.184, 1.81),
   member('male-child-02', 'Male_Child_02', 'Child', 'Darker skin at a child height. Watch the key clearing the top of his head.', 'masculine', 0.185, 1.43, { child: true }),
 ]
