@@ -23,7 +23,7 @@ import { useRenderProgress } from '../renderProgress'
 import { usePhoneScreen, useUiModeStore } from '../uiMode'
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
 import { POSE_LIBRARY } from '../pose'
-import { OUTFITS, type OutfitStyle } from '../wardrobe'
+import { CAST, defaultCastFor, MIN_SUBJECT_HEIGHT, MAX_SUBJECT_HEIGHT } from '../actorCast'
 import { buildShareLink, copyToClipboard } from '../share'
 import { MAX_PROJECT_FILE_BYTES, readTextFileWithinLimit } from '../security'
 import { formatStorage, storageUsage } from '../persistence'
@@ -88,9 +88,7 @@ const SIZED_OPTICS: LightOptic[] = ['softbox', 'umbrella-shoot', 'umbrella-refle
 
 /** Gel-ish colours, so a coloured rim is two taps rather than a colour wheel. */
 const RGB_PRESETS = ['#ff3d3d', '#ff8a3d', '#ffd23d', '#5cff8f', '#3ddcff', '#3d6cff', '#8b5cff', '#ff5cc8']
-const MOBILE_BODY_PRESETS = ['slim', 'average', 'curvy', 'athletic', 'heavy']
 const MOBILE_POSES = ['neutral', 'contrapposto', 'three-quarter', 'seated-upright', 'walking', 'editorial', 'holding']
-const MOBILE_OUTFITS: OutfitStyle[] = ['tshirt', 'shirt', 'suit', 'dress', 'activewear', 'coat']
 
 const toDegrees = (radians: number) => (radians * 180) / Math.PI
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180
@@ -266,9 +264,9 @@ function SubjectTab() {
   const ct = useCatalogT()
   const state = useStudio(useShallow((state) => ({
     addStudioObject: state.addStudioObject,
-    applyPhysiquePreset: state.applyPhysiquePreset,
+    actorId: state.actorId,
+    castActor: state.castActor,
     applyPosePreset: state.applyPosePreset,
-    applyStudioSubjectPhysique: state.applyStudioSubjectPhysique,
     applyStudioSubjectPose: state.applyStudioSubjectPose,
     deleteMainSubject: state.deleteMainSubject,
     deleteStudioObject: state.deleteStudioObject,
@@ -299,13 +297,10 @@ function SubjectTab() {
   const position = main ? state.modelPosition : activeObject?.position ?? [0, 0, 0]
   const physique = main ? state.physique : activeObject?.subjectPhysique ?? state.physique
   const posePreset = main ? state.posePreset : activeObject?.subjectPosePreset ?? 'neutral'
-  const outfit = main ? state.outfitStyle : activeObject?.subjectOutfitStyle ?? 'tshirt'
+  const currentActor = state.actorId ?? defaultCastFor(state.physique, state.outfitStyle === 'suit').id
   const updatePhysique = (patch: Partial<typeof physique>) => main
     ? state.updatePhysique(patch)
     : activeObject && state.updateStudioSubjectPhysique(activeObject.id, patch)
-  const applyPhysiquePreset = (id: string) => main
-    ? state.applyPhysiquePreset(id)
-    : activeObject && state.applyStudioSubjectPhysique(activeObject.id, id)
   const applyPosePreset = (id: string) => main
     ? state.applyPosePreset(id)
     : activeObject && state.applyStudioSubjectPose(activeObject.id, id)
@@ -315,9 +310,6 @@ function SubjectTab() {
   const setVerticalPosition = (value: number) => main
     ? state.setModelTransform([position[0], Number(value.toFixed(2)), position[2]])
     : activeObject && state.setStudioObjectTransform(activeObject.id, [position[0], Number(value.toFixed(2)), position[2]], activeObject.rotationY)
-  const setOutfit = (value: OutfitStyle) => main
-    ? state.setValue('outfitStyle', value)
-    : activeObject && state.updateStudioObject(activeObject.id, { subjectOutfitStyle: value })
   const deleteSubject = () => main ? state.deleteMainSubject() : activeObject && state.deleteStudioObject(activeObject.id)
 
   return <div className="m-tab">
@@ -334,21 +326,15 @@ function SubjectTab() {
     </div>
     {!activeId ? <p className="m-note">{t('mobile.subject.hint')}</p> : <>
     <p className="m-note">{t('mobile.subject.hint')}</p>
-    <div className="m-field">
-      <span className="m-label">{t('physique.sex')}</span>
-      <div className="m-chips">
-        {([['feminine','physique.feminine'],['masculine','physique.masculine'],['neutral','physique.neutral']] as const).map(([value,key]) => <button key={value} className={physique.sex === value ? 'active' : ''} onClick={() => updatePhysique({ sex: value })}>{t(key)}</button>)}
-      </div>
-    </div>
-    <Dial label={t('subject.height')} value={height} min={1.45} max={2.2} step={0.01} readout={`${height.toFixed(2)} m`} onChange={setHeight} />
+    {main ? <label className="m-field"><span className="m-label">{t('cast.title')}</span>
+      <select className="m-cast-select" value={currentActor} onChange={(event) => state.castActor(event.target.value)}>
+        {CAST.map((actor) => <option key={actor.id} value={actor.id}>{ct(`cast.${actor.id}`, actor.label)} · {actor.height.toFixed(2)} m</option>)}
+      </select>
+    </label> : <div className="m-field"><span className="m-label">{t('physique.sex')}</span><div className="m-chips">
+      {([['feminine','physique.feminine'],['masculine','physique.masculine']] as const).map(([value,key]) => <button key={value} className={physique.sex === value ? 'active' : ''} onClick={() => updatePhysique({ sex: value })}>{t(key)}</button>)}
+    </div></div>}
+    <Dial label={t('subject.height')} value={height} min={MIN_SUBJECT_HEIGHT} max={MAX_SUBJECT_HEIGHT} step={0.01} readout={`${height.toFixed(2)} m`} onChange={setHeight} />
     <Dial label={t('axis.y')} value={position[1]} min={0} max={3} step={0.05} readout={`${position[1].toFixed(2)} m`} onChange={setVerticalPosition} />
-    <Dial label={t('physique.age')} value={physique.age ?? 28} min={18} max={80} readout={`${Math.round(physique.age ?? 28)}${t('physique.years')}`} onChange={(value) => updatePhysique({ age: value })} />
-    <div className="m-field">
-      <span className="m-label">{t('physique.presets')}</span>
-      <div className="m-chips m-chips-scroll">
-        {MOBILE_BODY_PRESETS.map((id) => <button key={id} onClick={() => applyPhysiquePreset(id)}>{ct(`physique.${id}`, id)}</button>)}
-      </div>
-    </div>
     <div className="m-field">
       <span className="m-label">{t('pose.library')}</span>
       <div className="m-chips m-chips-scroll">
@@ -356,12 +342,6 @@ function SubjectTab() {
           const entry = POSE_LIBRARY.find((item) => item.id === id)
           return <button key={id} className={posePreset === id ? 'active' : ''} onClick={() => applyPosePreset(id)}>{ct(`pose.${id}`, entry?.label ?? id)}</button>
         })}
-      </div>
-    </div>
-    <div className="m-field">
-      <span className="m-label">{t('wardrobe.outfit')}</span>
-      <div className="m-chips m-chips-scroll">
-        {MOBILE_OUTFITS.map((id) => <button key={id} className={outfit === id ? 'active' : ''} onClick={() => setOutfit(id)}>{ct(`outfit.${id}`, OUTFITS.find((item) => item.id === id)?.label ?? id)}</button>)}
       </div>
     </div>
     </>}
@@ -750,8 +730,9 @@ function MobileVerifyTab({ onOpenAbout, onOpenTour }: { onOpenAbout: () => void;
   </div>
 }
 
-function MobileLayoutTab({ applied, onApply }: { applied: string | null; onApply: (id: string) => void }) {
+function MobileLayoutTab({ applied, onApply, compact, onCompact }: { applied: string | null; onApply: (id: string) => void; compact: boolean; onCompact: () => void }) {
   const t = useT()
+  const locale = useLocaleStore((state) => state.locale)
   const state = useStudio(useShallow((state) => ({
     addLight: state.addLight,
     cameraPosition: state.cameraPosition,
@@ -796,7 +777,8 @@ function MobileLayoutTab({ applied, onApply }: { applied: string | null; onApply
     else if (selectedStudioObject) state.setStudioObjectTransform(selectedStudioObject.id, [x, selectedStudioObject.position[1], selectedStudioObject.position[2]], selectedStudioObject.rotationY, 'X')
   }
   return <div className="m-phase-stack">
-    <SetupsTab applied={applied} onApply={onApply} />
+    <button className="m-layout-toggle" aria-expanded={!compact} onClick={onCompact}>{locale === 'zh' ? (compact ? '顯示預設配置' : '精簡設定・隱藏預設') : locale === 'ja' ? (compact ? 'プリセットを表示' : '設定を縮小・プリセットを隠す') : (compact ? 'Show presets' : 'Compact controls · hide presets')}</button>
+    {!compact && <SetupsTab applied={applied} onApply={onApply} />}
     <div className="m-tab">
       <h2>{t('mobile.layout.title')}</h2>
       <p className="m-note">{t('mobile.layout.note')}</p>
@@ -833,6 +815,7 @@ export function MobileApp() {
   const [tab, setTab] = useState<Tab>('planning')
   const [appliedSetup, setAppliedSetup] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(() => !window.matchMedia('(orientation: landscape) and (max-height: 520px)').matches)
+  const [compactLayout, setCompactLayout] = useState(false)
   const [capturing, setCapturing] = useState(false)
   const [photo, setPhoto] = useState<string | null>(null)
   const [aboutOpen, setAboutOpen] = useState(false)
@@ -895,7 +878,7 @@ export function MobileApp() {
   }
 
   return (
-    <main className={sheetOpen ? 'm-shell sheet-open' : 'm-shell'} aria-label={t(phone ? 'mobile.aria' : 'mobile.desktop.aria')}>
+    <main className={`m-shell${sheetOpen ? ' sheet-open' : ''}${tab === 'layout' && compactLayout ? ' layout-compact' : ''}`} aria-label={t(phone ? 'mobile.aria' : 'mobile.desktop.aria')}>
       <header className="m-top">
         <span className="m-brand"><BrandMark />LUMEN<small>{t(phone ? 'mobile.badge' : 'mobile.desktop.badge')}</small></span>
         <div className="m-lang" role="group" aria-label={t('lang.label')}>
@@ -957,7 +940,7 @@ export function MobileApp() {
               {tab === 'planning' && <SubjectTab />}
               {tab === 'lighting' && <div className="m-phase-stack"><MobileIntentTab /><LightsTab /></div>}
               {tab === 'shooting' && <div className="m-phase-stack"><CameraTab /><MobileVerifyTab onOpenAbout={() => setAboutOpen(true)} onOpenTour={openTour} /></div>}
-              {tab === 'layout' && <MobileLayoutTab applied={appliedSetup} onApply={setAppliedSetup} />}
+              {tab === 'layout' && <MobileLayoutTab applied={appliedSetup} onApply={setAppliedSetup} compact={compactLayout} onCompact={() => setCompactLayout(!compactLayout)} />}
             </div>
             {tab === 'lighting' && <MobileEditActions storageKey="lumen-stage:lighting-preset"
               capture={() => structuredClone(useStudio.getState().lights)}

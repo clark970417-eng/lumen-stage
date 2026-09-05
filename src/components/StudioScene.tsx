@@ -3706,14 +3706,14 @@ export function StudioScene({ horizontalLayoutOnly = false }: { horizontalLayout
     // The editor remains legible; only the viewfinder/export simulates exposure.
     gl.toneMappingExposure = view === 'camera' || renderMode === 'path'
       ? cameraExposure(iso, effectiveAperture, shutter, ndStops)
-      : 0.012
-  }, [aperture, cameraMode, gl, iso, ndStops, renderMode, shutter, tStop, view])
+      : horizontalLayoutOnly ? 0.024 : 0.012
+  }, [aperture, cameraMode, gl, horizontalLayoutOnly, iso, ndStops, renderMode, shutter, tStop, view])
 
   return (
     <HorizontalLayoutContext.Provider value={horizontalLayoutOnly}>
       <CameraRig />
       <TimelinePlayback />
-      <ambientLight intensity={layoutOnly ? Math.max(0.72, ambientLevel / 48) : soloLightId ? 0.015 : ambientLevel / 75} color={ambientColor} />
+      <ambientLight intensity={horizontalLayoutOnly && view !== 'camera' && renderMode !== 'path' ? Math.max(35, ambientLevel / 75) : layoutOnly ? Math.max(0.72, ambientLevel / 48) : soloLightId ? 0.015 : ambientLevel / 75} color={ambientColor} />
       <EnvironmentLighting />
       <Backdrop />
       <MemoMannequin />

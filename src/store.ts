@@ -18,6 +18,21 @@ import { createAutosaveScheduler } from './autosave'
 import { createHistoryTransaction } from './historyTransaction'
 import { useRenderProgress } from './renderProgress'
 
+/** Add seating as part of the same undoable pose change. Existing furniture is reused. */
+function objectsWithSeat(state: StudioState, pose: ModelPose, position: [number, number, number], rotation: number, preset: string): StudioObject[] {
+  if (!pose.seated || state.studioObjects.some((object) => isSittable(object.type) && Math.hypot(object.position[0] - position[0], object.position[2] - position[2]) <= (FOOTPRINT[object.type as keyof typeof FOOTPRINT] ?? 0.4))) return state.studioObjects
+  return [...state.studioObjects, {
+    id: `chair-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, name: 'Chair', type: 'chair',
+    position: [position[0], 0, position[2]], rotationY: rotation + (preset === 'seated-backward' ? Math.PI : 0), scale: 1,
+    color: '#6f4938', material: 'matte', locked: false,
+    subjectHeight: 1.74, subjectSkinColor: '#b9826b', subjectOutfitColor: '#343c48',
+    subjectSkinRoughness: 55, subjectSkinOil: 22, subjectSubsurface: 45, subjectMakeup: 'natural',
+    subjectEyeColor: '#4b372b', subjectHairColor: '#211815', subjectHairGloss: 35, subjectOutfitFabric: 'cotton',
+    subjectPosePreset: 'neutral', subjectPose: { ...NEUTRAL_POSE }, subjectPhysique: { ...DEFAULT_PHYSIQUE },
+    subjectHairStyle: 'long', subjectOutfitStyle: 'tshirt',
+  }]
+}
+
 export type ViewMode = 'studio' | 'camera' | 'top'
 export type RenderMode = 'preview' | 'path'
 export type ExposureOverlay = 'none' | 'false-color' | 'clipping'
@@ -1442,7 +1457,14 @@ export const useStudio = create<StudioState>((set, get) => ({
     const studioObjects = state.studioObjects.map((object) => object.id === id ? { ...object, ...patch } : object)
     return { studioObjects, lights: syncBoundLightTargets({ ...state, studioObjects }), ...syncCameraTracking({ ...state, studioObjects }), undoStack: withUndo(state), redoStack: [] }
   }),
-  applyStudioSubjectPose: (id, preset) => set((state) => ({ studioObjects: state.studioObjects.map((object) => object.id === id && object.type === 'subject' ? { ...object, subjectPosePreset: preset, subjectPose: { ...(getPoseEntry(preset)?.pose ?? NEUTRAL_POSE) } } : object), undoStack: withUndo(state), redoStack: [] })),
+  applyStudioSubjectPose: (id, preset) => set((state) => {
+    const subject = state.studioObjects.find((object) => object.id === id && object.type === 'subject')
+    if (!subject) return state
+    const pose = { ...(getPoseEntry(preset)?.pose ?? NEUTRAL_POSE) }
+    const studioObjects = objectsWithSeat(state, pose, subject.position, subject.rotationY, preset)
+      .map((object) => object.id === id ? { ...object, subjectPosePreset: preset, subjectPose: pose } : object)
+    return { studioObjects, undoStack: withUndo(state), redoStack: [] }
+  }),
   updateStudioSubjectPose: (id, patch) => set((state) => ({ studioObjects: state.studioObjects.map((object) => object.id === id && object.type === 'subject' ? { ...object, subjectPosePreset: 'custom', subjectPose: { ...object.subjectPose, ...patch } } : object), undoStack: withUndo(state), redoStack: [] })),
   duplicateStudioObject: (id) => set((state) => {
     const source = state.studioObjects.find((object) => object.id === id)
@@ -1515,7 +1537,10 @@ export const useStudio = create<StudioState>((set, get) => ({
       redoStack: [],
     }
   }),
-  applyPosePreset: (preset) => set((state) => ({ posePreset: preset, modelPose: { ...(getPoseEntry(preset)?.pose ?? NEUTRAL_POSE) }, undoStack: withUndo(state), redoStack: [] })),
+  applyPosePreset: (preset) => set((state) => {
+    const pose = { ...(getPoseEntry(preset)?.pose ?? NEUTRAL_POSE) }
+    return { posePreset: preset, modelPose: pose, studioObjects: objectsWithSeat(state, pose, state.modelPosition, state.modelRotation, preset), undoStack: withUndo(state), redoStack: [] }
+  }),
   updateModelPose: (patch) => set((state) => ({ posePreset: 'custom', modelPose: { ...state.modelPose, ...patch }, undoStack: withUndo(state), redoStack: [] })),
   updatePhysique: (patch) => set((state) => ({ physique: { ...state.physique, ...patch }, undoStack: withUndo(state), redoStack: [] })),
   castActor: (id) => set((state) => {

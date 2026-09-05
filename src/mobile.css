@@ -481,3 +481,11 @@
   /* About/copyright remains in Verify; the primary header escape is Full. */
   .m-shell .m-top .copyright-mark.compact { display: none; }
 }
+
+.m-cast-select { width: 100%; min-height: 44px; padding: 10px; color: var(--paper); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.m-layout-toggle { width: 100%; min-height: 44px; padding: 8px 12px; color: var(--signal); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
+.m-shell.layout-compact .m-sheet { max-height: 230px; max-height: min(230px, 30dvh); }
+.m-shell.layout-compact .m-note { display: none; }
+.m-shell.layout-compact .m-tab { gap: 8px; }
+.m-shell.layout-compact .m-phase-stack { gap: 8px; }
+.m-shell.layout-compact .m-tab h2 { display: none; }
