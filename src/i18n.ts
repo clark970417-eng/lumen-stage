@@ -230,6 +230,8 @@ const DICT = {
   'about.close': { en: 'Close about and copyright', zh: '關閉關於與版權', ja: '情報・著作権を閉じる' },
   'about.eyebrow': { en: 'Creator / Copyright / Data', zh: '創作者 / 版權 / 資料', ja: '制作者 / 著作権 / データ' },
   'about.creator': { en: 'Created by', zh: '創作者', ja: '制作者' },
+  'about.unpublished': { en: 'Not published yet', zh: '尚未正式發布', ja: '未公開' },
+  'about.published': { en: 'First release', zh: '第一版', ja: '初版' },
   'about.role': { en: 'Independent creator of Lumen Stage', zh: 'Lumen Stage 獨立創作者', ja: 'Lumen Stage 個人制作者' },
   'about.copyrightTitle': { en: 'Copyright', zh: '版權聲明', ja: '著作権' },
   'about.copyright': { en: '© {year} {owner}. Lumen Stage, its interface, text and original visual assets are protected. All rights reserved.', zh: '© {year} {owner}。Lumen Stage 的介面、文字與原創視覺資產均受版權保護，保留所有權利。', ja: '© {year} {owner}。Lumen Stage のインターフェース、文章、オリジナルのビジュアル資産は著作権で保護されています。無断転載を禁じます。' },

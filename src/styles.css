@@ -2914,3 +2914,8 @@ header.topbar .project-actions.is-simplified .history-button:disabled {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+.about-dialog > footer { display:grid; grid-template-columns:1fr auto 1fr; gap:12px; padding-block:14px; }
+.about-dialog > footer > span:last-child { text-align:right; }
+.about-release { justify-self:center; color:var(--signal); text-align:center; line-height:1.6; letter-spacing:.02em; }
+@media(max-width:480px) { .about-dialog > footer { grid-template-columns:1fr 1fr; gap:10px; }.about-dialog .about-release { grid-column:1/-1; grid-row:2; } }

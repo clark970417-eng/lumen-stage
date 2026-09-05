@@ -3,6 +3,7 @@ import { useT } from '../i18n'
 import { useDialogFocus } from './DialogFocus'
 import { assetHref } from '../routing'
 import { COPYRIGHT_BUTTON_LABEL } from '../copyright'
+import { PRODUCT_RELEASE } from '../productRelease'
 
 export const SITE_OWNER = 'YuYing'
 
@@ -60,6 +61,7 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose: () => v
 
         <footer>
           <span>© {year} {SITE_OWNER}</span>
+          <span className="about-release">{PRODUCT_RELEASE.version} · {t(PRODUCT_RELEASE.published ? 'about.published' : 'about.unpublished')}</span>
           <span>ALL RIGHTS RESERVED</span>
         </footer>
       </section>
