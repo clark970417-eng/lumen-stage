@@ -104,7 +104,7 @@ const COPY: Record<Locale, Copy> = {
   },
   en: {
     nav: ['Capabilities', 'Workflow', 'Outcomes', 'Latest', 'Setups', 'FAQ', 'Support'], open: 'Open the studio free', eyebrow: 'A 3D studio for photographers and learners',
-    title: ['Plan the lights, lens', 'and frame before', 'you enter the studio.'], intro: 'LUMEN STAGE lets you arrange lights, camera, subject and backdrop with real distances and lens settings—right in your browser.',
+    title: ['Plan the light.', 'Frame the shot.', 'Before the shoot.'], intro: 'LUMEN STAGE lets you arrange lights, camera, subject and backdrop with real distances and lens settings—right in your browser.',
     proof: ['No install', 'No account', 'Scenes stay on your device'], instrument: 'Not a mock-up. A working photographic instrument.', instrumentBody: 'Person, Light, Camera and Layout share one live scene. Desktop adds precise control and preset management; phone keeps the essential subject, lighting, framing and object-position tools.',
     demoLink: 'Watch the 15-second workflow', demoTitle: 'From a blank idea to a shootable plan in fifteen seconds.', demoBody: 'Light, frame, compare and hand off from one live scene instead of guessing what every adjustment will do.', demoSteps: [['Choose a setup', 'Start with a classic lighting pattern.'], ['Place the subject', 'Confirm position and pose.'], ['Move the lights', 'Tune distance, angle and output.'], ['Confirm the camera', 'Check focal length, aperture and frame.'], ['Review the layout', 'See subject, lights and camera from above.'], ['Export for set', 'Save and export a setup sheet.']],
     demoControls: { play: 'Play', pause: 'Pause', replay: 'Replay', progress: 'Demo video progress', shortcuts: 'Shortcuts: left and right arrows to seek, Space to play or pause' },
@@ -129,7 +129,7 @@ const COPY: Record<Locale, Copy> = {
   },
   ja: {
     nav: ['機能', '工程', '成果', '更新', 'セット例', 'FAQ', 'サポート'], open: '無料でスタジオを開く', eyebrow: '撮影者と学習者のための 3D スタジオ',
-    title: ['スタジオに入る前に、', 'ライト、レンズ、', '画づくりを決める。'], intro: 'LUMEN STAGE はライト、カメラ、人物、背景を、実際の距離とレンズ設定でブラウザ上に組み立てる撮影設計ツールです。',
+    title: ['撮影の前に', '光を整え', '構図を決める'], intro: 'LUMEN STAGE はライト、カメラ、人物、背景を、実際の距離とレンズ設定でブラウザ上に組み立てる撮影設計ツールです。',
     proof: ['インストール不要', 'アカウント不要', 'シーンは端末内に保存'], instrument: 'イメージ図ではなく、実際に操作できる撮影ツール。', instrumentBody: '人物、照明、カメラ、配置の 4 モードが 1 つのライブシーンを共有。デスクトップは精密操作とプリセット管理、スマートフォンは人物・照明・構図・位置の中核操作に対応します。',
     demoLink: '15 秒の操作を見る', demoTitle: '十五秒で、アイデアを撮影可能なプランへ。', demoBody: '1 つのライブシーンで照明、構図、比較、書き出しまで行い、調整の結果を画面で確認できます。', demoSteps: [['セットを選ぶ', '定番の照明から開始。'], ['主体を配置', '位置とポーズを確認。'], ['ライトを動かす', '距離、角度、出力を調整。'], ['カメラを確認', '焦点距離、絞り、フレームを確認。'], ['レイアウトを確認', '主体、ライト、カメラを上から確認。'], ['現場用に書き出す', '保存してセットアップ表を書き出し。']],
     demoControls: { play: '再生', pause: '一時停止', replay: '最初から再生', progress: 'デモ動画の進行', shortcuts: 'ショートカット：左右矢印で移動、Space で再生／一時停止' },
