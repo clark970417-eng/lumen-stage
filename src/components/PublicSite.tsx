@@ -1,5 +1,4 @@
 import { CastGallery } from './CastGallery'
-import { TutorialVisual } from './TutorialVisual'
 import { useEffect, useRef, useState } from 'react'
 import { DEMO_STEP_MOVEMENT_STARTS, demoStepAt } from '../demoTimeline'
 import { LOCALES, useLocaleStore, type Locale } from '../i18n'
@@ -200,10 +199,14 @@ function LocaleSwitch() {
   return <div className="site-locale" role="group" aria-label="Language">{LOCALES.map((item) => <button key={item.id} className={locale === item.id ? 'active' : ''} aria-pressed={locale === item.id} aria-label={item.native} onClick={() => setLocale(item.id)}>{item.short}</button>)}</div>
 }
 
+function ScreenshotCrop({ src, size, crop, id, label }: { src: string; size: [number, number]; crop: [number, number, number, number]; id: string; label: string }) {
+  return <svg viewBox={crop.join(' ')} width={crop[2]} height={crop[3]} preserveAspectRatio="xMidYMid slice" role="img" aria-label={label}><defs><clipPath id={id}><rect x={crop[0]} y={crop[1]} width={crop[2]} height={crop[3]} /></clipPath></defs><image href={assetHref(src)} width={size[0]} height={size[1]} clipPath={`url(#${id})`} /></svg>
+}
+
 function SiteHeader({ copy, onOpenStudio }: { copy: Copy; onOpenStudio?: () => void }) {
   const home = routeHref('home')
   const sectionHref = (id: string) => onOpenStudio ? `#${id}` : `${home}#${id}`
-  const links = <><a href={sectionHref('capabilities')}>{copy.nav[0]}</a><a href={sectionHref('workflow')}>{copy.nav[1]}</a><a href={sectionHref('outcomes')}>{copy.nav[2]}</a><a href={sectionHref('release')}>{copy.nav[3]}</a><a href={sectionHref('setups')}>{copy.nav[4]}</a><a href={sectionHref('faq')}>{copy.nav[5]}</a><a href={routeHref('support')}>{copy.nav[6]}</a></>
+  const links = <><a href={sectionHref('capabilities')}>{copy.nav[0]}</a><a href={sectionHref('setups')}>{copy.nav[4]}</a><a href={sectionHref('workflow')}>{copy.nav[1]}</a><a href={sectionHref('outcomes')}>{copy.nav[2]}</a><a href={sectionHref('release')}>{copy.nav[3]}</a><a href={sectionHref('faq')}>{copy.nav[5]}</a><a href={routeHref('support')}>{copy.nav[6]}</a></>
   return <header className="site-header"><div className="site-header-shell"><a className="site-brand" href={home} aria-label="Lumen Stage home"><BrandMark /><span><b>LUMEN</b><small>STAGE / WEB</small></span></a><nav aria-label="Primary">{links}</nav><details className="site-menu"><summary aria-label="Navigation">☰</summary><nav aria-label="Mobile" onClick={(event) => { if ((event.target as HTMLElement).closest('a')) event.currentTarget.parentElement?.removeAttribute('open') }}>{links}</nav></details><div className="site-actions"><LocaleSwitch />{onOpenStudio ? <button className="site-cta compact" type="button" onClick={onOpenStudio}><span>{copy.open}</span><b aria-hidden="true">↗</b></button> : <a className="site-cta compact" href={studioHref()}><span>{copy.open}</span><b aria-hidden="true">↗</b></a>}</div></div></header>
 }
 
@@ -247,8 +250,8 @@ function ModeChooser({ copy, onClose }: { copy: Copy; onClose: () => void }) {
 
 function ResultCompare({ copy }: { copy: Copy }) {
   const [split, setSplit] = useState(50)
-  return <section className="result-compare" data-reveal>
-    <header><span>07 / LIGHT TEST</span><h2>{copy.compareTitle}</h2><p>{copy.compareBody}</p></header>
+  return <section className="result-compare" id="outcomes" data-reveal>
+    <header><span>05 / LIGHT TEST</span><h2>{copy.compareTitle}</h2><p>{copy.compareBody}</p></header>
     <div className="compare-stage" style={{ '--compare-split': `${split}%` } as React.CSSProperties}>
       <img src={assetHref('onboarding/render-before.webp')} alt={copy.compareBefore} width="1600" height="900" loading="lazy" decoding="async" />
       <div className="compare-after"><img src={assetHref('onboarding/render-after.webp')} alt={copy.compareAfter} width="1600" height="900" loading="lazy" decoding="async" /></div>
@@ -430,14 +433,14 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     <section className="capability-grid" data-reveal>{copy.capabilities.map(([title, body], index) => <article key={title}>
       <div><span>0{index + 1}</span><i aria-hidden="true" /></div>
       <figure className="capability-pair">
-        <div className="capability-scene"><span>{locale === 'zh' ? '場景' : locale === 'ja' ? 'シーン' : 'Scene'}</span><svg viewBox={index === 1 ? '10 75 1438 994' : '252 150 1340 850'} role="img" aria-label={`${title} — ${locale === 'zh' ? '場景圖' : 'Scene'}`}><image href={assetHref(index === 1 ? `site-workflow/${locale}/shoot.png` : `onboarding/${locale}/desktop-${index === 0 ? 1 : 3}.png`)} width={index === 1 ? 1920 : 1905} height="1080" /></svg></div>
-        <div className="capability-settings"><span>{locale === 'zh' ? '設定' : locale === 'ja' ? '設定' : 'Controls'}</span><svg viewBox={['700 185 200 400', '1475 148 420 650', '576 322 244 350'][index]} role="img" aria-label={`${title} — ${locale === 'zh' ? '設定圖' : 'Controls'}`}><image href={assetHref(index === 1 ? `site-workflow/${locale}/shoot.png` : `site-detail/${locale}/${index === 0 ? 'controls' : 'export'}.png`)} width={index === 1 ? 1920 : 916} height={index === 1 ? 1080 : 1067} /></svg></div>
+        <div className="capability-scene"><span>{locale === 'zh' ? '場景' : locale === 'ja' ? 'シーン' : 'Scene'}</span><ScreenshotCrop src={index === 1 ? `site-workflow/${locale}/shoot.png` : `onboarding/${locale}/desktop-${index === 0 ? 1 : 3}.png`} size={[index === 1 ? 1920 : 1905, 1080]} crop={index === 1 ? [10, 75, 1438, 994] : [252, 150, 1340, 850]} id={`scene-${index}`} label={`${title} — ${locale === 'zh' ? '場景圖' : 'Scene'}`} /></div>
+        <div className="capability-settings"><span>{locale === 'en' ? 'Controls' : '設定'}</span><ScreenshotCrop src={index === 1 ? `site-workflow/${locale}/shoot.png` : `site-detail/${locale}/${index === 0 ? 'controls' : 'export'}.png`} size={index === 1 ? [1920, 1080] : [916, 1067]} crop={index === 0 ? [710, 373, 180, 156] : index === 1 ? [1475, 148, 420, 450] : [576, 568, 244, 104]} id={`controls-${index}`} label={`${title} — ${locale === 'zh' ? '設定圖' : 'Controls'}`} /></div>
       </figure>
       <h3>{title}</h3><p>{body}</p>
     </article>)}</section>
     <section className="audience-strip" data-reveal><header><span>WHO IT IS FOR</span><h2>{copy.audienceTitle}</h2><p>{copy.audienceBody}</p></header><div>{copy.audiences.map(([title, body], index) => <article key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{body}</p></article>)}</div></section>
     <section className="featured-setups" id="setups">
-      <header data-reveal><span>04 / STARTING POINTS</span><h2>{copy.setupsTitle}</h2><p>{copy.setupsBody}</p></header>
+      <header data-reveal><span>03 / STARTING POINTS</span><h2>{copy.setupsTitle}</h2><p>{copy.setupsBody}</p></header>
       <div className="setup-showcase">{FEATURED_SETUP_IDS.map((id, index) => {
         const setup = SETUP_LIBRARY.find((item) => item.id === id)!
         const [title, body] = copy.setupNames[id]
@@ -447,18 +450,13 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
         </article>
       })}</div>
     </section>
-    <section className="mid-cta" data-reveal><div><span>START FROM A WORKING LIGHT</span><h2>{copy.midCtaTitle}</h2><p>{copy.midCtaBody}</p></div><button className="site-cta" type="button" onClick={() => setModeOpen(true)}><span>{copy.open}</span><b aria-hidden="true">↗</b></button></section>
-    <section className="workflow" id="workflow"><div className="workflow-heading" data-reveal><span>05 / WORKFLOW</span><h2>{copy.workflowTitle}</h2><p>PLAN · PREVIEW · SHOOT</p></div><ol>{copy.workflow.map(([title, body], index) => <li key={title} data-reveal><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></li>)}</ol></section>
-    <section className="site-outcomes" id="outcomes">
-      <header data-reveal><span>06 / FROM PLAN TO SET</span><h2>{copy.outcomeTitle}</h2><p>{copy.outcomeBody}</p></header>
-      <div>{copy.outcomes.map(([title, body], index) => <figure key={title} data-reveal><TutorialVisual task={(['lighting', 'camera', 'shot'] as const)[index]} /><figcaption><span>0{index + 1}</span><h3>{title}</h3><p>{body}</p></figcaption></figure>)}</div>
-    </section>
+    <section className="workflow" id="workflow"><div className="workflow-heading" data-reveal><span>04 / WORKFLOW</span><h2>{copy.workflowTitle}</h2><p>PLAN · PREVIEW · SHOOT</p></div><ol>{copy.workflow.map(([title, body], index) => <li key={title} data-reveal><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></li>)}</ol></section>
     <ResultCompare copy={copy} />
     <section className="simulation-method" data-reveal><header><span>SIMULATION / REALITY</span><h2>{copy.methodTitle}</h2><p>{copy.methodBody}</p></header><div>{copy.methodPoints.map(([title, body], index) => <article key={title}><b>0{index + 1}</b><h3>{title}</h3><p>{body}</p></article>)}</div></section>
-    <section className="site-trust" data-reveal><header><span>08 / BUILT-IN PROOF</span><h2>{copy.trustTitle}</h2></header><div>{copy.trust.map(([title, body], index) => <article key={title}><b>{TRUST_MARKS[index]}</b><h3>{title}</h3><p>{body}</p></article>)}</div></section>
-    <section className="release-proof" id="release" data-reveal><header><span>09 / RELEASE STATUS</span><h2>{copy.release.title}</h2></header><div><article><i /><span>STATUS</span><h3>{copy.release.status}</h3><p>{copy.release.statusBody}</p></article><article><span>UPDATED</span><h3>{copy.release.updated}</h3><p>{releaseDate} · {copy.release.updatedBody}</p></article><article><span>INCLUDED</span><h3>{copy.release.included}</h3><p>{copy.release.includedBody}</p></article><a href="https://github.com/clark970417-eng/lumen-stage-showcase" target="_blank" rel="noreferrer"><span>SHOWCASE</span><h3>{copy.release.showcase}</h3><p>{copy.release.showcaseBody}</p><b aria-hidden="true">↗</b></a></div></section>
-    <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>10 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
-    <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>11 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
+    <section className="site-trust" data-reveal><header><span>06 / BUILT-IN PROOF</span><h2>{copy.trustTitle}</h2></header><div>{copy.trust.map(([title, body], index) => <article key={title}><b>{TRUST_MARKS[index]}</b><h3>{title}</h3><p>{body}</p></article>)}</div></section>
+    <section className="release-proof" id="release" data-reveal><header><span>07 / RELEASE STATUS</span><h2>{copy.release.title}</h2></header><div><article><i /><span>STATUS</span><h3>{copy.release.status}</h3><p>{copy.release.statusBody}</p></article><article><span>UPDATED</span><h3>{copy.release.updated}</h3><p>{releaseDate} · {copy.release.updatedBody}</p></article><article><span>INCLUDED</span><h3>{copy.release.included}</h3><p>{copy.release.includedBody}</p></article><a href="https://github.com/clark970417-eng/lumen-stage-showcase" target="_blank" rel="noreferrer"><span>SHOWCASE</span><h3>{copy.release.showcase}</h3><p>{copy.release.showcaseBody}</p><b aria-hidden="true">↗</b></a></div></section>
+    <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>08 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
+    <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>09 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
     <section className="final-cta" data-reveal><span>READY / SET / LIGHT</span><h2>{copy.finalTitle}</h2><p>{copy.finalBody}</p><button className="site-cta" type="button" onClick={() => setModeOpen(true)}><span>{copy.open}</span><b aria-hidden="true">↗</b></button></section>
   </main><SiteFooter copy={copy} /></>
 }
