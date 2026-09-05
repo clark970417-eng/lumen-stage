@@ -108,6 +108,12 @@ async function convert(name, fbxUrl, prefix) {
 
   const meshes = []
   root.traverse((child) => { if (child.isMesh || child.isSkinnedMesh) meshes.push(child) })
+  // The source carries a vertex colour per vertex, and every one of them is
+  // white. White multiplies to nothing, so it describes no part of the picture
+  // — but it is three floats per vertex on the wire, and its presence makes
+  // three's loader switch `vertexColors` on for a material that has no use for
+  // it. scripts/strip-vertex-colors.mjs removes it from files already built.
+  for (const mesh of meshes) mesh.geometry.deleteAttribute('color')
   say(`${name}: ${meshes.length} meshes`)
   for (const mesh of meshes) {
     const names = Object.keys(mesh.morphTargetDictionary || {})

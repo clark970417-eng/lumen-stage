@@ -148,3 +148,29 @@ test('every homepage cast member has a nonempty transparent preview', () => {
     assert.ok(statSync(preview).size > 1000, `Empty preview: ${actor.id}`)
   }
 })
+
+test('no actor ships vertex colours', () => {
+  // The Rocketbox exports carry a white vertex colour per vertex — three floats
+  // that multiply to nothing. Stripping them is worth about 3 MB across the
+  // cast, and worth guarding because it is invisible: nothing looks wrong when
+  // the attribute comes back, it just costs the download and switches
+  // `vertexColors` on for a material with no use for it.
+  for (const member of CAST) {
+    const buffer = readFileSync(local(member.url))
+    let offset = 12
+    let json: { meshes?: { primitives: { attributes: Record<string, number> }[] }[] } | null = null
+    while (offset < buffer.length) {
+      const length = buffer.readUInt32LE(offset)
+      if (buffer.readUInt32LE(offset + 4) === 0x4E4F534A) {
+        json = JSON.parse(buffer.subarray(offset + 8, offset + 8 + length).toString('utf8'))
+      }
+      offset += 8 + length
+    }
+    for (const mesh of json?.meshes ?? []) {
+      for (const primitive of mesh.primitives) {
+        assert.equal(primitive.attributes.COLOR_0, undefined,
+          `${member.id} still carries vertex colours — run scripts/strip-vertex-colors.mjs`)
+      }
+    }
+  }
+})
