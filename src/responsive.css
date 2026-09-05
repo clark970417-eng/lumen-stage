@@ -403,7 +403,7 @@ main.app-shell {
   }
 
   .m-shell .m-tabs {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) 44px;
+    grid-template-columns: minmax(0, 1fr) 44px;
     overflow-x: hidden;
   }
 

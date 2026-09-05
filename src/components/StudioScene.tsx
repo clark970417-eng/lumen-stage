@@ -1,5 +1,6 @@
+import { effectiveShutter, cameraExposure } from '../exposure'
 import { Grid, Html, Line, OrbitControls, RoundedBox, TransformControls } from '@react-three/drei'
-import { BrightnessContrast, DepthOfField, EffectComposer, ToneMapping, Vignette } from '@react-three/postprocessing'
+import { DepthOfField, EffectComposer, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Effect, ToneMappingMode } from 'postprocessing'
 import { createContext, lazy, memo, Suspense, useContext, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
@@ -3015,7 +3016,7 @@ function Softbox({ light }: { light: StudioLight }) {
   const setLightTarget = useStudio((state) => state.setLightTarget)
   const aimMode = useStudio((state) => state.lightAimMode)
   const transformMode = useStudio((state) => state.transformMode)
-  const shutter = useStudio((state) => state.shutter)
+  const shutter = useStudio(effectiveShutter)
   const syncSpeed = useStudio((state) => state.syncSpeed)
   const iesUrl = useStudio((state) => state.iesUrl)
   const target = useMemo(() => new THREE.Object3D(), [])
@@ -3268,7 +3269,7 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
   const renderMode = useStudio((state) => state.renderMode)
   const lights = useStudio((state) => state.lights)
   const soloLightId = useStudio((state) => state.soloLightId)
-  const shutter = useStudio((state) => state.shutter)
+  const shutter = useStudio(effectiveShutter)
   const syncSpeed = useStudio((state) => state.syncSpeed)
   const modelPosition = useStudio((state) => state.modelPosition)
   const modelHeight = useStudio((state) => state.modelHeight)
@@ -3561,9 +3562,8 @@ function CameraImaging() {
   const focalLength = useStudio((state) => state.focalLength)
   const aperture = useStudio((state) => state.aperture)
   const iso = useStudio((state) => state.iso)
-  const shutter = useStudio((state) => state.shutter)
+  const shutter = useStudio(effectiveShutter)
   const sensorFormat = useStudio((state) => state.sensorFormat)
-  const lights = useStudio((state) => state.lights)
   const lensOpticsEnabled = useStudio((state) => state.lensOpticsEnabled)
   const lensVignette = useStudio((state) => state.lensVignette)
   const lensDistortion = useStudio((state) => state.lensDistortion)
@@ -3584,13 +3584,9 @@ function CameraImaging() {
   const motionBlur = useStudio((state) => state.motionBlur)
   const rollingShutter = useStudio((state) => state.rollingShutter)
   const cameraMode = useStudio((state) => state.cameraMode)
-  const frameRate = useStudio((state) => state.frameRate)
-  const shutterAngle = useStudio((state) => state.shutterAngle)
   const tStop = useStudio((state) => state.tStop)
-  const ndStops = useStudio((state) => state.ndStops)
   const cameraBody = CAMERA_BODIES[cameraBodyId]
   const effectiveAperture = cameraMode === 'cinema' ? tStop : aperture
-  const effectiveShutter = cameraMode === 'cinema' ? frameRate * 360 / shutterAngle : shutter
   const depth = useMemo(
     () => calculateDepthOfField(focalLength, effectiveAperture, focusDistance, SENSOR_COC[sensorFormat]),
     [effectiveAperture, focalLength, focusDistance, sensorFormat],
@@ -3598,11 +3594,6 @@ function CameraImaging() {
 
   if (view !== 'camera' || renderMode === 'path') return null
 
-  const enabledLights = lights.filter((light) => light.enabled)
-  const flashShare = enabledLights.length ? enabledLights.filter((light) => light.operationMode === 'flash').length / enabledLights.length : 0
-  const shutterFactor = flashShare + (1 - flashShare) * (125 / effectiveShutter)
-  const exposureGain = (iso / 100) * shutterFactor * (16 / (effectiveAperture * effectiveAperture)) * Math.pow(2, -ndStops)
-  const brightness = THREE.MathUtils.clamp(Math.log2(exposureGain) * 0.105, -0.38, 0.48)
   const bokehScale = THREE.MathUtils.clamp((focalLength / 50) * (5.6 / effectiveAperture), 0.28, 4.5)
   const focusRange = THREE.MathUtils.clamp(depth.range, 0.1, 6)
 
@@ -3618,7 +3609,6 @@ function CameraImaging() {
       {lensOpticsEnabled && lensVignette > 0 && <Vignette offset={0.32} darkness={lensVignette * 0.0065} />}
       <ColorSciencePass imageFormat={imageFormat} temperature={whiteBalance} tint={whiteBalanceTint} profileId={colorProfileId} rolloff={highlightRolloff} toneCurve={toneCurve} lutIntensity={lutIntensity} />
       {sensorSimulationEnabled && <SensorPass iso={iso} nativeIso={cameraBody.nativeIso} noiseFactor={cameraBody.noiseFactor} dynamicRange={sensorDynamicRange} noiseReduction={noiseReduction} colorNoise={colorNoise} shutter={shutter} shutterMode={shutterMode} motionBlur={motionBlur} rollingShutter={rollingShutter} readoutMs={cameraBody.readoutMs} raw={imageFormat === 'raw'} />}
-      <BrightnessContrast brightness={brightness} contrast={0.02} />
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
     </EffectComposer>
   )
@@ -3679,7 +3669,7 @@ export function StudioScene({ horizontalLayoutOnly = false }: { horizontalLayout
   const { gl, scene } = useThree()
   const aperture = useStudio((state) => state.aperture)
   const iso = useStudio((state) => state.iso)
-  const shutter = useStudio((state) => state.shutter)
+  const shutter = useStudio(effectiveShutter)
   const renderMode = useStudio((state) => state.renderMode)
   const lights = useStudio((state) => state.lights)
   const modifiers = useStudio((state) => state.modifiers)
@@ -3689,18 +3679,19 @@ export function StudioScene({ horizontalLayoutOnly = false }: { horizontalLayout
   const ambientTemperature = useStudio((state) => state.ambientTemperature)
   const qualityPreset = useStudio((state) => state.qualityPreset)
   const cameraMode = useStudio((state) => state.cameraMode)
-  const frameRate = useStudio((state) => state.frameRate)
-  const shutterAngle = useStudio((state) => state.shutterAngle)
   const tStop = useStudio((state) => state.tStop)
   const ndStops = useStudio((state) => state.ndStops)
   const layoutOnly = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
   const view = useStudio((state) => state.view)
   const ambientColor = useMemo(() => kelvinColor(ambientTemperature), [ambientTemperature])
+  // Keep the shader light/shadow counts stable during ordinary add/delete edits.
+  // Empty slots emit no light and initialize only a 1-pixel shadow once. Grow in single
+  // increments after six lamps, keeping the high-water mark until leaving Studio.
+  const lightCapacity = useRef(6)
+  lightCapacity.current = Math.max(lightCapacity.current, lights.length)
 
   useEffect(() => {
     gl.shadowMap.enabled = true
-    gl.shadowMap.type = THREE.PCFShadowMap
-    gl.toneMapping = THREE.ACESFilmicToneMapping
     scene.background = new THREE.Color(layoutOnly ? '#343a37' : '#292b29')
   }, [gl, layoutOnly, scene])
 
@@ -3711,14 +3702,12 @@ export function StudioScene({ horizontalLayoutOnly = false }: { horizontalLayout
   }, [gl, qualityPreset])
 
   useEffect(() => {
-    const enabledLights = lights.filter((light) => light.enabled)
-    const flashShare = enabledLights.length ? enabledLights.filter((light) => light.operationMode === 'flash').length / enabledLights.length : 0
     const effectiveAperture = cameraMode === 'cinema' ? tStop : aperture
-    const effectiveShutter = cameraMode === 'cinema' ? frameRate * 360 / shutterAngle : shutter
-    const shutterFactor = flashShare + (1 - flashShare) * (125 / effectiveShutter)
-    const exposureGain = (iso / 100) * shutterFactor * (16 / (effectiveAperture * effectiveAperture)) * Math.pow(2, -ndStops)
-    gl.toneMappingExposure = THREE.MathUtils.clamp(0.72 * exposureGain, 0.25, 2.5)
-  }, [aperture, cameraMode, frameRate, gl, iso, lights, ndStops, shutter, shutterAngle, tStop])
+    // The editor remains legible; only the viewfinder/export simulates exposure.
+    gl.toneMappingExposure = view === 'camera' || renderMode === 'path'
+      ? cameraExposure(iso, effectiveAperture, shutter, ndStops)
+      : 0.012
+  }, [aperture, cameraMode, gl, iso, ndStops, renderMode, shutter, tStop, view])
 
   return (
     <HorizontalLayoutContext.Provider value={horizontalLayoutOnly}>
@@ -3729,6 +3718,11 @@ export function StudioScene({ horizontalLayoutOnly = false }: { horizontalLayout
       <Backdrop />
       <MemoMannequin />
       {lights.map((light) => <MemoSoftbox key={light.id} light={light} />)}
+      {renderMode !== 'path' && Array.from({ length: lightCapacity.current - lights.length }, (_, index) =>
+        <spotLight key={`reserved-light-${qualityPreset}-${index}`} position={[0, -100, 0]} intensity={0} castShadow
+          shadow-autoUpdate={false} shadow-needsUpdate={true}
+          shadow-mapSize-width={1} shadow-mapSize-height={1} shadow-camera-far={1} />
+      )}
       {modifiers.map((modifier) => <MemoGripModifier key={modifier.id} modifier={modifier} />)}
       {studioObjects.map((object) => <MemoMovableStudioObject key={object.id} object={object} />)}
       {/* Not through its own lens. The prop sits exactly at the viewpoint, so

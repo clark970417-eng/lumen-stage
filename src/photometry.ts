@@ -325,3 +325,8 @@ export function gelForShift(fromKelvin: number, toKelvin: number) {
   if (magnitude < 6) return { gel: 'none', strength: '', mired: shift }
   return { gel: shift > 0 ? 'CTO' : 'CTB', strength, mired: shift }
 }
+
+/** Far-field on-axis candela from flux; grids clip spill, not concentrate it. */
+export function onAxisIntensity(flux: number, geometry: EmitterGeometry) {
+  return flux * geometry.concentration / (geometry.area ? Math.PI : REFERENCE_SOLID_ANGLE)
+}

@@ -6,10 +6,12 @@
  * 3×3′ softbox for a Para 133 changes the render the way it changes the shot.
  */
 
+import { wattsToPercent, minimumWatts } from './lightPower'
+import { flashEquivalentOutput } from './exposure'
 import type { LightProfileId, StudioLight } from './store'
 import { getGel } from './gels'
 import { fittedOptics, getHead, getModifier, headFlux, LIGHT_HEADS, powerFraction } from './gear'
-import { coneSolidAngle, syncTransmission } from './photometry'
+import { onAxisIntensity, syncTransmission } from './photometry'
 
 export type LightProfile = {
   id: string
@@ -36,11 +38,11 @@ export const LIGHT_PROFILES: Record<string, LightProfile> = Object.fromEntries(
 
 /**
  * Divisors that map physical candela onto three.js intensity.
- * Chosen once so the shipped default scene sits at a correct exposure; every
- * other light then scales from it physically rather than by taste.
+ * Both renderers receive the same SI intensity; camera exposure is applied
+ * separately, rather than compensating with renderer-specific light power.
  */
-export const PREVIEW_CANDELA_SCALE = 10
-export const PATHTRACE_CANDELA_SCALE = 1.6
+export const PREVIEW_CANDELA_SCALE = 1
+export const PATHTRACE_CANDELA_SCALE = 1
 
 export function profileLookup(profileId: LightProfileId): LightProfile {
   return LIGHT_PROFILES[profileId] ?? LIGHT_PROFILES['generic-led']
@@ -58,7 +60,7 @@ export function wattageLimit(light: Pick<StudioLight, 'profileId'>) {
 }
 
 export function percentForWattage(light: Pick<StudioLight, 'profileId'>, watts: number) {
-  return Math.min(100, Math.max(1, Math.round((watts / wattageLimit(light)) * 100)))
+  return wattsToPercent(watts, wattageLimit(light))
 }
 
 /** Fraction of light surviving the fitted gel. */
@@ -85,7 +87,7 @@ export function flashSyncFactor(light: Pick<StudioLight, 'operationMode' | 'hssE
 /**
  * On-axis intensity in candela for the render.
  * Flash heads are converted to an equivalent continuous intensity using their
- * t0.5 duration, so a strobe and an LED that meter the same look the same.
+ * exposure duration. Integrating it over that exposure recovers flash energy.
  */
 export function captureLightOutput(light: StudioLight, shutter: number, syncSpeed: number) {
   const head = getHead(light.profileId)
@@ -94,13 +96,10 @@ export function captureLightOutput(light: StudioLight, shutter: number, syncSpee
   let flux = headFlux(head) * powerFraction(light) * optics.transmission * getGel(light.gelId).transmission
 
   if (light.operationMode === 'flash' && head.guideNumber !== undefined) {
-    flux *= flashSyncFactor(light, shutter, syncSpeed)
-    // lumen-seconds -> equivalent lumens for a continuous render of the same exposure.
-    flux /= Math.max(1e-4, head.flashDurationT05 ?? 1 / 800)
-    flux *= 1 / Math.max(1, shutter)
+    flux = flashEquivalentOutput(flux, shutter, flashSyncFactor(light, shutter, syncSpeed))
   }
 
-  return flux / Math.max(0.01, coneSolidAngle(optics.beamDegrees))
+  return onAxisIntensity(flux, optics)
 }
 
 export function profileLabel(profileId: LightProfileId) {
@@ -112,4 +111,8 @@ export function profileLabel(profileId: LightProfileId) {
 export function modifierLabel(light: Pick<StudioLight, 'modifierId'>) {
   const modifier = getModifier(light.modifierId)
   return `${modifier.maker} ${modifier.model}`
+}
+
+export function wattageMinimum(light: Pick<StudioLight, 'profileId'>) {
+  return minimumWatts(wattageLimit(light))
 }

@@ -7,7 +7,7 @@ function watchRuntimeHealth(page: import('@playwright/test').Page) {
   page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`))
   page.on('console', (message) => {
     const text = message.text()
-    if (message.type() === 'error' || (message.type() === 'warning' && /shader error|webgl context lost|failed to (?:compile|link)|gltf.*(?:error|failed)/i.test(text))) {
+    if (message.type() === 'error' || (message.type() === 'warning' && /GL_INVALID|shader error|webgl context lost|failed to (?:compile|link)|gltf.*(?:error|failed)/i.test(text))) {
       problems.push(`${message.type()}: ${text}`)
     }
   })

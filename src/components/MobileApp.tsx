@@ -33,7 +33,7 @@ import { analyzeReferencePixels, type ReferenceLightingAnalysis } from '../refer
 import { captureContinuityBaseline, evaluateContinuity, type ContinuityBaseline } from '../continuity'
 import { useWorkflow, type WorkflowStage } from '../workflow'
 import { assetHref, routeHref } from '../routing'
-import { lightWattage, percentForWattage, wattageLimit } from '../lightProfiles'
+import { lightWattage, percentForWattage, wattageMinimum, wattageLimit } from '../lightProfiles'
 import '../mobile.css'
 
 type Tab = 'planning' | 'lighting' | 'shooting' | 'layout'
@@ -409,12 +409,12 @@ function LightsTab() {
     <div className="m-tab">
       <div className="m-chips m-chips-scroll" role="group" aria-label={t('mobile.light.pick')}>
         {lights.map((item) => (
-          <button key={item.id} className={item.id === light.id ? 'active' : ''} onClick={() => selectObject(item.id)}>
+          <button key={item.id} className={item.id === light.id ? 'active' : ''} aria-pressed={item.id === light.id} onClick={() => selectObject(item.id)}>
             <i className={item.enabled ? 'm-led on' : 'm-led'} />
             {item.name.split('·')[0].trim()}
           </button>
         ))}
-        <button className="m-chip-add" onClick={() => addLight()} title={t('mobile.light.add')}>＋</button>
+        <button className="m-chip-add" onClick={() => addLight()} aria-label={t('mobile.light.add')} title={t('mobile.light.add')}>＋</button>
       </div>
 
       <input
@@ -436,7 +436,7 @@ function LightsTab() {
       <Dial
         label={t('mobile.light.power')}
         value={lightWattage(light)}
-        min={1}
+        min={wattageMinimum(light)}
         max={wattageLimit(light)}
         readout={`${lightWattage(light)} ${light.operationMode === 'flash' ? 'Ws' : 'W'}`}
         onChange={(value) => updateLight(light.id, { powerPercent: percentForWattage(light, value) })}

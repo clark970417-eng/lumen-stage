@@ -1,3 +1,4 @@
+import { effectiveShutter } from '../exposure'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
@@ -46,7 +47,7 @@ export default function PathTracingRenderer() {
   const anamorphic = useStudio((state) => state.anamorphic)
   const focalLength = useStudio((state) => state.focalLength)
   const focusDistance = useStudio((state) => state.focusDistance)
-  const shutter = useStudio((state) => state.shutter)
+  const shutter = useStudio(effectiveShutter)
   const lights = useStudio((state) => state.lights)
   const modifiers = useStudio((state) => state.modifiers)
   const studioObjects = useStudio((state) => state.studioObjects)
