@@ -8,6 +8,7 @@ import { useCatalogT, useLocaleStore, useT, type MessageKey } from '../i18n'
 import { GEL_CATEGORIES, GELS, gelStopLoss, geledTemperature, getGel, type GelCategory } from '../gels'
 import { CastPanel, PhysiquePanel, PoseControls, PoseLibraryPanel, WardrobePanel } from './SubjectPanels'
 import { castMember } from '../actorCast'
+import { FABRICS } from '../wardrobe'
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
 import { appearanceIsBaked, DEFAULT_HUMAN_NAME, shippedHumanFor } from '../characterAssets'
 import { useWorkflow } from '../workflow'
@@ -549,6 +550,17 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
         {studioObject.type !== 'subject' ? <>
           <div className="sub-control"><span>{t('grip.surface')}</span><div className="segmented-control" role="group" aria-label={t('object.materialAria')}>{(['matte','glossy','metal'] as const).map((material) => <button key={material} className={studioObject.material === material ? 'active' : ''} onClick={() => state.updateStudioObject(studioObject.id, { material })}>{t(`material.${material}`)}</button>)}</div></div>
           <label className="object-color-control"><span>{t('object.color')}</span><input aria-label={t('object.colorAria')} type="color" value={studioObject.color} onChange={(event) => state.updateStudioObject(studioObject.id, { color: event.target.value })} /><output>{studioObject.color.toUpperCase()}</output></label>
+          {/* The one place a fabric control can act. An actor's clothes are
+              painted into their body map; a swatch is the cloth itself. */}
+          {studioObject.type === 'fabric' && <div className="swatch-fabric">
+            <div className="wardrobe-label">{t('appearance.fabric')}</div>
+            <div className="pose-grid" role="group" aria-label={t('appearance.fabric')}>
+              {FABRICS.map((item) => (
+                <button key={item.id} title={item.note} className={studioObject.swatchFabric === item.id ? 'active' : ''} onClick={() => state.updateStudioObject(studioObject.id, { swatchFabric: item.id })}>{ct(`fabric.${item.id}`, item.label)}</button>
+              ))}
+            </div>
+            <p className="pose-note">{FABRICS.find((item) => item.id === studioObject.swatchFabric)?.note}</p>
+          </div>}
           <Range label={t('object.scale')} disabled={studioObject.locked} value={studioObject.scale} min={0.2} max={3} step={0.05} displayValue={`${studioObject.scale.toFixed(2)}×`} onChange={(value) => state.updateStudioObject(studioObject.id, { scale: value })} />
         </> : <>
           <div className="pose-heading subject-pose-heading"><span>{t('subject.poseSection')}</span><small>PROCEDURAL RIG</small></div>

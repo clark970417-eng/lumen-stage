@@ -164,6 +164,7 @@ export function Library() {
         <button onClick={() => addStudioObject('plinth')}><i className="plinth" />{t('object.plinth')}</button>
         <button onClick={() => addStudioObject('cube')}><i className="cube" />{t('object.cube')}</button>
         <button onClick={() => addStudioObject('sphere')}><i className="sphere" />{t('object.sphere')}</button>
+        <button onClick={() => addStudioObject('fabric')}><i className="fabric" />{t('object.fabric')}</button>
       </div>
 
       <div className="panel-heading grip-heading"><span>{t('library.grip')}</span><b>{String(modifiers.length).padStart(2, '0')}</b></div>

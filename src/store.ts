@@ -6,7 +6,7 @@ import { DEFAULT_HEAD_ID, getModifier, LIGHT_HEADS, MODIFIERS } from './gear'
 import { getPoseEntry, NEUTRAL_POSE, normalizePose, type ModelPose } from './pose'
 import { DEFAULT_PHYSIQUE, PHYSIQUE_PRESETS, type FigureSex, type Physique } from './physique'
 import { castMember, MAX_SUBJECT_HEIGHT, MIN_SUBJECT_HEIGHT } from './actorCast.ts'
-import { asFabric, asHairStyle, asOutfit, DEFAULT_HAIR_STYLE, DEFAULT_OUTFIT, type FabricKind, type HairStyle, type OutfitStyle } from './wardrobe'
+import { asFabric, asHairStyle, asOutfit, DEFAULT_FABRIC, DEFAULT_HAIR_STYLE, DEFAULT_OUTFIT, type FabricKind, type HairStyle, type OutfitStyle } from './wardrobe'
 import { BACKDROPS, DEFAULT_BACKDROP_ID, getBackdrop } from './backdrops'
 import { GELS } from './gels'
 import { getSetup, specToLight } from './setups'
@@ -29,7 +29,7 @@ function objectsWithSeat(state: StudioState, pose: ModelPose, position: [number,
     subjectSkinRoughness: 55, subjectSkinOil: 22, subjectSubsurface: 45, subjectMakeup: 'natural',
     subjectEyeColor: '#4b372b', subjectHairColor: '#211815', subjectHairGloss: 35, subjectOutfitFabric: 'cotton',
     subjectPosePreset: 'neutral', subjectPose: { ...NEUTRAL_POSE }, subjectPhysique: { ...DEFAULT_PHYSIQUE },
-    subjectHairStyle: 'long', subjectOutfitStyle: 'tshirt',
+    subjectHairStyle: 'long', subjectOutfitStyle: 'tshirt', swatchFabric: DEFAULT_FABRIC,
   }]
 }
 
@@ -69,7 +69,7 @@ export type LightOperationMode = 'continuous' | 'flash'
 export type LightTargetZone = 'face' | 'chest' | 'full'
 export type CameraFramingPreset = 'headshot' | 'half' | 'full'
 export type CompositionGuide = 'none' | 'thirds' | 'golden' | 'safe'
-export type SceneObjectType = 'subject' | 'dog' | 'cat' | 'product' | 'chair' | 'table' | 'plinth' | 'cube' | 'sphere'
+export type SceneObjectType = 'subject' | 'dog' | 'cat' | 'product' | 'chair' | 'table' | 'plinth' | 'cube' | 'sphere' | 'fabric'
 export type SceneObjectMaterial = 'matte' | 'glossy' | 'metal'
 export type ModifierType = 'reflector' | 'flag' | 'vflat'
 export type ModifierSurface = 'white' | 'silver' | 'gold' | 'black'
@@ -153,6 +153,15 @@ export type StudioObject = {
   subjectPhysique: Physique
   subjectHairStyle: HairStyle
   subjectOutfitStyle: OutfitStyle
+  /**
+   * Which cloth a fabric swatch is cut from.
+   *
+   * The actors wear their clothes in their body maps, so no control can ask
+   * what this shirt would look like in satin. A swatch can: it is a piece of
+   * the cloth itself, hung in the light, which is how a studio answers that
+   * question anyway.
+   */
+  swatchFabric: FabricKind
 }
 
 type SceneSnapshot = {
@@ -885,7 +894,7 @@ const normalizePhysique = (value: unknown): Physique => {
 const normalizeStudioObject = (object: Partial<StudioObject>, index: number): StudioObject => ({
   id: typeof object.id === 'string' && object.id ? object.id : `object-${index + 1}`,
   name: typeof object.name === 'string' && object.name ? object.name : `Object ${index + 1}`,
-  type: object.type === 'subject' || object.type === 'dog' || object.type === 'cat' || object.type === 'product' || object.type === 'chair' || object.type === 'table' || object.type === 'plinth' || object.type === 'sphere' ? object.type : 'cube',
+  type: object.type === 'subject' || object.type === 'dog' || object.type === 'cat' || object.type === 'product' || object.type === 'chair' || object.type === 'table' || object.type === 'plinth' || object.type === 'sphere' || object.type === 'fabric' ? object.type : 'cube',
   position: Array.isArray(object.position) && object.position.length === 3 ? object.position.map(Number) as [number, number, number] : [0.8, 0, 0.4],
   rotationY: Number.isFinite(object.rotationY) ? Number(object.rotationY) : 0,
   scale: Number.isFinite(object.scale) ? Math.min(3, Math.max(0.2, Number(object.scale))) : 1,
@@ -908,6 +917,7 @@ const normalizeStudioObject = (object: Partial<StudioObject>, index: number): St
   subjectPhysique: normalizePhysique(object.subjectPhysique),
   subjectHairStyle: asHairStyle(object.subjectHairStyle),
   subjectOutfitStyle: asOutfit(object.subjectOutfitStyle),
+  swatchFabric: asFabric(object.swatchFabric),
 })
 
 const normalizeSnapshot = (value: unknown): SceneSnapshot => {
@@ -1433,7 +1443,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     const id = `object-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
     const index = state.studioObjects.length + 1
     const subjectCount = state.studioObjects.filter((object) => object.type === 'subject').length
-    const labels: Record<SceneObjectType, string> = { subject: 'Subject', dog: 'Dog', cat: 'Cat', product: 'Product', chair: 'Chair', table: 'Table', plinth: 'Plinth', cube: 'Cube', sphere: 'Sphere' }
+    const labels: Record<SceneObjectType, string> = { subject: 'Subject', dog: 'Dog', cat: 'Cat', product: 'Product', chair: 'Chair', table: 'Table', plinth: 'Plinth', cube: 'Cube', sphere: 'Sphere', fabric: 'Fabric' }
     const defaults: Record<SceneObjectType, Pick<StudioObject, 'position' | 'scale' | 'color' | 'material'>> = {
       subject: { position: [Number((0.85 + (subjectCount % 3) * 0.72).toFixed(2)), 0, Number((0.35 + Math.floor(subjectCount / 3) * 0.5).toFixed(2))], scale: 1, color: '#454c46', material: 'matte' },
       dog: { position: [1.15, 0, 0.95], scale: 1, color: '#9b6844', material: 'matte' },
@@ -1444,13 +1454,16 @@ export const useStudio = create<StudioState>((set, get) => ({
       plinth: { position: [0.9, 0, 0.2], scale: 1, color: '#c8c6bd', material: 'matte' },
       cube: { position: [0.85, 0.42, 0.2], scale: 0.8, color: '#8c9288', material: 'glossy' },
       sphere: { position: [0.85, 0.5, 0.2], scale: 0.7, color: '#b58b52', material: 'metal' },
+      // Hung beside the subject rather than in front of them, at the height a
+      // face sits, so it takes the same light the face does.
+      fabric: { position: [-1.05, 0, 0.15], scale: 1, color: '#9aa0a6', material: 'matte' },
     }
     const appearanceDefaults = { subjectSkinRoughness: 55, subjectSkinOil: 22, subjectSubsurface: 45, subjectMakeup: 'natural' as MakeupStyle, subjectEyeColor: '#4b372b', subjectHairColor: '#211815', subjectHairGloss: 35, subjectOutfitFabric: 'cotton' as OutfitFabric, subjectPhysique: { ...PHYSIQUE_PRESETS.average }, subjectHairStyle: 'long' as HairStyle, subjectOutfitStyle: 'tshirt' as OutfitStyle }
     const resolvedSubjectSex = subjectSex ?? (index % 3 === 2 ? 'masculine' : 'feminine')
     const subjectDefaults = resolvedSubjectSex === 'masculine'
       ? { ...appearanceDefaults, subjectHeight: 1.86, subjectSkinColor: '#805542', subjectOutfitColor: '#5b4339', subjectHairColor: '#15120f', subjectOutfitFabric: 'leather' as OutfitFabric, subjectPosePreset: 'neutral' as PosePreset, subjectPose: { ...NEUTRAL_POSE }, subjectPhysique: { ...PHYSIQUE_PRESETS.athletic }, subjectHairStyle: 'short' as HairStyle, subjectOutfitStyle: 'suit' as OutfitStyle }
       : { ...appearanceDefaults, subjectHeight: 1.74, subjectSkinColor: '#b9826b', subjectOutfitColor: '#343c48', subjectPosePreset: 'neutral' as PosePreset, subjectPose: { ...NEUTRAL_POSE }, subjectPhysique: { ...PHYSIQUE_PRESETS.editorial }, subjectHairStyle: 'bob' as HairStyle, subjectOutfitStyle: 'dress' as OutfitStyle }
-    const object: StudioObject = { id, name: `${labels[type]} ${type === 'subject' ? subjectCount + 1 : index}`, type, rotationY: 0, locked: false, ...defaults[type], ...subjectDefaults }
+    const object: StudioObject = { id, name: `${labels[type]} ${type === 'subject' ? subjectCount + 1 : index}`, type, rotationY: 0, locked: false, swatchFabric: DEFAULT_FABRIC, ...defaults[type], ...subjectDefaults }
     return { studioObjects: [...state.studioObjects, object], selected: id, selectedIds: [], undoStack: withUndo(state), redoStack: [] }
   }),
   updateStudioObject: (id, patch) => set((state) => {

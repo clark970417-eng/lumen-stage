@@ -2627,6 +2627,67 @@ function createPropMaterial(type: SceneObjectType, color: string, finish: SceneO
   return material
 }
 
+/**
+ * A hanging cloth swatch, folded.
+ *
+ * The one question the wardrobe control could never answer is what this light
+ * does to satin rather than wool — the actors wear their clothes in their body
+ * maps, so nothing can restyle them. A swatch answers it directly, which is
+ * also how it is answered in a real studio: you hang a piece of the cloth up
+ * and look at it.
+ *
+ * Folded rather than flat because a flat panel of satin shows one highlight
+ * wherever you put the light, and tells you nothing. The whole difference
+ * between these materials is what happens along a curve.
+ */
+function fabricSwatchGeometry() {
+  const width = 0.62
+  const height = 0.9
+  const columns = 96
+  const rows = 48
+  const geometry = new THREE.PlaneGeometry(width, height, columns, rows)
+  const position = geometry.attributes.position as THREE.BufferAttribute
+  for (let i = 0; i < position.count; i += 1) {
+    const x = position.getX(i)
+    const y = position.getY(i)
+    // Four folds, deepest at the hem and pinched flat where it is hung.
+    const hang = THREE.MathUtils.smoothstep((height / 2 - y) / height, 0, 0.55)
+    position.setZ(i, Math.sin((x / width) * Math.PI * 4.2) * 0.052 * hang)
+    // And a slight flare, because cloth widens as it falls away from the pin.
+    position.setX(i, x * (1 + 0.14 * hang))
+  }
+  geometry.computeVertexNormals()
+  return geometry
+}
+
+function FabricSwatch({ object }: { object: StudioObject }) {
+  const geometry = useMemo(() => fabricSwatchGeometry(), [])
+  const material = useMemo(() => {
+    // The same response the garments get, so a swatch and a shirt in the same
+    // cloth answer a light the same way.
+    const made = new THREE.MeshPhysicalMaterial({ color: object.color, side: THREE.DoubleSide })
+    applyActorGarment(made, object.swatchFabric)
+    return made
+  }, [object.color, object.swatchFabric])
+  useEffect(() => () => { geometry.dispose(); material.dispose() }, [geometry, material])
+  return <group>
+    {/* The stand, so the cloth reads as hung rather than floating. */}
+    <mesh position={[0, 0.01, 0]} castShadow receiveShadow>
+      <cylinderGeometry args={[0.16, 0.18, 0.02, 24]} />
+      <meshStandardMaterial color="#3a3d3b" roughness={0.5} metalness={0.5} />
+    </mesh>
+    <mesh position={[0, 0.62, 0]} castShadow>
+      <cylinderGeometry args={[0.011, 0.011, 1.22, 12]} />
+      <meshStandardMaterial color="#545855" roughness={0.35} metalness={0.7} />
+    </mesh>
+    <mesh position={[0, 1.22, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+      <cylinderGeometry args={[0.008, 0.008, 0.74, 10]} />
+      <meshStandardMaterial color="#545855" roughness={0.35} metalness={0.7} />
+    </mesh>
+    <mesh position={[0, 0.76, 0]} geometry={geometry} material={material} castShadow receiveShadow />
+  </group>
+}
+
 function StudioObjectMesh({ object }: { object: StudioObject }) {
   const material = useMemo(
     () => createPropMaterial(object.type, object.color, object.material),
@@ -2812,6 +2873,7 @@ function StudioObjectMesh({ object }: { object: StudioObject }) {
   // The reference ball, and the reference block. Both get read for the shape of
   // a highlight, so both get enough segments to hold one without stepping.
   if (object.type === 'sphere') return <mesh castShadow receiveShadow material={material}><sphereGeometry args={[0.5, 72, 48]} /></mesh>
+  if (object.type === 'fabric') return <FabricSwatch object={object} />
   return <RoundedBox castShadow receiveShadow args={[0.82, 0.82, 0.82]} radius={0.05} smoothness={6} material={material} />
 }
 
@@ -2827,8 +2889,8 @@ function MovableStudioObject({ object }: { object: StudioObject }) {
   const group = useRef<THREE.Group>(null)
   const drag = useLayoutDrag(object.id, group, object.locked)
   const transformControl = useRef<TransformControlsImpl>(null)
-  const outlineSize: [number, number, number] = object.type === 'subject' ? [0.95, object.subjectHeight + 0.12, 0.65] : object.type === 'dog' ? [0.85, 1, 1.15] : object.type === 'cat' ? [0.65, 0.95, 0.75] : object.type === 'product' ? [0.55, 0.8, 0.55] : object.type === 'table' ? [1.5, 1, 0.9] : object.type === 'chair' ? [0.56, 0.98, 0.54] : object.type === 'plinth' ? [1, 1.25, 1] : [1, 1, 1]
-  const yOffset = object.type === 'subject' ? object.subjectHeight / 2 : object.type === 'dog' ? 0.45 : object.type === 'cat' ? 0.42 : object.type === 'product' ? 0.35 : object.type === 'table' ? 0.45 : object.type === 'chair' ? 0.47 : object.type === 'plinth' ? 0.55 : 0
+  const outlineSize: [number, number, number] = object.type === 'subject' ? [0.95, object.subjectHeight + 0.12, 0.65] : object.type === 'dog' ? [0.85, 1, 1.15] : object.type === 'cat' ? [0.65, 0.95, 0.75] : object.type === 'product' ? [0.55, 0.8, 0.55] : object.type === 'table' ? [1.5, 1, 0.9] : object.type === 'chair' ? [0.56, 0.98, 0.54] : object.type === 'plinth' ? [1, 1.25, 1] : object.type === 'fabric' ? [0.8, 1.3, 0.4] : [1, 1, 1]
+  const yOffset = object.type === 'subject' ? object.subjectHeight / 2 : object.type === 'dog' ? 0.45 : object.type === 'cat' ? 0.42 : object.type === 'product' ? 0.35 : object.type === 'table' ? 0.45 : object.type === 'chair' ? 0.47 : object.type === 'plinth' ? 0.55 : object.type === 'fabric' ? 0.65 : 0
   const content = <group {...drag} ref={group} position={object.position} rotation={[0, object.rotationY, 0]} scale={object.type === 'subject' ? 1 : object.scale} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(object.id) }}>
     <StudioObjectMesh object={object} />
     {canControl && selected && view !== 'camera' && <mesh position={[0, yOffset, 0]}><boxGeometry args={outlineSize} /><meshBasicMaterial color={object.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={0.48} /></mesh>}

@@ -345,6 +345,7 @@ const DICT = {
   'object.plinth': { en: 'Plinth', zh: '商品台', ja: '展示台' },
   'object.cube': { en: 'Cube', zh: '方塊', ja: 'キューブ' },
   'object.sphere': { en: 'Sphere', zh: '球體', ja: '球体' },
+  'object.fabric': { en: 'Fabric', zh: '布料樣本', ja: '生地サンプル' },
   'grip.reflector': { en: 'Reflector', zh: '反光板', ja: 'レフ板' },
   'grip.reflector.short': { en: 'Bounce', zh: '反光', ja: 'レフ' },
   'grip.flag': { en: 'Black flag', zh: '黑旗', ja: 'フラッグ' },

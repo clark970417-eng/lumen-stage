@@ -293,6 +293,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .prop-add-grid i.plinth { height: 16px; border-radius: 50% 50% 3px 3px; }
 .prop-add-grid i.cube { width: 13px; height: 13px; transform: rotate(30deg) skew(-8deg); }
 .prop-add-grid i.sphere { width: 14px; height: 14px; border-radius: 50%; }
+/* A hung cloth: pinned flat at the top, waving at the hem. */
+.prop-add-grid i.fabric { width: 13px; height: 16px; border-bottom: 0; border-radius: 1px 1px 0 0; }
+.prop-add-grid i.fabric::after { content: ''; position: absolute; left: -1px; right: -1px; bottom: -3px; height: 5px; border-bottom: 1px solid currentColor; border-radius: 0 0 60% 60% / 0 0 100% 100%; }
 .grip-heading { margin-top: 5px; border-top: 1px solid var(--line); }
 .grip-add-grid { padding: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .grip-add-grid button { height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px solid #353a34; background: #151815; color: #92998f; font-size: 10px; cursor: pointer; }
@@ -1237,6 +1240,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--signal); ou
 .cast-grid button small { color: rgba(233, 238, 230, 0.34); font-size: 9px; }
 .cast-grid button:hover { border-color: rgba(255, 180, 84, 0.4); color: #ffb454; }
 .cast-grid button.active { border-color: #ffb454; background: rgba(255, 180, 84, 0.1); color: #ffb454; }
+
+/* The fabric picker, which only a swatch has. */
+.swatch-fabric { margin-top: 10px; }
+.swatch-fabric .wardrobe-label { margin-bottom: 5px; }
 
 .joint-group { border-top: 1px solid rgba(255, 255, 255, 0.05); }
 .joint-group:last-child { border-bottom: 1px solid rgba(255, 255, 255, 0.05); }

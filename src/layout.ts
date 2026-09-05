@@ -117,6 +117,8 @@ export const FOOTPRINT = {
   plinth: 0.44,
   cube: 0.42,
   sphere: 0.36,
+  // A swatch hangs on a stand no wider than a light's.
+  fabric: 0.34,
 }
 
 const distanceXZ = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[2] - b[2])
