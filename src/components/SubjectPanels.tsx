@@ -238,14 +238,15 @@ export function PoseControls({ pose, baked = false, onChange }: { pose: ModelPos
         <Range label={t('pose.rightFootTurn')} value={pose.rightFootTurn} min={-30} max={50} unit="°" disabled={captured} onChange={set('rightFootTurn')} />
       </JointGroup>
 
-      <JointGroup title={t('pose.group.face')} count={9}>
+      <JointGroup title={t('pose.group.face')} count={baked ? 8 : 9}>
         <Range label={t('pose.browRaise')} value={pose.browRaise} min={-100} max={100} unit="%" onChange={set('browRaise')} />
         <Range label={t('pose.eyeOpen')} value={pose.eyeOpen} min={0} max={100} unit="%" onChange={set('eyeOpen')} />
         <Range label={t('pose.squint')} value={pose.squint} min={0} max={100} unit="%" onChange={set('squint')} />
         <Range label={t('pose.smile')} value={pose.smile} min={-40} max={100} unit="%" onChange={set('smile')} />
         <Range label={t('pose.lipPart')} value={pose.lipPart} min={0} max={100} unit="%" onChange={set('lipPart')} />
         <Range label={t('pose.mouthOpen')} value={pose.mouthOpen} min={0} max={100} unit="%" onChange={set('mouthOpen')} />
-        <Range label={t('pose.jawSet')} value={pose.jawSet} min={-30} max={40} unit="%" disabled={baked} onChange={set('jawSet')} />
+        {/* A jaw thrust reshapes the head, which a photographed one cannot do. */}
+        {!baked && <Range label={t('pose.jawSet')} value={pose.jawSet} min={-30} max={40} unit="%" onChange={set('jawSet')} />}
         <Range label={t('pose.gazeYaw')} value={pose.gazeYaw} min={-35} max={35} unit="°" onChange={set('gazeYaw')} />
         <Range label={t('pose.gazePitch')} value={pose.gazePitch} min={-30} max={30} unit="°" onChange={set('gazePitch')} />
       </JointGroup>
@@ -296,24 +297,22 @@ export function CastPanel({ current, onCast }: { current: string | null; onCast:
 // Physique
 // ---------------------------------------------------------------------------
 
-export function PhysiquePanel({ physique, baked = false, captured = false, onChange, onPreset }: {
+export function PhysiquePanel({ physique, baked = false, onChange, onPreset }: {
   physique: Physique
   /** True when the actor's body is photographed and cannot be reshaped. */
   baked?: boolean
-  /**
-   * True when a recorded performance is posing this actor.
-   *
-   * On a photographed actor the four measurements below reach nothing but the
-   * arm aiming — which is the step a captured pose replaces outright, because
-   * the performer's own arms already say where the hands went. So under a
-   * capture they reach nothing at all, and should not pretend otherwise.
-   */
-  captured?: boolean
   onChange: (patch: Partial<Physique>) => void
   onPreset: (id: string) => void
 }) {
   const t = useT()
   const ct = useCatalogT()
+  // Every one of these reshapes a procedural body, and a photographed actor
+  // does not have one: the build, the age and the face arrived baked into two
+  // texture maps. Greying them out and apologising underneath was still a
+  // panel of controls that cannot do the thing they are named after, so on a
+  // photographed actor there is no panel. The Cast panel is the control that
+  // changes a body, and it works by changing whose body it is.
+  if (baked) return null
   return (
     <div className="subject-material-block">
       <div className="subject-material-heading"><span>{t('physique.title')}</span><small>{t('physique.sub')}</small></div>
@@ -325,20 +324,19 @@ export function PhysiquePanel({ physique, baked = false, captured = false, onCha
           ))}
         </div>
       </div>
-      <Range label={t('physique.age')} value={physique.age ?? 28} min={18} max={80} unit={t('physique.years')} disabled={baked} onChange={(value) => onChange({ age: value })} />
+      <Range label={t('physique.age')} value={physique.age ?? 28} min={18} max={80} unit={t('physique.years')} onChange={(value) => onChange({ age: value })} />
       <div className="pose-grid physique-presets" role="group" aria-label={t('physique.presets')}>
         {Object.keys(PHYSIQUE_PRESETS).map((id) => (
           <button key={id} onClick={() => onPreset(id)}>{ct(`physique.${id}`, id)}</button>
         ))}
       </div>
-      <Range label={t('physique.face')} value={physique.face} min={0} max={100} disabled={baked} onChange={(value) => onChange({ face: value })} />
-      <Range label={t('physique.build')} value={physique.build} min={0} max={100} unit="%" disabled={baked && captured} onChange={(value) => onChange({ build: value })} />
-      <Range label={t('physique.muscle')} value={physique.muscle} min={0} max={100} unit="%" disabled={baked && captured} onChange={(value) => onChange({ muscle: value })} />
-      <Range label={t('physique.shoulders')} value={physique.shoulders} min={-50} max={50} disabled={baked && captured} onChange={(value) => onChange({ shoulders: value })} />
-      <Range label={t('physique.waist')} value={physique.waist} min={-50} max={50} disabled={baked} onChange={(value) => onChange({ waist: value })} />
-      <Range label={t('physique.hips')} value={physique.hips} min={-50} max={50} disabled={baked && captured} onChange={(value) => onChange({ hips: value })} />
-      <Range label={t('physique.bust')} value={physique.bust} min={-50} max={50} disabled={baked} onChange={(value) => onChange({ bust: value })} />
-      {baked && <p className="pose-note">{t(captured ? 'physique.capturedNote' : 'physique.bakedNote')}</p>}
+      <Range label={t('physique.face')} value={physique.face} min={0} max={100} onChange={(value) => onChange({ face: value })} />
+      <Range label={t('physique.build')} value={physique.build} min={0} max={100} unit="%" onChange={(value) => onChange({ build: value })} />
+      <Range label={t('physique.muscle')} value={physique.muscle} min={0} max={100} unit="%" onChange={(value) => onChange({ muscle: value })} />
+      <Range label={t('physique.shoulders')} value={physique.shoulders} min={-50} max={50} onChange={(value) => onChange({ shoulders: value })} />
+      <Range label={t('physique.waist')} value={physique.waist} min={-50} max={50} onChange={(value) => onChange({ waist: value })} />
+      <Range label={t('physique.hips')} value={physique.hips} min={-50} max={50} onChange={(value) => onChange({ hips: value })} />
+      <Range label={t('physique.bust')} value={physique.bust} min={-50} max={50} onChange={(value) => onChange({ bust: value })} />
     </div>
   )
 }
@@ -358,13 +356,18 @@ export function WardrobePanel({ hairStyle, outfit, fabric, baked = false, onChan
   const t = useT()
   const ct = useCatalogT()
   const activeFabric = FABRICS.find((item) => item.id === fabric)
+  // A photographed actor wears its clothes in its body map: there is no hair
+  // mesh to restyle and no cloth the light can be told about apart from the
+  // skin beside it. The outfit row did work — by quietly swapping to another
+  // actor — and that is the Cast panel's job now, done in the open.
+  if (baked) return null
   return (
     <div className="subject-material-block">
       <div className="subject-material-heading"><span>{t('wardrobe.title')}</span><small>{t('wardrobe.sub')}</small></div>
       <div className="wardrobe-label">{t('wardrobe.hair')}</div>
       <div className="pose-grid" role="group" aria-label={t('wardrobe.hair')}>
         {HAIR_STYLES.map((item) => (
-          <button key={item.id} disabled={baked} title={item.note} className={hairStyle === item.id ? 'active' : ''} onClick={() => onChange({ hairStyle: item.id })}>{ct(`hair.${item.id}`, item.label)}</button>
+          <button key={item.id} title={item.note} className={hairStyle === item.id ? 'active' : ''} onClick={() => onChange({ hairStyle: item.id })}>{ct(`hair.${item.id}`, item.label)}</button>
         ))}
       </div>
       <div className="wardrobe-label">{t('wardrobe.outfit')}</div>
@@ -376,12 +379,10 @@ export function WardrobePanel({ hairStyle, outfit, fabric, baked = false, onChan
       <div className="wardrobe-label">{t('appearance.fabric')}</div>
       <div className="pose-grid" role="group" aria-label={t('appearance.fabric')}>
         {FABRICS.map((item) => (
-          <button key={item.id} disabled={baked} title={item.note} className={fabric === item.id ? 'active' : ''} onClick={() => onChange({ fabric: item.id })}>{ct(`fabric.${item.id}`, item.label)}</button>
+          <button key={item.id} title={item.note} className={fabric === item.id ? 'active' : ''} onClick={() => onChange({ fabric: item.id })}>{ct(`fabric.${item.id}`, item.label)}</button>
         ))}
       </div>
-      {baked
-        ? <p className="pose-note">{t('wardrobe.bakedNote')}</p>
-        : activeFabric && <p className="pose-note">{activeFabric.note}</p>}
+      {activeFabric && <p className="pose-note">{activeFabric.note}</p>}
     </div>
   )
 }

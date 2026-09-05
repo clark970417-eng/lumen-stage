@@ -241,13 +241,18 @@ function AppearancePanel({ ariaPrefix, skinRoughness, skinOil, subsurface, makeu
     <Range label={prefixed('appearance.skinRoughness')} value={skinRoughness} min={0} max={100} unit="%" onChange={(value) => onChange({ skinRoughness: value })} />
     <Range label={prefixed('appearance.skinOil')} value={skinOil} min={0} max={100} unit="%" onChange={(value) => onChange({ skinOil: value })} />
     <Range label={prefixed('appearance.subsurface')} value={subsurface} min={0} max={100} unit="%" onChange={(value) => onChange({ subsurface: value })} />
-    <div className="subject-look-control"><span>{t('appearance.makeup')}</span><div role="group" aria-label={prefixed('appearance.makeup')}>{([['none','makeup.none'],['natural','makeup.natural'],['editorial','makeup.editorial']] as [MakeupStyle,MessageKey][]).map(([value,key]) => <button key={value} disabled={baked} className={makeup === value ? 'active' : ''} onClick={() => onChange({ makeup: value })}>{t(key)}</button>)}</div></div>
-    <div className="appearance-controls material-colors">
-      <label><span>{t('appearance.eyes')}</span><input aria-label={prefixed('appearance.eyeColor')} disabled={baked} type="color" value={eyeColor} onChange={(event) => onChange({ eyeColor: event.target.value })} /></label>
-      <label><span>{t('appearance.hair')}</span><input aria-label={prefixed('appearance.hairColor')} disabled={baked} type="color" value={hairColor} onChange={(event) => onChange({ hairColor: event.target.value })} /></label>
-    </div>
-    <Range label={prefixed('appearance.hairGloss')} value={hairGloss} min={0} max={100} unit="%" disabled={baked} onChange={(value) => onChange({ hairGloss: value })} />
-    {baked && <p className="pose-note">{t('appearance.bakedNote')}</p>}
+    {/* Colour is painted into a photographed actor's two texture maps, so none
+        of these can re-tint anything — a skin colour laid over the body map
+        takes the shirt with it. The three sliders above are how the surface
+        answers the light, and they apply to anybody. */}
+    {!baked && <>
+      <div className="subject-look-control"><span>{t('appearance.makeup')}</span><div role="group" aria-label={prefixed('appearance.makeup')}>{([['none','makeup.none'],['natural','makeup.natural'],['editorial','makeup.editorial']] as [MakeupStyle,MessageKey][]).map(([value,key]) => <button key={value} className={makeup === value ? 'active' : ''} onClick={() => onChange({ makeup: value })}>{t(key)}</button>)}</div></div>
+      <div className="appearance-controls material-colors">
+        <label><span>{t('appearance.eyes')}</span><input aria-label={prefixed('appearance.eyeColor')} type="color" value={eyeColor} onChange={(event) => onChange({ eyeColor: event.target.value })} /></label>
+        <label><span>{t('appearance.hair')}</span><input aria-label={prefixed('appearance.hairColor')} type="color" value={hairColor} onChange={(event) => onChange({ hairColor: event.target.value })} /></label>
+      </div>
+      <Range label={prefixed('appearance.hairGloss')} value={hairGloss} min={0} max={100} unit="%" onChange={(value) => onChange({ hairGloss: value })} />
+    </>}
   </div>
 }
 
@@ -548,10 +553,12 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
         </> : <>
           <div className="pose-heading subject-pose-heading"><span>{t('subject.poseSection')}</span><small>PROCEDURAL RIG</small></div>
           <PoseLibraryPanel current={studioObject.subjectPosePreset} onApply={(id) => state.applyStudioSubjectPose(studioObject.id, id)} />
+          {!bakedSubject && <>
           <div className="appearance-controls subject-appearance-controls">
             <label><span>{t('subject.skinColor')}</span><input aria-label={t('subject.skinColorAria')} disabled={bakedSubject} type="color" value={studioObject.subjectSkinColor} onChange={(event) => state.updateStudioObject(studioObject.id, { subjectSkinColor: event.target.value })} /></label>
             <label><span>{t('subject.outfitColor')}</span><input aria-label={t('subject.outfitColorAria')} disabled={bakedSubject} type="color" value={studioObject.subjectOutfitColor} onChange={(event) => state.updateStudioObject(studioObject.id, { subjectOutfitColor: event.target.value })} /></label>
           </div>
+          </>}
           <AppearancePanel baked={bakedSubject} ariaPrefix={t('subject.prefixSecond')} skinRoughness={studioObject.subjectSkinRoughness} skinOil={studioObject.subjectSkinOil} subsurface={studioObject.subjectSubsurface} makeup={studioObject.subjectMakeup} eyeColor={studioObject.subjectEyeColor} hairColor={studioObject.subjectHairColor} hairGloss={studioObject.subjectHairGloss} onChange={(patch) => state.updateStudioObject(studioObject.id, {
             ...(patch.skinRoughness !== undefined ? { subjectSkinRoughness: patch.skinRoughness } : {}),
             ...(patch.skinOil !== undefined ? { subjectSkinOil: patch.skinOil } : {}),
@@ -562,7 +569,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             ...(patch.hairGloss !== undefined ? { subjectHairGloss: patch.hairGloss } : {}),
           })} />
           <Range label={t('subject.height')} value={studioObject.subjectHeight} min={1.15} max={2.2} step={0.01} unit=" m" onChange={(value) => state.updateStudioObject(studioObject.id, { subjectHeight: Number(value.toFixed(2)) })} />
-          <PhysiquePanel physique={studioObject.subjectPhysique} baked={bakedSubject} captured={Boolean(studioObject.subjectPose.capture)}
+          <PhysiquePanel physique={studioObject.subjectPhysique} baked={bakedSubject}
             onChange={(patch) => state.updateStudioSubjectPhysique(studioObject.id, patch)}
             onPreset={(id) => state.applyStudioSubjectPhysique(studioObject.id, id)} />
           <WardrobePanel baked={bakedSubject} hairStyle={studioObject.subjectHairStyle} outfit={studioObject.subjectOutfitStyle} fabric={studioObject.subjectOutfitFabric} onChange={(patch) => state.updateStudioObject(studioObject.id, {
@@ -600,10 +607,12 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
         )}
         {state.modelRigStatus === 'unrigged' && <p className="pose-note">{t('pose.unriggedNote')}</p>}
         {editableBuiltin && <>
+          {!bakedMain && <>
           <div className="appearance-controls">
             <label><span>{t('appearance.skin')}</span><input aria-label={t('appearance.skinAria')} disabled={bakedMain} type="color" value={state.skinColor} onChange={(event) => setValue('skinColor', event.target.value)} /></label>
             <label><span>{t('appearance.outfit')}</span><input aria-label={t('appearance.outfitAria')} disabled={bakedMain} type="color" value={state.outfitColor} onChange={(event) => setValue('outfitColor', event.target.value)} /></label>
           </div>
+          </>}
           <AppearancePanel baked={bakedMain} ariaPrefix={t('subject.prefixMain')} skinRoughness={state.skinRoughness} skinOil={state.skinOil} subsurface={state.skinSubsurface} makeup={state.makeupStyle} eyeColor={state.eyeColor} hairColor={state.hairColor} hairGloss={state.hairGloss} onChange={(patch) => {
             if (patch.skinRoughness !== undefined) setValue('skinRoughness', patch.skinRoughness)
             if (patch.skinOil !== undefined) setValue('skinOil', patch.skinOil)
@@ -614,7 +623,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             if (patch.hairGloss !== undefined) setValue('hairGloss', patch.hairGloss)
           }} />
           {editableBuiltin && <CastPanel current={state.actorId} onCast={state.castActor} />}
-          <PhysiquePanel physique={state.physique} baked={bakedMain} captured={Boolean(state.modelPose.capture)} onChange={state.updatePhysique} onPreset={state.applyPhysiquePreset} />
+          <PhysiquePanel physique={state.physique} baked={bakedMain} onChange={state.updatePhysique} onPreset={state.applyPhysiquePreset} />
           <WardrobePanel baked={bakedMain} hairStyle={state.hairStyle} outfit={state.outfitStyle} fabric={state.outfitFabric} onChange={(patch) => {
             if (patch.hairStyle) setValue('hairStyle', patch.hairStyle)
             if (patch.outfit) setValue('outfitStyle', patch.outfit)

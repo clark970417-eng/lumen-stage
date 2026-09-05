@@ -106,8 +106,6 @@ const DICT = {
   'physique.neutral': { en: 'Neutral', zh: '中性', ja: '中性' },
   'physique.age': { en: 'Appearance age', zh: '外觀年齡', ja: '見た目の年齢' },
   'physique.years': { en: ' yrs', zh: ' 歲', ja: ' 歳' },
-  'physique.bakedNote': { en: 'This actor is photographed, so nothing here changes the shape you see. Build, muscle, shoulders and hips still adjust where the rig aims the arms; face, waist, bust and age reach nothing at all.', zh: '這位演員是實拍的,所以這裡改不動你看到的身形。體格、肌肉、肩寬與臀圍仍會微調手臂瞄準的位置;臉型變化、腰、胸與年齡則完全沒有作用。', ja: 'このアクターは実写ベースのため、ここで見た目の体型は変わりません。体格・筋肉・肩幅・腰まわりは腕を狙う位置の微調整には効きますが、顔の個体差・ウエスト・バスト・年齢は何にも届きません。' },
-  'physique.capturedNote': { en: 'This actor is photographed, so nothing here changes the shape you see. On a solved pose, build, muscle, shoulders and hips still nudge where the rig aims the arms — but a captured pose brings its own arms, so under one they reach nothing at all. Pick another pose to get them back.', zh: '這位演員是實拍的,所以這裡改不動你看到的身形。在解算姿勢下,體格、肌肉、肩寬與臀圍還會微調手臂瞄準的位置;但實拍姿勢自己帶著手臂,所以選了實拍姿勢時這四項完全沒有作用。換一個姿勢就會恢復。', ja: 'このアクターは実写ベースのため、ここで見た目の体型は変わりません。計算ポーズなら体格・筋肉・肩幅・腰まわりが腕を狙う位置を微調整しますが、収録ポーズは腕を自前で持っているため、その間はどこにも届きません。他のポーズを選ぶと戻ります。' },
   'cast.title': { en: 'Cast', zh: '演員', ja: 'キャスト' },
   'cast.sub': { en: 'WHO IS IN FRONT OF THE LENS', zh: '鏡頭前的人', ja: 'レンズの前に立つ人' },
   'cast.none': { en: 'Pick who to photograph. These actors are photographed rather than modelled, so casting is how the build, the age and the clothing change.', zh: '選擇要拍誰。這些演員是實拍的,不是建模的,所以體型、年齡與服裝要靠換人來改變。', ja: '誰を撮るか選びます。実写ベースのアクターなので、体型・年齢・服装はキャストを替えて変えます。' },
@@ -123,7 +121,6 @@ const DICT = {
   // ── 服裝與髮型 ──────────────────────────────────────────
   'wardrobe.title': { en: 'Wardrobe', zh: '服裝造型', ja: 'ワードローブ' },
   'wardrobe.sub': { en: 'HAIR / OUTFIT / FABRIC', zh: '髮型 / 服裝 / 材質', ja: 'ヘア / 衣装 / 素材' },
-  'wardrobe.bakedNote': { en: 'These actors wear their clothes in their body map, so the wardrobe picks an actor rather than a garment: a suit, a coat or a shirt brings out the tailored pair, anything else the everyday pair. Hair and fabric have nothing to act on — there is no hair mesh to restyle, and no cloth the light can be told about apart from the skin beside it.', zh: '這幾位演員的衣服是畫在身體貼圖上的，所以「服裝」選的是人而不是衣服：西裝、長大衣或襯衫會換成正裝那一組，其餘則是日常那一組。髮型與布料則無從作用——沒有可重塑的頭髮模型，也沒有能與旁邊皮膚分開對光的布料。', ja: 'このアクターたちは衣服がボディマップに描き込まれているため、ワードローブは衣装ではなく人を選びます。スーツ・コート・シャツはフォーマルな二人に、それ以外は普段着の二人になります。髪と素材は働きかける先がありません。' },
   'wardrobe.hair': { en: 'Hair style', zh: '髮型', ja: 'ヘアスタイル' },
   'wardrobe.outfit': { en: 'Outfit', zh: '服裝', ja: '衣装' },
 
@@ -495,7 +492,6 @@ const DICT = {
 
   // ── 人物材質 ────────────────────────────────────────────
   'appearance.title': { en: 'Subject materials', zh: '人物材質', ja: '人物マテリアル' },
-  'appearance.bakedNote': { en: 'Colour is baked into this actor, so eyes, hair and make-up cannot be re-tinted — a skin colour laid over the body map takes the shirt with it. The three sliders above are how the surface answers the light, and they still apply.', zh: '這位演員的顏色已烘焙在貼圖上，眼睛、頭髮與妝容無法重新上色——把膚色疊在身體貼圖上，連襯衫也會一起變。上面三個滑桿控制的是表面如何回應光線，仍然有效。', ja: 'このアクターは色がテクスチャに焼き込まれているため、瞳・髪・メイクの色は変更できません。肌色をボディマップに重ねるとシャツまで染まります。上の3つのスライダーは光への反応を決めるもので、こちらは有効です。' },
   'appearance.skinRoughness': { en: 'skin roughness', zh: '皮膚粗糙度', ja: '肌のラフネス' },
   'appearance.skinOil': { en: 'skin sheen', zh: '皮膚油光', ja: '肌のテカリ' },
   'appearance.subsurface': { en: 'subsurface', zh: '皮下散射', ja: 'サブサーフェス' },

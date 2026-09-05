@@ -203,7 +203,8 @@ function LocaleSwitch() {
 function SiteHeader({ copy, onOpenStudio }: { copy: Copy; onOpenStudio?: () => void }) {
   const home = routeHref('home')
   const sectionHref = (id: string) => onOpenStudio ? `#${id}` : `${home}#${id}`
-  return <header className="site-header"><div className="site-header-shell"><a className="site-brand" href={home} aria-label="Lumen Stage home"><BrandMark /><span><b>LUMEN</b><small>STAGE / WEB</small></span></a><nav aria-label="Primary"><a href={sectionHref('capabilities')}>{copy.nav[0]}</a><a href={sectionHref('workflow')}>{copy.nav[1]}</a><a href={sectionHref('outcomes')}>{copy.nav[2]}</a><a href={sectionHref('release')}>{copy.nav[3]}</a><a href={sectionHref('setups')}>{copy.nav[4]}</a><a href={sectionHref('faq')}>{copy.nav[5]}</a><a href={routeHref('support')}>{copy.nav[6]}</a></nav><div className="site-actions"><LocaleSwitch />{onOpenStudio ? <button className="site-cta compact" type="button" onClick={onOpenStudio}><span>{copy.open}</span><b aria-hidden="true">↗</b></button> : <a className="site-cta compact" href={studioHref()}><span>{copy.open}</span><b aria-hidden="true">↗</b></a>}</div></div></header>
+  const links = <><a href={sectionHref('capabilities')}>{copy.nav[0]}</a><a href={sectionHref('workflow')}>{copy.nav[1]}</a><a href={sectionHref('outcomes')}>{copy.nav[2]}</a><a href={sectionHref('release')}>{copy.nav[3]}</a><a href={sectionHref('setups')}>{copy.nav[4]}</a><a href={sectionHref('faq')}>{copy.nav[5]}</a><a href={routeHref('support')}>{copy.nav[6]}</a></>
+  return <header className="site-header"><div className="site-header-shell"><a className="site-brand" href={home} aria-label="Lumen Stage home"><BrandMark /><span><b>LUMEN</b><small>STAGE / WEB</small></span></a><nav aria-label="Primary">{links}</nav><details className="site-menu"><summary aria-label="Navigation">☰</summary><nav aria-label="Mobile" onClick={(event) => { if ((event.target as HTMLElement).closest('a')) event.currentTarget.parentElement?.removeAttribute('open') }}>{links}</nav></details><div className="site-actions"><LocaleSwitch />{onOpenStudio ? <button className="site-cta compact" type="button" onClick={onOpenStudio}><span>{copy.open}</span><b aria-hidden="true">↗</b></button> : <a className="site-cta compact" href={studioHref()}><span>{copy.open}</span><b aria-hidden="true">↗</b></a>}</div></div></header>
 }
 
 function SiteFooter({ copy }: { copy: Copy }) {
@@ -428,22 +429,13 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     <section className="site-intro" id="capabilities" data-reveal><span>02 / THE INSTRUMENT</span><h2>{copy.instrument}</h2><p>{copy.instrumentBody}</p></section>
     <section className="capability-grid" data-reveal>{copy.capabilities.map(([title, body], index) => <article key={title}>
       <div><span>0{index + 1}</span><i aria-hidden="true" /></div>
-      <picture>
-        {index < 2 && <img src={assetHref(`site-detail/${locale}/${['light', 'camera'][index]}.png`)} alt={`${title} — ${body}`} width="780" height="438" loading="lazy" decoding="async" />}
-      </picture>
+      <figure className="capability-pair">
+        <div className="capability-scene"><span>{locale === 'zh' ? '場景' : locale === 'ja' ? 'シーン' : 'Scene'}</span><svg viewBox={index === 1 ? '10 75 1438 994' : '252 150 1340 850'} role="img" aria-label={`${title} — ${locale === 'zh' ? '場景圖' : 'Scene'}`}><image href={assetHref(index === 1 ? `site-workflow/${locale}/shoot.png` : `onboarding/${locale}/desktop-${index === 0 ? 1 : 3}.png`)} width={index === 1 ? 1920 : 1905} height="1080" /></svg></div>
+        <div className="capability-settings"><span>{locale === 'zh' ? '設定' : locale === 'ja' ? '設定' : 'Controls'}</span><svg viewBox={['700 185 200 400', '1475 148 420 650', '576 322 244 350'][index]} role="img" aria-label={`${title} — ${locale === 'zh' ? '設定圖' : 'Controls'}`}><image href={assetHref(index === 1 ? `site-workflow/${locale}/shoot.png` : `site-detail/${locale}/${index === 0 ? 'controls' : 'export'}.png`)} width={index === 1 ? 1920 : 916} height={index === 1 ? 1080 : 1067} /></svg></div>
+      </figure>
       <h3>{title}</h3><p>{body}</p>
     </article>)}</section>
     <section className="audience-strip" data-reveal><header><span>WHO IT IS FOR</span><h2>{copy.audienceTitle}</h2><p>{copy.audienceBody}</p></header><div>{copy.audiences.map(([title, body], index) => <article key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{body}</p></article>)}</div></section>
-    <section className="site-proof" aria-labelledby="site-proof-title" data-reveal>
-      <header><span>03 / LIVE WORKSPACE</span><h2 id="site-proof-title">{copy.galleryTitle}</h2><p>{copy.galleryBody}</p></header>
-      <div className="site-proof-grid">{copy.gallery.map(([title, body], index) => <figure key={title} className={index === 0 ? 'feature' : ''}>
-        <picture>
-          <source media="(max-width: 620px)" srcSet={assetHref(`onboarding/${locale}/mobile-${index + 1}.png`)} type="image/png" width="780" height="438" />
-          <img src={assetHref(`onboarding/${locale}/desktop-${index + 1}.png`)} alt={`${title} — ${body}`} width="1920" height="1080" loading="lazy" decoding="async" />
-        </picture>
-        <figcaption><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></figcaption>
-      </figure>)}</div>
-    </section>
     <section className="featured-setups" id="setups">
       <header data-reveal><span>04 / STARTING POINTS</span><h2>{copy.setupsTitle}</h2><p>{copy.setupsBody}</p></header>
       <div className="setup-showcase">{FEATURED_SETUP_IDS.map((id, index) => {

@@ -315,32 +315,77 @@
   .site-header nav a { font-size: 9px; }
 }
 
-@media (max-width: 980px) {
-  .site-header-shell { position: relative; }
-  .site-header-shell > nav {
-    position: absolute;
-    top: 66px;
-    left: 0;
-    right: 0;
-    height: 40px;
-    padding: 0 12px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-    border: 1px solid rgba(181, 217, 232, .16);
-    border-radius: 999px;
-    background: rgba(8, 14, 18, .88);
-    backdrop-filter: blur(18px);
-  }
-  .site-header-shell > nav::-webkit-scrollbar { display: none; }
-  .site-header-shell > nav a { flex: 0 0 auto; min-height: 36px; display: inline-flex; align-items: center; }
-  html.public-site-root .site-hero { padding-top: 142px; }
-  html.public-site-root .legal-page { padding-top: 150px; }
+/* Keep navigation and actions inside one shared bar at every width. */
+.site-header-shell { position:relative; gap:18px; }
+.site-header-shell > nav { min-width:0; }
+.site-brand,.site-actions { flex-shrink:0; }
+.site-menu { display:none; }
+@media(max-width:980px) {
+  .site-header-shell > nav { display:flex; gap:14px; margin-left:auto; }
+  .site-header-shell { gap:14px; }
+  .site-header .site-cta.compact { min-height:40px; padding:0 12px; }
+  .site-header .site-cta.compact b { display:none; }
+  .site-header nav a { font-size:11px; white-space:nowrap; }
+}
+@media(max-width:780px) {
+  .site-header-shell > nav { display:none; }
+  .site-menu { display:block; margin-left:auto; }
+  .site-menu summary { width:44px; height:44px; display:grid; place-items:center; cursor:pointer; list-style:none; border-radius:8px; color:var(--signal-cool); }
+  .site-menu summary::-webkit-details-marker { display:none; }
+  .site-menu[open] summary { background:var(--panel-raised); }
+  .site-menu nav { position:absolute; top:calc(100% + 8px); left:0; right:0; display:grid; grid-template-columns:repeat(2,1fr); padding:12px; border:1px solid var(--line); border-radius:16px; background:var(--panel); box-shadow:0 18px 45px #0008; }
+  .site-menu nav a { min-height:44px; display:flex; align-items:center; padding:0 14px; font-size:14px; }
+  .site-actions { margin-left:0; }
+  .site-header-shell { gap:6px; }
+  .site-header .site-cta.compact b { display:grid; }
 }
 
-@media (max-width: 620px) {
-  .site-header-shell > nav { top: 60px; }
+/* Product photographs share a frame, with scene and matching controls kept legible. */
+.capability-pair { margin:24px 0 0; display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); overflow:hidden; border:1px solid var(--line); border-radius:12px; background:var(--ink); }
+.capability-pair > div { min-width:0; display:flex; flex-direction:column; }
+.capability-pair > div + div { border-left:1px solid var(--line); }
+.capability-pair span { display:block; padding:10px 12px; font:10px var(--mono); letter-spacing:.08em; color:var(--muted); border-bottom:1px solid var(--line); background:var(--panel); }
+.capability-pair svg { display:block; width:100%; height:clamp(185px,20vw,310px); background:var(--ink); }
+.capability-settings svg { padding:8px; }
+.capability-grid article { padding:24px clamp(18px,2vw,30px); }
+.capability-grid article h3 { line-height:1.25; }
+.site-header .site-cta,.final-cta .site-cta,.mid-cta .site-cta { background:var(--signal); color:var(--ink); }
+.public-site-root,.public-site-root body { background:var(--ink); color:var(--paper); }
+.public-site-body { --site-cyan:var(--signal-cool); --site-amber:var(--signal); --site-line:var(--line); }
+.site-header-shell { background:color-mix(in srgb,var(--ink) 92%,transparent); border-color:var(--line); }
+.landing .cast-gallery { background:var(--panel-raised); color:var(--paper); }
+.landing .audience-strip { background:var(--ink); }
+.landing .audience-strip > div { border:0; border-radius:0; gap:24px; }
+.landing .audience-strip article { background:none; min-height:155px; border:0; border-top:1px solid var(--line-bright); padding:20px 0 0; }
+.landing .audience-strip h3 { margin:26px 0 12px; }
+.landing .simulation-method article { border-radius:0; border:0; border-left:2px solid var(--line); background:none; min-height:170px; }
+.landing .site-trust article { background:var(--panel); }
+/* Small, finite reveals create rhythm without a permanent rendering loop. */
+.cast-contact-sheet figure,.capability-pair > div { opacity:1; transform:none; transition:opacity .55s ease,transform .65s cubic-bezier(.2,.7,.2,1); }
+[data-reveal]:not(.is-visible) .cast-contact-sheet figure { opacity:0; transform:translateY(18px); }
+.cast-contact-sheet figure:nth-child(2) { transition-delay:60ms; }
+.cast-contact-sheet figure:nth-child(3) { transition-delay:120ms; }
+.cast-contact-sheet figure:nth-child(4) { transition-delay:180ms; }
+.cast-contact-sheet figure:nth-child(5) { transition-delay:240ms; }
+.cast-contact-sheet figure:nth-child(6) { transition-delay:300ms; }
+.capability-grid:not(.is-visible) .capability-pair > div { opacity:0; transform:translateY(14px); }
+.capability-pair > div + div { transition-delay:140ms; }
+.site-header nav a { position:relative; }
+.site-header nav a::after { content:''; position:absolute; bottom:0; left:0; right:0; height:1px; background:var(--signal-cool); transform:scaleX(0); transform-origin:left; transition:transform 180ms ease; }
+.site-header nav a:hover::after,.site-header nav a:focus-visible::after { transform:scaleX(1); }
+@media(hover:hover) {
+  .cast-contact-sheet img { transition:transform 300ms ease; }
+  .cast-contact-sheet figure:hover img { transform:scale(1.035); }
+}
+@media(max-width:980px) {
+  .capability-pair svg { height:clamp(240px,45vw,380px); }
+}
+@media(max-width:620px) {
+  .capability-pair { grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); }
+  .capability-pair svg { height:230px; }
+  .capability-pair span { padding:8px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .cast-contact-sheet figure,.cast-contact-sheet img,.capability-pair > div,.site-header nav a::after { transition:none; transform:none; opacity:1; }
+  [data-reveal]:not(.is-visible) .cast-contact-sheet figure,.capability-grid:not(.is-visible) .capability-pair > div { opacity:1; transform:none; }
 }
