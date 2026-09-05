@@ -119,18 +119,36 @@ async function convert(name, fbxUrl, prefix) {
 
   const tga = new TGALoader(manager)
   const load = (file) => new Promise((res) => tga.load('/rocketbox-src/' + file, res, undefined, () => res(null)))
-  const colour = {
-    body: await load(`${prefix}_body_color.tga`),
-    head: await load(`${prefix}_head_color.tga`),
-    opacity: await load(`${prefix}_opacity_color.tga`),
+
+  // Which maps this avatar actually ships, written by scripts/fetch-rocketbox.mjs
+  // from the avatar's own Textures listing. Forty of the hundred and fifteen
+  // carry parts beyond body and head — a helmet, a keffiyeh, a stethoscope —
+  // and a fixed list of three filenames dressed every one of those parts in the
+  // body map. Older jobs with no manifest fall back to the three.
+  const manifest = await fetch(`/rocketbox-src/${prefix}.parts.json`)
+    .then((r) => r.ok ? r.json() : null).catch(() => null)
+  const files = manifest?.parts ?? {
+    body: `${prefix}_body_color.tga`,
+    head: `${prefix}_head_color.tga`,
+    opacity: `${prefix}_opacity_color.tga`,
   }
-  // Not every avatar ships all three. The ones with no separate lash-and-hair
+  const colour = {}
+  for (const [part, file] of Object.entries(files)) colour[part] = await load(file)
+
+  // Not every avatar ships all of them. The ones with no separate lash-and-hair
   // atlas keep those strands in the head map, and a missing map left the
   // material with no texture at all — a solid card where the hair should be.
   const ownOpacity = Boolean(colour.opacity)
   colour.head ??= colour.body
   colour.opacity ??= colour.head
-  say(`  maps: body=${colour.body ? 'ok' : 'MISSING'} head=${colour.head ? 'ok' : 'MISSING'} opacity=${ownOpacity ? 'ok' : 'falls back to head'}`)
+  say(`  maps: ${Object.keys(colour).filter((k) => colour[k]).join(', ')}${ownOpacity ? '' : ' (no lash atlas — head map stands in)'}`)
+
+  // Parts other than the three are matched by their own name, longest first so
+  // that a `_helmet` material is not claimed by a shorter part that happens to
+  // be a substring of it.
+  const extras = Object.keys(colour)
+    .filter((part) => !['body', 'head', 'opacity'].includes(part) && colour[part])
+    .sort((a, b) => b.length - a.length)
 
   // The material name only. The mesh is called "..._81_bones_opacity", so
   // including it matched every material as hair and dressed the whole figure
@@ -142,6 +160,9 @@ async function convert(name, fbxUrl, prefix) {
   // and stored it at twice the resolution it needs.
   const pick = (materialName) => {
     const key = (materialName || '').toLowerCase()
+    for (const part of extras) {
+      if (key.includes(part.toLowerCase())) return { map: colour[part], atlas: /opacity/.test(part) }
+    }
     if (/opacity|hair|lash|eyebrow/.test(key)) return { map: colour.opacity, atlas: ownOpacity }
     if (/head|face|eye|teeth|tongue|mouth/.test(key)) return { map: colour.head, atlas: false }
     return { map: colour.body, atlas: false }
@@ -151,6 +172,7 @@ async function convert(name, fbxUrl, prefix) {
     const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
     mesh.material = list.map((source) => {
       const { map: chosen, atlas } = pick(source?.name ?? '')
+      say(`    ${source?.name || mesh.name} -> ${Object.keys(colour).find((k) => colour[k] === chosen) ?? 'NOTHING'}`)
       // The lash and hair atlas keeps its full resolution: its content is
       // strands a pixel or two wide, and halving it smears them into a mass.
       const canvas = chosen ? shrink(chosen, atlas ? 2048 : 1024) : null

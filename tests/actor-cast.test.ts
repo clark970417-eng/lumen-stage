@@ -34,7 +34,10 @@ test('the cast covers a real range of builds and heights', () => {
   // The point of casting more people is that the build controls cannot reshape
   // a photographed actor. A cast that is all one shape would not answer that.
   for (const sex of ['feminine', 'masculine'] as const) {
-    const side = CAST.filter((m) => m.sex === sex && !m.child)
+    // Robed actors are excluded: their waist figure measures an abaya or a
+    // thobe, and a spread that leaned on those would be a claim about garments
+    // dressed up as a claim about builds.
+    const side = CAST.filter((m) => m.sex === sex && !m.child && !m.robed)
     assert.ok(side.length >= 4, `only ${side.length} adult ${sex} actors`)
     const waists = side.map((m) => m.waist)
     const spread = Math.max(...waists) / Math.min(...waists)
@@ -46,6 +49,20 @@ test('the cast covers a real range of builds and heights', () => {
   for (const child of children) {
     assert.ok(child.height < shortestAdult - 0.15, `${child.id} is not child-sized`)
   }
+})
+
+test('a robed actor is marked as one', () => {
+  // The flag is what keeps the build ordering honest, so it has to be on the
+  // entries whose measurement is of cloth. An abaya measures nearly three
+  // times the widest real waist in the cast; nothing unrobed comes close.
+  const widestBody = Math.max(...CAST.filter((m) => !m.robed).map((m) => m.waist))
+  for (const member of CAST) {
+    if (member.waist > widestBody) {
+      assert.equal(member.robed, true, `${member.id} is wider than any body and is not marked robed`)
+    }
+  }
+  const robed = CAST.filter((m) => m.robed)
+  assert.ok(robed.length >= 2, 'the cast has no robed silhouettes')
 })
 
 test('the whole cast is photographed, and an import is not', () => {

@@ -19,9 +19,10 @@ import { applyCapturedPose, captureRestPose, landCapturedContacts, mapSkeleton }
 
 const ACTORS = [
   'rocketbox-female', 'rocketbox-female-adult-07', 'rocketbox-female-adult-08', 'rocketbox-sports-female-01',
-  'rocketbox-business-female', 'rocketbox-female-child-01',
+  'rocketbox-business-female', 'rocketbox-medical-female-01', 'rocketbox-female-adult-10', 'rocketbox-female-child-01',
   'rocketbox-male', 'rocketbox-male-adult-04', 'rocketbox-male-adult-05', 'rocketbox-sports-male-01',
-  'rocketbox-business-male', 'rocketbox-male-child-02',
+  'rocketbox-business-male', 'rocketbox-male-adult-15', 'rocketbox-male-adult-19', 'rocketbox-male-adult-21',
+  'rocketbox-male-child-02',
 ]
 const pose = getCapturedPose(new URLSearchParams(location.search).get('pose') || 'captured-relaxed')
 const lines = []
@@ -33,7 +34,7 @@ try {
   key.position.set(2, 3.4, 3)
   scene.add(key)
 
-  const spacing = 0.62
+  const spacing = 0.50
   for (const [index, name] of ACTORS.entries()) {
     const gltf = await new Promise((r, j) => new GLTFLoader().load(`/models/lumen-human/${name}.glb`, r, undefined, j))
     const figure = gltf.scene
