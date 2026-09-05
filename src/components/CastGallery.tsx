@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useCatalogT, useLocaleStore } from '../i18n'
 import { CAST } from '../actorCast'
+import { assetHref } from '../routing'
 import './CastGallery.css'
 
 const copy = {
@@ -18,10 +19,10 @@ export function CastGallery() {
     <header><span>THE CAST</span><h2>{text.title}</h2><p>{text.body}</p></header>
     <div className="cast-browser">
       <figure className="cast-portrait">
-        <div><img key={person.id} src={person.thumb} alt={ct(`cast.${person.id}`, person.label)} width="148" height="470" decoding="async" loading="lazy" /></div>
+        <div><img key={person.id} src={assetHref(`models/lumen-human/cast/transparent/${person.id}.webp`)} alt={ct(`cast.${person.id}`, person.label)} width="512" height="1024" decoding="async" loading="lazy" /></div>
         <figcaption aria-live="polite"><strong>{ct(`cast.${person.id}`, person.label)}</strong><span>{person.height.toFixed(2)} m · {text.caption}</span></figcaption>
       </figure>
-      <div className="cast-picker"><h3>{text.choose}<span>{CAST.length}</span></h3><div role="group" aria-label={text.choose}>{CAST.map((member) => <button key={member.id} type="button" aria-pressed={selected === member.id} onClick={() => setSelected(member.id)}><img src={member.thumb} alt="" width="44" height="80" loading="lazy" decoding="async" /><span>{ct(`cast.${member.id}`, member.label)}<small>{member.height.toFixed(2)} m</small></span></button>)}</div></div>
+      <div className="cast-picker"><h3>{text.choose}<span>{CAST.length}</span></h3><div role="group" aria-label={text.choose}>{CAST.map((member) => <button key={member.id} type="button" aria-pressed={selected === member.id} onClick={() => setSelected(member.id)}><img src={assetHref(`models/lumen-human/cast/transparent/${member.id}.webp`)} alt="" width="44" height="80" loading="lazy" decoding="async" /><span>{ct(`cast.${member.id}`, member.label)}<small>{member.height.toFixed(2)} m</small></span></button>)}</div></div>
     </div>
   </section>
 }

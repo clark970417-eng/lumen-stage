@@ -1,4 +1,5 @@
 import { CastGallery } from './CastGallery'
+import { SettingsPreview } from './SettingsPreview'
 import { useEffect, useRef, useState } from 'react'
 import { DEMO_STEP_MOVEMENT_STARTS, demoStepAt } from '../demoTimeline'
 import { LOCALES, useLocaleStore, type Locale } from '../i18n'
@@ -184,7 +185,7 @@ const DEMO_LIVE_LABEL: Record<Locale, string> = {
 }
 
 
-const TRUST_MARKS = ['15', '01:1', 'LOCAL', 'FREE', '2 MODES'] as const
+const TRUST_MARKS = ['15', '1:1', 'LOCAL', 'FREE', '2 MODES'] as const
 
 const FEATURED_SETUP_IDS = ['rembrandt', 'three-point', 'clamshell'] as const
 
@@ -434,7 +435,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
       <div><span>0{index + 1}</span><i aria-hidden="true" /></div>
       <figure className="capability-pair">
         <div className="capability-scene"><span>{locale === 'zh' ? '場景' : locale === 'ja' ? 'シーン' : 'Scene'}</span><ScreenshotCrop src={index === 1 ? `site-workflow/${locale}/shoot.png` : `onboarding/${locale}/desktop-${index === 0 ? 1 : 3}.png`} size={[index === 1 ? 1920 : 1905, 1080]} crop={index === 1 ? [10, 75, 1438, 994] : [252, 150, 1340, 850]} id={`scene-${index}`} label={`${title} — ${locale === 'zh' ? '場景圖' : 'Scene'}`} /></div>
-        <div className="capability-settings"><span>{locale === 'en' ? 'Controls' : '設定'}</span><ScreenshotCrop src={index === 1 ? `site-workflow/${locale}/shoot.png` : `site-detail/${locale}/${index === 0 ? 'controls' : 'export'}.png`} size={index === 1 ? [1920, 1080] : [916, 1067]} crop={index === 0 ? [710, 373, 180, 156] : index === 1 ? [1475, 148, 420, 450] : [576, 568, 244, 104]} id={`controls-${index}`} label={`${title} — ${locale === 'zh' ? '設定圖' : 'Controls'}`} /></div>
+        <div className="capability-settings"><span>{locale === 'en' ? 'Settings preview' : locale === 'ja' ? '設定プレビュー' : '設定預覽'}</span><SettingsPreview index={index} locale={locale} /></div>
       </figure>
       <h3>{title}</h3><p>{body}</p>
     </article>)}</section>
@@ -453,10 +454,9 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     <section className="workflow" id="workflow"><div className="workflow-heading" data-reveal><span>04 / WORKFLOW</span><h2>{copy.workflowTitle}</h2><p>PLAN · PREVIEW · SHOOT</p></div><ol>{copy.workflow.map(([title, body], index) => <li key={title} data-reveal><span>0{index + 1}</span><div><h3>{title}</h3><p>{body}</p></div></li>)}</ol></section>
     <ResultCompare copy={copy} />
     <section className="simulation-method" data-reveal><header><span>SIMULATION / REALITY</span><h2>{copy.methodTitle}</h2><p>{copy.methodBody}</p></header><div>{copy.methodPoints.map(([title, body], index) => <article key={title}><b>0{index + 1}</b><h3>{title}</h3><p>{body}</p></article>)}</div></section>
-    <section className="site-trust" data-reveal><header><span>06 / BUILT-IN PROOF</span><h2>{copy.trustTitle}</h2></header><div>{copy.trust.map(([title, body], index) => <article key={title}><b>{TRUST_MARKS[index]}</b><h3>{title}</h3><p>{body}</p></article>)}</div></section>
+    <section className="site-trust" data-reveal><header><span>06 / AT A GLANCE</span><h2>{copy.trustTitle}</h2></header><div>{copy.trust.map(([title, body], index) => <article key={title}><b>{TRUST_MARKS[index]}</b><h3>{index < 3 ? <a href={index === 0 ? '#setups' : index === 1 ? '#capabilities' : routeHref('privacy')}>{title}<span aria-hidden="true">↗</span></a> : <button type="button" onClick={() => setModeOpen(true)}>{title}<span aria-hidden="true">↗</span></button>}</h3><p>{body}</p></article>)}</div></section>
     <section className="release-proof" id="release" data-reveal><header><span>07 / RELEASE STATUS</span><h2>{copy.release.title}</h2></header><div><article><i /><span>STATUS</span><h3>{copy.release.status}</h3><p>{copy.release.statusBody}</p></article><article><span>UPDATED</span><h3>{copy.release.updated}</h3><p>{releaseDate} · {copy.release.updatedBody}</p></article><article><span>INCLUDED</span><h3>{copy.release.included}</h3><p>{copy.release.includedBody}</p></article><a href="https://github.com/clark970417-eng/lumen-stage-showcase" target="_blank" rel="noreferrer"><span>SHOWCASE</span><h3>{copy.release.showcase}</h3><p>{copy.release.showcaseBody}</p><b aria-hidden="true">↗</b></a></div></section>
-    <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>08 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
-    <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>09 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
-    <section className="final-cta" data-reveal><span>READY / SET / LIGHT</span><h2>{copy.finalTitle}</h2><p>{copy.finalBody}</p><button className="site-cta" type="button" onClick={() => setModeOpen(true)}><span>{copy.open}</span><b aria-hidden="true">↗</b></button></section>
+    <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>08 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
+    <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>09 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
   </main><SiteFooter copy={copy} /></>
 }

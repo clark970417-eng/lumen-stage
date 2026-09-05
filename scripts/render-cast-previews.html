@@ -1,0 +1,39 @@
+<!doctype html><meta charset="utf-8"><title>Transparent cast previews</title>
+<style>body{background:#182029;color:#edf2f5;font:14px sans-serif}main{display:flex;flex-wrap:wrap;gap:16px}figure{margin:0}img{height:320px;background:repeating-conic-gradient(#27313b 0% 25%,#182029 0% 50%) 0/20px 20px}a{color:#67d8ff;display:block}</style>
+<h1>Transparent cast previews</h1><p id="status">Rendering original studio models…</p><main></main>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { CAST } from '/src/actorCast.ts'
+import { getCapturedPose } from '/src/capturedPoses.ts'
+import { applyCapturedPose, captureRestPose, landCapturedContacts, mapSkeleton } from '/src/retarget.ts'
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true})
+renderer.setSize(512,1024);renderer.setPixelRatio(1);renderer.setClearColor(0,0)
+const scene=new THREE.Scene()
+scene.add(new THREE.HemisphereLight('#dfe6ff','#2a2622',1.6))
+const key=new THREE.DirectionalLight('#fff4e6',2.2);key.position.set(2,3.4,3);scene.add(key)
+const loader=new GLTFLoader(),pose=getCapturedPose('captured-relaxed')
+try{
+for(const actor of CAST){
+ const figure=(await loader.loadAsync(actor.url)).scene
+ figure.scale.setScalar(.01);scene.add(figure);figure.updateMatrixWorld(true)
+ const map=mapSkeleton(figure),rest=captureRestPose(figure,map)
+ applyCapturedPose(figure,rest,pose);figure.updateMatrixWorld(true)
+ const footY=b=>b?figure.worldToLocal(b.getWorldPosition(new THREE.Vector3())).y:Infinity
+ landCapturedContacts(map,figure,pose,footY(map.head)-Math.min(footY(map.leftFoot),footY(map.rightFoot)))
+ figure.updateMatrixWorld(true)
+ const box=new THREE.Box3().setFromObject(figure),center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3())
+ const halfH=Math.max(size.y*.54,size.x*1.08),halfW=halfH/2
+ const camera=new THREE.OrthographicCamera(-halfW,halfW,halfH,-halfH,.01,30)
+ camera.position.set(center.x,center.y,center.z+5);camera.lookAt(center)
+ renderer.render(scene,camera)
+ const url=renderer.domElement.toDataURL('image/webp',.94)
+ const card=document.createElement('figure'),img=document.createElement('img'),link=document.createElement('a')
+ img.src=url;img.alt=actor.label;link.href=url;link.download=actor.id+'.webp';link.textContent=actor.id
+ card.append(img,link);document.querySelector('main').append(card)
+ scene.remove(figure);figure.traverse(n=>{if(n.isMesh){n.geometry.dispose();for(const m of Array.isArray(n.material)?n.material:[n.material]){for(const value of Object.values(m))if(value?.isTexture)value.dispose();m.dispose()}}})
+ document.querySelector('#status').textContent=`Rendered ${document.querySelectorAll('a').length} / ${CAST.length}`
+}
+document.querySelector('#status').textContent='Complete'
+}catch(e){document.querySelector('#status').textContent='Error: '+e.message}finally{renderer.dispose()}
+</script>
