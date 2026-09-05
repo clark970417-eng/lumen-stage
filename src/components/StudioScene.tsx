@@ -3722,6 +3722,27 @@ function ExposureProbe() {
   return null
 }
 
+/**
+ * Working light for the editor viewport, and only for the editor viewport.
+ *
+ * The room is lit by strobes measured in hundreds of watt-seconds, and the
+ * scene's own ambient tops out around 1.3 — next to a flash that is nothing, so
+ * a first load rendered 48% of the frame at pure black: the far wall, the floor
+ * outside the key's pool and both stands were simply not there. You cannot
+ * block a shot in a room you cannot see.
+ *
+ * The editor already declines to be photometric (its exposure is pinned above
+ * rather than derived from ISO and aperture), so this is the same bargain, not
+ * a new one. It is a floor rather than a replacement, and the viewfinder and
+ * the path renderer are excluded — those two have to keep telling the truth
+ * about ambient, because that is what the picture is. Solo keeps its near-black
+ * as well; killing everything but one light is the whole point of it.
+ *
+ * 22 is measured: black falls off a cliff between 14 and 20 as the far wall
+ * lifts off zero, and by 30 the key's pool has visibly flattened.
+ */
+const EDITOR_AMBIENT = 22
+
 const MemoMannequin = memo(Mannequin)
 const MemoSoftbox = memo(Softbox)
 const MemoGripModifier = memo(GripModifier)
@@ -3775,7 +3796,7 @@ export function StudioScene({ horizontalLayoutOnly = false }: { horizontalLayout
     <HorizontalLayoutContext.Provider value={horizontalLayoutOnly}>
       <CameraRig />
       <TimelinePlayback />
-      <ambientLight intensity={horizontalLayoutOnly && view !== 'camera' && renderMode !== 'path' ? Math.max(35, ambientLevel / 75) : layoutOnly ? Math.max(0.72, ambientLevel / 48) : soloLightId ? 0.015 : ambientLevel / 75} color={ambientColor} />
+      <ambientLight intensity={horizontalLayoutOnly && view !== 'camera' && renderMode !== 'path' ? Math.max(35, ambientLevel / 75) : layoutOnly ? Math.max(0.72, ambientLevel / 48) : soloLightId ? 0.015 : view === 'camera' || renderMode === 'path' ? ambientLevel / 75 : Math.max(EDITOR_AMBIENT, ambientLevel / 75)} color={ambientColor} />
       <EnvironmentLighting />
       <Backdrop />
       <MemoMannequin />
