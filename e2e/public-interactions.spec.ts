@@ -49,3 +49,14 @@ test('keeps the 3D engine out of the homepage payload', async ({ page }) => {
   const resources = await page.evaluate(() => performance.getEntriesByType('resource').map((entry) => entry.name))
   expect(resources.some((url) => /three-vendor|pathtracer-vendor|\/App-|\/MobileApp-/.test(url))).toBeFalsy()
 })
+
+test('routes feedback to the public showcase form and explains sign-in', async ({ page }) => {
+  await page.goto('/')
+  const section = page.locator('#feedback')
+  await expect(section.getByRole('link', { name: 'Leave feedback', exact: true })).toHaveAttribute('href', 'https://github.com/clark970417-eng/lumen-stage-showcase/issues/new?template=feedback.yml')
+  await expect(section).toContainText('GitHub sign-in is required')
+  await page.getByRole('button', { name: '中文' }).click()
+  await expect(section.getByRole('link', { name: '留下回饋' })).toBeVisible()
+  await page.getByRole('button', { name: '日本語' }).click()
+  await expect(section.getByRole('link', { name: 'フィードバックする' })).toBeVisible()
+})

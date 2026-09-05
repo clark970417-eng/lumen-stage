@@ -228,6 +228,15 @@ function reportIssueHref(locale: Locale) {
   return `https://github.com/clark970417-eng/lumen-stage-showcase/issues/new?${params}`
 }
 
+function FeedbackSection({ locale }: { locale: Locale }) {
+  const [title, body, action, note] = {
+    zh: ['下一版，想讓它更適合你。', '哪裡不好操作？希望多什麼功能？把你的使用感受告訴 YuYing。', '留下回饋', '回饋會送到 YuYing 的 GitHub Issues。需要登入 GitHub，內容會公開；請勿附上私人照片。'],
+    en: ['Help shape the next version.', 'Something feels awkward? Missing a feature? Tell YuYing how it went.', 'Leave feedback', 'Feedback goes to YuYing’s GitHub Issues. GitHub sign-in is required and posts are public; keep private photos out.'],
+    ja: ['次のバージョンを、一緒に。', '使いにくいところや欲しい機能を、YuYing に教えてください。', 'フィードバックする', 'YuYing の GitHub Issues に届きます。GitHub ログインが必要で、内容は公開されます。非公開の写真は添付しないでください。'],
+  }[locale]
+  return <section className="site-feedback" id="feedback"><div><span>FEEDBACK / V1</span><h2>{title}</h2><p>{body}</p><small>{note}</small></div><a className="site-cta" href="https://github.com/clark970417-eng/lumen-stage-showcase/issues/new?template=feedback.yml" target="_blank" rel="noreferrer">{action}</a></section>
+}
+
 function LegalPage({ route, copy, locale }: { route: Exclude<PublicRoute, 'home' | 'studio'>; copy: Copy; locale: Locale }) {
   const title = route === 'privacy' ? copy.privacyTitle : route === 'terms' ? copy.termsTitle : copy.supportTitle
   const paragraphs = route === 'privacy' ? copy.privacyBody : route === 'terms' ? copy.termsBody : copy.supportBody
@@ -371,12 +380,12 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
       </div>
       <div className="hero-instrument">
         <picture key={locale}>
-          <source media="(max-width: 620px)" srcSet={studioPreview.mobile} type="image/png" width="780" height="844" />
+          <source media="(max-width: 620px)" srcSet={studioPreview.mobile} type="image/png" width="2160" height="3840" />
           <img
             src={studioPreview.desktop}
             alt={studioPreview.alt}
-            width="1920"
-            height="1080"
+            width="3840"
+            height="2160"
             sizes="(max-width: 620px) 100vw, (max-width: 900px) 96vw, 40vw"
             loading="eager"
             decoding="async"
@@ -434,7 +443,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     <section className="capability-grid" data-reveal>{copy.capabilities.map(([title, body], index) => <article key={title}>
       <div><span>0{index + 1}</span><i aria-hidden="true" /></div>
       <figure className="capability-pair">
-        <div className="capability-scene"><span>{locale === 'zh' ? '場景' : locale === 'ja' ? 'シーン' : 'Scene'}</span><ScreenshotCrop src={index === 1 ? `site-workflow/${locale}/shoot.png` : `onboarding/${locale}/desktop-${index === 0 ? 1 : 3}.png`} size={[index === 1 ? 1920 : 1905, 1080]} crop={index === 1 ? [10, 75, 1438, 994] : [252, 150, 1340, 850]} id={`scene-${index}`} label={`${title} — ${locale === 'zh' ? '場景圖' : 'Scene'}`} /></div>
+        <div className="capability-scene"><span>{locale === 'zh' ? '場景' : locale === 'ja' ? 'シーン' : 'Scene'}</span><ScreenshotCrop src={`site-detail/${locale}/scene-${index}.png`} size={[3840, 2160]} crop={[504, 184, 2712, 1936]} id={`scene-${index}`} label={`${title} — ${locale === 'zh' ? '場景圖' : 'Scene'}`} /></div>
         <div className="capability-settings"><span>{locale === 'en' ? 'Settings preview' : locale === 'ja' ? '設定プレビュー' : '設定預覽'}</span><SettingsPreview index={index} locale={locale} /></div>
       </figure>
       <h3>{title}</h3><p>{body}</p>
@@ -458,5 +467,6 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     <section className="release-proof" id="release" data-reveal><header><span>07 / RELEASE STATUS</span><h2>{copy.release.title}</h2></header><div><article><i /><span>STATUS</span><h3>{copy.release.status}</h3><p>{copy.release.statusBody}</p></article><article><span>UPDATED</span><h3>{copy.release.updated}</h3><p>{releaseDate} · {copy.release.updatedBody}</p></article><article><span>INCLUDED</span><h3>{copy.release.included}</h3><p>{copy.release.includedBody}</p></article><a href="https://github.com/clark970417-eng/lumen-stage-showcase" target="_blank" rel="noreferrer"><span>SHOWCASE</span><h3>{copy.release.showcase}</h3><p>{copy.release.showcaseBody}</p><b aria-hidden="true">↗</b></a></div></section>
     <section className="faq" id="faq"><div className="faq-heading" data-reveal><span>08 / FAQ</span><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
     <section className="local-first" data-reveal><div className="privacy-orbit" aria-hidden="true"><BrandMark /><i /><i /></div><div><span>09 / DATA PRACTICE</span><h2>{copy.localTitle}</h2><p>{copy.localBody}</p></div><small>DEVICE<br />ONLY</small></section>
+    <FeedbackSection locale={locale} />
   </main><SiteFooter copy={copy} /></>
 }
