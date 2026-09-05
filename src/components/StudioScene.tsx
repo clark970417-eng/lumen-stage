@@ -1,8 +1,8 @@
 import { Grid, Html, Line, OrbitControls, RoundedBox, TransformControls } from '@react-three/drei'
 import { BrightnessContrast, DepthOfField, EffectComposer, ToneMapping, Vignette } from '@react-three/postprocessing'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Effect, ToneMappingMode } from 'postprocessing'
-import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { createContext, lazy, memo, Suspense, useContext, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js'
@@ -31,6 +31,8 @@ import { PoseRig } from './PoseRig'
 import { applyGelTint, geledTemperature, getGel } from '../gels'
 import { brickNormalMap, canvasNormalMap, concreteNormalMap, fabricNormalMap, fabricRoughnessMap, hairNormalMap, mottleMap, paperNormalMap, plasterNormalMap, skinNormalMap, skinRoughnessMap, woodNormalMap } from '../textures'
 import { shippedHumanFor } from '../characterAssets'
+import { useLocaleStore } from '../i18n'
+import { loadActorSource } from '../modelCache'
 import { useWorkflow } from '../workflow'
 import { canControlInWorkflow, workflowModeForStage } from '../workflowControl'
 
@@ -40,6 +42,82 @@ import { canControlInWorkflow, workflowModeForStage } from '../workflowControl'
 RectAreaLightUniformsLib.init()
 
 const HorizontalLayoutContext = createContext(false)
+
+/** Preview directly on the GPU scene; commit once so one drag is one Undo. */
+function useLayoutDrag(id: string, group: RefObject<THREE.Group | null>, locked = false) {
+  const enabled = useWorkflow((state) => workflowModeForStage(state.stage) === 'layout')
+  const view = useStudio((state) => state.view)
+  const { camera, gl, controls } = useThree()
+  const cleanup = useRef<(() => void) | null>(null)
+  useEffect(() => () => cleanup.current?.(), [enabled, view])
+  return {
+    onPointerDown(event: ThreeEvent<PointerEvent>) {
+      if (!enabled || view === 'camera' || locked || event.button !== 0 || cleanup.current || !group.current) return
+      event.stopPropagation()
+      const object = group.current
+      const origin = object.position.clone()
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -event.point.y)
+      const start = event.ray.intersectPlane(plane, new THREE.Vector3())
+      if (!start) return
+      const orbit = controls as unknown as { enabled: boolean } | null
+      const previousEnabled = orbit?.enabled ?? true
+      if (orbit) orbit.enabled = false
+      useStudio.getState().selectObject(id)
+      const canvas = gl.domElement
+      const pointerId = event.pointerId
+      canvas.setPointerCapture(pointerId)
+      const raycaster = new THREE.Raycaster()
+      const point = new THREE.Vector3()
+      let moved = false
+      const move = (next: PointerEvent) => {
+        if (next.pointerId !== pointerId) return
+        next.preventDefault()
+        const rect = canvas.getBoundingClientRect()
+        raycaster.setFromCamera(new THREE.Vector2((next.clientX - rect.left) / rect.width * 2 - 1, -(next.clientY - rect.top) / rect.height * 2 + 1), camera)
+        if (!raycaster.ray.intersectPlane(plane, point)) return
+        const state = useStudio.getState()
+        object.position.set(
+          THREE.MathUtils.clamp(origin.x + point.x - start.x, -state.roomWidth / 2 + .45, state.roomWidth / 2 - .45),
+          origin.y,
+          THREE.MathUtils.clamp(origin.z + point.z - start.z, -state.roomDepth / 2 + .45, state.roomDepth / 2 - .45),
+        )
+        moved = object.position.distanceToSquared(origin) > .0001
+      }
+      const release = () => {
+        window.removeEventListener('pointermove', move)
+        window.removeEventListener('pointerup', finish)
+        window.removeEventListener('pointercancel', cancel)
+        window.removeEventListener('blur', cancel)
+        if (canvas.hasPointerCapture(pointerId)) canvas.releasePointerCapture(pointerId)
+        if (orbit) orbit.enabled = previousEnabled
+        cleanup.current = null
+      }
+      const cancel = () => { object.position.copy(origin); release() }
+      const finish = (next: PointerEvent) => {
+        if (next.pointerId !== pointerId) return
+        const position = object.position.toArray().map((value) => Math.round(value * 20) / 20) as [number, number, number]
+        position[1] = origin.y
+        release()
+        if (!moved) { object.position.copy(origin); return }
+        const state = useStudio.getState()
+        if (id === 'model') state.setModelTransform(position)
+        else if (id === 'camera') state.setCameraPosition(position)
+        else if (state.lights.some((light) => light.id === id)) state.setLightPosition(id, position)
+        else {
+          const modifier = state.modifiers.find((item) => item.id === id)
+          const item = state.studioObjects.find((item) => item.id === id)
+          if (modifier) state.setModifierTransform(id, position, modifier.rotationY)
+          else if (item) state.setStudioObjectTransform(id, position, item.rotationY)
+        }
+      }
+      cleanup.current = cancel
+      window.addEventListener('pointermove', move, { passive: false })
+      window.addEventListener('pointerup', finish)
+      window.addEventListener('pointercancel', cancel)
+      window.addEventListener('blur', cancel)
+    },
+  }
+}
 
 const SENSOR_WIDTH = { 'full-frame': 36, 'aps-c': 23.5, mft: 17.3 } as const
 const SENSOR_COC = { 'full-frame': 0.03, 'aps-c': 0.019, mft: 0.015 } as const
@@ -140,7 +218,7 @@ function CameraRig() {
 
   // OrbitControls still owns the camera target while input is disabled. Leaving
   // its studio target here pulled a 200 mm viewfinder down from the eyes to the chest.
-  return <OrbitControls enabled={view === 'studio' && !layoutOnly} enableRotate={!layoutOnly} makeDefault target={view === 'camera' ? cameraTarget : [0, 1.15, 0]} minDistance={3.5} maxDistance={13} maxPolarAngle={Math.PI / 2.02} />
+  return <OrbitControls enabled={view !== 'camera'} enableRotate={!layoutOnly && view !== 'top'} makeDefault target={view === 'camera' ? cameraTarget : view === 'top' ? [0, 0, 1.4] : [0, 1.15, 0]} minDistance={3.5} maxDistance={13} maxPolarAngle={Math.PI / 2.02} />
 }
 
 const LENS_CHARACTER_FRAGMENT = `
@@ -1952,6 +2030,8 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   reportStatus?: boolean
   onRigReady?: (map: BoneMap | null) => void
 }) {
+  const locale = useLocaleStore((state) => state.locale)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [object, setObject] = useState<THREE.Group | null>(null)
   const setStatus = useStudio((state) => state.setModelImportStatus)
   const setRigStatus = useStudio((state) => state.setModelRigStatus)
@@ -2007,18 +2087,19 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
     let active = true
     let loadedObject: THREE.Group | null = null
     // A physique or wardrobe change may point at a different shipped actor.
-    // Do not keep rendering the previous actor while that file loads. The
-    // stage stays empty until the selected GLB is ready, so neither the old
-    // procedural figure nor a previously selected actor flashes on screen.
+    // Do not keep rendering the previous actor while that file loads. A neutral
+    // loading outline marks its position until the selected actor is ready.
     setObject(null)
+    setLoadFailed(false)
     if (reportStatus) setStatus('loading')
-    const loader = new GLTFLoader()
-    loader.load(url, (gltf) => {
+    loadActorSource(url).then((gltf) => {
       if (!active) return
       const model = clone(gltf.scene) as THREE.Group
       const shippedHuman = url.includes('/models/lumen-human/')
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
+          child.geometry = child.geometry.clone()
+          child.material = Array.isArray(child.material) ? child.material.map((material) => material.clone()) : child.material.clone()
           child.castShadow = true
           child.receiveShadow = true
           // Skinned meshes are usually authored with a bounding box for the rest
@@ -2230,15 +2311,12 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
       if (reportStatus) setRigStatus(quality.usable ? 'rigged' : 'unrigged')
 
       model.updateMatrixWorld(true)
-      const finalBox = new THREE.Box3().setFromObject(model)
-      // precise:true walks actual vertices, and for a skinned mesh that means
-      // after the bones have had their say — so this is the shape on screen.
-      const skinnedBox = new THREE.Box3().setFromObject(model, true)
       loadedObject = model
       setObject(model)
       if (reportStatus) setStatus('ready')
-    }, undefined, () => {
+    }).catch(() => {
       if (active) {
+        setLoadFailed(true)
         if (reportStatus) { setStatus('error'); setRigStatus('none') }
       }
     })
@@ -2426,7 +2504,10 @@ function ImportedModel({ url, pose: poseOverride, lookAtCamera: lookAtCameraOver
   }, [cameraYaw, effectivePose, eyesAtCamera, gazePitch, gazeYaw, object, poseOverride])
 
   if (object) return <primitive object={object} />
-  return null
+  return <group>
+    <mesh position={[0, .9, 0]}><boxGeometry args={[.5, 1.8, .35]} /><meshBasicMaterial color={loadFailed ? '#edab83' : '#a7d9e6'} wireframe transparent opacity={.45} /></mesh>
+    <Html center position={[0, 1.95, 0]} style={{ pointerEvents: 'none', whiteSpace: 'nowrap', color: '#e2edf1', background: '#152530', padding: '6px 10px', borderRadius: 6, fontSize: 11 }}><span role="status">{loadFailed ? (locale === 'zh' ? '人物載入失敗，請重新選擇' : locale === 'ja' ? '読み込めません。再選択してください' : 'Could not load. Select again.') : (locale === 'zh' ? '正在載入人物…' : locale === 'ja' ? '人物を読み込み中…' : 'Loading person…')}</span></Html>
+  </group>
 }
 
 function Mannequin() {
@@ -2457,6 +2538,7 @@ function Mannequin() {
     ?? shippedHumanFor(physique, outfitStyle)
   const seatHeight = useSeatHeight(position)
   const group = useRef<THREE.Group>(null)
+  const drag = useLayoutDrag('model', group)
   const [boneMap, setBoneMap] = useState<BoneMap | null>(null)
   const transformControl = useRef<TransformControlsImpl>(null)
   // An imported model with no recognised skeleton cannot be posed, so it gets
@@ -2472,7 +2554,7 @@ function Mannequin() {
   )
   const renderedRotation = useMemo<[number, number, number]>(() => [0, rotation, 0], [rotation])
   const model = (
-    <group ref={group} position={renderedPosition} rotation={renderedRotation} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('model') }}>
+    <group {...drag} ref={group} position={renderedPosition} rotation={renderedRotation} scale={modelHeight / 1.82} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('model') }}>
       <ImportedModel url={activeModelUrl} seatHeight={seatHeight} onRigReady={setBoneMap} />
       {showHandles && (
         <PoseRig
@@ -2503,7 +2585,7 @@ function Mannequin() {
         rotationSnap={THREE.MathUtils.degToRad(5)}
         showY={!horizontalLayoutOnly}
         showX={effectiveTransformMode === 'translate'}
-        showZ={!horizontalLayoutOnly && effectiveTransformMode === 'translate'}
+        showZ={effectiveTransformMode === 'translate'}
         onMouseUp={() => {
           if (!group.current) return
           const nextPosition: [number, number, number] = [
@@ -2831,15 +2913,16 @@ function MovableStudioObject({ object }: { object: StudioObject }) {
   const transformMode = useStudio((state) => state.transformMode)
   const setTransform = useStudio((state) => state.setStudioObjectTransform)
   const group = useRef<THREE.Group>(null)
+  const drag = useLayoutDrag(object.id, group, object.locked)
   const transformControl = useRef<TransformControlsImpl>(null)
   const outlineSize: [number, number, number] = object.type === 'subject' ? [0.95, object.subjectHeight + 0.12, 0.65] : object.type === 'dog' ? [0.85, 1, 1.15] : object.type === 'cat' ? [0.65, 0.95, 0.75] : object.type === 'product' ? [0.55, 0.8, 0.55] : object.type === 'table' ? [1.5, 1, 0.9] : object.type === 'chair' ? [0.56, 0.98, 0.54] : object.type === 'plinth' ? [1, 1.25, 1] : [1, 1, 1]
   const yOffset = object.type === 'subject' ? object.subjectHeight / 2 : object.type === 'dog' ? 0.45 : object.type === 'cat' ? 0.42 : object.type === 'product' ? 0.35 : object.type === 'table' ? 0.45 : object.type === 'chair' ? 0.47 : object.type === 'plinth' ? 0.55 : 0
-  const content = <group ref={group} position={object.position} rotation={[0, object.rotationY, 0]} scale={object.type === 'subject' ? 1 : object.scale} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(object.id) }}>
+  const content = <group {...drag} ref={group} position={object.position} rotation={[0, object.rotationY, 0]} scale={object.type === 'subject' ? 1 : object.scale} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(object.id) }}>
     <StudioObjectMesh object={object} />
     {canControl && selected && view !== 'camera' && <mesh position={[0, yOffset, 0]}><boxGeometry args={outlineSize} /><meshBasicMaterial color={object.locked ? '#ff8b62' : '#d8ff3e'} wireframe transparent opacity={0.48} /></mesh>}
   </group>
   const effectiveTransformMode = layoutOnly ? 'translate' : transformMode
-  return <>{content}{canControl && selected && view !== 'camera' && !object.locked && <TransformControls ref={transformControl} object={group as RefObject<THREE.Object3D>} mode={effectiveTransformMode} size={0.7} translationSnap={0.05} rotationSnap={THREE.MathUtils.degToRad(5)} showX={effectiveTransformMode === 'translate'} showY={!horizontalLayoutOnly} showZ={!horizontalLayoutOnly && effectiveTransformMode === 'translate'} onMouseUp={() => {
+  return <>{content}{canControl && selected && view !== 'camera' && !object.locked && <TransformControls ref={transformControl} object={group as RefObject<THREE.Object3D>} mode={effectiveTransformMode} size={0.7} translationSnap={0.05} rotationSnap={THREE.MathUtils.degToRad(5)} showX={effectiveTransformMode === 'translate'} showY={!horizontalLayoutOnly} showZ={effectiveTransformMode === 'translate'} onMouseUp={() => {
     if (!group.current) return
     setTransform(object.id, [Number(group.current.position.x.toFixed(2)), Number(Math.max(0, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))], Number(group.current.rotation.y.toFixed(3)), effectiveTransformMode === 'translate' ? activeTransformAxis(transformControl.current) : undefined)
   }} />}</>
@@ -3028,6 +3111,7 @@ function Softbox({ light }: { light: StudioLight }) {
   const aimPivot = useMemo(() => new THREE.Object3D(), [])
   const visual = useRef<THREE.Group>(null)
   const rig = useRef<THREE.Group>(null)
+  const drag = useLayoutDrag(lightId, rig, light.locked)
   const transformControl = useRef<TransformControlsImpl>(null)
   const spot = useRef<(THREE.SpotLight & { radius?: number; iesMap?: THREE.Texture | null })>(null)
   const [iesTexture, setIesTexture] = useState<THREE.Texture | null>(null)
@@ -3103,7 +3187,7 @@ function Softbox({ light }: { light: StudioLight }) {
   }, [light.target, position])
 
   const softbox = (
-    <group ref={rig} position={position} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(lightId, Boolean((event.nativeEvent as PointerEvent).shiftKey)) }}>
+    <group {...drag} ref={rig} position={position} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(lightId, Boolean((event.nativeEvent as PointerEvent).shiftKey)) }}>
       <spotLight
         ref={spot}
         position={[0, 0, 0]} target={target} color={color} intensity={effectiveEnabled ? outputLumens / (renderMode === 'path' ? PATHTRACE_CANDELA_SCALE : PREVIEW_CANDELA_SCALE) : 0}
@@ -3234,7 +3318,7 @@ function Softbox({ light }: { light: StudioLight }) {
           rotationSnap={THREE.MathUtils.degToRad(5)}
           showX
           showY={!horizontalLayoutOnly}
-          showZ={!horizontalLayoutOnly && (effectiveAimMode || effectiveTransformMode === 'translate')}
+          showZ={(effectiveAimMode || effectiveTransformMode === 'translate')}
           onMouseUp={() => {
             if (effectiveAimMode) {
               setLightTarget(lightId, [Number(target.position.x.toFixed(2)), Number(Math.max(0.1, target.position.y).toFixed(2)), Number(target.position.z.toFixed(2))], activeTransformAxis(transformControl.current))
@@ -3278,6 +3362,7 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
   const modelPosition = useStudio((state) => state.modelPosition)
   const modelHeight = useStudio((state) => state.modelHeight)
   const group = useRef<THREE.Group>(null)
+  const drag = useLayoutDrag(modifier.id, group, modifier.locked)
   const transformControl = useRef<TransformControlsImpl>(null)
   const bounceLight = useRef<THREE.RectAreaLight>(null)
   const material = MODIFIER_MATERIALS[modifier.surface]
@@ -3349,7 +3434,7 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
 
   const object = (
     <group
-      ref={group}
+      {...drag} ref={group}
       position={modifier.position}
       rotation={[0, modifier.rotationY, 0]}
       onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(modifier.id) }}
@@ -3393,7 +3478,7 @@ function GripModifier({ modifier }: { modifier: StudioModifier }) {
       rotationSnap={THREE.MathUtils.degToRad(5)}
       showX={layoutOnly || transformMode === 'translate'}
       showY={!horizontalLayoutOnly}
-      showZ={!horizontalLayoutOnly && (layoutOnly || transformMode === 'translate')}
+      showZ={(layoutOnly || transformMode === 'translate')}
       onMouseUp={() => {
         if (!group.current) return
         setModifierTransform(modifier.id,
@@ -3417,6 +3502,7 @@ function CameraProp() {
   const target = useStudio((state) => state.cameraTarget)
   const setCameraPosition = useStudio((state) => state.setCameraPosition)
   const group = useRef<THREE.Group>(null)
+  const drag = useLayoutDrag('camera', group)
   const head = useRef<THREE.Group>(null)
   const transformControl = useRef<TransformControlsImpl>(null)
   const columnHeight = Math.max(0.3, position[1] - 0.22)
@@ -3439,7 +3525,7 @@ function CameraProp() {
    */
 
   const camera = (
-    <group ref={group} position={position} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('camera') }}>
+    <group {...drag} ref={group} position={position} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject('camera') }}>
       <group position={[0, -columnHeight - 0.22, 0]}>
         <LightStand height={columnHeight} footprint={0.46} />
       </group>
@@ -3542,7 +3628,7 @@ function CameraProp() {
         translationSnap={0.05}
         showX
         showY={!horizontalLayoutOnly}
-        showZ={!horizontalLayoutOnly}
+        showZ
         onMouseUp={() => {
           if (!group.current) return
           setCameraPosition([Number(group.current.position.x.toFixed(2)), Number(Math.max(0.35, group.current.position.y).toFixed(2)), Number(group.current.position.z.toFixed(2))], activeTransformAxis(transformControl.current))
@@ -3673,6 +3759,11 @@ function ExposureProbe() {
   return null
 }
 
+const MemoMannequin = memo(Mannequin)
+const MemoSoftbox = memo(Softbox)
+const MemoGripModifier = memo(GripModifier)
+const MemoMovableStudioObject = memo(MovableStudioObject)
+
 export function StudioScene({ horizontalLayoutOnly = false }: { horizontalLayoutOnly?: boolean }) {
   const { gl, scene } = useThree()
   const aperture = useStudio((state) => state.aperture)
@@ -3725,10 +3816,10 @@ export function StudioScene({ horizontalLayoutOnly = false }: { horizontalLayout
       <ambientLight intensity={layoutOnly ? Math.max(0.72, ambientLevel / 48) : soloLightId ? 0.015 : ambientLevel / 75} color={ambientColor} />
       <EnvironmentLighting />
       <Backdrop />
-      <Mannequin />
-      {lights.map((light) => <Softbox key={light.id} light={light} />)}
-      {modifiers.map((modifier) => <GripModifier key={modifier.id} modifier={modifier} />)}
-      {studioObjects.map((object) => <MovableStudioObject key={object.id} object={object} />)}
+      <MemoMannequin />
+      {lights.map((light) => <MemoSoftbox key={light.id} light={light} />)}
+      {modifiers.map((modifier) => <MemoGripModifier key={modifier.id} modifier={modifier} />)}
+      {studioObjects.map((object) => <MemoMovableStudioObject key={object.id} object={object} />)}
       {/* Not through its own lens. The prop sits exactly at the viewpoint, so
           with a real lens barrel on it the body now filled its own frame. */}
       {renderMode !== 'path' && view !== 'camera' && <CameraProp />}

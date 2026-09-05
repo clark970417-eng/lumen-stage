@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow'
 /**
  * Lumen Stage on a phone.
  *
@@ -263,7 +264,30 @@ function SetupsTab({ applied, onApply }: { applied: string | null; onApply: (id:
 function SubjectTab() {
   const t = useT()
   const ct = useCatalogT()
-  const state = useStudio()
+  const state = useStudio(useShallow((state) => ({
+    addStudioObject: state.addStudioObject,
+    applyPhysiquePreset: state.applyPhysiquePreset,
+    applyPosePreset: state.applyPosePreset,
+    applyStudioSubjectPhysique: state.applyStudioSubjectPhysique,
+    applyStudioSubjectPose: state.applyStudioSubjectPose,
+    deleteMainSubject: state.deleteMainSubject,
+    deleteStudioObject: state.deleteStudioObject,
+    mainSubjectEnabled: state.mainSubjectEnabled,
+    modelHeight: state.modelHeight,
+    modelPosition: state.modelPosition,
+    outfitStyle: state.outfitStyle,
+    physique: state.physique,
+    posePreset: state.posePreset,
+    selectObject: state.selectObject,
+    selected: state.selected,
+    setModelTransform: state.setModelTransform,
+    setStudioObjectTransform: state.setStudioObjectTransform,
+    setValue: state.setValue,
+    studioObjects: state.studioObjects,
+    updatePhysique: state.updatePhysique,
+    updateStudioObject: state.updateStudioObject,
+    updateStudioSubjectPhysique: state.updateStudioSubjectPhysique,
+  })))
   const subjects = state.studioObjects.filter((object) => object.type === 'subject')
   const selectedObject = subjects.find((object) => object.id === state.selected)
   const activeId = state.selected === 'model' && state.mainSubjectEnabled
@@ -728,7 +752,23 @@ function MobileVerifyTab({ onOpenAbout, onOpenTour }: { onOpenAbout: () => void;
 
 function MobileLayoutTab({ applied, onApply }: { applied: string | null; onApply: (id: string) => void }) {
   const t = useT()
-  const state = useStudio()
+  const state = useStudio(useShallow((state) => ({
+    addLight: state.addLight,
+    cameraPosition: state.cameraPosition,
+    lights: state.lights,
+    mainSubjectEnabled: state.mainSubjectEnabled,
+    modelPosition: state.modelPosition,
+    modifiers: state.modifiers,
+    roomWidth: state.roomWidth,
+    selectObject: state.selectObject,
+    selected: state.selected,
+    setCameraPosition: state.setCameraPosition,
+    setLightPosition: state.setLightPosition,
+    setModelTransform: state.setModelTransform,
+    setModifierTransform: state.setModifierTransform,
+    setStudioObjectTransform: state.setStudioObjectTransform,
+    studioObjects: state.studioObjects,
+  })))
   const items = [
     ...(state.mainSubjectEnabled ? [{ id: 'model', label: t('mobile.tab.subject') }] : []),
     ...state.lights.map((light) => ({ id: light.id, label: light.name })),
@@ -930,7 +970,7 @@ export function MobileApp() {
       </div>
 
       {photo && <PhotoSheet photo={photo} onClose={() => setPhoto(null)} />}
-      <OnboardingTour open={tourOpen} scope="mobile" onClose={closeTour} />
+      <OnboardingTour photoTaken={photo !== null} open={tourOpen} scope="mobile" onClose={closeTour} />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </main>
   )
