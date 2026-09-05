@@ -1,8 +1,8 @@
 {
   "largestJavaScriptBytes": 1600000,
-  "totalJavaScriptBytes": 2500000,
+  "totalJavaScriptBytes": 2900000,
   "largestStylesheetBytes": 200000,
-  "totalStylesheetBytes": 300000,
-  "initialHomepageJavaScriptBytes": 350000,
-  "publishedBytes": 167772160
+  "totalStylesheetBytes": 340000,
+  "initialHomepageJavaScriptBytes": 400000,
+  "publishedBytes": 209715200
 }

@@ -1,3 +1,24 @@
+/**
+ * Holds the build to performance-budget.json.
+ *
+ * The limits are not targets to grow into, and they are not there to argue
+ * with a product decision. Each one does a particular job:
+ *
+ * - The JavaScript and stylesheet limits catch bloat nobody asked for. They
+ *   sit far enough above current use that ordinary feature work fits without
+ *   a negotiation, and close enough that a dependency arriving twice does not.
+ * - `initialHomepageJavaScriptBytes` is the only one that measures what a
+ *   visitor waits for. Keep it tight.
+ * - `publishedBytes` is a backstop against an accident, not a cap on how good
+ *   the imagery is allowed to look. It exists because 306 MB of FBX and TGA
+ *   converter sources once reached the deployed site. The precise guard for
+ *   that is the source-asset check below, which fails on any .fbx/.tga/.psd in
+ *   a build whatever the total comes to; this limit is the coarse net behind
+ *   it. Deliberate 4K product screenshots are not what it is for.
+ *
+ * Raising one is a normal thing to do when the growth is deliberate. Raising
+ * one to make a red check go green, without knowing what grew, is not.
+ */
 import { readFile, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
