@@ -448,3 +448,10 @@
 .settings-preview-row { gap:12px 8px; flex-shrink:0; }
 .settings-preview-row>i { margin-bottom:6px; }
 @media(max-width:620px) { .settings-preview { padding:12px; gap:14px; } }
+/* The controls determine frame height; the photo never adds an empty row. */
+.capability-pair { height:auto; }
+.capability-scene { position:relative; align-self:stretch; }
+.capability-pair > div > span { height:35px; flex:0 0 35px; }
+.capability-scene svg { position:absolute; top:35px; left:0; width:100%; height:calc(100% - 35px); }
+.settings-preview { flex:none; }
+@media(max-width:620px) { .capability-pair { height:auto; } }
