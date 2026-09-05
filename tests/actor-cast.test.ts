@@ -140,3 +140,11 @@ test('the cast stands on three skeletons, not sixteen', () => {
     }
   }
 })
+
+test('every homepage cast member has a nonempty transparent preview', () => {
+  for (const actor of CAST) {
+    const preview = new URL(`../public/models/lumen-human/cast/transparent/${actor.id}.webp`, import.meta.url)
+    assert.ok(existsSync(preview), `Missing transparent preview: ${actor.id}`)
+    assert.ok(statSync(preview).size > 1000, `Empty preview: ${actor.id}`)
+  }
+})

@@ -5,7 +5,7 @@
 .cast-gallery p{max-width:55ch;color:var(--muted);font-size:15px;line-height:1.8;margin:0}
 .cast-browser{max-width:1400px;margin:auto;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,1fr);gap:32px}
 .cast-portrait{margin:0;border:1px solid var(--line-bright);border-radius:12px;overflow:hidden;background:var(--ink)}
-.cast-portrait>div{height:540px;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 80%,var(--panel-raised),var(--ink) 70%)}
+.cast-portrait>div{height:540px;display:grid;grid-template-rows:minmax(0,1fr);place-items:center;background:radial-gradient(ellipse at 50% 80%,var(--panel-raised),var(--ink) 70%)}
 .cast-portrait img{height:94%;max-width:100%;width:auto;object-fit:contain;animation:cast-select 260ms ease-out both}
 .cast-portrait figcaption{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:20px 24px;border-top:1px solid var(--line);background:var(--panel)}
 .cast-portrait strong{font-size:18px;font-weight:500}.cast-portrait figcaption span{font:11px var(--mono);color:var(--muted)}

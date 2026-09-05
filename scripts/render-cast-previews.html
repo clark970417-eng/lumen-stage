@@ -14,7 +14,8 @@ scene.add(new THREE.HemisphereLight('#dfe6ff','#2a2622',1.6))
 const key=new THREE.DirectionalLight('#fff4e6',2.2);key.position.set(2,3.4,3);scene.add(key)
 const loader=new GLTFLoader(),pose=getCapturedPose('captured-relaxed')
 try{
-for(const actor of CAST){
+const requested=new URLSearchParams(location.search).get('ids')?.split(',')
+for(const actor of CAST.filter(actor=>!requested||requested.includes(actor.id))){
  const figure=(await loader.loadAsync(actor.url)).scene
  figure.scale.setScalar(.01);scene.add(figure);figure.updateMatrixWorld(true)
  const map=mapSkeleton(figure),rest=captureRestPose(figure,map)
