@@ -1,0 +1,89 @@
+<!doctype html><meta charset="utf-8"><title>pose audit</title><pre id="out" style="color:#cfc;background:#111;font:11px ui-monospace;padding:8px;white-space:pre-wrap"></pre>
+<!--
+  Measures where every solved pose puts the hands on one actor, relative to the
+  actor's own landmarks.
+
+  A solved pose is joint angles plus an IK target, and `landHands` scales that
+  target by the actor's shoulder width and torso rise. That is right for most
+  poses and wrong for the ones whose target is a place on the body reached by
+  the arm — a hand at the opposite elbow moves with upper-arm length, which
+  scales differently. This is what finds those, without anybody looking at 27
+  poses times 16 actors.
+
+    /scripts/pose-audit.html?actor=rocketbox-male-adult-05
+-->
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { NEUTRAL_POSE, POSE_LIBRARY } from '/src/pose.ts'
+import { DEFAULT_PHYSIQUE } from '/src/physique.ts'
+import { forwardKinematics } from '/src/ik.ts'
+import { aimRestToNeutral } from '/src/actorRig.ts'
+import { applyPoseToSkeleton, captureRestPose, landHands, mapSkeleton } from '/src/retarget.ts'
+import { castMember } from '/src/actorCast.ts'
+
+const actorId = new URLSearchParams(location.search).get('actor') || 'female'
+const entry = castMember(actorId)
+const solved = POSE_LIBRARY.filter((p) => !p.pose.capture)
+const out = { actor: actorId, poses: {} }
+try {
+  const gltf = await new Promise((r, j) => new GLTFLoader().load(entry.url, r, undefined, j))
+  const model = clone(gltf.scene)
+  // Prepared the way the studio prepares one, down to the same call.
+  model.updateMatrixWorld(true)
+  const size = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3())
+  model.scale.setScalar(1.82 / size.y)
+  model.updateMatrixWorld(true)
+  const map = mapSkeleton(model)
+  const physique = { ...DEFAULT_PHYSIQUE, sex: entry.sex }
+  aimRestToNeutral(model, map, physique)
+  const rest = captureRestPose(model, map)
+
+  const at = (bone) => bone.getWorldPosition(new THREE.Vector3())
+  const stature = at(map.head).y - at(map.leftFoot).y
+  out.stature = Math.round(stature * 1000) / 1000
+
+  // Where a hand sits relative to the landmarks a pose might mean it to touch.
+  // In the landmark's own frame, so it travels with the limb, and over stature
+  // so two actors of different sizes are comparable.
+  const ANCHORS = {
+    head: () => map.head,
+    chest: () => map.chest,
+    ownThighL: () => map.leftUpperLeg,
+    ownThighR: () => map.rightUpperLeg,
+    oppForearmL: () => map.rightLowerArm,
+    oppForearmR: () => map.leftLowerArm,
+  }
+  for (const pose of solved) {
+    const full = { ...NEUTRAL_POSE, ...pose.pose }
+    const stanceSplay = THREE.MathUtils.radToDeg(Math.atan2(full.stanceWidth / 2 - 0.083, 0.865))
+    applyPoseToSkeleton(model, map, rest, full, stanceSplay)
+    model.updateMatrixWorld(true)
+    landHands(map, forwardKinematics(full, physique), 1, model)
+    model.updateMatrixWorld(true)
+    const record = {}
+    for (const [hand, bone] of [['L', map.leftHand], ['R', map.rightHand]]) {
+      const world = at(bone)
+      for (const [name, get] of Object.entries(ANCHORS)) {
+        if (name.endsWith('L') && hand !== 'L') continue
+        if (name.endsWith('R') && hand !== 'R') continue
+        const anchor = get()
+        if (!anchor) continue
+        // Rotation only. worldToLocal divides by the bone's accumulated scale
+        // as well, and these models are authored in centimetres and rendered a
+        // hundredth of that size — which turned a hand a few centimetres from a
+        // forearm into a reading of thirty metres.
+        const local = world.clone().sub(anchor.getWorldPosition(new THREE.Vector3()))
+          .applyQuaternion(anchor.getWorldQuaternion(new THREE.Quaternion()).invert())
+          .divideScalar(stature)
+        record[`${hand}/${name.replace(/[LR]$/, '')}`] = local.toArray().map((v) => Math.round(v * 10000) / 10000)
+      }
+    }
+    out.poses[pose.id] = record
+  }
+} catch (e) { out.error = String(e) + '\n' + e.stack }
+window.__audit = JSON.stringify(out)
+document.getElementById('out').textContent = out.error || `${actorId}: ${Object.keys(out.poses).length} solved poses measured`
+window.__ready = true
+</script>

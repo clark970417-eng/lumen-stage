@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { CAST, castMember, castMemberForUrl, defaultCastFor, MAX_SUBJECT_HEIGHT, MIN_SUBJECT_HEIGHT } from '../src/actorCast.ts'
 import { appearanceIsBaked } from '../src/characterAssets.ts'
 import { DEFAULT_PHYSIQUE } from '../src/physique.ts'
@@ -88,5 +88,55 @@ test('every actor fits the height a project can store', () => {
     assert.ok(member.height >= MIN_SUBJECT_HEIGHT,
       `${member.id} is ${member.height} m, below the ${MIN_SUBJECT_HEIGHT} m a scene can hold`)
     assert.ok(member.height <= MAX_SUBJECT_HEIGHT, `${member.id} is taller than a scene can hold`)
+  }
+})
+
+/** Bone lengths, read straight out of a GLB's node hierarchy. */
+function skeletonOf(url: string): Record<string, number> {
+  const buffer = readFileSync(local(url))
+  let offset = 12
+  let json: { nodes?: { name?: string; translation?: number[]; matrix?: number[] }[] } | null = null
+  while (offset < buffer.length) {
+    const length = buffer.readUInt32LE(offset)
+    if (buffer.readUInt32LE(offset + 4) === 0x4E4F534A) {
+      json = JSON.parse(buffer.subarray(offset + 8, offset + 8 + length).toString('utf8'))
+    }
+    offset += 8 + length
+  }
+  const lengths: Record<string, number> = {}
+  for (const node of json?.nodes ?? []) {
+    if (!node.name?.startsWith('Bip01')) continue
+    const t = node.translation ?? (node.matrix ? [node.matrix[12], node.matrix[13], node.matrix[14]] : null)
+    if (t) lengths[node.name] = Math.round(Math.hypot(t[0], t[1], t[2]) * 100) / 100
+  }
+  return lengths
+}
+
+test('the cast stands on three skeletons, not sixteen', () => {
+  // Rocketbox skins every adult avatar of a sex onto one skeleton, and the
+  // children onto their own. That is what makes the solved pose library safe
+  // to grow the cast against: a pose is joint angles landed by IK against a
+  // set of bone lengths, so actors that share bone lengths cannot disagree
+  // about where a hand goes. Measured across the whole cast, adults are
+  // identical to their reference and children land within 3 cm of it.
+  //
+  // An actor arriving on a fourth skeleton breaks that guarantee silently —
+  // every solved pose would have to be looked at again. This is the tripwire.
+  // Re-run scripts/pose-audit.html across the cast if it ever fires.
+  for (const sex of ['feminine', 'masculine'] as const) {
+    const reference = skeletonOf(CAST.find((m) => m.sex === sex && !m.child)!.url)
+    assert.ok(Object.keys(reference).length > 40, 'no skeleton read from the reference actor')
+    for (const member of CAST.filter((m) => m.sex === sex && !m.child)) {
+      assert.deepEqual(skeletonOf(member.url), reference,
+        `${member.id} does not stand on the same skeleton as the rest of the ${sex} cast`)
+    }
+  }
+  // The children have their own, and it is smaller everywhere it should be.
+  for (const child of CAST.filter((m) => m.child)) {
+    const bones = skeletonOf(child.url)
+    const adult = skeletonOf(CAST.find((m) => m.sex === child.sex && !m.child)!.url)
+    for (const limb of ['Bip01_L_Forearm', 'Bip01_L_Calf', 'Bip01_Neck']) {
+      assert.ok(bones[limb] < adult[limb], `${child.id} has an adult ${limb}`)
+    }
   }
 })
