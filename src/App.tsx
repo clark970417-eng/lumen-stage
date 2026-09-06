@@ -733,7 +733,12 @@ export default function App() {
           shadows="percentage"
           dpr={[1, 1.75]}
           gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' }}
-          camera={{ position: [6.8, 6, 7.2], fov: 42, near: 0.05, far: 100 }}
+          // CameraRig owns the position and the field of view from the first
+          // frame onward; near and far are only set here. The position is
+          // repeated rather than dropped so the opening frame is not rendered
+          // from R3F's default before the rig's effect runs -- keep it equal to
+          // the studio viewpoint in CameraRig.
+          camera={{ position: [2.06, 6, 9.69], fov: 42, near: 0.05, far: 100 }}
         >
           <CanvasHealth onLost={onWebglLost} onRestored={onWebglRestored} />
           <Suspense fallback={null}><StudioScene /></Suspense>
