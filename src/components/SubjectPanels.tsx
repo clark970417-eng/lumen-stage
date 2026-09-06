@@ -191,6 +191,19 @@ export function PoseControls({ pose, baked = false, onChange }: { pose: ModelPos
         <Range label={t('pose.neckExtend')} value={pose.neckExtend} min={-10} max={25} unit="°" disabled={captured} onChange={set('neckExtend')} />
       </JointGroup>
 
+      <JointGroup title={t('pose.group.face')} count={baked ? 8 : 9}>
+        <Range label={t('pose.browRaise')} value={pose.browRaise} min={-100} max={100} unit="%" onChange={set('browRaise')} />
+        <Range label={t('pose.eyeOpen')} value={pose.eyeOpen} min={0} max={100} unit="%" onChange={set('eyeOpen')} />
+        <Range label={t('pose.squint')} value={pose.squint} min={0} max={100} unit="%" onChange={set('squint')} />
+        <Range label={t('pose.smile')} value={pose.smile} min={-40} max={100} unit="%" onChange={set('smile')} />
+        <Range label={t('pose.lipPart')} value={pose.lipPart} min={0} max={100} unit="%" onChange={set('lipPart')} />
+        <Range label={t('pose.mouthOpen')} value={pose.mouthOpen} min={0} max={100} unit="%" onChange={set('mouthOpen')} />
+        {/* A jaw thrust reshapes the head, which a photographed one cannot do. */}
+        {!baked && <Range label={t('pose.jawSet')} value={pose.jawSet} min={-30} max={40} unit="%" onChange={set('jawSet')} />}
+        <Range label={t('pose.gazeYaw')} value={pose.gazeYaw} min={-35} max={35} unit="°" onChange={set('gazeYaw')} />
+        <Range label={t('pose.gazePitch')} value={pose.gazePitch} min={-30} max={30} unit="°" onChange={set('gazePitch')} />
+      </JointGroup>
+
       <JointGroup title={t('pose.group.spine')} count={7}>
         <Range label={t('pose.torsoYaw')} value={pose.torsoYaw} min={-130} max={130} unit="°" disabled={captured} onChange={set('torsoYaw')} />
         <Range label={t('pose.spineBend')} value={pose.spineBend} min={-25} max={40} unit="°" disabled={captured} onChange={set('spineBend')} />
@@ -238,18 +251,7 @@ export function PoseControls({ pose, baked = false, onChange }: { pose: ModelPos
         <Range label={t('pose.rightFootTurn')} value={pose.rightFootTurn} min={-30} max={50} unit="°" disabled={captured} onChange={set('rightFootTurn')} />
       </JointGroup>
 
-      <JointGroup title={t('pose.group.face')} count={baked ? 8 : 9}>
-        <Range label={t('pose.browRaise')} value={pose.browRaise} min={-100} max={100} unit="%" onChange={set('browRaise')} />
-        <Range label={t('pose.eyeOpen')} value={pose.eyeOpen} min={0} max={100} unit="%" onChange={set('eyeOpen')} />
-        <Range label={t('pose.squint')} value={pose.squint} min={0} max={100} unit="%" onChange={set('squint')} />
-        <Range label={t('pose.smile')} value={pose.smile} min={-40} max={100} unit="%" onChange={set('smile')} />
-        <Range label={t('pose.lipPart')} value={pose.lipPart} min={0} max={100} unit="%" onChange={set('lipPart')} />
-        <Range label={t('pose.mouthOpen')} value={pose.mouthOpen} min={0} max={100} unit="%" onChange={set('mouthOpen')} />
-        {/* A jaw thrust reshapes the head, which a photographed one cannot do. */}
-        {!baked && <Range label={t('pose.jawSet')} value={pose.jawSet} min={-30} max={40} unit="%" onChange={set('jawSet')} />}
-        <Range label={t('pose.gazeYaw')} value={pose.gazeYaw} min={-35} max={35} unit="°" onChange={set('gazeYaw')} />
-        <Range label={t('pose.gazePitch')} value={pose.gazePitch} min={-30} max={30} unit="°" onChange={set('gazePitch')} />
-      </JointGroup>
+
     </div>
   )
 }

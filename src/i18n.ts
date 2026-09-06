@@ -554,7 +554,7 @@ const DICT = {
   'camera.aimZ': { en: 'Aim Z', zh: '瞄準 Z', ja: '注視点 Z' },
 
   // ── Inspector：相機參數 ────────────────────────────────
-  'cam.section': { en: 'Camera', zh: '相機', ja: 'カメラ' },
+  'cam.section': { en: 'Camera parameters', zh: '相機參數', ja: 'カメラ設定' },
   'cam.enterView': { en: 'Enter viewfinder', zh: '進入取景', ja: 'ファインダーへ' },
   'cam.body': { en: 'Camera body', zh: '相機機身', ja: 'カメラボディ' },
   'cam.lens': { en: 'Lens', zh: '鏡頭', ja: 'レンズ' },

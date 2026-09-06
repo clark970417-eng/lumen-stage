@@ -606,6 +606,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
         <Range label={t('axis.z')} value={state.modelPosition[2]} min={-1} max={4} step={0.05} onChange={(value) => state.setModelTransform([state.modelPosition[0], state.modelPosition[1], value])} />
         <Range label={t('model.facing')} value={Math.round(THREE_RAD_TO_DEG * state.modelRotation)} min={-180} max={180} step={5} unit="°" onChange={(value) => state.setModelTransform(state.modelPosition, value / THREE_RAD_TO_DEG)} />
         <Range label={t('subject.height')} value={state.modelHeight} min={1.15} max={2.2} step={0.01} unit=" m" onChange={(value) => setValue('modelHeight', Number(value.toFixed(2)))} />
+          {editableBuiltin && <CastPanel current={state.actorId} onCast={state.castActor} />}
         <div className="pose-heading">
           <span>{t('pose.section')}</span>
           <small>{state.modelRigStatus === 'rigged' ? t('pose.retargeted') : state.modelRigStatus === 'unrigged' ? t('pose.unrigged') : 'LOADING SKELETON'}</small>
@@ -634,7 +635,6 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
             if (patch.hairColor) setValue('hairColor', patch.hairColor)
             if (patch.hairGloss !== undefined) setValue('hairGloss', patch.hairGloss)
           }} />
-          {editableBuiltin && <CastPanel current={state.actorId} onCast={state.castActor} />}
           <PhysiquePanel physique={state.physique} baked={bakedMain} onChange={state.updatePhysique} onPreset={state.applyPhysiquePreset} />
           <WardrobePanel baked={bakedMain} hairStyle={state.hairStyle} outfit={state.outfitStyle} fabric={state.outfitFabric} onChange={(patch) => {
             if (patch.hairStyle) setValue('hairStyle', patch.hairStyle)
@@ -645,120 +645,6 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
       </section>}
 
       {mode === 'camera' && <>
-      {state.selected === 'camera' && <InspectorDrawer key="camera-position" title={t('camera.section')} meta={state.cameraTargetSubjectId ? meta.tracking : meta.manual} className="camera-body-controls" comparison={{
-        capture: () => captureStudio(state, ['cameraPosition', 'cameraTarget', 'cameraTargetSubjectId', 'cameraTargetZone', 'cameraAutoFocus', 'cameraFramingPreset', 'focusDistance'] as const),
-        apply: applyStudio,
-      }}>
-        <div className="target-binding-panel camera-target-panel">
-          <label><span>{t('beam.follow')}</span><select aria-label={t('camera.followAria')} value={state.cameraTargetSubjectId ?? 'manual'} onChange={(event) => state.bindCameraToSubject(event.target.value === 'manual' ? null : event.target.value, state.cameraTargetZone)}>
-            <option value="manual">{t('camera.manual')}</option>
-            {state.mainSubjectEnabled && <option value="model">{t('subject.main')}</option>}
-            {subjectObjects.map((subject, index) => <option key={subject.id} value={subject.id}>{t('subject.numbered', { n: index + 2, name: subject.name })}</option>)}
-          </select></label>
-          <div role="group" aria-label={t('camera.zoneAria')}>
-            {([['face','zone.face'],['chest','zone.chest'],['full','zone.full']] as const).map(([zone,labelKey]) => <button key={zone} disabled={!state.cameraTargetSubjectId} className={state.cameraTargetZone === zone ? 'active' : ''} onClick={() => state.cameraTargetSubjectId && state.bindCameraToSubject(state.cameraTargetSubjectId, zone)}>{t(labelKey)}</button>)}
-          </div>
-          <button className={state.cameraAutoFocus ? 'camera-af-toggle active' : 'camera-af-toggle'} onClick={() => state.setCameraAutoFocus(!state.cameraAutoFocus)}><i />{state.cameraAutoFocus ? `AF TRACK · ${state.focusDistance.toFixed(2)} M` : t('camera.afEnable')}</button>
-          <small>{t('camera.trackNote')}</small>
-        </div>
-        <div className="camera-framing-presets" role="group" aria-label={t('camera.framingAria')}>
-          {(['headshot','half','full'] as const).map((preset) => <button key={preset} className={state.cameraFramingPreset === preset && state.cameraTargetSubjectId ? 'active' : ''} onClick={() => state.frameCameraSubject(state.cameraTargetSubjectId ?? 'model', preset)}>{t(`framing.${preset}`)}<small>{preset === 'headshot' ? 'TIGHT' : preset === 'half' ? 'MEDIUM' : 'WIDE'}</small></button>)}
-        </div>
-        <div className="camera-position-status"><span>CAMERA 01</span><b>{cameraDistance.toFixed(2)} m TO TARGET</b></div>
-        <div className="coordinate-label"><span>{t('camera.bodyPos')}</span><small>X / Y / Z</small></div>
-        <Range label={t('camera.x')} value={state.cameraPosition[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setCameraPosition([value, state.cameraPosition[1], state.cameraPosition[2]])} />
-        <Range label={t('camera.y')} value={state.cameraPosition[1]} min={0.35} max={3.5} step={0.05} onChange={(value) => state.setCameraPosition([state.cameraPosition[0], value, state.cameraPosition[2]])} />
-        <Range label={t('camera.z')} value={state.cameraPosition[2]} min={1.2} max={9} step={0.05} onChange={(value) => state.setCameraPosition([state.cameraPosition[0], state.cameraPosition[1], value])} />
-        <div className="coordinate-label target-label"><span>{t('camera.aimPoint')}</span><small>X / Y / Z</small></div>
-        <Range label={t('camera.aimX')} value={state.cameraTarget[0]} min={-3} max={3} step={0.05} onChange={(value) => state.setCameraTarget([value, state.cameraTarget[1], state.cameraTarget[2]])} />
-        <Range label={t('camera.aimY')} value={state.cameraTarget[1]} min={0.2} max={2.6} step={0.05} onChange={(value) => state.setCameraTarget([state.cameraTarget[0], value, state.cameraTarget[2]])} />
-        <Range label={t('camera.aimZ')} value={state.cameraTarget[2]} min={-1.5} max={4} step={0.05} onChange={(value) => state.setCameraTarget([state.cameraTarget[0], state.cameraTarget[1], value])} />
-      </InspectorDrawer>}
-
-      <InspectorDrawer key="camera-body" title={t('camera.section')} meta={meta.cameraBody} className="camera-controls" comparison={{
-        capture: () => captureStudio(state, ['cameraBodyId', 'sensorFormat', 'sensorDynamicRange'] as const),
-        apply: applyStudio,
-      }}>
-        <div className="camera-gear-block">
-          <label><span>{t('cam.body')}</span><select aria-label={t('cam.body')} value={state.cameraBodyId} onChange={(event) => state.selectCameraBody(event.target.value as keyof typeof CAMERA_BODIES)}>{Object.values(CAMERA_BODIES).map((body) => <option key={body.id} value={body.id}>{body.brand} · {body.model}</option>)}</select></label>
-          <div><span>{cameraBody.sensor === 'full-frame' ? meta.fullFrame : cameraBody.sensor === 'aps-c' ? 'APS-C' : 'MFT'}</span><b>{cameraBody.megapixels} MP</b><small>12–200 mm · ƒ/{lensProfile.maxAperture}</small></div>
-        </div>
-      </InspectorDrawer>
-      <InspectorDrawer key="camera-optics" title={t('lens.character')} meta={meta.optical} className="camera-controls" comparison={{
-        capture: () => captureStudio(state, ['lensProfileId', 'lensOpticsEnabled', 'lensVignette', 'lensDistortion', 'lensChromaticAberration', 'lensBreathing'] as const),
-        apply: applyStudio,
-      }}>
-        <div className="lens-character-block">
-          <div className="lens-optics-switch-row"><button className={state.lensOpticsEnabled ? 'active' : ''} onClick={() => setValue('lensOpticsEnabled', !state.lensOpticsEnabled)}><i />{t(state.lensOpticsEnabled ? 'lens.opticsOn' : 'lens.opticsOff')}</button><button onClick={() => { setValue('lensVignette', lensProfile.vignette); setValue('lensDistortion', lensProfile.distortion); setValue('lensChromaticAberration', lensProfile.chromaticAberration); setValue('lensBreathing', lensProfile.breathing) }}>{t('lens.preset')}</button></div>
-          <Range label={t('lens.vignette')} disabled={!state.lensOpticsEnabled} value={state.lensVignette} min={0} max={100} unit="%" onChange={(value) => setValue('lensVignette', value)} />
-          <Range label={t('lens.distortion')} disabled={!state.lensOpticsEnabled} value={state.lensDistortion} min={-100} max={100} unit="" onChange={(value) => setValue('lensDistortion', value)} />
-          <div className="distortion-legend"><span>{t('lens.barrel')}</span><i /><span>{t('lens.pincushion')}</span></div>
-          <Range label={t('lens.ca')} disabled={!state.lensOpticsEnabled} value={state.lensChromaticAberration} min={0} max={100} unit="%" onChange={(value) => setValue('lensChromaticAberration', value)} />
-          <Range label={t('lens.breathing')} disabled={!state.lensOpticsEnabled} value={state.lensBreathing} min={0} max={100} unit="%" onChange={(value) => setValue('lensBreathing', value)} />
-          <div className="bokeh-blade-readout"><span>{t('lens.blades')}</span><b>{lensProfile.blades}</b><small>{lensProfile.blades >= 11 ? 'ROUND' : 'DEFINED'}</small></div>
-        </div>
-      </InspectorDrawer>
-      <InspectorDrawer key="camera-color" title={t('color.title')} meta={meta.color} className="camera-controls" comparison={{
-        capture: () => captureStudio(state, ['imageFormat', 'whiteBalance', 'whiteBalanceTint', 'colorProfileId', 'highlightRolloff', 'toneCurve', 'lutIntensity'] as const),
-        apply: applyStudio,
-      }}>
-        <div className="color-science-block">
-          <div className="image-format-control" role="group" aria-label={t('color.formatAria')}>
-            <button className={state.imageFormat === 'raw' ? 'active' : ''} onClick={() => setValue('imageFormat', 'raw')}><b>RAW</b><small>{t('color.raw.sub')}</small></button>
-            <button className={state.imageFormat === 'jpeg' ? 'active' : ''} onClick={() => setValue('imageFormat', 'jpeg')}><b>JPEG</b><small>{t('color.jpeg.sub')}</small></button>
-          </div>
-          <label className="color-profile-select"><span>{t('color.profile')}</span><select aria-label={t('color.profile')} value={state.colorProfileId} onChange={(event) => setValue('colorProfileId', event.target.value as keyof typeof COLOR_PROFILES)}>{Object.values(COLOR_PROFILES).map((profile) => <option key={profile.id} value={profile.id}>{profile.code} · {t(`colorProfile.${profile.id as ColorProfileId}`)}</option>)}</select></label>
-          <div className="wb-presets" role="group" aria-label={t('wb.aria')}>{([[3200,'wb.tungsten'],[4300,'wb.strobe'],[5600,'wb.daylight'],[6500,'wb.cloudy']] as [number, MessageKey][]).map(([temperature,key]) => <button key={temperature} className={state.whiteBalance === temperature ? 'active' : ''} onClick={() => setValue('whiteBalance', temperature)}>{t(key)}<small>{temperature}K</small></button>)}</div>
-          <Range label={t('wb.label')} value={state.whiteBalance} min={2000} max={9000} step={100} unit=" K" onChange={(value) => setValue('whiteBalance', value)} />
-          <Range label="Tint" value={state.whiteBalanceTint} min={-100} max={100} onChange={(value) => setValue('whiteBalanceTint', value)} />
-          <Range label={t('color.highlightRolloff')} value={state.highlightRolloff} min={0} max={100} unit="%" onChange={(value) => setValue('highlightRolloff', value)} />
-          <Range label={t('color.toneCurve')} value={state.toneCurve} min={0} max={100} unit="%" onChange={(value) => setValue('toneCurve', value)} />
-          <Range label={t('color.lut')} disabled={state.imageFormat === 'raw'} value={state.lutIntensity} min={0} max={100} unit="%" onChange={(value) => setValue('lutIntensity', value)} />
-          <div className="raw-pipeline-note"><i /><span>{state.imageFormat === 'raw' ? t('color.note.raw') : t('color.note.baked', { code: COLOR_PROFILES[state.colorProfileId].code })}</span></div>
-        </div>
-      </InspectorDrawer>
-      <InspectorDrawer key="camera-sensor" title={t('sensor.title')} meta={meta.sensor} className="camera-controls" comparison={{
-        capture: () => captureStudio(state, ['sensorSimulationEnabled', 'shutterMode', 'sensorDynamicRange', 'noiseReduction', 'colorNoise', 'motionBlur', 'rollingShutter'] as const),
-        apply: applyStudio,
-      }}>
-        <div className="sensor-simulation-block">
-          <div className="sensor-spec-strip"><span>BASE ISO <b>{cameraBody.nativeIso}</b></span><span>DR <b>{cameraBody.dynamicRange} STOPS</b></span><span>READOUT <b>{cameraBody.readoutMs} MS</b></span></div>
-          <button className={state.sensorSimulationEnabled ? 'sensor-master active' : 'sensor-master'} onClick={() => setValue('sensorSimulationEnabled', !state.sensorSimulationEnabled)}><i />{t(state.sensorSimulationEnabled ? 'sensor.simOn' : 'sensor.simOff')}</button>
-          <div className="shutter-mode-control" role="group" aria-label={t('sensor.shutterTypeAria')}><button className={state.shutterMode === 'mechanical' ? 'active' : ''} onClick={() => setValue('shutterMode', 'mechanical')}>{t('sensor.mechanical')}<small>GLOBAL</small></button><button className={state.shutterMode === 'electronic' ? 'active' : ''} onClick={() => setValue('shutterMode', 'electronic')}>{t('sensor.electronic')}<small>{cameraBody.readoutMs} MS</small></button></div>
-          <Range label={t('sensor.dynamicRange')} disabled={!state.sensorSimulationEnabled} value={state.sensorDynamicRange} min={8} max={16} step={0.1} displayValue={`${state.sensorDynamicRange.toFixed(1)} stops`} onChange={(value) => setValue('sensorDynamicRange', Number(value.toFixed(1)))} />
-          <Range label={t('sensor.noiseReduction')} disabled={!state.sensorSimulationEnabled} value={state.noiseReduction} min={0} max={100} unit="%" onChange={(value) => setValue('noiseReduction', value)} />
-          <Range label={t('sensor.colorNoise')} disabled={!state.sensorSimulationEnabled} value={state.colorNoise} min={0} max={100} unit="%" onChange={(value) => setValue('colorNoise', value)} />
-          <Range label={t('sensor.motionBlur')} disabled={!state.sensorSimulationEnabled} value={state.motionBlur} min={0} max={100} unit="%" onChange={(value) => setValue('motionBlur', value)} />
-          <Range label="Rolling Shutter" disabled={!state.sensorSimulationEnabled || state.shutterMode !== 'electronic'} value={state.rollingShutter} min={0} max={100} unit="%" onChange={(value) => setValue('rollingShutter', value)} />
-          <div className={`sensor-warning ${state.shutterMode === 'electronic' && state.rollingShutter > 60 ? 'warning' : ''}`}><i /><span>{state.shutterMode === 'electronic' ? t('sensor.rollingWarn', { ms: cameraBody.readoutMs }) : t('sensor.mechNote')}</span></div>
-        </div>
-      </InspectorDrawer>
-      <InspectorDrawer key="camera-frame" title={t('guide.composition')} meta={meta.frame} className="camera-controls" action={<button onClick={state.openCameraView}>{t('cam.enterView')}</button>} comparison={{
-        capture: () => captureStudio(state, ['compositionGuide', 'dofEnabled', 'focusGuide'] as const),
-        apply: applyStudio,
-      }}>
-        <div className="composition-guide-control"><span>{t('guide.composition')}</span><div role="group" aria-label={t('guide.compositionAria')}>{(['none','thirds','golden','safe'] as const).map((guide) => <button key={guide} className={state.compositionGuide === guide ? 'active' : ''} onClick={() => setValue('compositionGuide', guide)}>{t(`guide.${guide}`)}</button>)}</div></div>
-        <div className="optics-status">
-          <div><span>NEAR</span><strong>{depth.near.toFixed(2)} m</strong></div>
-          <div><span>FOCUS</span><strong>{state.focusDistance.toFixed(2)} m</strong></div>
-          <div><span>FAR</span><strong>{depth.far ? `${depth.far.toFixed(2)} m` : '∞'}</strong></div>
-        </div>
-        <div className="optics-toggles">
-          <button className={state.dofEnabled ? 'active' : ''} onClick={() => setValue('dofEnabled', !state.dofEnabled)}><i />{t('optics.dofPreview')}</button>
-          <button className={state.focusGuide ? 'active' : ''} onClick={() => setValue('focusGuide', !state.focusGuide)}><i />{t('optics.focusGuide')}</button>
-        </div>
-      </InspectorDrawer>
-      <InspectorDrawer key="camera-ambient" title={t('ambient.title')} meta={meta.ambient} className="camera-controls" comparison={{
-        capture: () => captureStudio(state, ['ambientLevel', 'ambientTemperature', 'syncSpeed'] as const),
-        apply: applyStudio,
-      }}>
-        <div className="ambient-control-block">
-          <Range label={t('ambient.level')} value={state.ambientLevel} min={0} max={100} step={1} unit="%" onChange={(value) => setValue('ambientLevel', value)} />
-          <Range label={t('ambient.temperature')} value={state.ambientTemperature} min={2200} max={7500} step={100} unit=" K" onChange={(value) => setValue('ambientTemperature', value)} />
-          <label className="select-row"><span>{t('sync.max')}</span><select aria-label={t('sync.max')} value={state.syncSpeed} onChange={(event) => setValue('syncSpeed', Number(event.target.value))}>{[125, 160, 200, 250, 320, 500].map((value) => <option key={value} value={value}>1/{value} s</option>)}</select></label>
-          {state.lights.some((item) => item.enabled && item.operationMode === 'flash') && <div className={state.shutter > state.syncSpeed && state.lights.some((item) => item.enabled && item.operationMode === 'flash' && !item.hssEnabled) ? 'global-sync-status error' : 'global-sync-status'}><i /><span>{t(state.shutter > state.syncSpeed ? 'sync.over' : 'sync.ok')}</span><b>1/{state.shutter}s</b></div>}
-        </div>
-      </InspectorDrawer>
       <InspectorDrawer key="camera-exposure" title={t('cam.section')} meta={meta.cameraExposure} className="camera-controls" comparison={{
         capture: () => captureStudio(state, ['sensorFormat', 'frameAspect', 'frameOrientation', 'cameraAutoFocus', 'focusDistance', 'focalLength', 'lensProfileId', 'aperture', 'shutter', 'iso'] as const),
         apply: applyStudio,
@@ -791,6 +677,119 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
           </div>
         </div>
         <Range label="ISO" value={state.iso} min={100} max={12800} step={100} onChange={(value) => setValue('iso', value)} />
+      </InspectorDrawer>
+      {state.selected === 'camera' && <InspectorDrawer key="camera-position" title={t('camera.section')} meta={state.cameraTargetSubjectId ? meta.tracking : meta.manual} className="camera-body-controls" comparison={{
+        capture: () => captureStudio(state, ['cameraPosition', 'cameraTarget', 'cameraTargetSubjectId', 'cameraTargetZone', 'cameraAutoFocus', 'cameraFramingPreset', 'focusDistance'] as const),
+        apply: applyStudio,
+      }}>
+        <div className="target-binding-panel camera-target-panel">
+          <label><span>{t('beam.follow')}</span><select aria-label={t('camera.followAria')} value={state.cameraTargetSubjectId ?? 'manual'} onChange={(event) => state.bindCameraToSubject(event.target.value === 'manual' ? null : event.target.value, state.cameraTargetZone)}>
+            <option value="manual">{t('camera.manual')}</option>
+            {state.mainSubjectEnabled && <option value="model">{t('subject.main')}</option>}
+            {subjectObjects.map((subject, index) => <option key={subject.id} value={subject.id}>{t('subject.numbered', { n: index + 2, name: subject.name })}</option>)}
+          </select></label>
+          <div role="group" aria-label={t('camera.zoneAria')}>
+            {([['face','zone.face'],['chest','zone.chest'],['full','zone.full']] as const).map(([zone,labelKey]) => <button key={zone} disabled={!state.cameraTargetSubjectId} className={state.cameraTargetZone === zone ? 'active' : ''} onClick={() => state.cameraTargetSubjectId && state.bindCameraToSubject(state.cameraTargetSubjectId, zone)}>{t(labelKey)}</button>)}
+          </div>
+          <button className={state.cameraAutoFocus ? 'camera-af-toggle active' : 'camera-af-toggle'} onClick={() => state.setCameraAutoFocus(!state.cameraAutoFocus)}><i />{state.cameraAutoFocus ? `AF TRACK · ${state.focusDistance.toFixed(2)} M` : t('camera.afEnable')}</button>
+          <small>{t('camera.trackNote')}</small>
+        </div>
+        <div className="camera-framing-presets" role="group" aria-label={t('camera.framingAria')}>
+          {(['headshot','half','full'] as const).map((preset) => <button key={preset} className={state.cameraFramingPreset === preset && state.cameraTargetSubjectId ? 'active' : ''} onClick={() => state.frameCameraSubject(state.cameraTargetSubjectId ?? 'model', preset)}>{t(`framing.${preset}`)}<small>{preset === 'headshot' ? 'TIGHT' : preset === 'half' ? 'MEDIUM' : 'WIDE'}</small></button>)}
+        </div>
+        <div className="camera-position-status"><span>CAMERA 01</span><b>{cameraDistance.toFixed(2)} m TO TARGET</b></div>
+        <div className="coordinate-label"><span>{t('camera.bodyPos')}</span><small>X / Y / Z</small></div>
+        <Range label={t('camera.x')} value={state.cameraPosition[0]} min={-4} max={4} step={0.05} onChange={(value) => state.setCameraPosition([value, state.cameraPosition[1], state.cameraPosition[2]])} />
+        <Range label={t('camera.y')} value={state.cameraPosition[1]} min={0.35} max={3.5} step={0.05} onChange={(value) => state.setCameraPosition([state.cameraPosition[0], value, state.cameraPosition[2]])} />
+        <Range label={t('camera.z')} value={state.cameraPosition[2]} min={1.2} max={9} step={0.05} onChange={(value) => state.setCameraPosition([state.cameraPosition[0], state.cameraPosition[1], value])} />
+        <div className="coordinate-label target-label"><span>{t('camera.aimPoint')}</span><small>X / Y / Z</small></div>
+        <Range label={t('camera.aimX')} value={state.cameraTarget[0]} min={-3} max={3} step={0.05} onChange={(value) => state.setCameraTarget([value, state.cameraTarget[1], state.cameraTarget[2]])} />
+        <Range label={t('camera.aimY')} value={state.cameraTarget[1]} min={0.2} max={2.6} step={0.05} onChange={(value) => state.setCameraTarget([state.cameraTarget[0], value, state.cameraTarget[2]])} />
+        <Range label={t('camera.aimZ')} value={state.cameraTarget[2]} min={-1.5} max={4} step={0.05} onChange={(value) => state.setCameraTarget([state.cameraTarget[0], state.cameraTarget[1], value])} />
+      </InspectorDrawer>}
+      <InspectorDrawer key="camera-frame" title={t('guide.composition')} meta={meta.frame} className="camera-controls" action={<button onClick={state.openCameraView}>{t('cam.enterView')}</button>} comparison={{
+        capture: () => captureStudio(state, ['compositionGuide', 'dofEnabled', 'focusGuide'] as const),
+        apply: applyStudio,
+      }}>
+        <div className="composition-guide-control"><span>{t('guide.composition')}</span><div role="group" aria-label={t('guide.compositionAria')}>{(['none','thirds','golden','safe'] as const).map((guide) => <button key={guide} className={state.compositionGuide === guide ? 'active' : ''} onClick={() => setValue('compositionGuide', guide)}>{t(`guide.${guide}`)}</button>)}</div></div>
+        <div className="optics-status">
+          <div><span>NEAR</span><strong>{depth.near.toFixed(2)} m</strong></div>
+          <div><span>FOCUS</span><strong>{state.focusDistance.toFixed(2)} m</strong></div>
+          <div><span>FAR</span><strong>{depth.far ? `${depth.far.toFixed(2)} m` : '∞'}</strong></div>
+        </div>
+        <div className="optics-toggles">
+          <button className={state.dofEnabled ? 'active' : ''} onClick={() => setValue('dofEnabled', !state.dofEnabled)}><i />{t('optics.dofPreview')}</button>
+          <button className={state.focusGuide ? 'active' : ''} onClick={() => setValue('focusGuide', !state.focusGuide)}><i />{t('optics.focusGuide')}</button>
+        </div>
+      </InspectorDrawer>
+      <InspectorDrawer key="camera-ambient" title={t('ambient.title')} meta={meta.ambient} className="camera-controls" comparison={{
+        capture: () => captureStudio(state, ['ambientLevel', 'ambientTemperature', 'syncSpeed'] as const),
+        apply: applyStudio,
+      }}>
+        <div className="ambient-control-block">
+          <Range label={t('ambient.level')} value={state.ambientLevel} min={0} max={100} step={1} unit="%" onChange={(value) => setValue('ambientLevel', value)} />
+          <Range label={t('ambient.temperature')} value={state.ambientTemperature} min={2200} max={7500} step={100} unit=" K" onChange={(value) => setValue('ambientTemperature', value)} />
+          <label className="select-row"><span>{t('sync.max')}</span><select aria-label={t('sync.max')} value={state.syncSpeed} onChange={(event) => setValue('syncSpeed', Number(event.target.value))}>{[125, 160, 200, 250, 320, 500].map((value) => <option key={value} value={value}>1/{value} s</option>)}</select></label>
+          {state.lights.some((item) => item.enabled && item.operationMode === 'flash') && <div className={state.shutter > state.syncSpeed && state.lights.some((item) => item.enabled && item.operationMode === 'flash' && !item.hssEnabled) ? 'global-sync-status error' : 'global-sync-status'}><i /><span>{t(state.shutter > state.syncSpeed ? 'sync.over' : 'sync.ok')}</span><b>1/{state.shutter}s</b></div>}
+        </div>
+      </InspectorDrawer>
+      <InspectorDrawer key="camera-body" title={t('cam.body')} meta={meta.cameraBody} className="camera-controls" comparison={{
+        capture: () => captureStudio(state, ['cameraBodyId', 'sensorFormat', 'sensorDynamicRange'] as const),
+        apply: applyStudio,
+      }}>
+        <div className="camera-gear-block">
+          <label><span>{t('cam.body')}</span><select aria-label={t('cam.body')} value={state.cameraBodyId} onChange={(event) => state.selectCameraBody(event.target.value as keyof typeof CAMERA_BODIES)}>{Object.values(CAMERA_BODIES).map((body) => <option key={body.id} value={body.id}>{body.brand} · {body.model}</option>)}</select></label>
+          <div><span>{cameraBody.sensor === 'full-frame' ? meta.fullFrame : cameraBody.sensor === 'aps-c' ? 'APS-C' : 'MFT'}</span><b>{cameraBody.megapixels} MP</b><small>12–200 mm · ƒ/{lensProfile.maxAperture}</small></div>
+        </div>
+      </InspectorDrawer>
+      <InspectorDrawer key="camera-color" title={t('color.title')} meta={meta.color} className="camera-controls" comparison={{
+        capture: () => captureStudio(state, ['imageFormat', 'whiteBalance', 'whiteBalanceTint', 'colorProfileId', 'highlightRolloff', 'toneCurve', 'lutIntensity'] as const),
+        apply: applyStudio,
+      }}>
+        <div className="color-science-block">
+          <div className="image-format-control" role="group" aria-label={t('color.formatAria')}>
+            <button className={state.imageFormat === 'raw' ? 'active' : ''} onClick={() => setValue('imageFormat', 'raw')}><b>RAW</b><small>{t('color.raw.sub')}</small></button>
+            <button className={state.imageFormat === 'jpeg' ? 'active' : ''} onClick={() => setValue('imageFormat', 'jpeg')}><b>JPEG</b><small>{t('color.jpeg.sub')}</small></button>
+          </div>
+          <label className="color-profile-select"><span>{t('color.profile')}</span><select aria-label={t('color.profile')} value={state.colorProfileId} onChange={(event) => setValue('colorProfileId', event.target.value as keyof typeof COLOR_PROFILES)}>{Object.values(COLOR_PROFILES).map((profile) => <option key={profile.id} value={profile.id}>{profile.code} · {t(`colorProfile.${profile.id as ColorProfileId}`)}</option>)}</select></label>
+          <div className="wb-presets" role="group" aria-label={t('wb.aria')}>{([[3200,'wb.tungsten'],[4300,'wb.strobe'],[5600,'wb.daylight'],[6500,'wb.cloudy']] as [number, MessageKey][]).map(([temperature,key]) => <button key={temperature} className={state.whiteBalance === temperature ? 'active' : ''} onClick={() => setValue('whiteBalance', temperature)}>{t(key)}<small>{temperature}K</small></button>)}</div>
+          <Range label={t('wb.label')} value={state.whiteBalance} min={2000} max={9000} step={100} unit=" K" onChange={(value) => setValue('whiteBalance', value)} />
+          <Range label="Tint" value={state.whiteBalanceTint} min={-100} max={100} onChange={(value) => setValue('whiteBalanceTint', value)} />
+          <Range label={t('color.highlightRolloff')} value={state.highlightRolloff} min={0} max={100} unit="%" onChange={(value) => setValue('highlightRolloff', value)} />
+          <Range label={t('color.toneCurve')} value={state.toneCurve} min={0} max={100} unit="%" onChange={(value) => setValue('toneCurve', value)} />
+          <Range label={t('color.lut')} disabled={state.imageFormat === 'raw'} value={state.lutIntensity} min={0} max={100} unit="%" onChange={(value) => setValue('lutIntensity', value)} />
+          <div className="raw-pipeline-note"><i /><span>{state.imageFormat === 'raw' ? t('color.note.raw') : t('color.note.baked', { code: COLOR_PROFILES[state.colorProfileId].code })}</span></div>
+        </div>
+      </InspectorDrawer>
+      <InspectorDrawer key="camera-optics" title={t('lens.character')} meta={meta.optical} className="camera-controls" comparison={{
+        capture: () => captureStudio(state, ['lensProfileId', 'lensOpticsEnabled', 'lensVignette', 'lensDistortion', 'lensChromaticAberration', 'lensBreathing'] as const),
+        apply: applyStudio,
+      }}>
+        <div className="lens-character-block">
+          <div className="lens-optics-switch-row"><button className={state.lensOpticsEnabled ? 'active' : ''} onClick={() => setValue('lensOpticsEnabled', !state.lensOpticsEnabled)}><i />{t(state.lensOpticsEnabled ? 'lens.opticsOn' : 'lens.opticsOff')}</button><button onClick={() => { setValue('lensVignette', lensProfile.vignette); setValue('lensDistortion', lensProfile.distortion); setValue('lensChromaticAberration', lensProfile.chromaticAberration); setValue('lensBreathing', lensProfile.breathing) }}>{t('lens.preset')}</button></div>
+          <Range label={t('lens.vignette')} disabled={!state.lensOpticsEnabled} value={state.lensVignette} min={0} max={100} unit="%" onChange={(value) => setValue('lensVignette', value)} />
+          <Range label={t('lens.distortion')} disabled={!state.lensOpticsEnabled} value={state.lensDistortion} min={-100} max={100} unit="" onChange={(value) => setValue('lensDistortion', value)} />
+          <div className="distortion-legend"><span>{t('lens.barrel')}</span><i /><span>{t('lens.pincushion')}</span></div>
+          <Range label={t('lens.ca')} disabled={!state.lensOpticsEnabled} value={state.lensChromaticAberration} min={0} max={100} unit="%" onChange={(value) => setValue('lensChromaticAberration', value)} />
+          <Range label={t('lens.breathing')} disabled={!state.lensOpticsEnabled} value={state.lensBreathing} min={0} max={100} unit="%" onChange={(value) => setValue('lensBreathing', value)} />
+          <div className="bokeh-blade-readout"><span>{t('lens.blades')}</span><b>{lensProfile.blades}</b><small>{lensProfile.blades >= 11 ? 'ROUND' : 'DEFINED'}</small></div>
+        </div>
+      </InspectorDrawer>
+      <InspectorDrawer key="camera-sensor" title={t('sensor.title')} meta={meta.sensor} className="camera-controls" comparison={{
+        capture: () => captureStudio(state, ['sensorSimulationEnabled', 'shutterMode', 'sensorDynamicRange', 'noiseReduction', 'colorNoise', 'motionBlur', 'rollingShutter'] as const),
+        apply: applyStudio,
+      }}>
+        <div className="sensor-simulation-block">
+          <div className="sensor-spec-strip"><span>BASE ISO <b>{cameraBody.nativeIso}</b></span><span>DR <b>{cameraBody.dynamicRange} STOPS</b></span><span>READOUT <b>{cameraBody.readoutMs} MS</b></span></div>
+          <button className={state.sensorSimulationEnabled ? 'sensor-master active' : 'sensor-master'} onClick={() => setValue('sensorSimulationEnabled', !state.sensorSimulationEnabled)}><i />{t(state.sensorSimulationEnabled ? 'sensor.simOn' : 'sensor.simOff')}</button>
+          <div className="shutter-mode-control" role="group" aria-label={t('sensor.shutterTypeAria')}><button className={state.shutterMode === 'mechanical' ? 'active' : ''} onClick={() => setValue('shutterMode', 'mechanical')}>{t('sensor.mechanical')}<small>GLOBAL</small></button><button className={state.shutterMode === 'electronic' ? 'active' : ''} onClick={() => setValue('shutterMode', 'electronic')}>{t('sensor.electronic')}<small>{cameraBody.readoutMs} MS</small></button></div>
+          <Range label={t('sensor.dynamicRange')} disabled={!state.sensorSimulationEnabled} value={state.sensorDynamicRange} min={8} max={16} step={0.1} displayValue={`${state.sensorDynamicRange.toFixed(1)} stops`} onChange={(value) => setValue('sensorDynamicRange', Number(value.toFixed(1)))} />
+          <Range label={t('sensor.noiseReduction')} disabled={!state.sensorSimulationEnabled} value={state.noiseReduction} min={0} max={100} unit="%" onChange={(value) => setValue('noiseReduction', value)} />
+          <Range label={t('sensor.colorNoise')} disabled={!state.sensorSimulationEnabled} value={state.colorNoise} min={0} max={100} unit="%" onChange={(value) => setValue('colorNoise', value)} />
+          <Range label={t('sensor.motionBlur')} disabled={!state.sensorSimulationEnabled} value={state.motionBlur} min={0} max={100} unit="%" onChange={(value) => setValue('motionBlur', value)} />
+          <Range label="Rolling Shutter" disabled={!state.sensorSimulationEnabled || state.shutterMode !== 'electronic'} value={state.rollingShutter} min={0} max={100} unit="%" onChange={(value) => setValue('rollingShutter', value)} />
+          <div className={`sensor-warning ${state.shutterMode === 'electronic' && state.rollingShutter > 60 ? 'warning' : ''}`}><i /><span>{state.shutterMode === 'electronic' ? t('sensor.rollingWarn', { ms: cameraBody.readoutMs }) : t('sensor.mechNote')}</span></div>
+        </div>
       </InspectorDrawer>
       </>}
       {footer}
