@@ -1,11 +1,18 @@
 import { mkdir, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
 import { chromium } from 'playwright'
 
 const root = resolve(import.meta.dirname, '..')
 const base = process.env.LUMEN_CAPTURE_URL || 'http://127.0.0.1:5173'
-const chrome = process.env.LUMEN_CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+// Chrome by preference, but not by requirement: this machine has not had
+// Chrome.app installed since 2026-09-03, and the hard path made the whole
+// script unrunnable rather than one flag away from running. Playwright's own
+// build is the fallback, which is what `executablePath: undefined` selects.
+const chromePath = process.env.LUMEN_CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+const chrome = existsSync(chromePath) ? chromePath : undefined
+if (!chrome) console.log(`  ${chromePath} is not installed — using Playwright's Chromium`)
 const allLocales = ['en', 'zh', 'ja']
 const requestedLocale = process.argv.find((value) => allLocales.includes(value))
 const locales = requestedLocale ? [requestedLocale] : allLocales
@@ -39,6 +46,21 @@ async function prepare(page, locale, ui) {
   await page.goto(`${base}/studio?ui=${ui}`, { waitUntil: 'networkidle', timeout: 120_000 })
   await page.locator(ui === 'full' ? '.workflow-navigation' : '.m-tabs').waitFor({ state: 'visible', timeout: 120_000 })
   await page.evaluate(() => document.fonts.ready)
+  // Resolve the store and the cast once, here, and hang them on window. Doing
+  // the dynamic import inside each later call meant a promise Playwright could
+  // lose the moment the page's execution context was replaced -- which shows up
+  // as "Resulting promise was garbage collected" halfway through a locale.
+  await page.evaluate(async () => {
+    const url = (file) => performance.getEntriesByType('resource').map((r) => r.name)
+      .filter((name) => new RegExp(`/src/${file}\\.ts(?:\\?|$)`).test(name)).at(-1)
+    const { useStudio } = await import(url('store'))
+    const { CAST } = await import(url('actorCast'))
+    window.captureStudio = useStudio
+    window.captureCast = Object.fromEntries(['masculine', 'feminine']
+      .map((sex) => [sex, CAST.find((member) => member.sex === sex && !member.child)?.id])
+      .filter(([, id]) => id))
+    if (!window.captureCast.masculine || !window.captureCast.feminine) throw new Error('the cast is missing an adult of one sex')
+  })
   await page.waitForTimeout(1800)
   await assertCaptureHealth(page)
 }
@@ -65,20 +87,35 @@ async function waitForModelReady(page) {
   await page.waitForTimeout(700)
 }
 
+/**
+ * The desktop UI has no masculine/feminine switch for the main subject any
+ * more. The actors are photographed, so the build controls could never reshape
+ * one; choosing a body now means casting a different person, and the panel
+ * that held those buttons is hidden for a photographed actor. Waiting for the
+ * button therefore timed out and took the whole script with it.
+ *
+ * So go through the store, which is what the cast picker does, and pick the
+ * first adult of the sex asked for rather than naming an actor here -- the
+ * cast is edited far more often than this script is.
+ */
 async function setFullGender(page, locale, gender) {
   await page.locator('.workflow-navigation button').nth(0).click()
-  const choice = page.getByRole('button', { name: genderLabel[locale][gender], exact: true }).first()
-  await choice.waitFor({ state: 'visible', timeout: 30_000 })
-  await choice.click()
+  const cast = await page.evaluate((sex) => {
+    const id = window.captureCast[sex]
+    window.captureStudio.getState().castActor(id)
+    return id
+  }, gender.toLowerCase() === 'masculine' ? 'masculine' : 'feminine')
   await waitForModelReady(page)
+  return cast
 }
 
+/** The phone shell has the same story: the main subject is cast, not sexed. */
 async function setSimpleGender(page, locale, gender) {
   const person = page.getByRole('tab').nth(0)
   if (await person.getAttribute('aria-selected') !== 'true') await person.click()
-  const choice = page.getByRole('button', { name: genderLabel[locale][gender], exact: true }).first()
-  await choice.waitFor({ state: 'visible', timeout: 30_000 })
-  await choice.click()
+  await page.locator('.m-cast-select').waitFor({ state: 'visible', timeout: 30_000 })
+  await page.evaluate((sex) => window.captureStudio.getState().castActor(window.captureCast[sex]),
+    gender.toLowerCase() === 'masculine' ? 'masculine' : 'feminine')
   await waitForModelReady(page)
 }
 

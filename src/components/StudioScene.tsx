@@ -3735,9 +3735,37 @@ function ExposureProbe() {
   return null
 }
 
-/** Editor working light keeps faces readable without changing camera/export energy. */
+/**
+ * Working light for the editor viewport, and only for the editor viewport.
+ *
+ * The room is lit by strobes measured in hundreds of watt-seconds and the
+ * scene's own ambient tops out around 1.3, so a first load once rendered 48%
+ * of the frame at pure black -- the far wall, the floor outside the key's pool
+ * and both stands were simply not there. You cannot block a shot in a room you
+ * cannot see. The editor already declines to be photometric (its exposure is
+ * pinned rather than derived from ISO and aperture), so lighting it to be read
+ * is the same bargain, not a new one.
+ *
+ * Both numbers are a balance and both ends of it are measurable, as the
+ * standard deviation of frame luminance on a default scene. Lifting ambient
+ * alone gives contrast but a harsh frame: 0.229. Dropping the heads to 0.08
+ * and lifting ambient to 70 removes the black but flattens the key's pool
+ * until you cannot see where the light lands, which is the one thing this
+ * viewport exists to show: 0.089. 40 and 0.4 measure 0.179, and no black pixel
+ * at either end.
+ *
+ * These two also decide how the marketing screenshots look, because
+ * scripts/refresh-site-stills.mjs photographs this viewport. That pulls them
+ * toward whatever flatters a still, and it is the wrong master: the tool is
+ * used far more than the screenshot is looked at. Change them for the working
+ * view, then re-capture -- do not tune them to the picture.
+ *
+ * The viewfinder and the path renderer are excluded: those two have to keep
+ * telling the truth, because that is the photograph. Solo keeps its near-black
+ * as well, since killing everything but one light is the whole point of it.
+ */
 const EDITOR_AMBIENT = 40
-const EDITOR_HEAD_GAIN = 0.08
+const EDITOR_HEAD_GAIN = 0.4
 
 const MemoMannequin = memo(Mannequin)
 const MemoSoftbox = memo(Softbox)
