@@ -382,6 +382,15 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
       </div>
       <InspectorSearchContext.Provider value={search}>
       <div ref={scrollRegion} className={`inspector-scroll-region${search ? ' is-searching' : ''}`}>
+      {mode === 'layout' && <section className="inspector-section layout-ambient-controls">
+        <div className="section-title"><span>{t('ambient.title')}</span></div>
+        <div className="ambient-control-block">
+          <Range label={t('ambient.level')} value={state.ambientLevel} min={0} max={100} step={1} unit="%" onChange={(value) => setValue('ambientLevel', value)} />
+          <Range label={t('ambient.temperature')} value={state.ambientTemperature} min={2200} max={7500} step={100} unit=" K" onChange={(value) => setValue('ambientTemperature', value)} />
+          <label className="select-row"><span>{t('sync.max')}</span><select aria-label={t('sync.max')} value={state.syncSpeed} onChange={(event) => setValue('syncSpeed', Number(event.target.value))}>{[125, 160, 200, 250, 320, 500].map((value) => <option key={value} value={value}>1/{value} s</option>)}</select></label>
+          {state.lights.some((item) => item.enabled && item.operationMode === 'flash') && <div className={state.shutter > state.syncSpeed && state.lights.some((item) => item.enabled && item.operationMode === 'flash' && !item.hssEnabled) ? 'global-sync-status error' : 'global-sync-status'}><i /><span>{t(state.shutter > state.syncSpeed ? 'sync.over' : 'sync.ok')}</span><b>1/{state.shutter}s</b></div>}
+        </div>
+      </section>}
       {mode === 'layout' && <section className="inspector-section layout-position-inspector">
         <div className="pose-heading"><span>{t('axis.section')}</span><small>{meta.meters}</small></div>
         {state.selected === 'model' && <>
@@ -722,17 +731,7 @@ export function Inspector({ footer }: { footer?: ReactNode } = {}) {
           <button className={state.focusGuide ? 'active' : ''} onClick={() => setValue('focusGuide', !state.focusGuide)}><i />{t('optics.focusGuide')}</button>
         </div>
       </InspectorDrawer>
-      <InspectorDrawer key="camera-ambient" title={t('ambient.title')} meta={meta.ambient} className="camera-controls" comparison={{
-        capture: () => captureStudio(state, ['ambientLevel', 'ambientTemperature', 'syncSpeed'] as const),
-        apply: applyStudio,
-      }}>
-        <div className="ambient-control-block">
-          <Range label={t('ambient.level')} value={state.ambientLevel} min={0} max={100} step={1} unit="%" onChange={(value) => setValue('ambientLevel', value)} />
-          <Range label={t('ambient.temperature')} value={state.ambientTemperature} min={2200} max={7500} step={100} unit=" K" onChange={(value) => setValue('ambientTemperature', value)} />
-          <label className="select-row"><span>{t('sync.max')}</span><select aria-label={t('sync.max')} value={state.syncSpeed} onChange={(event) => setValue('syncSpeed', Number(event.target.value))}>{[125, 160, 200, 250, 320, 500].map((value) => <option key={value} value={value}>1/{value} s</option>)}</select></label>
-          {state.lights.some((item) => item.enabled && item.operationMode === 'flash') && <div className={state.shutter > state.syncSpeed && state.lights.some((item) => item.enabled && item.operationMode === 'flash' && !item.hssEnabled) ? 'global-sync-status error' : 'global-sync-status'}><i /><span>{t(state.shutter > state.syncSpeed ? 'sync.over' : 'sync.ok')}</span><b>1/{state.shutter}s</b></div>}
-        </div>
-      </InspectorDrawer>
+
       <InspectorDrawer key="camera-body" title={t('cam.body')} meta={meta.cameraBody} className="camera-controls" comparison={{
         capture: () => captureStudio(state, ['cameraBodyId', 'sensorFormat', 'sensorDynamicRange'] as const),
         apply: applyStudio,

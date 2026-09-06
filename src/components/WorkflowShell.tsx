@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { BACKDROPS } from '../backdrops'
 import { captureContinuityBaseline, evaluateContinuity, type ContinuityBaseline } from '../continuity'
-import { useLocaleStore } from '../i18n'
+import { useLocaleStore, useT, useCatalogT, type MessageKey } from '../i18n'
+import { POSE_LIBRARY } from '../pose'
 import { analyzeReferencePixels, type ReferenceLightingAnalysis } from '../referenceLighting'
 import { useStudio } from '../store'
 import { useWorkflow, type WorkflowStage } from '../workflow'
@@ -68,7 +69,22 @@ function useCopy() {
 const lightRole = (index: number, copy: (typeof COPY)['en']) => [copy.key, copy.fill, copy.rim, copy.background][index] ?? copy.effect
 const lightDisplayName = (name: string, index: number, copy: (typeof COPY)['en']) => /^(key|fill|rim|background|effect) light$/i.test(name) ? lightRole(index, copy) : name
 
+function useSceneLabels() {
+  const t = useT()
+  const ct = useCatalogT()
+  return {
+    pose: (id: string) => ct(`pose.${id}`, POSE_LIBRARY.find((pose) => pose.id === id)?.label ?? id.replaceAll('-', ' ')),
+    type: (type: string) => t(`object.${type}` as MessageKey),
+    name: (item: { name: string; type: string }) => {
+      const base = item.type === 'subject' ? 'Subject' : item.type.charAt(0).toUpperCase() + item.type.slice(1)
+      const suffix = item.name.slice(base.length)
+      return item.name.startsWith(base) && /^(?: \d+)?$/.test(suffix) ? `${t(`object.${item.type}` as MessageKey)}${suffix}` : item.name
+    },
+  }
+}
+
 function DecisionStatusCard() {
+  const labels = useSceneLabels()
   const copy = useCopy()
   const state = useStudio()
   const mode = useWorkflow((workflow) => workflowModeForStage(workflow.stage))
@@ -76,11 +92,11 @@ function DecisionStatusCard() {
   const object = mode === 'person' || mode === 'layout' ? state.studioObjects.find((item) => item.id === state.selected) : undefined
   const lightIndex = light ? state.lights.findIndex((item) => item.id === light.id) : -1
   const distance = light ? Math.hypot(light.position[0] - state.modelPosition[0], light.position[1] - state.modelPosition[1], light.position[2] - state.modelPosition[2]) : 0
-  const selection = light ? lightDisplayName(light.name, lightIndex, copy) : state.selected === 'camera' ? copy.camera : state.selected === 'model' ? copy.mainSubject : object?.name ?? String(state.selected)
+  const selection = light ? lightDisplayName(light.name, lightIndex, copy) : state.selected === 'camera' ? copy.camera : state.selected === 'model' ? copy.mainSubject : (object ? labels.name(object) : String(state.selected))
 
   return <section className="decision-status-row blueprint-decision-status">
     <header><span>{copy.selected}</span><strong>{selection}</strong></header>
-    <div className="impact-readout"><h2>{copy.impact}</h2>{light ? <p><b>{lightWattage(light)} {light.operationMode === 'flash' ? 'Ws' : 'W'}</b><span>{distance.toFixed(2)} m · {light.targetSubjectId ? copy.tracked : copy.manual}</span></p> : state.selected === 'camera' ? <p><b>{state.focalLength} mm</b><span>ƒ/{state.aperture} · ISO {state.iso} · 1/{state.shutter} s</span></p> : <p><b>{state.modelHeight.toFixed(2)} m</b><span>{state.posePreset.replaceAll('-', ' ')}</span></p>}</div>
+    <div className="impact-readout"><h2>{copy.impact}</h2>{light ? <p><b>{lightWattage(light)} {light.operationMode === 'flash' ? 'Ws' : 'W'}</b><span>{distance.toFixed(2)} m · {light.targetSubjectId ? copy.tracked : copy.manual}</span></p> : state.selected === 'camera' ? <p><b>{state.focalLength} mm</b><span>ƒ/{state.aperture} · ISO {state.iso} · 1/{state.shutter} s</span></p> : <p><b>{state.modelHeight.toFixed(2)} m</b><span>{labels.pose(state.posePreset)}</span></p>}</div>
   </section>
 }
 
@@ -147,6 +163,7 @@ export function ViewModeDock() {
 }
 
 export function BlueprintPanel() {
+  const labels = useSceneLabels()
   const copy = useCopy()
   const stage = useWorkflow((state) => state.stage)
   const setAssetOpen = useWorkflow((state) => state.setAssetDrawerOpen)
@@ -181,8 +198,8 @@ export function BlueprintPanel() {
     {planning && <section className="blueprint-section intent-card"><div><span>{copy.target}</span><small>{copy.targetHint}</small></div><button onClick={() => setReferenceOpen(true)}>{copy.reference}<b>→</b></button></section>}
 
     {planning && <section className="blueprint-section"><h2>{copy.subject}</h2>
-      {studio.mainSubjectEnabled && <div className="blueprint-subject-row"><button className={studio.selected === 'model' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('model')}><i className="model-icon" /><span><strong>{copy.mainSubject}</strong><small>{studio.posePreset.replaceAll('-', ' ')} · {studio.modelHeight.toFixed(2)} m</small></span></button><button className="blueprint-subject-delete" aria-label={`${copy.removeItem}: ${copy.mainSubject}`} title={copy.removeItem} onClick={studio.deleteMainSubject}>×</button></div>}
-      {supporting.map((item) => <div className="blueprint-subject-row" key={item.id}><button className={studio.selected === item.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(item.id)}><i className={`studio-object-icon ${item.type}`} /><span><strong>{item.name}</strong><small>{item.type}</small></span></button><button className="blueprint-subject-delete" aria-label={`${copy.removeItem}: ${item.name}`} title={copy.removeItem} onClick={() => studio.deleteStudioObject(item.id)}>×</button></div>)}
+      {studio.mainSubjectEnabled && <div className="blueprint-subject-row"><button className={studio.selected === 'model' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('model')}><i className="model-icon" /><span><strong>{copy.mainSubject}</strong><small>{labels.pose(studio.posePreset)} · {studio.modelHeight.toFixed(2)} m</small></span></button><button className="blueprint-subject-delete" aria-label={`${copy.removeItem}: ${copy.mainSubject}`} title={copy.removeItem} onClick={studio.deleteMainSubject}>×</button></div>}
+      {supporting.map((item) => <div className="blueprint-subject-row" key={item.id}><button className={studio.selected === item.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(item.id)}><i className={`studio-object-icon ${item.type}`} /><span><strong>{labels.name(item)}</strong><small>{labels.type(item.type)}</small></span></button><button className="blueprint-subject-delete" aria-label={`${copy.removeItem}: ${labels.name(item)}`} title={copy.removeItem} onClick={() => studio.deleteStudioObject(item.id)}>×</button></div>)}
       {!studio.mainSubjectEnabled && supporting.length === 0 && <p className="blueprint-empty">{copy.noProps}</p>}
     </section>}
 
@@ -203,7 +220,7 @@ export function BlueprintPanel() {
       {studio.mainSubjectEnabled && <button className={studio.selected === 'model' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('model')}><i className="model-icon" /><span><strong>{copy.mainSubject}</strong><small>{copy.person}</small></span></button>}
       {studio.lights.map((light, index) => <button key={light.id} className={studio.selected === light.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(light.id)}><i className={`light-icon ${light.shape}`} /><span><strong>{lightRole(index, copy)}</strong><small>{lightDisplayName(light.name, index, copy)}</small></span></button>)}
       {studio.modifiers.map((modifier) => <button key={modifier.id} className={studio.selected === modifier.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(modifier.id)}><i className="studio-object-icon reflector" /><span><strong>{modifier.name}</strong><small>{copy.grip}</small></span></button>)}
-      {studio.studioObjects.map((item) => <button key={item.id} className={studio.selected === item.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(item.id)}><i className={`studio-object-icon ${item.type}`} /><span><strong>{item.name}</strong><small>{item.type}</small></span></button>)}
+      {studio.studioObjects.map((item) => <button key={item.id} className={studio.selected === item.id ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject(item.id)}><i className={`studio-object-icon ${item.type}`} /><span><strong>{labels.name(item)}</strong><small>{labels.type(item.type)}</small></span></button>)}
       <button className={studio.selected === 'camera' ? 'blueprint-row active' : 'blueprint-row'} onClick={() => studio.selectObject('camera')}><i className="camera-icon" /><span><strong>{copy.camera}</strong><small>{copy.camera}</small></span></button>
     </section>}
 

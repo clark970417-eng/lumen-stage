@@ -310,8 +310,6 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
   const studioPreview = STUDIO_PREVIEWS[locale]
   const demoVideo = DEMO_VIDEOS[locale]
   const [demoStep, setDemoStep] = useState(0)
-  const [demoProgress, setDemoProgress] = useState(0)
-  const [demoPlaying, setDemoPlaying] = useState(false)
   const [modeOpen, setModeOpen] = useState(false)
   const releaseDate = '2026.09.06'
   const heroStage = useRef<HTMLDivElement>(null)
@@ -367,7 +365,6 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     if (!video) return
     video.currentTime = DEMO_STEP_MOVEMENT_STARTS[step]
     setDemoStep(step)
-    setDemoProgress((DEMO_STEP_MOVEMENT_STARTS[step] / (video.duration || 15)) * 100)
     void video.play().catch(() => {})
   }
   const toggleDemo = () => {
@@ -377,14 +374,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     if (video.paused) void video.play().catch(() => {})
     else video.pause()
   }
-  const replayDemo = () => {
-    const video = demoRef.current
-    if (!video) return
-    video.currentTime = 0
-    setDemoStep(0)
-    setDemoProgress(0)
-    void video.play().catch(() => {})
-  }
+
   const handleDemoKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return
     if (event.key === ' ') {
@@ -399,7 +389,6 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     const nextTime = Math.min(video.duration || 15, Math.max(0, video.currentTime + (event.key === 'ArrowRight' ? 2.5 : -2.5)))
     video.currentTime = nextTime
     setDemoStep(demoStepAt(nextTime))
-    setDemoProgress((nextTime / (video.duration || 15)) * 100)
   }
   if (route !== 'home') return <LegalPage route={route} copy={copy} locale={locale} />
   return <><SiteHeader copy={copy} onOpenStudio={() => setModeOpen(true)} />{modeOpen && <ModeChooser copy={copy} onClose={() => setModeOpen(false)} />}<main className="landing">
@@ -438,11 +427,8 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
             onTimeUpdate={(event) => {
               const video = event.currentTarget
               setDemoStep(demoStepAt(video.currentTime))
-              setDemoProgress((video.currentTime / (video.duration || 15)) * 100)
             }}
-            onPause={() => setDemoPlaying(false)}
             onPlay={(event) => {
-              setDemoPlaying(true)
               const video = event.currentTarget
               if (!video.requestVideoFrameCallback) return
               const syncToFrame = (_now: number, metadata: VideoFrameCallbackMetadata) => {
@@ -455,18 +441,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
             <source src={demoVideo.src} type="video/mp4" />
           </video>
           <span className="demo-live"><i /> {DEMO_LIVE_LABEL[locale]}</span>
-          <div className="demo-controls">
-            <button type="button" onClick={toggleDemo} aria-label={demoPlaying ? copy.demoControls.pause : copy.demoControls.play}><span aria-hidden="true">{demoPlaying ? 'Ⅱ' : '▶'}</span>{demoPlaying ? copy.demoControls.pause : copy.demoControls.play}</button>
-            <button type="button" onClick={replayDemo} aria-label={copy.demoControls.replay}><span aria-hidden="true">↺</span>{copy.demoControls.replay}</button>
-            <input type="range" min="0" max="100" step="0.1" value={demoProgress} aria-label={copy.demoControls.progress} onChange={(event) => {
-              const video = demoRef.current
-              if (!video) return
-              video.currentTime = (Number(event.currentTarget.value) / 100) * (video.duration || 15)
-              setDemoProgress(Number(event.currentTarget.value))
-            }} />
-            <output>{Math.floor((demoProgress / 100) * 15).toString().padStart(2, '0')} / 15s</output>
-            <span className="demo-shortcuts" aria-hidden="true">← −2.5s · → +2.5s · SPACE</span>
-          </div>
+
         </div>
         <ol>{copy.demoSteps.map(([title, body], index) => <li key={title} className={index === demoStep ? 'active' : ''}><button type="button" onClick={() => seekDemo(index)} aria-current={index === demoStep ? 'step' : undefined}><span>0{index + 1}</span><div><strong>{title}</strong><small>{body}</small></div></button></li>)}</ol>
       </div>
