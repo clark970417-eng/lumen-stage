@@ -3735,32 +3735,9 @@ function ExposureProbe() {
   return null
 }
 
-/**
- * Working light for the editor viewport, and only for the editor viewport.
- *
- * The room is lit by strobes measured in hundreds of watt-seconds and the
- * scene's own ambient tops out around 1.3, so a first load once rendered 48%
- * of the frame at pure black -- the far wall, the floor outside the key's pool
- * and both stands were simply not there. You cannot block a shot in a room you
- * cannot see. The editor already declines to be photometric (its exposure is
- * pinned rather than derived from ISO and aperture), so lighting it to be read
- * is the same bargain, not a new one.
- *
- * The pair of numbers is a balance, and both ends of it are measurable. Purely
- * lifting ambient and leaving the heads alone gives contrast but a harsh
- * frame; dropping the heads to 8% and lifting ambient to 70 removes the black
- * but flattens the key's pool until you cannot see where the light lands,
- * which is the one thing this viewport exists to show. Measured as the
- * standard deviation of frame luminance on a default scene: 0.229 at (22, 1.0)
- * against 0.092 at (70, 0.08), with neither showing a black pixel. 40 and 0.4
- * sit at 0.179 -- most of the modelling, none of the harshness.
- *
- * The viewfinder and the path renderer are excluded: those two have to keep
- * telling the truth, because that is the photograph. Solo keeps its near-black
- * as well, since killing everything but one light is the whole point of it.
- */
+/** Editor working light keeps faces readable without changing camera/export energy. */
 const EDITOR_AMBIENT = 40
-const EDITOR_HEAD_GAIN = 0.4
+const EDITOR_HEAD_GAIN = 0.08
 
 const MemoMannequin = memo(Mannequin)
 const MemoSoftbox = memo(Softbox)

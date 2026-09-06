@@ -2,7 +2,7 @@
 import { chromium } from '@playwright/test'
 import { mkdir, writeFile } from 'node:fs/promises'
 const base = process.env.LUMEN_CAPTURE_URL ?? 'http://127.0.0.1:5173'
-const browser = await chromium.launch({ headless: true })
+const browser = await chromium.launch({ headless: process.env.LUMEN_CAPTURE_HEADED !== '1' })
 const crops = {}
 try {
   for (const locale of (process.env.LUMEN_CAPTURE_LOCALES ?? 'en,zh,ja').split(',')) {
@@ -12,6 +12,7 @@ try {
       for (const scope of ['desktop', 'mobile']) localStorage.setItem(`lumen-stage:onboarding:v2:${scope}`, 'done')
     }, locale)
     const page = await context.newPage()
+    page.setDefaultTimeout(120000)
     await page.goto(`${base}/studio?ui=full`, { waitUntil: 'domcontentloaded', timeout: 120000 })
     await page.locator('.workflow-navigation button').first().waitFor()
     await page.evaluate(async () => {
@@ -20,12 +21,15 @@ try {
       window.captureStudio = useStudio
       useStudio.getState().castActor('female')
       useStudio.getState().setValue('qualityPreset', 'ultra')
+      const s = useStudio.getState()
+      const key = s.lights[0]
+      if (s.focalLength !== 50 || s.aperture !== 4 || s.iso !== 100 || key.profileId !== 'godox-ad600pro' || key.powerPercent !== 18 || key.temperature !== 5600) throw new Error('Capture parameters differ from SettingsPreview')
     })
     await page.waitForTimeout(5000)
     await mkdir(`public/site-preview`, { recursive: true })
     await page.screenshot({ path: `public/site-preview/${locale}.png` })
     for (const [index, mode] of [1, 2, 3].entries()) {
-      await page.locator('.workflow-navigation button').nth(mode).click()
+      await page.locator('.workflow-navigation button').nth(mode).click({ noWaitAfter: true })
       await page.evaluate((i) => { const s = window.captureStudio.getState(); if (i === 0) s.selectObject(s.lights[0].id); if (i === 1) s.openCameraView(); if (i === 2) s.openTopView() }, index)
       await page.waitForTimeout(2000)
       const rect = await page.locator('.viewport').boundingBox()
