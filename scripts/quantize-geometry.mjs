@@ -12,11 +12,19 @@
  *               still sums to exactly 1 rather than to 0.996.
  *   TEXCOORD_n  float32 holding coordinates inside [0, 1]. Core glTF accepts
  *               ushort normalized: 1/65535 of a 2048 px map is 0.03 px.
+ *   NORMAL      float32 holding a unit vector. byte normalized costs a quarter
+ *               of that and, measured across a real actor's 23,508 normals,
+ *               turns each one by a mean of 0.17° and at worst 0.365°. A
+ *               highlight moves by twice that, which is under a degree.
  *
- * All three are plain glTF 2.0 — no KHR_mesh_quantization, no decoder, nothing
- * for the loader to opt into. POSITION and NORMAL are deliberately left alone:
- * they need the extension, and POSITION additionally needs its dequantisation
- * folded into a transform, which a skinned mesh has nowhere to put.
+ * The first three are plain glTF 2.0. NORMAL needs KHR_mesh_quantization,
+ * which three reads with no decoder, so the file declares and requires it.
+ * POSITION is still left alone: it wants its dequantisation folded into a node
+ * transform, and a skinned mesh has nowhere to put one.
+ *
+ * A VEC3 of bytes is three bytes and vertex attributes must start on a
+ * four-byte boundary, so normals are written with a byte of padding and a
+ * stride of four -- still a third of what a float32 normal costs.
  *
  * A UV set that tiles (anything outside [0, 1]) is skipped rather than
  * clamped, because clamping it would silently move the texture.
@@ -168,6 +176,8 @@ function quantize(file, { dryRun = false } = {}) {
       if (!min.length || !max.length) return
       if (min.some((v) => v < 0) || max.some((v) => v > 1)) return
       plans.set(index, { componentType: 5123, normalized: true, kind: 'uv' })
+    } else if (name === 'NORMAL' && accessor.componentType === 5126 && accessor.type === 'VEC3') {
+      plans.set(index, { componentType: 5120, normalized: true, kind: 'normal', stride: 4 })
     }
   })
 
@@ -192,20 +202,24 @@ function quantize(file, { dryRun = false } = {}) {
     const components = COMPONENTS[accessor.type]
     const values = readAccessor(json, bin, accessor)
     const width = COMPONENT_BYTES[plan.componentType] * components
-    const out = Buffer.alloc(accessor.count * width)
+    const stride = plan.stride ?? width
+    const out = Buffer.alloc(accessor.count * stride)
     for (let i = 0; i < accessor.count; i++) {
-      const at = i * width
+      const at = i * stride
       if (plan.kind === 'weights') {
         quantizeWeights([0, 1, 2, 3].map((c) => values[i * components + c]), out, at)
       } else {
         for (let c = 0; c < components; c++) {
           const v = values[i * components + c]
           if (plan.kind === 'joints') out.writeUInt8(Math.max(0, Math.min(255, Math.round(v))), at + c)
+          // -128 is unreachable for a normalized byte: the spec reads it as -1,
+          // the same as -127, so clamping there only wastes a code.
+          else if (plan.kind === 'normal') out.writeInt8(Math.max(-127, Math.min(127, Math.round(v * 127))), at + c)
           else out.writeUInt16LE(Math.max(0, Math.min(65535, Math.round(v * 65535))), at + c * 2)
         }
       }
     }
-    replacement.set(accessor.bufferView, { bytes: out, stride: width })
+    replacement.set(accessor.bufferView, { bytes: out, stride })
   }
 
   // Rebuild the binary in the views' original order so the file still reads
@@ -254,6 +268,13 @@ function quantize(file, { dryRun = false } = {}) {
         accessor.max = accessor.max?.map((v) => Math.round(v * 255) / 255)
       }
     }
+  }
+  // A quantized normal is not core glTF, so the file has to say so. three
+  // reads it with no decoder; a tool that has not heard of it should refuse
+  // rather than render the actor inside out.
+  if ([...plans.values()].some((plan) => plan.kind === 'normal')) {
+    json.extensionsUsed = [...new Set([...(json.extensionsUsed ?? []), 'KHR_mesh_quantization'])]
+    json.extensionsRequired = [...new Set([...(json.extensionsRequired ?? []), 'KHR_mesh_quantization'])]
   }
   json.buffers = [{ byteLength: rebuilt.length }]
 

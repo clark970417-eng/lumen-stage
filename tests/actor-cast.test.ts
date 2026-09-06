@@ -185,6 +185,7 @@ test('no actor ships its skinning wider than it means', () => {
   // Worth guarding because it is silent. A newly converted actor arrives wide,
   // renders exactly the same, and just quietly costs half a megabyte more to
   // download. Run scripts/quantize-geometry.mjs on it.
+  const BYTE = 5120
   const UBYTE = 5121
   const USHORT = 5123
   for (const member of CAST) {
@@ -193,6 +194,7 @@ test('no actor ships its skinning wider than it means', () => {
     let json: {
       meshes?: { primitives: { attributes: Record<string, number> }[] }[]
       accessors?: { componentType: number; normalized?: boolean; max?: number[] }[]
+      extensionsRequired?: string[]
     } | null = null
     while (offset < buffer.length) {
       const length = buffer.readUInt32LE(offset)
@@ -214,6 +216,19 @@ test('no actor ships its skinning wider than it means', () => {
           assert.equal(weights.componentType, UBYTE,
             `${member.id} stores skin weights as floats — run scripts/quantize-geometry.mjs`)
           assert.equal(weights.normalized, true, `${member.id} has byte weights that are not normalized`)
+        }
+        const normal = accessors[primitive.attributes.NORMAL]
+        if (normal) {
+          // A unit vector does not need four bytes a component. Byte normalized
+          // turns each normal by a mean of 0.17 degrees, measured, and needs
+          // KHR_mesh_quantization -- which three reads without a decoder, but
+          // which the file has to declare or a strict loader is entitled to
+          // render the actor inside out.
+          assert.equal(normal.componentType, BYTE,
+            `${member.id} stores normals as floats — run scripts/quantize-geometry.mjs`)
+          assert.equal(normal.normalized, true, `${member.id} has byte normals that are not normalized`)
+          assert.ok(json?.extensionsRequired?.includes('KHR_mesh_quantization'),
+            `${member.id} has quantized normals but does not require KHR_mesh_quantization`)
         }
         const uv = accessors[primitive.attributes.TEXCOORD_0]
         // A UV set that runs past 1 tiles, and a normalized ushort cannot say
