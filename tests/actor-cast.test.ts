@@ -174,3 +174,56 @@ test('no actor ships vertex colours', () => {
     }
   }
 })
+
+test('no actor ships its skinning wider than it means', () => {
+  // The converter writes every attribute as float32, which for these three is
+  // the wrong container: joint indices never reach 80, weights live in [0, 1],
+  // and the UVs are inside the map. Narrowing them is worth 7.3 MB across the
+  // cast and costs the loader nothing — all three encodings are core glTF 2.0,
+  // so there is no extension and no decoder involved.
+  //
+  // Worth guarding because it is silent. A newly converted actor arrives wide,
+  // renders exactly the same, and just quietly costs half a megabyte more to
+  // download. Run scripts/quantize-geometry.mjs on it.
+  const UBYTE = 5121
+  const USHORT = 5123
+  for (const member of CAST) {
+    const buffer = readFileSync(local(member.url))
+    let offset = 12
+    let json: {
+      meshes?: { primitives: { attributes: Record<string, number> }[] }[]
+      accessors?: { componentType: number; normalized?: boolean; max?: number[] }[]
+    } | null = null
+    while (offset < buffer.length) {
+      const length = buffer.readUInt32LE(offset)
+      if (buffer.readUInt32LE(offset + 4) === 0x4E4F534A) {
+        json = JSON.parse(buffer.subarray(offset + 8, offset + 8 + length).toString('utf8'))
+      }
+      offset += 8 + length
+    }
+    const accessors = json?.accessors ?? []
+    for (const mesh of json?.meshes ?? []) {
+      for (const primitive of mesh.primitives) {
+        const joints = accessors[primitive.attributes.JOINTS_0]
+        if (joints) {
+          assert.equal(joints.componentType, UBYTE,
+            `${member.id} stores joint indices wider than a byte — run scripts/quantize-geometry.mjs`)
+        }
+        const weights = accessors[primitive.attributes.WEIGHTS_0]
+        if (weights) {
+          assert.equal(weights.componentType, UBYTE,
+            `${member.id} stores skin weights as floats — run scripts/quantize-geometry.mjs`)
+          assert.equal(weights.normalized, true, `${member.id} has byte weights that are not normalized`)
+        }
+        const uv = accessors[primitive.attributes.TEXCOORD_0]
+        // A UV set that runs past 1 tiles, and a normalized ushort cannot say
+        // so. Those are left as floats on purpose, not overlooked.
+        if (uv && !(uv.max ?? []).some((v) => v > 1)) {
+          assert.equal(uv.componentType, USHORT,
+            `${member.id} stores UVs inside the map as floats — run scripts/quantize-geometry.mjs`)
+          assert.equal(uv.normalized, true, `${member.id} has ushort UVs that are not normalized`)
+        }
+      }
+    }
+  }
+})
