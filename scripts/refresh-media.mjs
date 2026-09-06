@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
 import { chromium } from 'playwright'
 
@@ -276,3 +277,11 @@ try {
 } finally {
   await browser.close()
 }
+// Playwright writes PNG only, and the site asks for .webp. Without this the
+// next refresh would quietly put PNGs back beside a page that no longer looks
+// for them. See scripts/webp-site-stills.mjs.
+await new Promise((done, fail) => {
+  const child = spawn(process.execPath, ['scripts/webp-site-stills.mjs'], { stdio: 'inherit' })
+  child.on('exit', (code) => (code === 0 ? done() : fail(new Error(`webp-site-stills exited ${code}`))))
+})
+

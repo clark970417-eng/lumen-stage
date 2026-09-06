@@ -1,6 +1,7 @@
 /** Capture current UI at native 4K output, using isolated browser storage. */
 import { chromium } from '@playwright/test'
 import { mkdir, writeFile } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
 const base = process.env.LUMEN_CAPTURE_URL ?? 'http://127.0.0.1:5173'
 const browser = await chromium.launch({ headless: process.env.LUMEN_CAPTURE_HEADED !== '1' })
 const crops = {}
@@ -51,3 +52,11 @@ try {
   }
   await writeFile('/private/tmp/lumen-still-crops.json', JSON.stringify(crops))
 } finally { await browser.close() }
+// Playwright writes PNG only, and the site asks for .webp. Without this the
+// next refresh would quietly put PNGs back beside a page that no longer looks
+// for them. See scripts/webp-site-stills.mjs.
+await new Promise((done, fail) => {
+  const child = spawn(process.execPath, ['scripts/webp-site-stills.mjs'], { stdio: 'inherit' })
+  child.on('exit', (code) => (code === 0 ? done() : fail(new Error(`webp-site-stills exited ${code}`))))
+})
+

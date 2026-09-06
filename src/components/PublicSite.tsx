@@ -156,18 +156,18 @@ const COPY: Record<Locale, Copy> = {
 
 const STUDIO_PREVIEWS: Record<Locale, { desktop: string; mobile: string; alt: string }> = {
   zh: {
-    desktop: assetHref('site-preview/zh.png'),
-    mobile: assetHref('site-preview/zh-mobile.png'),
+    desktop: assetHref('site-preview/zh.webp'),
+    mobile: assetHref('site-preview/zh-mobile.webp'),
     alt: 'Lumen Stage 繁體中文虛擬攝影棚，顯示人物、佈光、相機與配置四個模式',
   },
   en: {
-    desktop: assetHref('site-preview/en.png'),
-    mobile: assetHref('site-preview/en-mobile.png'),
+    desktop: assetHref('site-preview/en.webp'),
+    mobile: assetHref('site-preview/en-mobile.webp'),
     alt: 'Lumen Stage virtual studio showing the Person, Light, Camera and Layout modes',
   },
   ja: {
-    desktop: assetHref('site-preview/ja.png'),
-    mobile: assetHref('site-preview/ja-mobile.png'),
+    desktop: assetHref('site-preview/ja.webp'),
+    mobile: assetHref('site-preview/ja-mobile.webp'),
     alt: '人物、照明、カメラ、配置の 4 モードを表示する Lumen Stage 日本語版',
   },
 }
@@ -450,7 +450,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     <section className="capability-grid" data-reveal>{copy.capabilities.map(([title, body], index) => <article key={title}>
       <div><span>0{index + 1}</span><i aria-hidden="true" /></div>
       <figure className="capability-pair">
-        <div className="capability-scene"><span>{locale === 'zh' ? '場景' : locale === 'ja' ? 'シーン' : 'Scene'}</span><ScreenshotCrop src={`site-detail/${locale}/scene-${index}.png`} size={[3840, 2160]} crop={[504, 184, 2712, 1936]} id={`scene-${index}`} label={`${title} — ${locale === 'zh' ? '場景圖' : 'Scene'}`} /></div>
+        <div className="capability-scene"><span>{locale === 'zh' ? '場景' : locale === 'ja' ? 'シーン' : 'Scene'}</span><ScreenshotCrop src={`site-detail/${locale}/scene-${index}.webp`} size={[3840, 2160]} crop={[504, 184, 2712, 1936]} id={`scene-${index}`} label={`${title} — ${locale === 'zh' ? '場景圖' : 'Scene'}`} /></div>
         <div className="capability-settings"><span>{locale === 'en' ? 'Settings preview' : locale === 'ja' ? '設定プレビュー' : '設定預覽'}</span><SettingsPreview index={index} locale={locale} /></div>
       </figure>
       <h3>{title}</h3><p>{body}</p>
