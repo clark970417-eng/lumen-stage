@@ -16,7 +16,6 @@ const compareOnly = process.argv.includes('--compare-only')
 const initialGender = { en: 'Masculine', zh: 'Feminine', ja: 'Masculine' }
 const oppositeGender = { Feminine: 'Masculine', Masculine: 'Feminine' }
 const fullTutorialGenders = ['Masculine', 'Feminine', 'Masculine', 'Feminine']
-const simpleTutorialGenders = ['Feminine', 'Masculine', 'Feminine', 'Masculine']
 const fullVideoGender = { en: 'Masculine', zh: 'Feminine', ja: 'Masculine' }
 const simpleVideoGender = { en: 'Feminine', zh: 'Masculine', ja: 'Feminine' }
 const genderLabel = {
@@ -138,24 +137,6 @@ async function captureSimpleVideoSources(page, locale) {
   }
 }
 
-async function captureWorkflowPlan(page, locale) {
-  await page.setViewportSize({ width: 1920, height: 1080 })
-  await setFullGender(page, locale, 'Masculine')
-  await page.locator('.workflow-navigation button').nth(3).click()
-  await page.waitForTimeout(900)
-  await shot(page, resolve(root, `public/site-workflow/${locale}/plan.png`))
-}
-
-async function captureWorkflowShoot(page, locale) {
-  await page.setViewportSize({ width: 1920, height: 1080 })
-  await setSimpleGender(page, locale, 'Masculine')
-  const camera = page.getByRole('tab').nth(2)
-  if (await camera.getAttribute('aria-selected') !== 'true') await camera.click()
-  await page.locator('.m-sheet').waitFor({ state: 'visible', timeout: 30_000 })
-  await page.waitForTimeout(900)
-  await shot(page, resolve(root, `public/site-workflow/${locale}/shoot.png`))
-}
-
 async function saveCanvasFrame(page, target, denoise = false) {
   const dataUrl = await page.locator('.viewport canvas:not(.exposure-overlay)').first().evaluate((source, shouldDenoise) => {
     const ratio = 16 / 9
@@ -245,7 +226,6 @@ try {
       }
     }
     await captureFullVideoSources(page, locale)
-    await captureWorkflowPlan(page, locale)
     if (locale === locales[0] && captureSharedCompare) await captureRenderComparison(page, locale)
     await full.close()
 
@@ -255,23 +235,14 @@ try {
     if (!siteFixOnly) {
       await setSimpleGender(mobile, locale, oppositeGender[initialGender[locale]])
       await shot(mobile, resolve(root, `public/site-preview/${locale}-mobile.png`))
-      await mobile.setViewportSize({ width: 780, height: 438 })
-      await mobile.waitForTimeout(500)
-      for (let index = 0; index < 4; index += 1) {
-        await setSimpleGender(mobile, locale, simpleTutorialGenders[index])
-        const tab = mobile.getByRole('tab').nth(index)
-        if (await tab.getAttribute('aria-selected') !== 'true') await tab.click()
-        await mobile.locator('.m-sheet').waitFor({ state: 'visible', timeout: 30_000 })
-        await mobile.waitForTimeout(700)
-        await shot(mobile, resolve(root, `public/onboarding/${locale}/mobile-${index}.png`))
-        if (index > 0) {
-          const detailName = ['light', 'camera', 'handoff'][index - 1]
-          await shot(mobile, resolve(root, `public/site-detail/${locale}/${detailName}.png`))
-        }
-      }
+      // The phone tutorial stills, the light/camera/handoff details and the
+      // workflow plan and shoot shots used to be captured here. Nothing on the
+      // site has ever shown them -- they were 5 MB of the published build --
+      // and deleting the files alone would only have brought them back on the
+      // next refresh. The phone shot above is still used, as the guide's
+      // mobile slide.
     }
     await captureSimpleVideoSources(mobile, locale)
-    await captureWorkflowShoot(mobile, locale)
     await simple.close()
   }
 } finally {
