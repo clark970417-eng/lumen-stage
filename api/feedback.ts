@@ -27,10 +27,18 @@ export default async function handler(request: Request, response: Response) {
       body: JSON.stringify({ message, ...(email ? { email } : {}), locale: ['zh', 'en', 'ja'].includes(String(body.locale)) ? body.locale : 'en', _subject: 'Lumen Stage — website feedback' }),
       signal: AbortSignal.timeout(15000),
     })
-    const result = await upstream.json() as { success?: boolean | string }
-    if (!upstream.ok || (result.success !== true && result.success !== 'true')) return response.status(502).json({ ok: false })
+    if (!upstream.ok) {
+      console.warn('[feedback-forward]', { status: upstream.status })
+      return response.status(502).json({ ok: false })
+    }
+    const result = await upstream.json() as { success?: boolean | string; message?: string }
+    if (result.success !== true && result.success !== 'true') {
+      console.warn('[feedback-forward]', { reason: /activat/i.test(result.message ?? '') ? 'activation_required' : 'provider_rejected' })
+      return response.status(502).json({ ok: false })
+    }
     return response.status(200).json({ ok: true })
-  } catch {
+  } catch (error) {
+    console.warn('[feedback-forward]', { reason: error instanceof Error ? error.name : 'network_error' })
     return response.status(502).json({ ok: false })
   }
 }
