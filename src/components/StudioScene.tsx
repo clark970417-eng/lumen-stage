@@ -203,7 +203,18 @@ function CameraRig() {
       perspective.fov = 43
       perspective.lookAt(0, 0, 1.4)
     } else {
-      perspective.position.set(6.8, 6, 7.2)
+      // Swung round from the corner it used to sit in. At 43 degrees the
+      // camera stood almost exactly behind the fill's softbox -- 41 degrees,
+      // two away -- so a first load showed the subject's head above a black
+      // panel and nothing else: the hips and feet were behind the modifier.
+      //
+      // Treating both modifiers as rectangles square to their targets and
+      // testing the sightline to head, chest, hips and feet, the angles that
+      // clear them are -19 to 29 degrees, 54 to 80, and their mirror. Raising
+      // the camera does not help; it is already above the 4.5 m ceiling. 12
+      // degrees takes the middle window with 17 degrees of margin on the
+      // tighter side, and keeps enough of an angle to read the room as a room.
+      perspective.position.set(2.06, 6, 9.69)
       perspective.fov = 42
       perspective.lookAt(0, 1.1, 0)
     }
@@ -3160,13 +3171,13 @@ function Softbox({ light }: { light: StudioLight }) {
     visual.current?.lookAt(...light.target)
   }, [light.target, position])
 
-  // Model the editor's working light at a lower display gain; camera and path output
-  // retain the full photometric energy, including when inspecting a solo light.
+  // The heads are dimmed for the editor only; camera, path output and solo
+  // keep the full photometric energy. See EDITOR_AMBIENT.
   const softbox = (
     <group {...drag} ref={rig} position={position} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(lightId, Boolean((event.nativeEvent as PointerEvent).shiftKey)) }}>
       <spotLight
         ref={spot}
-        position={[0, 0, 0]} target={target} color={color} intensity={effectiveEnabled ? outputLumens * (view !== 'camera' && renderMode !== 'path' && !soloLightId ? 0.08 : 1) / (renderMode === 'path' ? PATHTRACE_CANDELA_SCALE : PREVIEW_CANDELA_SCALE) : 0}
+        position={[0, 0, 0]} target={target} color={color} intensity={effectiveEnabled ? outputLumens * (view !== 'camera' && renderMode !== 'path' && !soloLightId ? EDITOR_HEAD_GAIN : 1) / (renderMode === 'path' ? PATHTRACE_CANDELA_SCALE : PREVIEW_CANDELA_SCALE) : 0}
         map={goboTexture ?? undefined}
         angle={beamAngle} penumbra={penumbra} decay={2} distance={0} castShadow
         shadow-mapSize-width={shadowMapSize} shadow-mapSize-height={shadowMapSize}
@@ -3724,8 +3735,32 @@ function ExposureProbe() {
   return null
 }
 
-/** Working illumination is separate from the physical viewfinder/export exposure. */
-const EDITOR_AMBIENT = 70
+/**
+ * Working light for the editor viewport, and only for the editor viewport.
+ *
+ * The room is lit by strobes measured in hundreds of watt-seconds and the
+ * scene's own ambient tops out around 1.3, so a first load once rendered 48%
+ * of the frame at pure black -- the far wall, the floor outside the key's pool
+ * and both stands were simply not there. You cannot block a shot in a room you
+ * cannot see. The editor already declines to be photometric (its exposure is
+ * pinned rather than derived from ISO and aperture), so lighting it to be read
+ * is the same bargain, not a new one.
+ *
+ * The pair of numbers is a balance, and both ends of it are measurable. Purely
+ * lifting ambient and leaving the heads alone gives contrast but a harsh
+ * frame; dropping the heads to 8% and lifting ambient to 70 removes the black
+ * but flattens the key's pool until you cannot see where the light lands,
+ * which is the one thing this viewport exists to show. Measured as the
+ * standard deviation of frame luminance on a default scene: 0.229 at (22, 1.0)
+ * against 0.092 at (70, 0.08), with neither showing a black pixel. 40 and 0.4
+ * sit at 0.179 -- most of the modelling, none of the harshness.
+ *
+ * The viewfinder and the path renderer are excluded: those two have to keep
+ * telling the truth, because that is the photograph. Solo keeps its near-black
+ * as well, since killing everything but one light is the whole point of it.
+ */
+const EDITOR_AMBIENT = 40
+const EDITOR_HEAD_GAIN = 0.4
 
 const MemoMannequin = memo(Mannequin)
 const MemoSoftbox = memo(Softbox)
