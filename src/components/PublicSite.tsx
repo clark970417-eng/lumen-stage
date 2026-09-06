@@ -311,7 +311,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
   const demoVideo = DEMO_VIDEOS[locale]
   const [demoStep, setDemoStep] = useState(0)
   const [modeOpen, setModeOpen] = useState(false)
-  const releaseDate = '2026.09.06'
+  const releaseDate = '2026.09.07'
   const heroStage = useRef<HTMLDivElement>(null)
   const demoRef = useRef<HTMLVideoElement>(null)
   const userPaused = useRef(false)
