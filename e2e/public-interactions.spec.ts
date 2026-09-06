@@ -50,13 +50,21 @@ test('keeps the 3D engine out of the homepage payload', async ({ page }) => {
   expect(resources.some((url) => /three-vendor|pathtracer-vendor|\/App-|\/MobileApp-/.test(url))).toBeFalsy()
 })
 
-test('routes feedback to the public showcase form and explains sign-in', async ({ page }) => {
+test('anonymous feedback preserves text after failure and clears after acceptance', async ({ page }) => {
   await page.goto('/')
   const section = page.locator('#feedback')
-  await expect(section.getByRole('link', { name: 'Leave feedback', exact: true })).toHaveAttribute('href', 'https://github.com/clark970417-eng/lumen-stage-showcase/issues/new?template=feedback.yml')
-  await expect(section).toContainText('GitHub sign-in is required')
-  await page.getByRole('button', { name: '中文' }).click()
-  await expect(section.getByRole('link', { name: '留下回饋' })).toBeVisible()
-  await page.getByRole('button', { name: '日本語' }).click()
-  await expect(section.getByRole('link', { name: 'フィードバックする' })).toBeVisible()
+  const message = section.locator('textarea')
+  await message.fill('Please add more lighting examples.')
+  await page.route('**/api/feedback', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: '{"ok":false}' }))
+  await section.getByRole('button', { name: 'Send feedback', exact: true }).click()
+  await expect(section.getByRole('status')).toContainText('Could not send')
+  await expect(message).toHaveValue('Please add more lighting examples.')
+  await page.unroute('**/api/feedback')
+  await page.route('**/api/feedback', async (route) => {
+    expect(route.request().postDataJSON().email).toBe('')
+    await route.fulfill({ contentType: 'application/json', body: '{"ok":true}' })
+  })
+  await section.getByRole('button', { name: 'Send feedback', exact: true }).click()
+  await expect(section.getByRole('status')).toContainText('Feedback sent')
+  await expect(message).toHaveValue('')
 })

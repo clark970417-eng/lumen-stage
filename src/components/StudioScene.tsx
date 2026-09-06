@@ -3160,11 +3160,13 @@ function Softbox({ light }: { light: StudioLight }) {
     visual.current?.lookAt(...light.target)
   }, [light.target, position])
 
+  // Model the editor's working light at a lower display gain; camera and path output
+  // retain the full photometric energy, including when inspecting a solo light.
   const softbox = (
     <group {...drag} ref={rig} position={position} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(lightId, Boolean((event.nativeEvent as PointerEvent).shiftKey)) }}>
       <spotLight
         ref={spot}
-        position={[0, 0, 0]} target={target} color={color} intensity={effectiveEnabled ? outputLumens / (renderMode === 'path' ? PATHTRACE_CANDELA_SCALE : PREVIEW_CANDELA_SCALE) : 0}
+        position={[0, 0, 0]} target={target} color={color} intensity={effectiveEnabled ? outputLumens * (view !== 'camera' && renderMode !== 'path' && !soloLightId ? 0.08 : 1) / (renderMode === 'path' ? PATHTRACE_CANDELA_SCALE : PREVIEW_CANDELA_SCALE) : 0}
         map={goboTexture ?? undefined}
         angle={beamAngle} penumbra={penumbra} decay={2} distance={0} castShadow
         shadow-mapSize-width={shadowMapSize} shadow-mapSize-height={shadowMapSize}
@@ -3722,26 +3724,8 @@ function ExposureProbe() {
   return null
 }
 
-/**
- * Working light for the editor viewport, and only for the editor viewport.
- *
- * The room is lit by strobes measured in hundreds of watt-seconds, and the
- * scene's own ambient tops out around 1.3 — next to a flash that is nothing, so
- * a first load rendered 48% of the frame at pure black: the far wall, the floor
- * outside the key's pool and both stands were simply not there. You cannot
- * block a shot in a room you cannot see.
- *
- * The editor already declines to be photometric (its exposure is pinned above
- * rather than derived from ISO and aperture), so this is the same bargain, not
- * a new one. It is a floor rather than a replacement, and the viewfinder and
- * the path renderer are excluded — those two have to keep telling the truth
- * about ambient, because that is what the picture is. Solo keeps its near-black
- * as well; killing everything but one light is the whole point of it.
- *
- * 22 is measured: black falls off a cliff between 14 and 20 as the far wall
- * lifts off zero, and by 30 the key's pool has visibly flattened.
- */
-const EDITOR_AMBIENT = 22
+/** Working illumination is separate from the physical viewfinder/export exposure. */
+const EDITOR_AMBIENT = 70
 
 const MemoMannequin = memo(Mannequin)
 const MemoSoftbox = memo(Softbox)
@@ -3796,7 +3780,7 @@ export function StudioScene({ horizontalLayoutOnly = false }: { horizontalLayout
     <HorizontalLayoutContext.Provider value={horizontalLayoutOnly}>
       <CameraRig />
       <TimelinePlayback />
-      <ambientLight intensity={horizontalLayoutOnly && view !== 'camera' && renderMode !== 'path' ? Math.max(35, ambientLevel / 75) : layoutOnly ? Math.max(0.72, ambientLevel / 48) : soloLightId ? 0.015 : view === 'camera' || renderMode === 'path' ? ambientLevel / 75 : Math.max(EDITOR_AMBIENT, ambientLevel / 75)} color={ambientColor} />
+      <ambientLight intensity={view === 'camera' || renderMode === 'path' ? ambientLevel / 75 : soloLightId ? 0.015 : Math.max(horizontalLayoutOnly ? 35 : EDITOR_AMBIENT, ambientLevel / 75)} color={ambientColor} />
       <EnvironmentLighting />
       <Backdrop />
       <MemoMannequin />

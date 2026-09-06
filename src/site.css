@@ -73,11 +73,20 @@
 @media(max-width:1100px){.landing .site-hero{grid-template-columns:1fr;padding-top:166px;gap:34px}.landing .hero-copy{width:100%;max-width:800px;margin:0}.landing .hero-copy h1{font-size:clamp(40px,6vw,64px)}.landing .hero-instrument{max-width:1000px}.landing .hero-lower>p{max-width:62ch}}
 @media(max-width:620px){.landing .site-hero{padding:104px 18px 42px;gap:26px}.landing .hero-copy h1,.landing .site-hero[data-locale=zh] .hero-copy h1{font-size:clamp(34px,9vw,47px);line-height:1.2}.landing .hero-instrument{width:100%;margin:0}.landing .hero-instrument picture{aspect-ratio:auto}.landing .hero-instrument picture img{height:auto;object-fit:contain}.landing .hero-lower>p{font-size:14px}}
 
-.site-feedback { display: flex; align-items: center; justify-content: space-between; gap: 32px; padding: clamp(28px, 5vw, 72px); margin: 32px 0; border: 1px solid var(--line); border-radius: 20px; background: #101a21; }
-.site-feedback > div { max-width: 760px; }
-.site-feedback h2 { font-size: clamp(26px, 3vw, 46px); line-height: 1.2; text-wrap: balance; }
+/* Feedback stays within the page measure, with room for every language. */
+.site-feedback { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: clamp(28px, 5vw, 72px); padding: clamp(24px, 4vw, 64px); margin: 48px auto; width: calc(100% - 48px); max-width: 1320px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 24px; background: #101a21; }
+.site-feedback h2 { margin: 24px 0; font-size: clamp(26px, 3vw, 44px); line-height: 1.3; text-wrap: balance; overflow-wrap: anywhere; }
 .site-feedback span { color: var(--signal); font: 12px var(--mono); letter-spacing: .16em; }
 .site-feedback p { color: #becdd3; line-height: 1.7; }
 .site-feedback small { display: block; color: #93a6af; line-height: 1.6; }
-.site-feedback .site-cta { flex-shrink: 0; }
-@media (max-width: 700px) { .site-feedback { align-items: stretch; flex-direction: column; } }
+.feedback-form { display: flex; flex-direction: column; min-width: 0; gap: 12px; }
+.feedback-form label { color: #edf3f5; font-size: 16px; line-height: 1.5; }
+.feedback-form input, .feedback-form textarea { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #465b67; border-radius: 10px; padding: 14px; background: #090f13; color: #edf3f5; font: inherit; font-size: 16px; line-height: 1.6; }
+.feedback-form textarea { resize: vertical; min-height: 140px; max-height: 480px; }
+.feedback-form textarea + label { margin-top: 8px; }
+.feedback-form input:focus-visible, .feedback-form textarea:focus-visible { outline: 2px solid #66d9f7; outline-offset: 3px; }
+.feedback-form .site-cta { align-self: flex-start; margin-top: 12px; min-height: 48px; cursor: pointer; }
+.feedback-form .site-cta:disabled { opacity: .65; cursor: wait; }
+.feedback-form .feedback-status { min-height: 1.7em; margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.feedback-trap { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media (max-width: 800px) { .site-feedback { grid-template-columns: minmax(0, 1fr); width: calc(100% - 32px); margin: 32px auto; gap: 28px; } }

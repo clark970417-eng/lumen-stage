@@ -98,7 +98,7 @@ const COPY: Record<Locale, Copy> = {
     localTitle: 'Local-first 不把你的場景當成資料來源', localBody: '專案預設儲存在你的瀏覽器，沒有帳號、廣告或行為追蹤。只有匿名技術錯誤會送出，且不包含場景與照片。',
     finalTitle: '下一次拍攝 先在 LUMEN STAGE 裡亮燈', finalBody: '免費、免安裝、免信用卡。現在就從一組燈位開始。', faqTitle: '正式開拍前 先回答幾個問題',
     faq: [['需要安裝嗎？', '不用。現代瀏覽器與支援 WebGL 的裝置即可使用。'], ['手機和桌機一樣嗎？', '共用同一種場景格式；手機保留排光、人物、相機與拍照的核心流程，桌機提供完整控制。'], ['場景會上傳嗎？', '不會。場景與匯入素材預設留在你的瀏覽器。'], ['可以分享嗎？', '可以。分享連結會把壓縮後的場景放在網址中，不需要帳號。'], ['能取代現場測光嗎？', '不能。它是規劃與溝通工具；正式拍攝仍應以現場器材與測光為準。'], ['需要付費嗎？', '目前公開版本可直接使用，不需要信用卡。']],
-    privacyTitle: '隱私說明', privacyBody: ['LUMEN STAGE 不要求帳號，也不使用廣告追蹤或行為分析 cookie。', '場景、偏好、匯入素材與照片預設保存在你的瀏覽器。清除網站資料可能移除這些內容，因此請定期匯出備份。', '為了發現當機，網站可能送出匿名技術錯誤，包括錯誤訊息、程式位置、頁面路徑與版本；不包含場景內容、照片、專案名稱或匯入檔案。', '網站由 Vercel 與 GitHub 提供服務，供應商可能依其政策處理必要的網路與部署紀錄。'],
+    privacyTitle: '隱私說明', privacyBody: ['LUMEN STAGE 不要求帳號，也不使用廣告追蹤或行為分析 cookie。', '場景、偏好、匯入素材與照片預設保存在你的瀏覽器。清除網站資料可能移除這些內容，因此請定期匯出備份。', '為了發現當機，網站可能送出匿名技術錯誤，包括錯誤訊息、程式位置、頁面路徑與版本；不包含場景內容、照片、專案名稱或匯入檔案。', '你主動送出的回饋與選填聯絡信箱，會透過 FormSubmit 寄送服務交給創作者，僅供回覆與產品改善。', '網站由 Vercel 與 GitHub 提供服務，供應商可能依其政策處理必要的網路與部署紀錄。'],
     termsTitle: '使用條款', termsBody: ['LUMEN STAGE 以現況提供，供攝影規劃、教育與視覺溝通使用。', '模擬結果會受到瀏覽器、螢幕、GPU、器材差異與環境條件影響，不構成曝光、色彩或安全保證；實際拍攝請以現場測量與器材規範為準。', '使用者應保留重要專案的匯出備份，並對匯入素材與分享內容擁有適當權利。', '介面、品牌與原創內容版權屬 YuYing；未經許可不得重製或重新散布原始碼與品牌資產。'],
     supportTitle: '支援與回報', supportBody: ['遇到載入、儲存、算圖或裝置相容問題時，請先重新載入網站，並確認瀏覽器已更新。', '「建立問題回報」會先開啟一份可檢查的草稿；請補上發生情況與重現步驟，確認內容後再自行送出。', '草稿只會填入 LUMEN STAGE 版本、目前頁面、畫面尺寸與瀏覽器版本，不會讀取或附上場景、照片、專案名稱或匯入檔案。', 'LUMEN STAGE 目前由 YuYing 維護。請勿在公開回報中加入私人照片或未公開專案檔。'], issues: '建立問題回報', back: '返回首頁',
   },
@@ -123,7 +123,7 @@ const COPY: Record<Locale, Copy> = {
     workflowTitle: 'From virtual planning to a setup the crew can follow.', workflow: [['Plan the space', 'Arrange the subject, lights, camera and backdrop in measurable positions.'], ['Preview the frame', 'Compare focal length, aperture, exposure and a high-quality render.'], ['Take it to set', 'Keep the useful decisions and export a lighting sheet the crew can rebuild.']],
     localTitle: 'Local-first. Your scene is not our dataset.', localBody: 'Projects stay in your browser by default. There are no accounts, ads or behaviour analytics. Anonymous technical errors may be sent without scene or photo data.', finalTitle: 'Light your next shoot in LUMEN STAGE first.', finalBody: 'Free to use, with no install and no card. Start with one lighting setup now.', faqTitle: 'A few answers before call time.',
     faq: [['Do I install anything?', 'No. Use a modern browser on a device that supports WebGL.'], ['Are phone and desktop the same?', 'They share the same scene format. Phone keeps the essential lighting and framing flow; desktop provides complete control.'], ['Are scenes uploaded?', 'No. Scenes and imported assets stay in your browser by default.'], ['Can I share a setup?', 'Yes. A compressed scene travels inside the share URL, with no account required.'], ['Does it replace a light meter?', 'No. It is a planning and communication tool; use real equipment and measurements on set.'], ['Does it cost anything?', 'The current public release is available without a card.']],
-    privacyTitle: 'Privacy', privacyBody: ['LUMEN STAGE requires no account and uses no advertising trackers, behaviour analytics or analytics cookies.', 'Scenes, preferences, imported assets and photos stay in your browser by default. Clearing site data can remove them, so export important backups.', 'To detect crashes, anonymous technical errors may include an error message, code location, route and release. They exclude scenes, photos, project names and imported files.', 'Vercel and GitHub provide hosting and source services and may process necessary network and deployment logs under their own policies.'],
+    privacyTitle: 'Privacy', privacyBody: ['LUMEN STAGE requires no account and uses no advertising trackers, behaviour analytics or analytics cookies.', 'Scenes, preferences, imported assets and photos stay in your browser by default. Clearing site data can remove them, so export important backups.', 'To detect crashes, anonymous technical errors may include an error message, code location, route and release. They exclude scenes, photos, project names and imported files.', 'Feedback you choose to submit, including an optional reply email, is forwarded to the creator through FormSubmit for replies and product improvements.', 'Vercel and GitHub provide hosting and source services and may process necessary network and deployment logs under their own policies.'],
     termsTitle: 'Terms of use', termsBody: ['LUMEN STAGE is provided as-is for photographic planning, education and visual communication.', 'Simulation results vary with browsers, displays, GPUs, equipment and physical conditions. They are not an exposure, colour or safety guarantee; verify with real equipment on set.', 'Keep exported backups of important work and hold the appropriate rights to imported and shared material.', 'The interface, brand and original content are © YuYing. Source and brand assets may not be redistributed without permission.'],
     supportTitle: 'Support', supportBody: ['For loading, storage, rendering or compatibility problems, reload first and confirm your browser is current.', '“Create an issue report” opens a draft you can review. Add what happened and the steps to reproduce, then submit it yourself when the content is ready.', 'The draft includes only the LUMEN STAGE version, current page, viewport and browser version. It does not read or attach scenes, photographs, project names or imported files.', 'LUMEN STAGE is maintained by YuYing. Do not include private photographs or unreleased project files in a public report.'], issues: 'Create an issue report', back: 'Back to home',
   },
@@ -148,7 +148,7 @@ const COPY: Record<Locale, Copy> = {
     workflowTitle: 'バーチャル設計から、現場で再現できるセットへ。', workflow: [['空間を設計', '人物、ライト、カメラ、背景を測定可能な位置に配置。'], ['画面をプレビュー', '焦点距離、絞り、露出、高品質レンダーを比較。'], ['現場へ持ち出す', '有効な判断を保存し、チームが再現できる照明シートを書き出す。']],
     localTitle: 'Local-first。シーンを学習データにしません。', localBody: 'プロジェクトはブラウザ内に保存され、アカウント、広告、行動解析はありません。匿名の技術エラーのみ、シーンや写真を含めず送信される場合があります。', finalTitle: '次の撮影は、まず LUMEN STAGE で点灯。', finalBody: '無料、インストール不要、カード不要。今すぐ 1 つの照明から始めましょう。', faqTitle: '撮影前によくある質問。',
     faq: [['インストールは必要ですか？', '不要です。WebGL 対応のモダンブラウザで利用できます。'], ['スマホとデスクトップは同じですか？', '同じシーン形式を使います。スマホは中核フロー、デスクトップは全機能を提供します。'], ['シーンはアップロードされますか？', 'いいえ。シーンと素材は既定でブラウザ内に残ります。'], ['共有できますか？', 'はい。圧縮シーンを URL に含めるため、アカウント不要です。'], ['露出計の代わりになりますか？', 'いいえ。計画と共有のためのツールです。本番では実機で確認してください。'], ['料金はかかりますか？', '現在の公開版はカードなしで利用できます。']],
-    privacyTitle: 'プライバシー', privacyBody: ['LUMEN STAGE はアカウント不要で、広告追跡、行動解析、解析 Cookie を使用しません。', 'シーン、設定、素材、写真は既定でブラウザ内に保存されます。サイトデータを削除すると失われるため、重要なデータは書き出してください。', '障害検知のため、エラー内容、コード位置、ページ、版を含む匿名技術エラーを送る場合があります。シーン、写真、プロジェクト名、素材は含みません。', 'Vercel と GitHub がサービスを提供し、各ポリシーに従って必要なネットワーク・配備ログを処理する場合があります。'],
+    privacyTitle: 'プライバシー', privacyBody: ['LUMEN STAGE はアカウント不要で、広告追跡、行動解析、解析 Cookie を使用しません。', 'シーン、設定、素材、写真は既定でブラウザ内に保存されます。サイトデータを削除すると失われるため、重要なデータは書き出してください。', '障害検知のため、エラー内容、コード位置、ページ、版を含む匿名技術エラーを送る場合があります。シーン、写真、プロジェクト名、素材は含みません。', '送信したご意見と任意のメールアドレスは、FormSubmit を通じて制作者に届き、返信と製品改善に使用されます。', 'Vercel と GitHub がサービスを提供し、各ポリシーに従って必要なネットワーク・配備ログを処理する場合があります。'],
     termsTitle: '利用規約', termsBody: ['LUMEN STAGE は撮影計画、教育、視覚コミュニケーション向けに現状のまま提供されます。', '結果はブラウザ、画面、GPU、機材、現場条件で変わり、露出、色、安全を保証しません。本番では実機で確認してください。', '重要な作業は書き出して保管し、読み込み・共有する素材の権利を確保してください。', 'UI、ブランド、オリジナルコンテンツの著作権は YuYing に帰属します。'],
     supportTitle: 'サポート', supportBody: ['読み込み、保存、レンダリング、互換性の問題は、再読み込みとブラウザ更新を最初に確認してください。', '「問題を報告」を押すと、送信前に確認できる下書きが開きます。発生内容と再現手順を追記し、内容を確認してからご自身で送信してください。', '下書きに入るのは LUMEN STAGE のバージョン、現在のページ、画面サイズ、ブラウザ版だけです。シーン、写真、プロジェクト名、読み込みファイルは取得も添付もしません。', 'LUMEN STAGE は YuYing が管理しています。公開報告には非公開の写真やプロジェクトを含めないでください。'], issues: '問題を報告', back: 'ホームへ戻る',
   },
@@ -229,12 +229,38 @@ function reportIssueHref(locale: Locale) {
 }
 
 function FeedbackSection({ locale }: { locale: Locale }) {
-  const [title, body, action, note] = {
-    zh: ['下一版，想讓它更適合你。', '哪裡不好操作？希望多什麼功能？把你的使用感受告訴 YuYing。', '留下回饋', '回饋會送到 YuYing 的 GitHub Issues。需要登入 GitHub，內容會公開；請勿附上私人照片。'],
-    en: ['Help shape the next version.', 'Something feels awkward? Missing a feature? Tell YuYing how it went.', 'Leave feedback', 'Feedback goes to YuYing’s GitHub Issues. GitHub sign-in is required and posts are public; keep private photos out.'],
-    ja: ['次のバージョンを、一緒に。', '使いにくいところや欲しい機能を、YuYing に教えてください。', 'フィードバックする', 'YuYing の GitHub Issues に届きます。GitHub ログインが必要で、内容は公開されます。非公開の写真は添付しないでください。'],
+  const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
+  const copy = {
+    zh: { title: '下一版，想讓它更適合你。', body: '哪裡不好操作？希望多什麼功能？把你的使用感受告訴 YuYing。', message: '你的回饋', email: '聯絡信箱（選填）', hint: '希望收到回覆時再填寫。', send: '送出回饋', sending: '正在送出…', success: '回饋已送出，謝謝你的分享！', error: '目前無法送出，內容已保留，請稍後重試。', note: '免登入，可以匿名。回饋只會用於改善 Lumen Stage。' },
+    en: { title: 'Help shape the next version.', body: 'Something feels awkward? Missing a feature? Tell YuYing how it went.', message: 'Your feedback', email: 'Email (optional)', hint: 'Leave an email if you would like a reply.', send: 'Send feedback', sending: 'Sending…', success: 'Feedback sent. Thank you for sharing!', error: 'Could not send. Your message is still here; please try again later.', note: 'No sign-in needed. Anonymous feedback is welcome and used to improve Lumen Stage.' },
+    ja: { title: '次のバージョンを、一緒に。', body: '使いにくいところや欲しい機能を、YuYing に教えてください。', message: 'フィードバック', email: 'メールアドレス（任意）', hint: '返信をご希望の場合のみご入力ください。', send: '送信する', sending: '送信中…', success: '送信しました。ありがとうございます！', error: '送信できませんでした。入力内容は残っています。後でもう一度お試しください。', note: 'ログイン不要・匿名で送信できます。ご意見は Lumen Stage の改善に使用します。' },
   }[locale]
-  return <section className="site-feedback" id="feedback"><div><span>FEEDBACK / V1</span><h2>{title}</h2><p>{body}</p><small>{note}</small></div><a className="site-cta" href="https://github.com/clark970417-eng/lumen-stage-showcase/issues/new?template=feedback.yml" target="_blank" rel="noreferrer">{action}</a></section>
+  return <section className="site-feedback" id="feedback" aria-labelledby="feedback-title">
+    <div className="feedback-intro"><span>FEEDBACK / V1</span><h2 id="feedback-title">{copy.title}</h2><p>{copy.body}</p><small>{copy.note}</small></div>
+    <form className="feedback-form" onSubmit={async (event) => {
+      event.preventDefault()
+      if (status === 'sending') return
+      const form = event.currentTarget
+      const data = new FormData(form)
+      setStatus('sending')
+      try {
+        const response = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: data.get('message'), email: data.get('email'), website: data.get('website'), locale }), signal: AbortSignal.timeout(20000) })
+        const result = await response.json()
+        if (!response.ok || result.ok !== true) throw new Error('Feedback unavailable')
+        form.reset()
+        setStatus('success')
+      } catch { setStatus('error') }
+    }}>
+      <label htmlFor="feedback-message">{copy.message}</label>
+      <textarea id="feedback-message" name="message" required minLength={1} maxLength={4000} rows={5} disabled={status === 'sending'} />
+      <label htmlFor="feedback-email">{copy.email}</label>
+      <small id="feedback-email-hint">{copy.hint}</small>
+      <input id="feedback-email" name="email" type="email" maxLength={254} autoComplete="email" aria-describedby="feedback-email-hint" disabled={status === 'sending'} />
+      <div className="feedback-trap" aria-hidden="true"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
+      <button className="site-cta" type="submit" disabled={status === 'sending'}>{status === 'sending' ? copy.sending : copy.send}</button>
+      <p className="feedback-status" role="status" aria-live="polite">{status === 'success' ? copy.success : status === 'error' ? copy.error : ''}</p>
+    </form>
+  </section>
 }
 
 function LegalPage({ route, copy, locale }: { route: Exclude<PublicRoute, 'home' | 'studio'>; copy: Copy; locale: Locale }) {
@@ -281,7 +307,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
   const [demoProgress, setDemoProgress] = useState(0)
   const [demoPlaying, setDemoPlaying] = useState(false)
   const [modeOpen, setModeOpen] = useState(false)
-  const releaseDate = '2026.09.05'
+  const releaseDate = '2026.09.06'
   const heroStage = useRef<HTMLDivElement>(null)
   const demoRef = useRef<HTMLVideoElement>(null)
   const userPaused = useRef(false)
