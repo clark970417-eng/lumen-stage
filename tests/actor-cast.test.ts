@@ -227,3 +227,46 @@ test('no actor ships its skinning wider than it means', () => {
     }
   }
 })
+
+test('no actor ships a lossless texture', () => {
+  // Every actor arrived from the converter with one PNG, and it was always the
+  // base colour of a MASK material: the hair cards, the eyelashes, the parts
+  // cut out rather than modelled. Seventeen of those were 43 MB, most of the
+  // whole download.
+  //
+  // Seven turned out to have a fully opaque alpha and became JPEG; the ten
+  // whose alpha does real work became WebP, which carries it. Together that is
+  // 32 MB, and the cast went from 75 to 36 MB. So a PNG surviving here is a
+  // newly converted actor that nobody put through the two scripts -- it will
+  // look right and cost several times what it should.
+  const webpUsers: string[] = []
+  for (const member of CAST) {
+    const buffer = readFileSync(local(member.url))
+    let offset = 12
+    let json: {
+      images?: { mimeType?: string }[]
+      textures?: { source?: number; extensions?: Record<string, { source?: number }> }[]
+      extensionsRequired?: string[]
+    } | null = null
+    while (offset < buffer.length) {
+      const length = buffer.readUInt32LE(offset)
+      if (buffer.readUInt32LE(offset + 4) === 0x4E4F534A) {
+        json = JSON.parse(buffer.subarray(offset + 8, offset + 8 + length).toString('utf8'))
+      }
+      offset += 8 + length
+    }
+    for (const image of json?.images ?? []) {
+      assert.notEqual(image.mimeType, 'image/png',
+        `${member.id} still ships a PNG — run scripts/flatten-opaque-textures.mjs, then scripts/webp-textures.mjs`)
+    }
+    // A texture that reaches its image through the extension is unreadable to
+    // a loader that does not know the extension, so the file has to say so.
+    for (const [index, texture] of (json?.textures ?? []).entries()) {
+      if (!texture.extensions?.['EXT_texture_webp']) continue
+      webpUsers.push(member.id)
+      assert.ok(json?.extensionsRequired?.includes('EXT_texture_webp'),
+        `${member.id} texture ${index} needs EXT_texture_webp but the file does not require it`)
+    }
+  }
+  assert.ok(webpUsers.length > 0, 'no actor uses WebP, so this guard is not testing anything')
+})
