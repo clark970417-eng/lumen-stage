@@ -17,21 +17,7 @@ import { lockPositionToAxis, type TransformAxis } from './transformAxis'
 import { createAutosaveScheduler } from './autosave'
 import { createHistoryTransaction } from './historyTransaction'
 import { useRenderProgress } from './renderProgress'
-
-/** Add seating as part of the same undoable pose change. Existing furniture is reused. */
-function objectsWithSeat(state: StudioState, pose: ModelPose, position: [number, number, number], rotation: number, preset: string): StudioObject[] {
-  if (!pose.seated || state.studioObjects.some((object) => isSittable(object.type) && Math.hypot(object.position[0] - position[0], object.position[2] - position[2]) <= (FOOTPRINT[object.type as keyof typeof FOOTPRINT] ?? 0.4))) return state.studioObjects
-  return [...state.studioObjects, {
-    id: `chair-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, name: 'Chair', type: 'chair',
-    position: [position[0], 0, position[2]], rotationY: rotation + (preset === 'seated-backward' ? Math.PI : 0), scale: 1,
-    color: '#6f4938', material: 'matte', locked: false,
-    subjectHeight: 1.74, subjectSkinColor: '#b9826b', subjectOutfitColor: '#343c48',
-    subjectSkinRoughness: 55, subjectSkinOil: 22, subjectSubsurface: 45, subjectMakeup: 'natural',
-    subjectEyeColor: '#4b372b', subjectHairColor: '#211815', subjectHairGloss: 35, subjectOutfitFabric: 'cotton',
-    subjectPosePreset: 'neutral', subjectPose: { ...NEUTRAL_POSE }, subjectPhysique: { ...DEFAULT_PHYSIQUE },
-    subjectHairStyle: 'long', subjectOutfitStyle: 'tshirt', swatchFabric: DEFAULT_FABRIC,
-  }]
-}
+import { seatingForPose } from './seating'
 
 export type ViewMode = 'studio' | 'camera' | 'top'
 export type RenderMode = 'preview' | 'path'
@@ -162,6 +148,14 @@ export type StudioObject = {
    * question anyway.
    */
   swatchFabric: FabricKind
+  /**
+   * The subject this chair was put under by a seated pose, if it was.
+   *
+   * It marks the seating as the pose's rather than the photographer's, which
+   * is what lets a pose take it away again on the way out. A chair added from
+   * the object library carries nothing here and is left alone.
+   */
+  seatFor?: string
 }
 
 type SceneSnapshot = {
@@ -901,6 +895,7 @@ const normalizeStudioObject = (object: Partial<StudioObject>, index: number): St
   color: typeof object.color === 'string' && /^#[0-9a-f]{6}$/i.test(object.color) ? object.color : '#858b82',
   material: object.material === 'glossy' || object.material === 'metal' ? object.material : 'matte',
   locked: object.locked ?? false,
+  ...(typeof object.seatFor === 'string' && object.seatFor ? { seatFor: object.seatFor } : {}),
   subjectHeight: Number.isFinite(object.subjectHeight) ? Math.min(MAX_SUBJECT_HEIGHT, Math.max(MIN_SUBJECT_HEIGHT, Number(object.subjectHeight))) : 1.82,
   subjectSkinColor: typeof object.subjectSkinColor === 'string' && /^#[0-9a-f]{6}$/i.test(object.subjectSkinColor) ? object.subjectSkinColor : '#b9826b',
   subjectOutfitColor: typeof object.subjectOutfitColor === 'string' && /^#[0-9a-f]{6}$/i.test(object.subjectOutfitColor) ? object.subjectOutfitColor : '#343c48',
@@ -1474,7 +1469,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     const subject = state.studioObjects.find((object) => object.id === id && object.type === 'subject')
     if (!subject) return state
     const pose = { ...(getPoseEntry(preset)?.pose ?? NEUTRAL_POSE) }
-    const studioObjects = objectsWithSeat(state, pose, subject.position, subject.rotationY, preset)
+    const studioObjects = seatingForPose(state.studioObjects, pose, id, subject.position, subject.rotationY, preset)
       .map((object) => object.id === id ? { ...object, subjectPosePreset: preset, subjectPose: pose } : object)
     return { studioObjects, undoStack: withUndo(state), redoStack: [] }
   }),
@@ -1488,14 +1483,18 @@ export const useStudio = create<StudioState>((set, get) => ({
   }),
   deleteStudioObject: (id) => set((state) => {
     if (!state.studioObjects.some((object) => object.id === id)) return state
-    const studioObjects = state.studioObjects.filter((object) => object.id !== id)
+    // A pose's chair goes with the person it was put under. Leaving it behind
+    // is the same stranded prop as leaving it when they stand up.
+    const studioObjects = state.studioObjects.filter((object) => object.id !== id && object.seatFor !== id)
     return { studioObjects, lights: syncBoundLightTargets({ ...state, studioObjects }), ...syncCameraTracking({ ...state, studioObjects }), selected: state.mainSubjectEnabled ? 'model' : 'camera', selectedIds: [], undoStack: withUndo(state), redoStack: [] }
   }),
   deleteMainSubject: () => set((state) => {
     if (!state.mainSubjectEnabled) return state
-    const nextState = { ...state, mainSubjectEnabled: false }
+    const studioObjects = state.studioObjects.filter((object) => object.seatFor !== 'model')
+    const nextState = { ...state, mainSubjectEnabled: false, studioObjects }
     return {
       mainSubjectEnabled: false,
+      studioObjects,
       lights: syncBoundLightTargets(nextState),
       ...syncCameraTracking(nextState),
       selected: state.studioObjects.find((object) => object.type === 'subject')?.id ?? 'camera',
@@ -1552,7 +1551,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   }),
   applyPosePreset: (preset) => set((state) => {
     const pose = { ...(getPoseEntry(preset)?.pose ?? NEUTRAL_POSE) }
-    return { posePreset: preset, modelPose: pose, studioObjects: objectsWithSeat(state, pose, state.modelPosition, state.modelRotation, preset), undoStack: withUndo(state), redoStack: [] }
+    return { posePreset: preset, modelPose: pose, studioObjects: seatingForPose(state.studioObjects, pose, 'model', state.modelPosition, state.modelRotation, preset), undoStack: withUndo(state), redoStack: [] }
   }),
   updateModelPose: (patch) => set((state) => ({ posePreset: 'custom', modelPose: { ...state.modelPose, ...patch }, undoStack: withUndo(state), redoStack: [] })),
   updatePhysique: (patch) => set((state) => ({ physique: { ...state.physique, ...patch }, undoStack: withUndo(state), redoStack: [] })),

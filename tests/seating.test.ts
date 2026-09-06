@@ -3,6 +3,9 @@ import assert from 'node:assert/strict'
 import { CHAIR_SEAT_TOP, DEFAULT_SEAT_HEIGHT, FOOTPRINT, SEAT_TO_HIP, seatedHipHeight, seatedModelY, seatHeightOf } from '../src/layout.ts'
 import { pelvisHeight } from '../src/ik.ts'
 import { NEUTRAL_POSE, POSE_LIBRARY, type ModelPose } from '../src/pose.ts'
+import { DEFAULT_PHYSIQUE } from '../src/physique.ts'
+import { seatingForPose } from '../src/seating.ts'
+import type { StudioObject } from '../src/store.ts'
 
 /** Where the pelvis ends up in the room, for an actor sat on `seat`. */
 const pelvisInRoom = (seat: number, hipLocalY: number, modelScale: number, groupScale: number) =>
@@ -93,4 +96,81 @@ test('a chair is the size chairs are, and only catches an actor over its seat', 
   // the seat down, or a smaller chair still captures someone standing beside it.
   assert.ok(FOOTPRINT.chair > 0.23, 'forgiving enough to place by hand')
   assert.ok(FOOTPRINT.chair < 0.35, 'but not wider than the seat it stands for')
+})
+
+/** The fields a chair needs that say nothing about seating. */
+const PROP_FILLER = {
+  scale: 1, color: '#6f4938', material: 'matte' as const, locked: false,
+  subjectHeight: 1.74, subjectSkinColor: '#b9826b', subjectOutfitColor: '#343c48',
+  subjectSkinRoughness: 55, subjectSkinOil: 22, subjectSubsurface: 45,
+  subjectMakeup: 'natural' as const, subjectEyeColor: '#4b372b', subjectHairColor: '#211815',
+  subjectHairGloss: 35, subjectOutfitFabric: 'cotton' as const, subjectPosePreset: 'neutral' as const,
+  subjectPose: { ...NEUTRAL_POSE }, subjectPhysique: { ...DEFAULT_PHYSIQUE },
+  subjectHairStyle: 'long' as const, subjectOutfitStyle: 'tshirt' as const, swatchFabric: 'cotton' as const,
+}
+const prop = (over: Partial<StudioObject>): StudioObject => ({
+  id: 'prop', name: 'Prop', type: 'chair', position: [0, 0, 0], rotationY: 0, ...PROP_FILLER, ...over,
+})
+const seated = { seated: true }
+const standing = { seated: false }
+const HERE: [number, number, number] = [0, 0, 0]
+
+test('sitting down puts out a chair, and standing up takes it away again', () => {
+  // The reported bug: the chair outlived the pose. Choosing a standing preset
+  // afterwards left the actor walking through a chair nobody asked for, with
+  // no way out but to find it in the object list and delete it.
+  const sat = seatingForPose([], seated, 'model', HERE, 0, 'seated-upright')
+  assert.equal(sat.length, 1)
+  assert.equal(sat[0].type, 'chair')
+  assert.equal(sat[0].seatFor, 'model')
+
+  assert.deepEqual(seatingForPose(sat, standing, 'model', HERE, 0, 'neutral'), [])
+})
+
+test('a chair the photographer placed is never taken away', () => {
+  // It carries no seatFor, so it is theirs. It is also reused rather than
+  // duplicated: sitting down on it must not stack a second chair on the first.
+  const theirs = prop({ id: 'their-chair' })
+  const sat = seatingForPose([theirs], seated, 'model', HERE, 0, 'seated-upright')
+  assert.deepEqual(sat, [theirs], 'a second chair was stacked on the first')
+  assert.deepEqual(seatingForPose(sat, standing, 'model', HERE, 0, 'neutral'), [theirs])
+})
+
+test('straddling turns our chair round, and leaves theirs alone', () => {
+  const sat = seatingForPose([], seated, 'model', HERE, 0, 'seated-upright')
+  assert.equal(sat[0].rotationY, 0)
+  // The backrest belongs in front of the sitter for this one, and switching
+  // between two seated presets reuses the chair -- so it has to turn.
+  const straddled = seatingForPose(sat, seated, 'model', HERE, 0, 'seated-backward')
+  assert.equal(straddled[0].rotationY, Math.PI)
+  assert.equal(seatingForPose(straddled, seated, 'model', HERE, 0, 'seated-upright')[0].rotationY, 0)
+
+  const theirs = prop({ id: 'their-chair', rotationY: 0.7 })
+  assert.equal(seatingForPose([theirs], seated, 'model', HERE, 0, 'seated-backward')[0].rotationY, 0.7)
+})
+
+test('two subjects each keep their own seat', () => {
+  const mine = seatingForPose([], seated, 'model', HERE, 0, 'seated-upright')
+  const both = seatingForPose(mine, seated, 'other', [2.5, 0, 0], 0, 'seated-upright')
+  assert.equal(both.length, 2)
+  // One standing up must not clear the other's chair.
+  const oneUp = seatingForPose(both, standing, 'model', HERE, 0, 'neutral')
+  assert.deepEqual(oneUp.map((object) => object.seatFor), ['other'])
+})
+
+test('a pose that changes no seating returns the list it was given', () => {
+  // Pose changes run through the undo stack, so handing back a new array for
+  // every standing preset would churn the object list for nothing.
+  const objects = [prop({ id: 'their-chair', position: [3, 0, 3] })]
+  assert.equal(seatingForPose(objects, standing, 'model', HERE, 0, 'neutral'), objects)
+  const sat = seatingForPose([], seated, 'model', HERE, 0, 'seated-upright')
+  assert.equal(seatingForPose(sat, seated, 'model', HERE, 0, 'seated-upright'), sat)
+})
+
+test('every seated preset in the library asks for a seat', () => {
+  // The removal side keys off exactly this flag, so a seated pose that forgot
+  // to set it would leave a chairless sitter and, worse, clear a real one.
+  for (const entry of POSE_LIBRARY.filter((p) => p.category === 'seated')) {
+    assert.equal(entry.pose.seated, true, `${entry.id} is filed under seated but does not sit`)
+  }
 })
