@@ -249,8 +249,11 @@ try {
       break
     }
     if (!siteFixOnly) {
+      // The homepage preview belongs to refresh-site-stills, which shoots it at
+      // 1920x1080 on a 2x scale factor. This context is 1905x1080 at 1x, so
+      // writing it here quietly halved the resolution of the hero image
+      // whenever this script ran second.
       await setFullGender(page, locale, initialGender[locale])
-      await shot(page, resolve(root, `public/site-preview/${locale}.png`))
 
       for (let index = 0; index < 4; index += 1) {
         await setFullGender(page, locale, fullTutorialGenders[index])
@@ -270,8 +273,9 @@ try {
     const mobile = await simple.newPage()
     await prepare(mobile, locale, 'mobile')
     if (!siteFixOnly) {
+      // Same again: the phone preview is refresh-site-stills' at 540x960 on a
+      // 4x scale factor, not this context's 780x844 at 1x.
       await setSimpleGender(mobile, locale, oppositeGender[initialGender[locale]])
-      await shot(mobile, resolve(root, `public/site-preview/${locale}-mobile.png`))
       // The phone tutorial stills, the light/camera/handoff details and the
       // workflow plan and shoot shots used to be captured here. Nothing on the
       // site has ever shown them -- they were 5 MB of the published build --
