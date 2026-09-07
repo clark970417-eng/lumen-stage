@@ -1,124 +1,139 @@
 # Lumen Stage
 
-Lumen Stage 是一套在瀏覽器中運作的 3D 攝影棚燈光與相機模擬器，讓使用者配置燈具、調整曝光與鏡頭參數，並預覽或輸出拍攝結果。
+**Plan the light. Frame the shot. Before the shoot.**
 
-官方網站：[lumen-stage.vercel.app](https://lumen-stage.vercel.app) · [直接開啟攝影棚](https://lumen-stage.vercel.app/studio)
+Lumen Stage is a browser-based 3D previsualization studio for photographers and learners. Build a lighting setup with real-world units, test camera and exposure choices, direct a cast member, and carry a repeatable plan to the shoot.
 
-![Lumen Stage 攝影棚介面](assets/lumen-stage-preview.png)
+[Open Lumen Stage](https://lumen-stage.vercel.app) · [Launch the full studio](https://lumen-stage.vercel.app/studio?ui=full) · [Open the mobile studio](https://lumen-stage.vercel.app/studio?ui=mobile)
 
-## 主要功能
+![Lumen Stage full studio with a portrait lighting setup](public/site-preview/en.webp)
 
-- 棚內、俯視燈位、相機取景與照片渲染等多種檢視模式
-- 參數化人體：體型、性別骨架、身高皆可調，不必依賴固定模型庫
-- 全身骨架姿勢系統（頭頸、脊椎、雙臂、手掌、雙腿、表情），內建 28 組姿勢庫
-- 場景內直接拖曳關節擺姿勢：手腕、腳踝與頭部有可拖把手，雙骨鏈以解析解反推關節角度
-- 髮型、服裝與布料材質選擇；程序化生成皮膚毛孔、織紋與髮絲貼圖
-- 真實器材目錄：燈頭、塑光附件、色片（CTO / CTB / ND / 色彩效果，含透光損失與 mired 位移）
-- 背景系統：無縫背景紙、手繪畫布、PVC 與實體牆面，附反射率資料與捲軸掃地弧度
-- 15 組經典燈位預設庫（林布蘭、蝴蝶光、蚌殼光、低調、三點打光…），含配置原理說明
-- 可調整燈具、柔光附件、曝光、白平衡、鏡頭與感光元件設定
-- 景深、人物位置曝光估算、閃燈同步與構圖輔助分析
-- 匯入 GLB／VRM 人物可直接套用同一套姿勢系統（自動對應 Mixamo、VRM、Ready Player Me 骨架，含手勢與表情變形）
-- 場景內量測工具，回報直線距離、水平距離與高度差
-- 燈架、道具與人物之間有實體佔位碰撞，燈具可依人物為中心以 15° / 25 cm 吸附
-- 「複製分享連結」把整個場景壓進網址，不需伺服器即可分享
-- 鏡位庫可擷取多組拍攝方案，並以滑桿或並排方式 A/B 比對
-- 以漸進式路徑追蹤產生高品質預覽並輸出 PNG
-- 場景可儲存在瀏覽器，也可匯入或匯出專案檔
-- 產生燈位工作表，方便實際拍攝時重現配置
-- 內建無工具列的 11 頁操作教學與閱讀進度
-- 手機版簡易介面：燈位庫、主燈調整、取景與拍照四件事，桌機版與手機版共用同一份場景資料
+## What you can do
 
-## 本機執行
+- Arrange lights, modifiers, flags, reflectors, backdrops, cameras, people, and props in a measured 3D room.
+- Work with 17 rigged cast members and 35 standing, seated, dynamic, beauty, commercial, and captured-motion poses. Seated poses add and position a chair automatically.
+- Start from 15 classic lighting setups, including Rembrandt, butterfly, clamshell, low-key, three-point, and commercial arrangements.
+- Set flash energy or continuous output, colour temperature or RGB colour, beam angle, feathering, grids, barn doors, gobos, gels, and modifier dimensions.
+- Set focal length, aperture, ISO, sensor format, framing, orientation, depth of field, white balance, and ambient light.
+- Move and aim equipment directly in the scene, snap it around the subject, measure distances, and inspect the plan from studio, top, viewfinder, and render views.
+- Estimate exposure at the subject, check flash sync and composition, and create a progressively path-traced PNG preview.
+- Save projects locally, import or export JSON backups, share a scene through a link, compare saved camera positions, and export a lighting setup sheet.
+- Use the interface in English, Traditional Chinese, or Japanese.
 
-需要近期版本的 Node.js 與 npm。
+## Full studio and mobile studio
+
+The full studio gives you the complete production workspace. Controls are grouped by **Person**, **Light**, **Camera**, and **Layout**, with the most-used settings placed first. Projects stay in the browser and autosave locally.
+
+The mobile studio keeps the same scene data in a touch-friendly layout. Its compact control bar can hide the preset area to leave more room for the 3D view, while still exposing cast, lighting, camera, layout, and capture controls.
+
+<table>
+  <tr>
+    <th width="70%">Full studio</th>
+    <th width="30%">Mobile studio</th>
+  </tr>
+  <tr>
+    <td><img src="public/onboarding/en/desktop-0.webp" alt="Full Lumen Stage workspace"></td>
+    <td><img src="public/site-preview/en-mobile.webp" alt="Lumen Stage mobile workspace"></td>
+  </tr>
+</table>
+
+Add `?ui=full` or `?ui=mobile` to the studio URL to choose an interface explicitly. Your choice is remembered in the browser.
+
+## A photography-first simulation
+
+Lumen Stage keeps the controls and reported values connected to photography concepts:
+
+- Light output, distance, beam geometry, modifier transmission, gels, and falloff feed the exposure estimate.
+- Camera calculations use the selected sensor, focal length, aperture, ISO, shutter speed, subject distance, and circle of confusion.
+- Flash duration, sync behaviour, white balance, colour response, lens effects, and sensor processing are represented in capture and render controls.
+- Setup sheets report the same scene, camera, and lighting values used by the workspace.
+
+The simulator is intended for planning and learning. Real fixtures, modifiers, rooms, cameras, and meters can vary, so confirm critical exposure and safety decisions on set.
+
+## Run locally
+
+Use a current version of Node.js and npm.
 
 ```bash
 npm install
 npm run dev
 ```
 
-依終端顯示的網址在瀏覽器開啟即可。建立正式版本：
+Create and preview a production build:
 
 ```bash
 npm run build
 npm run preview
 ```
 
-正式版驗證會同時執行場景分享、路由、儲存復原測試與完整 TypeScript 建置：
+Run formatting, unit tests, type checking, the production build, and performance budgets:
 
 ```bash
 npm run check
 ```
 
-瀏覽器發布檢查會另外以 Chromium、WebKit、手機、超寬、直式與低高度畫面測試主要流程、水平溢位、WebGL 失敗提示與 WCAG 自動掃描：
+Run the browser release suite across Chromium, WebKit, phone, ultrawide, portrait, and short-window layouts:
 
 ```bash
 npx playwright install chromium webkit
 npm run check:release
 ```
 
-正式建置也有 JavaScript 與 CSS 資源上限；超過 `performance-budget.json` 的預算時，CI 會直接失敗。
+## Routes
 
-照片分析 API 預設會對每個來源限制每分鐘 6 次請求；可用
-`ANALYSIS_RATE_LIMIT_PER_MINUTE` 調整（上限 60），並建議在正式環境再搭配
-Vercel Firewall 或共享式限流儲存。
+| Route | Purpose |
+| --- | --- |
+| `/` | Product site in English, Traditional Chinese, and Japanese |
+| `/studio` | Studio with automatic desktop or mobile interface selection |
+| `/analyze` | Lumen Trace photo post-processing analysis |
+| `/privacy` | Privacy information |
+| `/terms` | Terms of use |
+| `/support` | Support and anonymous feedback |
 
-## 正式網站
+The public site includes a sitemap, social preview metadata, SoftwareApplication structured data, and a PWA manifest. The 3D studio is loaded only when it is needed.
 
-- `/`：三語產品首頁
-- `/studio`：依螢幕寬度自動選擇完整或手機攝影棚
-- `/privacy`、`/terms`、`/support`：隱私、使用條款與支援
-- `/analyze`：Lumen Trace 照片後期分析工具
+## Local data and privacy
 
-公開頁包含搜尋引擎 sitemap、社群分享圖、SoftwareApplication 結構化資料與 PWA manifest。攝影棚程式採延遲載入，因此訪客瀏覽首頁時不會預先下載完整 3D 引擎。
+Scenes are stored locally in the browser with an IndexedDB backup. Clearing site data can remove them, so export a JSON backup for important projects. Anonymous technical errors may be sent to the same-origin `/api/error-report` endpoint; reports exclude scene data, photos, project names, and imported files.
 
-場景會同步保存到瀏覽器儲存與 IndexedDB 備援；清除網站資料仍可能移除專案，重要工作應使用「匯出備份」。匿名技術錯誤會送至同網域的 `/api/error-report`，內容不包含場景、照片、專案名稱或匯入檔案。
+Feedback can be sent without creating an account from the support section of the website.
 
-## 手機版
-
-在手機或視窗寬度 900 px 以下開啟時，會自動切換到簡易介面：上方是 3D 攝影棚，下方三個分頁分別是燈位庫、燈光與相機，右下角的快門鍵直接輸出照片。燈光分頁可新增、命名與刪除燈具，並調整亮度、繞人物角度、距離、燈高、塑光附件與尺寸，以及色溫或 RGB 顏色；相機分頁則是取景、鏡頭、光圈、ISO、畫面方向與背景。
-
-想強制指定介面時可加上網址參數：`?ui=mobile` 或 `?ui=full`；介面內的「完整版 / 手機版」按鈕會把選擇記在瀏覽器裡。兩種介面共用同一份場景狀態，手機上排好的燈位在桌機開啟時完全一致。
-
-## 專案結構
+## Project map
 
 ```text
-src/                         React 介面、攝影計算與 3D 場景
-src/anatomy.ts               參數化人體測量與斷面放樣幾何
-src/pose.ts                  骨架姿勢定義與姿勢庫
-src/textures.ts              程序化材質貼圖（皮膚、布料、頭髮、背景）
-src/wardrobe.ts              髮型、服裝與布料目錄
-src/gels.ts                  色片目錄與透光／色溫換算
-src/backdrops.ts             背景材質目錄與反射率
-src/setups.ts                經典燈位預設庫
-src/ik.ts                    骨架正逆運動學（雙骨鏈解析解）
-src/retarget.ts              匯入模型的人形骨架對應與姿勢重定向
-src/layout.ts                佔位碰撞、房間邊界與角度吸附
-src/share.ts                 場景壓縮與分享連結
-src/autosave.ts              延後序列化與瀏覽器儲存排程
-src/historyTransaction.ts    將連續拖曳合併成單一復原步驟
-src/renderProgress.ts        獨立的高頻率路徑追蹤進度狀態
-src/uiMode.ts                依螢幕寬度決定桌機或手機介面（可用 ?ui= 覆寫）
-src/mobile.css               手機版介面樣式
-src/components/              場景、控制面板、分析與工作表元件
-src/components/MobileApp.tsx 手機版簡易介面
-scripts/build_website_guide.py  網站使用教學 PDF 產生工具
-assets/guide-pages/          三語 300 dpi 教學製作來源（不會進入網站建置）
-public/*.pdf                 三語可下載網站使用教學
-palace_*.jpg                 場景環境圖片
+src/components/        Studio, public site, mobile UI, analysis, and export views
+src/actorCast.ts        Built-in cast catalogue
+src/pose.ts             Pose definitions and pose library
+src/setups.ts           Classic lighting setup library
+src/gear.ts             Light heads and modifiers
+src/gels.ts             Gel transmission and colour-temperature data
+src/backdrops.ts        Backdrop materials and reflectance data
+src/exposure.ts         Exposure calculations
+src/photometry.ts       Beam, illuminance, and falloff calculations
+src/optics.ts           Camera and depth-of-field calculations
+src/store.ts            Shared studio state and actions
+src/persistence.ts      Browser storage and project restoration
+src/share.ts            Compressed scene-sharing links
+src/seating.ts          Automatic seating for seated poses
+public/onboarding/      Current localized onboarding images
+public/site-preview/    Current desktop and mobile product images
+tests/                  Unit and browser release coverage
 ```
 
-## 技術架構
+The interface is built with React, TypeScript, Zustand, Three.js, React Three Fiber, and Drei. High-quality previews use `three-gpu-pathtracer` with additional lens, colour, and sensor processing.
 
-介面以 React、TypeScript 與 Zustand 建立；3D 場景採用 Three.js、React Three Fiber 與 Drei。照片模式透過 `three-gpu-pathtracer` 漸進取樣，後製則包含鏡頭特性、色彩科學與感光元件效果模擬。
+## Guides
 
-字型由 Google Fonts 載入，因此首次顯示時需要網路連線。部分 3D 功能需要支援 WebGL 的現代瀏覽器與較佳的圖形效能。
+- [English site guide](public/LUMEN_STAGE_Site_Guide_EN.pdf)
+- [Traditional Chinese site guide](public/LUMEN_STAGE_網站使用教學.pdf)
+- [Japanese site guide](public/LUMEN_STAGE_サイトガイド_JA.pdf)
 
-## 文件
+## Release
 
-完整操作說明可參考 [`public/LUMEN_STAGE_網站使用教學.pdf`](public/LUMEN_STAGE_網站使用教學.pdf)。
+**Version 1 · Updated September 7, 2026**
 
-## 授權
+Lumen Stage is free to use in the browser. No installation, account, or credit card is required.
 
-Lumen Stage 並非開源軟體。除個別檔案另有說明外，原始碼、介面、品牌與原創素材均依 [`LICENSE`](LICENSE) 保留所有權利；能夠檢視 Repository 不代表獲得使用、重製、修改或散布授權。第三方套件與素材仍依各自授權使用。
+## License
+
+Lumen Stage is source-available, but it is not open-source software. Unless a file states otherwise, the source code, interface, brand, and original assets remain protected under the [project license](LICENSE). Public access to this repository does not grant permission to use, reproduce, modify, or distribute them. Third-party packages and assets remain subject to their respective licenses.
