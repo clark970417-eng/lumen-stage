@@ -2295,6 +2295,16 @@ header.topbar .project-actions button:hover,
 header.topbar .project-actions .setup-sheet-button:hover,
 header.topbar .file-menu > button:hover,
 header.topbar .file-menu > button.active { background: #24313a; }
+header.topbar .project-actions .desktop-install-button {
+  padding-inline: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--signal-cool);
+}
+header.topbar .desktop-install-button svg { width: 16px; height: 16px; flex: none; }
+header.topbar .desktop-install-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 header.topbar .project-actions .save-button,
 header.topbar .project-actions .workflow-next-button {
   border-radius: 8px;
@@ -2894,11 +2904,18 @@ header.topbar .project-actions.is-simplified .history-button:disabled {
   header.topbar .project-actions.is-simplified {
     grid-template-columns: 36px 36px 66px 66px minmax(0, 1fr) !important;
   }
+  header.topbar .project-actions.is-simplified.has-install {
+    grid-template-columns: 36px 36px 66px 42px 66px minmax(0, 1fr) !important;
+  }
+  header.topbar .desktop-install-button span { display: none; }
 }
 
 @media (min-width: 760px) and (max-width: 900px) {
   header.topbar .project-actions.is-simplified {
     grid-template-columns: 32px 32px 58px 58px minmax(0, 1fr) !important;
+  }
+  header.topbar .project-actions.is-simplified.has-install {
+    grid-template-columns: 32px 32px 58px 40px 58px minmax(0, 1fr) !important;
   }
 }
 
@@ -2907,6 +2924,9 @@ header.topbar .project-actions.is-simplified .history-button:disabled {
     height: 42px;
     margin: 2px 4px;
     grid-template-columns: 36px 36px minmax(58px, .75fr) minmax(58px, .75fr) minmax(64px, 1fr) !important;
+  }
+  header.topbar .project-actions.is-simplified.has-install {
+    grid-template-columns: 36px 36px minmax(58px, .75fr) 40px minmax(58px, .75fr) minmax(64px, 1fr) !important;
   }
   header.topbar .project-actions.is-simplified .history-button {
     min-height: 34px;
@@ -2926,3 +2946,15 @@ header.topbar .project-actions.is-simplified .history-button:disabled {
 .about-dialog > footer > span:last-child { text-align:right; }
 .about-release { justify-self:center; color:var(--signal); text-align:center; line-height:1.6; letter-spacing:.02em; }
 @media(max-width:480px) { .about-dialog > footer { grid-template-columns:1fr 1fr; gap:10px; }.about-dialog .about-release { grid-column:1/-1; grid-row:2; } }
+
+@media (display-mode: window-controls-overlay) {
+  main.app-shell { padding-top: calc(10px + env(titlebar-area-height, 0px)); }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  body main.app-shell .selection-chip { height: auto; min-height: 58px; grid-template-columns: 30px minmax(0, 1fr); }
+  body main.app-shell .selection-chip b { display: none; }
+  body main.app-shell .selection-chip strong,
+  body main.app-shell .selection-chip small { overflow: hidden; text-overflow: ellipsis; }
+  body main.app-shell .cast-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

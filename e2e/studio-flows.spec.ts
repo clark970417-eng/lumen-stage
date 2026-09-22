@@ -62,6 +62,27 @@ test('lets an experienced user enter professional mode immediately without runti
   expect(problems).toEqual([])
 })
 
+test('offers the installable desktop app from the full workspace', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('lumen-stage:onboarding:v2:desktop', 'done'))
+  await page.goto('/studio?ui=full')
+  await expect(page.getByRole('textbox', { name: 'Project name' })).toBeVisible({ timeout: 50_000 })
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', /desktop\.webmanifest$/)
+
+  await page.evaluate(() => {
+    const installEvent = new Event('beforeinstallprompt')
+    Object.assign(installEvent, {
+      prompt: async () => { (window as typeof window & { installPrompted?: boolean }).installPrompted = true },
+      userChoice: Promise.resolve({ outcome: 'accepted', platform: 'web' }),
+    })
+    window.dispatchEvent(installEvent)
+  })
+
+  const install = page.getByRole('button', { name: 'Install app', exact: true })
+  await expect(install).toBeVisible()
+  await install.click()
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { installPrompted?: boolean }).installPrompted)).toBe(true)
+})
+
 test('autosaves a renamed project and exports its backup', async ({ page }) => {
   await page.goto('/studio?ui=full')
   const projectName = page.getByRole('textbox', { name: 'Project name' })

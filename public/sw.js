@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'lumen-stage-pwa-v2'
+const CACHE_VERSION = 'lumen-stage-pwa-v3'
 const APP_SHELL = [
   './',
   './?route=studio',
@@ -6,6 +6,7 @@ const APP_SHELL = [
   './?route=studio&ui=full',
   './offline.html',
   './site.webmanifest',
+  './desktop.webmanifest',
   './favicon.svg',
   './logo-mark.svg',
   './icons/icon-180.png',

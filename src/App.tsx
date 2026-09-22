@@ -1,4 +1,5 @@
 import { Canvas } from '@react-three/fiber'
+import { MonitorDown } from 'lucide-react'
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { StudioScene } from './components/StudioScene'
 import { ExposureAnalysis } from './components/ExposureAnalysis'
@@ -26,6 +27,7 @@ import { useUiModeStore } from './uiMode'
 import { summarizeHistoryChange, type HistorySummaryLabels } from './historySummary'
 import { useWorkflow } from './workflow'
 import { workflowModeForStage } from './workflowControl'
+import { usePwaInstall } from './pwaInstall'
 import { assetHref } from './routing'
 import { useRenderProgress } from './renderProgress'
 
@@ -212,6 +214,12 @@ const MORE_MENU_COPY: Record<Locale, MoreMenuCopy> = {
   ja: { trigger: 'その他', title: 'ワークスペースとプロジェクト', history: '履歴', current: '現在の状態', emptyHistory: '人物・照明・カメラの変更がここに表示されます。', restoreHere: 'この状態に戻る', steps: '手前', undo: '元に戻す', redo: 'やり直す', workspace: 'ワークスペース', project: 'プロジェクト', focus: '集中表示', showPanels: 'パネル表示', pro: 'プロ設定', presets: 'プリセット', on: 'オン', off: 'オフ', mobile: 'シンプル版', export: '書き出す', summaries: { project: 'プロジェクト名', subject: '人物／セット', lighting: '照明調整', camera: 'カメラ調整', stage: 'スタジオ設定', scene: 'シーン調整' } },
 }
 
+const DESKTOP_INSTALL_COPY: Record<Locale, string> = {
+  en: 'Install app',
+  zh: '安裝 App',
+  ja: 'アプリをインストール',
+}
+
 /** Keep the header focused on one primary action; occasional tools live here. */
 function MoreMenu({
   onUndo,
@@ -380,6 +388,7 @@ function TopBar({ onOpenGuide, onOpenAbout, panelsHidden, onTogglePanels }: { on
   const canRedo = useStudio((state) => state.redoStack.length > 0)
   const setUiMode = useUiModeStore((state) => state.setMode)
   const projectInput = useRef<HTMLInputElement>(null)
+  const pwa = usePwaInstall()
 
   return (
     <header className="topbar simplified-topbar">
@@ -389,7 +398,7 @@ function TopBar({ onOpenGuide, onOpenAbout, panelsHidden, onTogglePanels }: { on
       </div>
       <div className="project-title"><span>PROJECT</span><input className="project-name-input" aria-label={t('topbar.projectName')} value={projectName} onChange={(event) => setValue('projectName', event.target.value)} /><small className={`save-state ${saveStatus}`}>{saveStatus === 'saved' ? t('topbar.save.saved') : saveStatus === 'autosaved' ? t('topbar.save.autosaved') : saveStatus === 'loaded' ? t('topbar.save.loaded') : saveStatus === 'exported' ? t('topbar.save.exported') : saveStatus === 'error' ? t('topbar.save.error') : t('topbar.save.idle')}</small><LanguageSwitch /></div>
       <WorkflowNavigation />
-      <div className="project-actions is-simplified">
+      <div className={`project-actions is-simplified${pwa.canInstall ? ' has-install' : ''}`}>
         <button className="history-button" onClick={undo} disabled={!canUndo} title={t('library.undo.title')} aria-label={t('library.undo.title')}>↶</button>
         <button className="history-button" onClick={redo} disabled={!canRedo} title={t('library.redo.title')} aria-label={t('library.redo.title')}>↷</button>
         <input ref={projectInput} className="asset-input" type="file" aria-label={t('file.import')} accept=".json,.lumen.json,application/json" onChange={async (event) => {
@@ -416,6 +425,7 @@ function TopBar({ onOpenGuide, onOpenAbout, panelsHidden, onTogglePanels }: { on
           onOpenGuide={onOpenGuide}
           onOpenMobile={() => setUiMode('mobile')}
         />
+        {pwa.canInstall && <button className="desktop-install-button" onClick={() => void pwa.install()} title={DESKTOP_INSTALL_COPY[locale]}><MonitorDown aria-hidden="true" /><span>{DESKTOP_INSTALL_COPY[locale]}</span></button>}
         <button className="topbar-export-button" onClick={exportProject} title={t('file.export')}>{MORE_MENU_COPY[locale].export}</button>
         <CopyrightMark onOpen={onOpenAbout} />
       </div>

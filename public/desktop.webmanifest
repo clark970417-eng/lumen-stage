@@ -1,0 +1,37 @@
+{
+  "name": "Lumen Stage Desktop",
+  "short_name": "Lumen Stage",
+  "description": "Full virtual photography studio for planning lights, cameras and portrait setups.",
+  "id": "/?route=studio&ui=full",
+  "start_url": "./?route=studio&ui=full",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "browser"],
+  "orientation": "any",
+  "background_color": "#07090b",
+  "theme_color": "#07090b",
+  "prefer_related_applications": false,
+  "categories": ["photo", "productivity", "utilities"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Full Computer Studio",
+      "short_name": "Full Studio",
+      "description": "Open the complete desktop Lumen Stage studio.",
+      "url": "./?route=studio&ui=full",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Simple Studio",
+      "short_name": "Simple",
+      "description": "Open the simplified Lumen Stage studio.",
+      "url": "./?route=studio&ui=mobile",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
