@@ -5,8 +5,10 @@ import './guide.css'
 import './responsive.css'
 import Root from './Root'
 import { startErrorMonitoring } from './monitoring'
+import { registerPwa } from './pwa'
 
 startErrorMonitoring()
+registerPwa()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

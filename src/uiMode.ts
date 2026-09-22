@@ -5,6 +5,7 @@
  * three panels, a shortcut for everything. On a phone that is unusable, so the
  * same store drives a second, much smaller shell instead. The choice is
  * automatic but never final: `?ui=mobile` / `?ui=full` forces it for a link,
+ * installed app shortcuts can pick the iPhone or desktop shell explicitly,
  * and the in-app switch remembers the preference like the language does.
  */
 
@@ -15,6 +16,7 @@ export type UiMode = 'auto' | 'mobile' | 'full'
 
 const STORAGE_KEY = 'lumen-stage:ui'
 const PHONE_QUERY = '(max-width: 900px)'
+const COARSE_POINTER_QUERY = '(pointer: coarse) and (hover: none)'
 
 function isMode(value: unknown): value is UiMode {
   return value === 'auto' || value === 'mobile' || value === 'full'
@@ -77,5 +79,16 @@ export function usePhoneScreen() {
 export function useMobileShell() {
   const mode = useUiModeStore((state) => state.mode)
   const phone = usePhoneScreen()
-  return mode === 'mobile' || (mode === 'auto' && phone)
+  const touchOnly = useSyncExternalStore(
+    (onChange) => subscribeToMedia(COARSE_POINTER_QUERY, onChange),
+    () => window.matchMedia(COARSE_POINTER_QUERY).matches,
+    () => false,
+  )
+  return mode === 'mobile' || (mode === 'auto' && (phone || touchOnly))
+}
+
+function subscribeToMedia(queryText: string, onChange: () => void) {
+  const query = window.matchMedia(queryText)
+  query.addEventListener('change', onChange)
+  return () => query.removeEventListener('change', onChange)
 }

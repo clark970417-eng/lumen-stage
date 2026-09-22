@@ -2,9 +2,35 @@
   "name": "Lumen Stage",
   "short_name": "Lumen",
   "description": "Virtual photography studio for planning lights, cameras and portrait setups.",
+  "id": "/?route=studio",
   "start_url": "./?route=studio",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "browser"],
+  "orientation": "any",
   "background_color": "#080b0f",
   "theme_color": "#11161c",
-  "icons": [{ "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+  "categories": ["photo", "productivity", "utilities"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Simple iPhone Studio",
+      "short_name": "Simple",
+      "description": "Open the touch-first Lumen Stage studio.",
+      "url": "./?route=studio&ui=mobile",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Full Computer Studio",
+      "short_name": "Full",
+      "description": "Open the complete desktop Lumen Stage studio.",
+      "url": "./?route=studio&ui=full",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
 }
