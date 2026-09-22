@@ -830,7 +830,11 @@ export function MobileApp() {
   const setWorkflowStage = useWorkflow((state) => state.setStage)
   const [tab, setTab] = useState<Tab>('planning')
   const [appliedSetup, setAppliedSetup] = useState<string | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(() => !window.matchMedia('(orientation: landscape) and (max-height: 520px)').matches)
+  const [sheetOpen, setSheetOpen] = useState(() => {
+    const compactLandscape = window.matchMedia('(orientation: landscape) and (max-height: 520px)').matches
+    const phonePortrait = window.matchMedia('(max-width: 900px) and (orientation: portrait)').matches
+    return !compactLandscape && !phonePortrait
+  })
   const [compactLayout, setCompactLayout] = useState(false)
   const [capturing, setCapturing] = useState(false)
   const [photo, setPhoto] = useState<string | null>(null)

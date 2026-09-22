@@ -214,9 +214,9 @@ function CameraRig() {
       // the camera does not help; it is already above the 4.5 m ceiling. 12
       // degrees takes the middle window with 17 degrees of margin on the
       // tighter side, and keeps enough of an angle to read the room as a room.
-      perspective.position.set(2.06, 6, 9.69)
-      perspective.fov = 42
-      perspective.lookAt(0, 1.1, 0)
+      perspective.position.set(2.45, 5.6, 10.6)
+      perspective.fov = 46
+      perspective.lookAt(0, 0.95, 0.08)
     }
     perspective.updateProjectionMatrix()
   }, [anamorphic, camera, cameraPosition, cameraTarget, imagingFocalLength, sensorFormat, view])
@@ -3173,11 +3173,12 @@ function Softbox({ light }: { light: StudioLight }) {
 
   // The heads are dimmed for the editor only; camera, path output and solo
   // keep the full photometric energy. See EDITOR_AMBIENT.
+  const editorHeadGain = horizontalLayoutOnly ? MOBILE_EDITOR_HEAD_GAIN : EDITOR_HEAD_GAIN
   const softbox = (
     <group {...drag} ref={rig} position={position} onClick={(event) => { event.stopPropagation(); if (canControl) selectObject(lightId, Boolean((event.nativeEvent as PointerEvent).shiftKey)) }}>
       <spotLight
         ref={spot}
-        position={[0, 0, 0]} target={target} color={color} intensity={effectiveEnabled ? outputLumens * (view !== 'camera' && renderMode !== 'path' && !soloLightId ? EDITOR_HEAD_GAIN : 1) / (renderMode === 'path' ? PATHTRACE_CANDELA_SCALE : PREVIEW_CANDELA_SCALE) : 0}
+        position={[0, 0, 0]} target={target} color={color} intensity={effectiveEnabled ? outputLumens * (view !== 'camera' && renderMode !== 'path' && !soloLightId ? editorHeadGain : 1) / (renderMode === 'path' ? PATHTRACE_CANDELA_SCALE : PREVIEW_CANDELA_SCALE) : 0}
         map={goboTexture ?? undefined}
         angle={beamAngle} penumbra={penumbra} decay={2} distance={0} castShadow
         shadow-mapSize-width={shadowMapSize} shadow-mapSize-height={shadowMapSize}
@@ -3766,6 +3767,8 @@ function ExposureProbe() {
  */
 const EDITOR_AMBIENT = 40
 const EDITOR_HEAD_GAIN = 0.4
+const MOBILE_EDITOR_AMBIENT = 54
+const MOBILE_EDITOR_HEAD_GAIN = 0.18
 
 const MemoMannequin = memo(Mannequin)
 const MemoSoftbox = memo(Softbox)
@@ -3813,14 +3816,14 @@ export function StudioScene({ horizontalLayoutOnly = false }: { horizontalLayout
     // The editor remains legible; only the viewfinder/export simulates exposure.
     gl.toneMappingExposure = view === 'camera' || renderMode === 'path'
       ? cameraExposure(iso, effectiveAperture, shutter, ndStops)
-      : horizontalLayoutOnly ? 0.024 : 0.012
+      : horizontalLayoutOnly ? 0.018 : 0.012
   }, [aperture, cameraMode, gl, horizontalLayoutOnly, iso, ndStops, renderMode, shutter, tStop, view])
 
   return (
     <HorizontalLayoutContext.Provider value={horizontalLayoutOnly}>
       <CameraRig />
       <TimelinePlayback />
-      <ambientLight intensity={view === 'camera' || renderMode === 'path' ? ambientLevel / 75 : soloLightId ? 0.015 : Math.max(horizontalLayoutOnly ? 35 : EDITOR_AMBIENT, ambientLevel / 75)} color={ambientColor} />
+      <ambientLight intensity={view === 'camera' || renderMode === 'path' ? ambientLevel / 75 : soloLightId ? 0.015 : Math.max(horizontalLayoutOnly ? MOBILE_EDITOR_AMBIENT : EDITOR_AMBIENT, ambientLevel / 75)} color={ambientColor} />
       <EnvironmentLighting />
       <Backdrop />
       <MemoMannequin />

@@ -503,8 +503,10 @@
 .m-menu-trigger[aria-expanded='true'] { border-color: #6a7d89; background: #222d34; color: #fff; }
 .m-menu-scrim { position: fixed; inset: 0; z-index: 30; border: 0; background: rgba(0,0,0,.44); }
 .m-app-menu {
-  position: absolute; top: calc(100% - 2px); right: max(10px, env(safe-area-inset-right)); z-index: 31;
+  position: fixed; top: calc(52px + env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 31;
   width: min(310px, calc(100vw - 20px)); padding: 8px;
+  max-height: calc(100dvh - 64px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow: auto;
   border: 1px solid #3a4a55; border-radius: 8px;
   background: rgba(16,23,29,.98); color: #e9eef0;
   box-shadow: 0 18px 50px rgba(0,0,0,.48); backdrop-filter: blur(18px);
@@ -528,7 +530,7 @@
 
 @media (max-width: 900px) {
   .m-shell.m-shell {
-    grid-template-rows: calc(56px + env(safe-area-inset-top)) minmax(0, 1fr) auto calc(68px + env(safe-area-inset-bottom));
+    grid-template-rows: calc(48px + env(safe-area-inset-top)) minmax(0, 1fr) auto calc(60px + env(safe-area-inset-bottom));
     background: #07090b;
   }
   .m-shell .m-top {
@@ -540,7 +542,11 @@
     box-shadow: none;
   }
   .m-shell .m-brand { gap: 9px; letter-spacing: 0; }
-  .m-shell .m-brand .brand-symbol { width: 28px; height: 28px; }
+  .m-shell .m-brand .brand-symbol { width: 26px; height: 26px; }
+  .m-brand-copy { gap: 2px; }
+  .m-brand-copy strong { font-size: 12.5px; }
+  .m-brand-copy small { font-size: 8.5px; }
+  .m-menu-trigger { width: 40px; height: 40px; }
   .m-shell .m-viewport {
     grid-row: 2;
     margin: 0;
@@ -561,7 +567,7 @@
     position: relative;
     grid-row: 4;
     display: block;
-    min-height: calc(68px + env(safe-area-inset-bottom));
+    min-height: calc(60px + env(safe-area-inset-bottom));
     margin: 0;
     padding: 0 max(5px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(5px, env(safe-area-inset-left));
     border: 0;
@@ -570,12 +576,12 @@
     background: rgba(10,15,19,.98);
     box-shadow: 0 -10px 30px rgba(0,0,0,.22);
   }
-  .m-tablist { height: 68px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); }
+  .m-tablist { height: 60px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); }
   .m-shell .m-tabs .m-tablist > button {
     position: relative;
     min-width: 0;
-    min-height: 68px;
-    padding: 8px 2px 6px;
+    min-height: 60px;
+    padding: 6px 2px 5px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -587,7 +593,7 @@
     font-size: 10px;
     overflow: visible;
   }
-  .m-shell .m-tabs .m-tablist > button svg { width: 21px; height: 21px; stroke-width: 1.8; }
+  .m-shell .m-tabs .m-tablist > button svg { width: 20px; height: 20px; stroke-width: 1.8; }
   .m-shell .m-tabs .m-tablist > button span { display: block; overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
   .m-shell .m-tabs .m-tablist > button.active { background: transparent; color: #f4f6f5; box-shadow: none; }
   .m-shell .m-tabs .m-tablist > button.active svg { color: var(--signal); stroke-width: 2.2; }
@@ -612,7 +618,7 @@
   .m-sheet-handle svg { width: 17px; height: 17px; }
   .m-shell .m-sheet {
     grid-row: 3;
-    max-height: min(43dvh, 430px);
+    max-height: min(34dvh, 332px);
     padding: 0;
     border: 0;
     border-top: 1px solid #34434d;
@@ -620,9 +626,17 @@
     background: #10171c;
     box-shadow: 0 -16px 42px rgba(0,0,0,.34);
   }
-  .m-sheet-scroll { padding: 16px max(14px, env(safe-area-inset-right)) 18px max(14px, env(safe-area-inset-left)); }
-  .m-edit-actions { padding-bottom: 8px; min-height: 60px; }
+  .m-sheet-scroll { padding: 12px max(14px, env(safe-area-inset-right)) 14px max(14px, env(safe-area-inset-left)); }
+  .m-edit-actions { padding-block: 6px; min-height: 52px; }
+  .m-edit-actions button { min-height: 40px; }
+  .m-tab, .m-phase-stack { gap: 10px; }
+  .m-subject-bar { padding: 8px; }
+  .m-note { font-size: 10.5px; line-height: 1.4; }
   .m-shell:not(.sheet-open) .m-tabs { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+@media (min-height: 860px) and (max-width: 900px) and (orientation: portrait) {
+  .m-shell .m-sheet { max-height: min(31dvh, 322px); }
 }
 
 @media (display-mode: standalone) and (max-width: 900px) {

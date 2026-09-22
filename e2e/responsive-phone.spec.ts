@@ -11,6 +11,7 @@ test('keeps the simple studio inside a phone screen', async ({ page }) => {
   await expect(page.locator('.m-menu-languages button')).toHaveCount(3)
   await page.locator('.m-menu-scrim').click({ position: { x: 8, y: 400 } })
   await expect(page.locator('.m-app-menu')).toBeHidden()
+  await page.getByRole('tab', { name: 'Person' }).click()
   await expect(page.getByRole('button', { name: '＋ Actor' })).toBeVisible()
   await expect(page.getByRole('slider', { name: /Subject height/ })).toHaveCount(0)
   const castLabels = await page.getByRole('combobox', { name: 'Cast' }).locator('option').allTextContents()

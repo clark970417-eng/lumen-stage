@@ -24,28 +24,32 @@ function watchRuntimeHealth(page: import('@playwright/test').Page) {
   return problems
 }
 
-test('guides a first-time beginner through simple mode without runtime failures', async ({ page }) => {
+test('opens the phone app first and keeps the quick guide available without runtime failures', async ({ page }) => {
   // Software-rendered WebGL on GitHub's shared runner is substantially slower
   // than local hardware during the four animated onboarding transitions.
   test.setTimeout(180_000)
   const problems = watchRuntimeHealth(page)
+  await page.addInitScript(() => {
+    localStorage.removeItem('lumen-stage:onboarding:v2:mobile')
+    localStorage.removeItem('lumen-stage:onboarding:v2:desktop')
+  })
   await page.goto('/studio?ui=mobile')
-  await expect(page.getByRole('dialog', { name: 'Quick start tour' })).toBeVisible({ timeout: 50_000 })
-
-  for (let step = 0; step < 4; step += 1) await page.getByRole('button', { name: 'Next', exact: true }).click()
-  await page.getByRole('button', { name: 'Start creating', exact: true }).click()
-
   await expect(page.getByRole('dialog', { name: 'Quick start tour' })).toHaveCount(0)
   await expect(page.getByRole('tab', { name: 'Person' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Light' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Camera' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Layout' })).toBeVisible()
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('lumen-stage:onboarding:v2:mobile'))).toBe('done')
+  await page.locator('.m-menu-trigger').click()
+  await expect(page.getByRole('button', { name: 'Quick guide', exact: true })).toBeVisible()
   expect(problems).toEqual([])
 })
 
 test('lets an experienced user enter professional mode immediately without runtime failures', async ({ page }) => {
   const problems = watchRuntimeHealth(page)
+  await page.addInitScript(() => {
+    localStorage.removeItem('lumen-stage:onboarding:v2:mobile')
+    localStorage.removeItem('lumen-stage:onboarding:v2:desktop')
+  })
   await page.goto('/studio?ui=full')
   await expect(page.getByRole('dialog', { name: 'Quick start tour' })).toBeVisible({ timeout: 50_000 })
   await page.getByRole('button', { name: 'Skip', exact: true }).click()
@@ -91,11 +95,17 @@ test('keeps setup presets in Layout and exposes direct power and focal controls'
   await expect(power).toHaveAttribute('max', /\d+/)
   await expect(page.getByRole('tab', { name: 'Portrait' })).toHaveCount(0)
 
-  await page.getByRole('button', { name: '中文' }).click()
+  await page.locator('.m-menu-trigger').click()
+  await page.getByRole('button', { name: '中文' }).evaluate((button: HTMLElement) => button.click())
+  await page.locator('.m-menu-scrim').click({ position: { x: 8, y: 400 } })
   await expect(page.getByRole('slider', { name: /輸出瓦數/ })).toBeVisible()
-  await page.getByRole('button', { name: '日本語' }).click()
+  await page.locator('.m-menu-trigger').click()
+  await page.getByRole('button', { name: '日本語' }).evaluate((button: HTMLElement) => button.click())
+  await page.locator('.m-menu-scrim').click({ position: { x: 8, y: 400 } })
   await expect(page.getByRole('slider', { name: /出力ワット数/ })).toBeVisible()
-  await page.getByRole('button', { name: 'English' }).click()
+  await page.locator('.m-menu-trigger').click()
+  await page.getByRole('button', { name: 'English' }).evaluate((button: HTMLElement) => button.click())
+  await page.locator('.m-menu-scrim').click({ position: { x: 8, y: 400 } })
 
   await page.getByRole('tab', { name: 'Layout' }).click()
   await expect(page.getByRole('tab', { name: 'Portrait' })).toBeVisible()
@@ -125,7 +135,7 @@ test('allows every subject, including the main subject, to be removed in the ful
   }
 
   await addPerson('Woman')
-  const removeSupporting = page.getByRole('button', { name: 'Remove selected item: Subject 1' })
+  const removeSupporting = page.getByRole('button', { name: 'Remove selected item: Person 1' })
   await expect(removeSupporting).toBeVisible()
   await removeSupporting.click()
   await expect(removeSupporting).toHaveCount(0)
@@ -138,8 +148,8 @@ test('allows every subject, including the main subject, to be removed in the ful
 
   await addPerson('Woman')
   await addPerson('Man')
-  await expect(page.getByRole('button', { name: 'Remove selected item: Subject 1' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Remove selected item: Subject 2' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Remove selected item: Person 1' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Remove selected item: Person 2' })).toBeVisible()
 })
 
 test('keeps multi-person controls available after deleting the last subject in the simple workspace', async ({ page }) => {
@@ -150,11 +160,12 @@ test('keeps multi-person controls available after deleting the last subject in t
   })
   await page.goto('/studio?ui=mobile')
 
-  const addFeminine = page.getByRole('button', { name: '＋ Feminine', exact: true })
-  const addMasculine = page.getByRole('button', { name: '＋ Masculine', exact: true })
-  await expect(addFeminine).toBeVisible({ timeout: 50_000 })
-  await addFeminine.click()
-  await addMasculine.click()
+  const showPanel = page.getByRole('button', { name: 'Show the panel', exact: true })
+  if (await showPanel.isVisible()) await showPanel.click()
+  const addActor = page.getByRole('button', { name: '＋ Actor', exact: true })
+  await expect(addActor).toBeVisible({ timeout: 50_000 })
+  await addActor.click()
+  await addActor.click()
   await expect(page.locator('.m-subject-bar .m-chips').first().getByRole('button')).toHaveCount(3)
 
   const remove = page.locator('.m-subject-actions').getByRole('button', { name: 'Delete', exact: true })
@@ -163,14 +174,14 @@ test('keeps multi-person controls available after deleting the last subject in t
   await remove.click()
   await expect(remove).toHaveCount(0)
   await expect(page.locator('.m-subject-bar .m-chips').first().getByRole('button')).toHaveCount(0)
-  await expect(addFeminine).toBeVisible()
-  await expect(addMasculine).toBeVisible()
+  await expect(addActor).toBeVisible()
 })
 
 test('phone layout hides presets to give the scene more room and restores them', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.addInitScript(() => localStorage.setItem('lumen-stage:onboarding:v2:mobile', 'done'))
   await page.goto('/studio?ui=mobile')
+  await page.getByRole('tab', { name: 'Person', exact: true }).click()
   await expect(page.locator('.m-cast-select')).toBeVisible()
   await expect(page.locator('.m-cast-select option')).toHaveCount(17)
   await expect(page.getByRole('button', { name: 'Neutral', exact: true })).toHaveCount(0)
