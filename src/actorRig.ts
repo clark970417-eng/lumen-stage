@@ -20,11 +20,31 @@ import { boneDirection, type BoneMap } from './retarget.ts'
 /** How far a forearm is pronated out of the aimed direction, in degrees. */
 export const REST_FOREARM_ROLL = 24
 
+/** The palm points through the four fingers, not through the thumb. */
+export function handDirection(hand: THREE.Bone): THREE.Vector3 | null {
+  const fingers = hand.children.filter((node): node is THREE.Bone =>
+    (node as THREE.Bone).isBone && /finger[1-4](?:$|_)/i.test(node.name),
+  )
+  if (fingers.length === 0) return boneDirection(hand)
+  const origin = hand.getWorldPosition(new THREE.Vector3())
+  const centre = fingers.reduce(
+    (sum, finger) => sum.add(finger.getWorldPosition(new THREE.Vector3())),
+    new THREE.Vector3(),
+  ).multiplyScalar(1 / fingers.length)
+  const direction = centre.sub(origin)
+  return direction.lengthSq() < 1e-8 ? null : direction.normalize()
+}
+
 export function aimRestToNeutral(model: THREE.Object3D, map: BoneMap, physique: Physique) {
   const neutral = forwardKinematics(NEUTRAL_POSE, physique)
-  const aim = (bone: THREE.Bone | undefined, from: THREE.Vector3, to: THREE.Vector3) => {
+  const aim = (
+    bone: THREE.Bone | undefined,
+    from: THREE.Vector3,
+    to: THREE.Vector3,
+    directionFor = boneDirection,
+  ) => {
     if (!bone) return
-    const direction = boneDirection(bone)
+    const direction = directionFor(bone)
     if (!direction) return
     const wanted = to.clone().sub(from).normalize()
     if (wanted.lengthSq() < 1e-8) return
@@ -93,8 +113,8 @@ export function aimRestToNeutral(model: THREE.Object3D, map: BoneMap, physique: 
   aim(map.rightLowerLeg, rightKnee, rightAnkle)
 
   const carryOn = (from: THREE.Vector3, to: THREE.Vector3) => to.clone().multiplyScalar(2).sub(from)
-  aim(map.leftHand, leftWrist, carryOn(leftElbow, leftWrist))
-  aim(map.rightHand, rightWrist, carryOn(rightElbow, rightWrist))
+  aim(map.leftHand, leftWrist, carryOn(leftElbow, leftWrist), handDirection)
+  aim(map.rightHand, rightWrist, carryOn(rightElbow, rightWrist), handDirection)
   // Aiming fixes where a bone points, not how it is rolled about its own
   // length. A forearm still has to pronate or the palms face the lens.
   const roll = (bone: THREE.Bone | undefined, degrees: number) => {

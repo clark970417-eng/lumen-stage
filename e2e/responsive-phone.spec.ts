@@ -7,6 +7,8 @@ test('keeps the simple studio inside a phone screen', async ({ page }) => {
   await expect(page.getByRole('tab', { name: 'Person' })).toBeVisible({ timeout: 30_000 })
   await expect(page.locator('.m-brand-copy')).toContainText('Lumen Stage')
   await expect(page.locator('.m-tablist svg')).toHaveCount(4)
+  const browserDockHeight = await page.locator('.m-tabs').evaluate((dock) => dock.getBoundingClientRect().height)
+  expect(browserDockHeight).toBeLessThanOrEqual(61)
   await page.locator('.m-menu-trigger').click()
   await expect(page.locator('.m-app-menu')).toBeVisible()
   await expect(page.locator('.m-menu-languages button')).toHaveCount(3)

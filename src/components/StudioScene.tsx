@@ -3767,8 +3767,8 @@ function ExposureProbe() {
  */
 const EDITOR_AMBIENT = 40
 const EDITOR_HEAD_GAIN = 0.4
-const MOBILE_EDITOR_AMBIENT = 54
-const MOBILE_EDITOR_HEAD_GAIN = 0.18
+const MOBILE_EDITOR_AMBIENT = 42
+const MOBILE_EDITOR_HEAD_GAIN = 0.1
 
 const MemoMannequin = memo(Mannequin)
 const MemoSoftbox = memo(Softbox)
