@@ -830,7 +830,7 @@ const DICT = {
   'mobile.tab.subject': { en: 'Subject', zh: '人物', ja: '人物' },
   'mobile.tab.lights': { en: 'Lights', zh: '燈光', ja: 'ライト' },
   'mobile.tab.camera': { en: 'Camera', zh: '相機', ja: 'カメラ' },
-  'mobile.subject.hint': { en: 'Choose a character, adjust height and position, then pick a pose. Seated poses add a chair.', zh: '選擇人物、調整身高與位置，再挑選動作。選擇坐姿時會自動加入椅子。', ja: '人物・身長・位置・ポーズを選択。座るポーズには椅子を自動で追加します。' },
+  'mobile.subject.hint': { en: 'Choose an actor, set the position, then pick a pose. Seated poses add a chair.', zh: '選擇演員、調整位置，再挑選動作。選擇坐姿時會自動加入椅子。', ja: '人物・位置・ポーズを選択。座るポーズには椅子を自動で追加します。' },
   'mobile.sheet.collapse': { en: 'Hide the panel', zh: '收合面板', ja: 'パネルを閉じる' },
   'mobile.sheet.expand': { en: 'Show the panel', zh: '展開面板', ja: 'パネルを開く' },
   'mobile.setups.hint': { en: 'Tap a setup to place its lights, camera and backdrop.', zh: '點一下就套用該組燈位的燈具、相機與背景。', ja: 'タップするとライト・カメラ・背景をまとめて配置します。' },

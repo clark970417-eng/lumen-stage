@@ -1,5 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense, useCallback, useState } from 'react'
+import { Aperture, Orbit } from 'lucide-react'
 import { StudioScene } from './StudioScene'
 import { CanvasHealth } from './CanvasHealth'
 
@@ -54,8 +55,8 @@ export default function MobileStage({
       {webglLost && <div className="webgl-notice" role="alert"><strong>3D renderer interrupted</strong><span>Your scene remains saved.</span><button onClick={() => location.reload()}>Reload</button></div>}
 
       <div className="m-views" role="group" aria-label={viewsLabel}>
-        <button className={view === 'studio' ? 'active' : ''} onClick={onOpenStudio}>{studioLabel}</button>
-        <button className={view === 'camera' ? 'active' : ''} onClick={onOpenCamera}>{cameraLabel}</button>
+        <button className={view === 'studio' ? 'active' : ''} onClick={onOpenStudio}><Orbit aria-hidden="true" /><span>{studioLabel}</span></button>
+        <button className={view === 'camera' ? 'active' : ''} onClick={onOpenCamera}><Aperture aria-hidden="true" /><span>{cameraLabel}</span></button>
       </div>
 
       <span className="m-stage-hint">

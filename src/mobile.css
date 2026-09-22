@@ -123,7 +123,7 @@
 .m-label { color: var(--muted); font: 500 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
 .m-field { display: grid; gap: 7px; }
 .m-subject-bar { display: grid; gap: 8px; padding: 10px; border: 1px solid #31434e; border-radius: 10px; background: #0c141a; }
-.m-subject-actions { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; }
+.m-subject-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
 .m-subject-actions button { min-height: 36px; padding: 0 9px; border: 1px solid #374b57; border-radius: 7px; background: #121e26; color: #aebdc6; font: 9px var(--mono); cursor: pointer; }
 .m-subject-actions button:hover,.m-subject-actions button:focus-visible { border-color: var(--signal); color: #fff; }
 .m-subject-actions button.danger { border-color: #65403f; color: #ff9f95; }
@@ -489,3 +489,151 @@
 .m-shell.layout-compact .m-tab { gap: 8px; }
 .m-shell.layout-compact .m-phase-stack { gap: 8px; }
 .m-shell.layout-compact .m-tab h2 { display: none; }
+
+/* Installed-app chrome ---------------------------------------------------
+   The stage is the product. Phone UI behaves like a camera app: a compact
+   status bar, a full-bleed live view, a bottom control sheet and a fixed dock. */
+.m-brand-copy { min-width: 0; display: grid; gap: 3px; line-height: 1; }
+.m-brand-copy strong { overflow: hidden; color: #f2f5f4; font-size: 13px; font-weight: 600; letter-spacing: 0; text-overflow: ellipsis; }
+.m-brand-copy small { display: flex; align-items: center; gap: 6px; color: #8295a0; font: 500 9px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+.m-brand-copy small i { width: 6px; height: 6px; border-radius: 50%; background: #78d9f7; box-shadow: 0 0 8px rgba(120,217,247,.46); }
+.m-app-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.m-app-actions svg { width: 19px; height: 19px; }
+.m-menu-trigger { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; border: 1px solid #34424d; border-radius: 8px; background: #151d23; color: #c8d2d7; cursor: pointer; }
+.m-menu-trigger[aria-expanded='true'] { border-color: #6a7d89; background: #222d34; color: #fff; }
+.m-menu-scrim { position: fixed; inset: 0; z-index: 30; border: 0; background: rgba(0,0,0,.44); }
+.m-app-menu {
+  position: absolute; top: calc(100% - 2px); right: max(10px, env(safe-area-inset-right)); z-index: 31;
+  width: min(310px, calc(100vw - 20px)); padding: 8px;
+  border: 1px solid #3a4a55; border-radius: 8px;
+  background: rgba(16,23,29,.98); color: #e9eef0;
+  box-shadow: 0 18px 50px rgba(0,0,0,.48); backdrop-filter: blur(18px);
+}
+.m-app-menu > header { height: 42px; padding: 0 4px 0 8px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2e3b44; }
+.m-app-menu > header strong { font-size: 13px; font-weight: 600; }
+.m-app-menu > header button { width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: #94a3ad; cursor: pointer; }
+.m-app-menu > header svg { width: 18px; height: 18px; }
+.m-menu-label { min-height: 38px; padding: 10px 8px 4px; display: flex; align-items: center; gap: 9px; color: #82939e; font: 500 10px var(--mono); text-transform: uppercase; }
+.m-menu-label svg { width: 16px; height: 16px; }
+.m-menu-languages { display: grid; grid-template-columns: repeat(3,1fr); padding: 4px; border: 1px solid #33424c; border-radius: 7px; background: #0c1217; }
+.m-menu-languages button { min-height: 40px; border: 0; border-right: 1px solid #33424c; background: transparent; color: #8898a1; font: 500 11px var(--mono); cursor: pointer; }
+.m-menu-languages button:last-child { border-right: 0; }
+.m-menu-languages button.active { border-radius: 5px; background: #293640; color: #fff; }
+.m-menu-command { width: 100%; min-height: 48px; padding: 0 10px; display: flex; align-items: center; gap: 11px; border: 0; border-bottom: 1px solid #29363f; background: transparent; color: #cbd4d9; text-align: left; cursor: pointer; }
+.m-menu-command svg { width: 18px; height: 18px; color: #78d9f7; }
+.m-app-menu .copyright-mark.compact { position: static; width: 100%; min-height: 44px; padding: 0 10px; display: flex; align-items: center; justify-content: flex-start; }
+.m-app-menu .copyright-mark.compact span { max-width: none; color: #71818b; font-size: 9px; }
+.m-escape { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.m-escape svg { width: 17px; height: 17px; }
+
+@media (max-width: 900px) {
+  .m-shell.m-shell {
+    grid-template-rows: calc(56px + env(safe-area-inset-top)) minmax(0, 1fr) auto calc(68px + env(safe-area-inset-bottom));
+    background: #07090b;
+  }
+  .m-shell .m-top {
+    grid-row: 1;
+    min-height: 0;
+    padding: env(safe-area-inset-top) max(10px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
+    border-bottom: 1px solid #202b32;
+    background: rgba(10,14,17,.97);
+    box-shadow: none;
+  }
+  .m-shell .m-brand { gap: 9px; letter-spacing: 0; }
+  .m-shell .m-brand .brand-symbol { width: 28px; height: 28px; }
+  .m-shell .m-viewport {
+    grid-row: 2;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .m-shell .m-viewport::after { border-radius: 0; box-shadow: inset 0 0 80px rgba(0,0,0,.18), inset 0 0 0 1px rgba(255,255,255,.02); }
+  .m-views { top: 10px; left: 10px; gap: 2px; padding: 3px; border-color: rgba(91,111,124,.7); border-radius: 8px; background: rgba(8,12,15,.82); }
+  .m-views button { min-height: 40px; padding: 0 12px; display: flex; align-items: center; gap: 7px; border-radius: 6px; font-size: 11px; }
+  .m-views button svg { width: 16px; height: 16px; }
+  .m-views button.active { background: #2a3740; box-shadow: none; }
+  .m-stage-hint { left: 12px; bottom: 12px; max-width: calc(100% - 104px); padding: 6px 8px; border: 1px solid rgba(63,79,90,.64); border-radius: 6px; background: rgba(8,12,15,.72); font-size: 9px; }
+  .m-shutter { right: 16px; bottom: 16px; width: 66px; height: 66px; border-width: 2px; background: rgba(8,12,15,.72); box-shadow: 0 8px 28px rgba(0,0,0,.36), 0 0 0 5px rgba(255,180,84,.08); }
+  .m-shutter i { width: 49px; height: 49px; }
+
+  .m-shell .m-tabs {
+    position: relative;
+    grid-row: 4;
+    display: block;
+    min-height: calc(68px + env(safe-area-inset-bottom));
+    margin: 0;
+    padding: 0 max(5px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(5px, env(safe-area-inset-left));
+    border: 0;
+    border-top: 1px solid #26323a;
+    border-radius: 0;
+    background: rgba(10,15,19,.98);
+    box-shadow: 0 -10px 30px rgba(0,0,0,.22);
+  }
+  .m-tablist { height: 68px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); }
+  .m-shell .m-tabs .m-tablist > button {
+    position: relative;
+    min-width: 0;
+    min-height: 68px;
+    padding: 8px 2px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: 0;
+    background: transparent;
+    color: #72818a;
+    font-size: 10px;
+    overflow: visible;
+  }
+  .m-shell .m-tabs .m-tablist > button svg { width: 21px; height: 21px; stroke-width: 1.8; }
+  .m-shell .m-tabs .m-tablist > button span { display: block; overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
+  .m-shell .m-tabs .m-tablist > button.active { background: transparent; color: #f4f6f5; box-shadow: none; }
+  .m-shell .m-tabs .m-tablist > button.active svg { color: var(--signal); stroke-width: 2.2; }
+  .m-shell .m-tabs .m-tablist > button.active::before { content: ''; position: absolute; top: 0; width: 26px; height: 2px; border-radius: 0 0 2px 2px; background: var(--signal); }
+  .m-shell .m-tabs .m-sheet-handle {
+    position: absolute;
+    top: -24px;
+    left: 50%;
+    z-index: 7;
+    width: 46px;
+    min-height: 24px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    transform: translateX(-50%);
+    border: 1px solid #34434d;
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    background: #11191f;
+    color: #93a3ad;
+  }
+  .m-sheet-handle svg { width: 17px; height: 17px; }
+  .m-shell .m-sheet {
+    grid-row: 3;
+    max-height: min(43dvh, 430px);
+    padding: 0;
+    border: 0;
+    border-top: 1px solid #34434d;
+    border-radius: 8px 8px 0 0;
+    background: #10171c;
+    box-shadow: 0 -16px 42px rgba(0,0,0,.34);
+  }
+  .m-sheet-scroll { padding: 16px max(14px, env(safe-area-inset-right)) 18px max(14px, env(safe-area-inset-left)); }
+  .m-edit-actions { padding-bottom: 8px; min-height: 60px; }
+  .m-shell:not(.sheet-open) .m-tabs { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+@media (display-mode: standalone) and (max-width: 900px) {
+  .m-shell .m-top { background: rgba(7,9,11,.98); }
+  .m-brand-copy small { color: #91a5b0; }
+}
+
+@media (orientation: landscape) and (max-height: 560px) and (max-width: 900px) {
+  .m-shell.m-shell { grid-template-rows: calc(46px + env(safe-area-inset-top)) minmax(0,1fr) auto calc(58px + env(safe-area-inset-bottom)); }
+  .m-shell .m-tabs, .m-tablist { min-height: 58px; height: 58px; }
+  .m-shell .m-tabs .m-tablist > button { min-height: 58px; padding-block: 4px; }
+  .m-shell .m-tabs .m-tablist > button svg { width: 18px; height: 18px; }
+  .m-shell .m-sheet { max-height: min(48dvh, 270px); }
+}

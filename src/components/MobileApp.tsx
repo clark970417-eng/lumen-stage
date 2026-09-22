@@ -1,4 +1,5 @@
 import { useShallow } from 'zustand/react/shallow'
+import { BookOpen, Camera as CameraIcon, ChevronDown, ChevronUp, Info, Languages, Lightbulb, Monitor, MoreHorizontal, Move3d, UserRound, X } from 'lucide-react'
 /**
  * Lumen Stage on a phone.
  *
@@ -23,12 +24,12 @@ import { useRenderProgress } from '../renderProgress'
 import { usePhoneScreen, useUiModeStore } from '../uiMode'
 import { lightAimAngles, targetFromLightAim } from '../lightAim'
 import { POSE_LIBRARY } from '../pose'
-import { CAST, defaultCastFor, MIN_SUBJECT_HEIGHT, MAX_SUBJECT_HEIGHT } from '../actorCast'
+import { CAST, defaultCastFor, type ActorSex } from '../actorCast'
 import { buildShareLink, copyToClipboard } from '../share'
 import { MAX_PROJECT_FILE_BYTES, readTextFileWithinLimit } from '../security'
 import { formatStorage, storageUsage } from '../persistence'
 import { useDialogFocus } from './DialogFocus'
-import { OnboardingTour, shouldShowOnboarding } from './OnboardingTour'
+import { OnboardingTour } from './OnboardingTour'
 import { analyzeReferencePixels, type ReferenceLightingAnalysis } from '../referenceLighting'
 import { captureContinuityBaseline, evaluateContinuity, type ContinuityBaseline } from '../continuity'
 import { useWorkflow, type WorkflowStage } from '../workflow'
@@ -42,6 +43,25 @@ const MOBILE_WORKFLOW = {
   en: { planning: 'Person', lighting: 'Light', shooting: 'Camera', layout: 'Layout', reference: 'Reference → light', choose: 'Choose photo', apply: 'Build starting light', local: 'Local luminance estimate', direction: 'Key direction', ratio: 'Key : fill', confidence: 'Confidence', left: 'Left', right: 'Right', front: 'Front', low: 'Low', medium: 'Medium', high: 'High', continuity: 'Continuity guard', baseline: 'Set baseline', track: 'Track subject', restore: 'Restore values', stable: 'Baseline matched', noBaseline: 'Save the hero shot before changing the scene.' },
   zh: { planning: '人物', lighting: '佈光', shooting: '相機', layout: '配置', reference: '參考照 → 起始燈位', choose: '選擇照片', apply: '建立起始燈位', local: '本機明暗推測', direction: '主光方向', ratio: '主光：補光', confidence: '推測信心', left: '左側', right: '右側', front: '正面', low: '低', medium: '中', high: '高', continuity: '光線連戲', baseline: '建立基準', track: '跟隨人物', restore: '恢復讀值', stable: '目前與基準吻合', noBaseline: '先儲存主鏡位，再調整場景。' },
   ja: { planning: '人物', lighting: '照明', shooting: 'カメラ', layout: '配置', reference: '参照写真 → 初期配光', choose: '写真を選択', apply: '初期配光を作成', local: '端末内の明暗推定', direction: 'キー方向', ratio: 'キー：フィル', confidence: '信頼度', left: '左', right: '右', front: '正面', low: '低', medium: '中', high: '高', continuity: '光の連続性', baseline: '基準を設定', track: '人物を追従', restore: '基準値に戻す', stable: '基準と一致', noBaseline: '変更前に基準ショットを保存します。' },
+}
+
+const MOBILE_CHROME = {
+  en: { ready: 'Studio ready', menu: 'App menu', settings: 'Studio menu', language: 'Language', guide: 'Quick guide', about: 'About & data', full: 'Full workspace', close: 'Close menu' },
+  zh: { ready: '工作室就緒', menu: 'App 選單', settings: '工作室選單', language: '語言', guide: '快速指南', about: '關於與資料', full: '完整工作區', close: '關閉選單' },
+  ja: { ready: 'スタジオ準備完了', menu: 'App メニュー', settings: 'スタジオメニュー', language: '言語', guide: 'クイックガイド', about: '情報とデータ', full: 'フルワークスペース', close: 'メニューを閉じる' },
+}
+
+const MOBILE_ACTOR = {
+  en: { add: 'Actor', feminine: 'F', masculine: 'M' },
+  zh: { add: '演員', feminine: '女', masculine: '男' },
+  ja: { add: '人物', feminine: '女', masculine: '男' },
+}
+
+const TAB_ICONS = {
+  planning: UserRound,
+  lighting: Lightbulb,
+  shooting: CameraIcon,
+  layout: Move3d,
 }
 
 const tabStage: Record<Tab, WorkflowStage> = {
@@ -262,6 +282,7 @@ function SetupsTab({ applied, onApply }: { applied: string | null; onApply: (id:
 function SubjectTab() {
   const t = useT()
   const ct = useCatalogT()
+  const locale = useLocaleStore((state) => state.locale)
   const state = useStudio(useShallow((state) => ({
     addStudioObject: state.addStudioObject,
     actorId: state.actorId,
@@ -271,7 +292,6 @@ function SubjectTab() {
     deleteMainSubject: state.deleteMainSubject,
     deleteStudioObject: state.deleteStudioObject,
     mainSubjectEnabled: state.mainSubjectEnabled,
-    modelHeight: state.modelHeight,
     modelPosition: state.modelPosition,
     outfitStyle: state.outfitStyle,
     physique: state.physique,
@@ -280,7 +300,6 @@ function SubjectTab() {
     selected: state.selected,
     setModelTransform: state.setModelTransform,
     setStudioObjectTransform: state.setStudioObjectTransform,
-    setValue: state.setValue,
     studioObjects: state.studioObjects,
     updatePhysique: state.updatePhysique,
     updateStudioObject: state.updateStudioObject,
@@ -293,20 +312,19 @@ function SubjectTab() {
     : selectedObject?.id ?? (state.mainSubjectEnabled ? 'model' : subjects[0]?.id)
   const activeObject = subjects.find((object) => object.id === activeId)
   const main = activeId === 'model'
-  const height = main ? state.modelHeight : activeObject?.subjectHeight ?? 1.82
   const position = main ? state.modelPosition : activeObject?.position ?? [0, 0, 0]
   const physique = main ? state.physique : activeObject?.subjectPhysique ?? state.physique
   const posePreset = main ? state.posePreset : activeObject?.subjectPosePreset ?? 'neutral'
   const currentActor = state.actorId ?? defaultCastFor(state.physique, state.outfitStyle === 'suit').id
+  const currentActorSex = CAST.find((actor) => actor.id === currentActor)?.sex ?? 'feminine'
+  const actorCopy = MOBILE_ACTOR[locale]
+  const sexLabel = (sex: ActorSex) => actorCopy[sex]
   const updatePhysique = (patch: Partial<typeof physique>) => main
     ? state.updatePhysique(patch)
     : activeObject && state.updateStudioSubjectPhysique(activeObject.id, patch)
   const applyPosePreset = (id: string) => main
     ? state.applyPosePreset(id)
     : activeObject && state.applyStudioSubjectPose(activeObject.id, id)
-  const setHeight = (value: number) => main
-    ? state.setValue('modelHeight', Number(value.toFixed(2)))
-    : activeObject && state.updateStudioObject(activeObject.id, { subjectHeight: Number(value.toFixed(2)) })
   const setVerticalPosition = (value: number) => main
     ? state.setModelTransform([position[0], Number(value.toFixed(2)), position[2]])
     : activeObject && state.setStudioObjectTransform(activeObject.id, [position[0], Number(value.toFixed(2)), position[2]], activeObject.rotationY)
@@ -315,12 +333,11 @@ function SubjectTab() {
   return <div className="m-tab">
     <div className="m-subject-bar">
       <div className="m-chips m-chips-scroll" role="group" aria-label={t('object.subject')}>
-        {state.mainSubjectEnabled && <button className={activeId === 'model' ? 'active' : ''} onClick={() => state.selectObject('model')}>{t('subject.main')}</button>}
-        {subjects.map((subject, index) => <button key={subject.id} className={activeId === subject.id ? 'active' : ''} onClick={() => state.selectObject(subject.id)}>{t('subject.numbered', { n: index + 1, name: subject.name })}</button>)}
+        {state.mainSubjectEnabled && <button className={activeId === 'model' ? 'active' : ''} onClick={() => state.selectObject('model')}>{t('subject.main')} ({sexLabel(currentActorSex)})</button>}
+        {subjects.map((subject, index) => <button key={subject.id} className={activeId === subject.id ? 'active' : ''} onClick={() => state.selectObject(subject.id)}>{t('subject.numbered', { n: index + 1, name: subject.name })} ({sexLabel(subject.subjectPhysique.sex === 'masculine' ? 'masculine' : 'feminine')})</button>)}
       </div>
       <div className="m-subject-actions">
-        <button onClick={() => state.addStudioObject('subject', 'feminine')}>＋ {t('physique.feminine')}</button>
-        <button onClick={() => state.addStudioObject('subject', 'masculine')}>＋ {t('physique.masculine')}</button>
+        <button onClick={() => state.addStudioObject('subject', main ? currentActorSex : physique.sex === 'masculine' ? 'masculine' : 'feminine')}>＋ {actorCopy.add}</button>
         {activeId && <button className="danger" onClick={deleteSubject}>{t('common.delete')}</button>}
       </div>
     </div>
@@ -328,12 +345,11 @@ function SubjectTab() {
     <p className="m-note">{t('mobile.subject.hint')}</p>
     {main ? <label className="m-field"><span className="m-label">{t('cast.title')}</span>
       <select className="m-cast-select" value={currentActor} onChange={(event) => state.castActor(event.target.value)}>
-        {CAST.map((actor) => <option key={actor.id} value={actor.id}>{ct(`cast.${actor.id}`, actor.label)} · {actor.height.toFixed(2)} m</option>)}
+        {CAST.map((actor) => <option key={actor.id} value={actor.id}>{ct(`cast.${actor.id}`, actor.label)} ({sexLabel(actor.sex)}) · {actor.height.toFixed(2)} m</option>)}
       </select>
     </label> : <div className="m-field"><span className="m-label">{t('physique.sex')}</span><div className="m-chips">
       {([['feminine','physique.feminine'],['masculine','physique.masculine']] as const).map(([value,key]) => <button key={value} className={physique.sex === value ? 'active' : ''} onClick={() => updatePhysique({ sex: value })}>{t(key)}</button>)}
     </div></div>}
-    <Dial label={t('subject.height')} value={height} min={MIN_SUBJECT_HEIGHT} max={MAX_SUBJECT_HEIGHT} step={0.01} readout={`${height.toFixed(2)} m`} onChange={setHeight} />
     <Dial label={t('axis.y')} value={position[1]} min={0} max={3} step={0.05} readout={`${position[1].toFixed(2)} m`} onChange={setVerticalPosition} />
     <div className="m-field">
       <span className="m-label">{t('pose.library')}</span>
@@ -820,9 +836,12 @@ export function MobileApp() {
   const [photo, setPhoto] = useState<string | null>(null)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [tourOpen, setTourOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const pageVisible = usePageVisible()
+  const chrome = MOBILE_CHROME[locale]
 
   const openTour = () => {
+    setMenuOpen(false)
     setTab('planning')
     setSheetOpen(true)
     window.requestAnimationFrame(() => setTourOpen(true))
@@ -854,10 +873,11 @@ export function MobileApp() {
   }, [])
 
   useEffect(() => {
-    if (!shouldShowOnboarding('mobile')) return
-    const timer = window.setTimeout(openTour, 700)
-    return () => window.clearTimeout(timer)
-  }, [])
+    if (!menuOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false) }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [menuOpen])
 
   const capture = async () => {
     if (capturing) return
@@ -880,15 +900,30 @@ export function MobileApp() {
   return (
     <main className={`m-shell${sheetOpen ? ' sheet-open' : ''}${tab === 'layout' && compactLayout ? ' layout-compact' : ''}`} aria-label={t(phone ? 'mobile.aria' : 'mobile.desktop.aria')}>
       <header className="m-top">
-        <span className="m-brand"><BrandMark />LUMEN<small>{t(phone ? 'mobile.badge' : 'mobile.desktop.badge')}</small></span>
-        <div className="m-lang" role="group" aria-label={t('lang.label')}>
-          {LOCALES.map((item) => (
-            <button key={item.id} lang={item.htmlLang} aria-label={item.native} aria-pressed={locale === item.id}
-              className={locale === item.id ? 'active' : ''} onClick={() => setLocale(item.id as Locale)}>{item.short}</button>
-          ))}
+        <span className="m-brand">
+          <BrandMark />
+          <span className="m-brand-copy"><strong>Lumen Stage</strong><small><i />{chrome.ready}</small></span>
+        </span>
+        <div className="m-app-actions">
+          {!phone && <button className="m-escape" onClick={() => setUiMode('full')} title={t('mobile.full.title')}><Monitor aria-hidden="true" /><span>{chrome.full}</span></button>}
+          <button className="m-menu-trigger" aria-label={chrome.menu} aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}><MoreHorizontal aria-hidden="true" /></button>
         </div>
-        <CopyrightMark compact onOpen={() => setAboutOpen(true)} />
-        {!phone && <button className="m-escape" onClick={() => setUiMode('full')} title={t('mobile.full.title')}>{t('mobile.full')}</button>}
+        {menuOpen && <>
+          <button className="m-menu-scrim" aria-label={chrome.close} onClick={() => setMenuOpen(false)} />
+          <section className="m-app-menu" aria-label={chrome.settings}>
+            <header><strong>{chrome.settings}</strong><button aria-label={chrome.close} onClick={() => setMenuOpen(false)}><X aria-hidden="true" /></button></header>
+            <div className="m-menu-label"><Languages aria-hidden="true" /><span>{chrome.language}</span></div>
+            <div className="m-menu-languages" role="group" aria-label={t('lang.label')}>
+              {LOCALES.map((item) => (
+                <button key={item.id} lang={item.htmlLang} aria-label={item.native} aria-pressed={locale === item.id}
+                  className={locale === item.id ? 'active' : ''} onClick={() => setLocale(item.id as Locale)}>{item.short}</button>
+              ))}
+            </div>
+            <button className="m-menu-command" onClick={openTour}><BookOpen aria-hidden="true" /><span>{chrome.guide}</span></button>
+            <button className="m-menu-command" onClick={() => { setMenuOpen(false); setAboutOpen(true) }}><Info aria-hidden="true" /><span>{chrome.about}</span></button>
+            <CopyrightMark compact onOpen={() => { setMenuOpen(false); setAboutOpen(true) }} />
+          </section>
+        </>}
       </header>
 
       <Suspense fallback={
@@ -921,16 +956,18 @@ export function MobileApp() {
       <div className="m-console">
         <div className="m-tabs">
           <nav className="m-tablist" role="tablist" aria-label={t(phone ? 'mobile.aria' : 'mobile.desktop.aria')}>
-            {(['planning', 'lighting', 'shooting', 'layout'] as const).map((item) => (
-              <button key={item} role="tab" id={`m-tab-${item}`} aria-controls="m-tabpanel" aria-selected={tab === item && sheetOpen}
+            {(['planning', 'lighting', 'shooting', 'layout'] as const).map((item) => {
+              const Icon = TAB_ICONS[item]
+              return <button key={item} role="tab" id={`m-tab-${item}`} aria-controls="m-tabpanel" aria-selected={tab === item && sheetOpen}
                 className={tab === item && sheetOpen ? 'active' : ''}
-                onClick={() => { if (tab === item && sheetOpen) setSheetOpen(false); else { setTab(item); setSheetOpen(true) } }}>
-                {MOBILE_WORKFLOW[locale][item]}
+                onClick={() => { setMenuOpen(false); if (tab === item && sheetOpen) setSheetOpen(false); else { setTab(item); setSheetOpen(true) } }}>
+                <Icon aria-hidden="true" />
+                <span>{MOBILE_WORKFLOW[locale][item]}</span>
               </button>
-            ))}
+            })}
           </nav>
           <button className="m-sheet-handle" aria-label={t(sheetOpen ? 'mobile.sheet.collapse' : 'mobile.sheet.expand')} onClick={() => setSheetOpen(!sheetOpen)}>
-            {sheetOpen ? '▾' : '▴'}
+            {sheetOpen ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />}
           </button>
         </div>
 

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'lumen-stage-pwa-v1'
+const CACHE_VERSION = 'lumen-stage-pwa-v2'
 const APP_SHELL = [
   './',
   './?route=studio',
