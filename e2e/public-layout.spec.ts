@@ -49,3 +49,20 @@ test('stacks mobile media and controls without cropping at narrow and landscape 
     expect(layout.overflow).toBeLessThanOrEqual(1)
   }
 })
+
+test('keeps feature panels aligned and the comparison handle visible at both ends', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/')
+  const figure = await page.locator('.feature-workspace figure').boundingBox()
+  const list = await page.locator('.feature-list').boundingBox()
+  expect(Math.abs(figure!.y - list!.y)).toBeLessThanOrEqual(1)
+  expect(Math.abs(figure!.height - list!.height)).toBeLessThanOrEqual(1)
+  const input = page.locator('.compare-stage input')
+  for (const key of ['Home', 'End']) {
+    await input.press(key)
+    const stage = await page.locator('.compare-stage').boundingBox()
+    const handle = await page.locator('.compare-handle i').boundingBox()
+    expect(handle!.x).toBeGreaterThanOrEqual(stage!.x)
+    expect(handle!.x + handle!.width).toBeLessThanOrEqual(stage!.x + stage!.width)
+  }
+})
