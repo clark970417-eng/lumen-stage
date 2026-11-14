@@ -1,0 +1,20 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro'
+import { PublicSite } from '../components/PublicSite'
+import BrowserApp from '../BrowserApp'
+import PhotoAnalyzer from '../components/PhotoAnalyzer'
+export function getStaticPaths() {
+  return ['studio', 'app', 'privacy', 'terms', 'support', 'analyze'].map(route => ({ params: { route } }))
+}
+const { route } = Astro.params
+const publicPage = route === 'privacy' || route === 'terms' || route === 'support'
+---
+<SiteLayout publicPage={publicPage}>
+  {publicPage ? <PublicSite route={route} initialLocale="en" client:load /> : route === 'analyze' ? <PhotoAnalyzer client:only="react" /> : <BrowserApp client:only="react"><div class="shell-loading" slot="fallback" role="status">Loading Lumen Stage</div></BrowserApp>}
+</SiteLayout>
+<script>
+  import { registerPwa } from '../pwa'
+  import { startErrorMonitoring } from '../monitoring'
+  registerPwa()
+  startErrorMonitoring()
+</script>

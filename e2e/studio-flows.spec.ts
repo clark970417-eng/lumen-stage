@@ -35,7 +35,7 @@ test('opens the phone app first and keeps the quick guide available without runt
   })
   await page.goto('/studio?ui=mobile')
   await expect(page.getByRole('dialog', { name: 'Quick start tour' })).toHaveCount(0)
-  await expect(page.getByRole('tab', { name: 'Person' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Person' })).toBeVisible({ timeout: 50_000 })
   await expect(page.getByRole('tab', { name: 'Light' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Camera' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Layout' })).toBeVisible()

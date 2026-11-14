@@ -1,0 +1,14 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro'
+import { PublicSite } from '../components/PublicSite'
+---
+<SiteLayout publicPage><PublicSite route="home" initialLocale="en" client:load /></SiteLayout>
+<script>
+  import { routeFromLocation, routeHref } from '../routing'
+  import { registerPwa } from '../pwa'
+  import { startErrorMonitoring } from '../monitoring'
+  const route = routeFromLocation(location.pathname, location.search, location.hash)
+  if (route !== 'home') location.replace(`${routeHref(route)}${location.search}${location.hash}`)
+  registerPwa()
+  startErrorMonitoring()
+</script>

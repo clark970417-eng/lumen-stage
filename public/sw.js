@@ -1,9 +1,9 @@
-const CACHE_VERSION = 'lumen-stage-pwa-v3'
+const CACHE_VERSION = 'lumen-stage-pwa-v4'
 const APP_SHELL = [
   './',
-  './?route=studio',
-  './?route=studio&ui=mobile',
-  './?route=studio&ui=full',
+  './studio',
+  './studio?ui=mobile',
+  './studio?ui=full',
   './offline.html',
   './site.webmanifest',
   './desktop.webmanifest',
@@ -38,7 +38,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy))
           return response
         })
-        .catch(async () => (await caches.match(request)) || caches.match('./?route=studio') || caches.match('./offline.html')),
+        .catch(async () => (await caches.match(request)) || caches.match('./studio') || caches.match('./offline.html')),
     )
     return
   }

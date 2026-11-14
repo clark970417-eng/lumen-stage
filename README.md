@@ -8,6 +8,12 @@ Lumen Stage is a browser-based 3D previsualization studio for photographers and 
 
 ![Lumen Stage full studio with a portrait lighting setup](public/site-preview/en.webp)
 
+## Website architecture
+
+The public website is statically rendered with Astro and hydrated React interactions. The existing React/Three.js studio loads separately. Local Inter and Manrope fonts, selective Fraunces display type, and an original lightweight WebGL light field define the dark homepage. Original screenshots and chapter videos are retained. Motion pauses offscreen and respects reduced-motion preferences. Use Node.js 24 or later.
+
+Design references: VocaLume’s clear typography and Yuimi Chaya’s restrained atmosphere; no reference artwork or audio is copied.
+
 ## What you can do
 
 - Arrange lights, modifiers, flags, reflectors, backdrops, cameras, people, and props in a measured 3D room.

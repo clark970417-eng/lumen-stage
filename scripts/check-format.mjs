@@ -2,8 +2,8 @@ import { readFile, readdir } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 
 const roots = ['api', 'e2e', 'scripts', 'src', 'tests', '.github']
-const rootFiles = ['index.html', 'package.json', 'performance-budget.json', 'playwright.config.ts', 'vite.config.ts']
-const textExtensions = new Set(['.css', '.html', '.js', '.json', '.md', '.mjs', '.ts', '.tsx', '.yaml', '.yml'])
+const rootFiles = ['index.html', 'package.json', 'performance-budget.json', 'playwright.config.ts', 'vite.config.ts', 'astro.config.mjs']
+const textExtensions = new Set(['.astro', '.css', '.html', '.js', '.json', '.md', '.mjs', '.ts', '.tsx', '.yaml', '.yml'])
 
 async function collect(directory) {
   const entries = await readdir(directory, { withFileTypes: true })

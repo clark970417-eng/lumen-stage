@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from 'react'
 import EditingWorkflowGuide from './EditingWorkflowGuide'
 import '../photo-analyzer.css'
+import '../responsive.css'
 import { buildPhotoAnalysisPrompt } from '../photoAnalysisPrompt'
 import { copyToClipboard } from '../share'
 import { routeHref } from '../routing'

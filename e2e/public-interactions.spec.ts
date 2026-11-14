@@ -42,6 +42,7 @@ test('keeps keyboard focus inside the workspace chooser and restores it on close
 test('builds a reviewable issue draft from technical details only', async ({ page }) => {
   await page.goto('/support')
   const report = page.getByRole('link', { name: 'Create an issue report' })
+  await expect(report).toHaveAttribute('href', /Viewport/)
   const href = await report.getAttribute('href')
   expect(href).toContain('lumen-stage-showcase/issues/new')
   expect(href).toContain('LUMEN+STAGE%3A+0.1.0')
@@ -97,4 +98,39 @@ test('demo playback uses chapter buttons without player controls', async ({ page
   await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThanOrEqual(5)
   await expect(demo.locator('.demo-screen button')).toHaveCount(0)
   await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(false)
+})
+
+ test('feature chapters switch the original workspace images', async ({ page }) => {
+  await page.goto('/')
+  const images = page.locator('.feature-workspace img')
+  const initial = await images.getAttribute('src')
+  await page.locator('.product-features button').nth(1).click()
+  await expect(images).not.toHaveAttribute('src', initial!)
+  await expect(page.locator('.product-features button').nth(1)).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('homepage content is available before JavaScript', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false })
+  const page = await context.newPage()
+  await page.goto('http://127.0.0.1:4173/')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Plan the light')
+  await expect(page.locator('.product-features article')).toHaveCount(4)
+  await context.close()
+})
+
+test('hydrates under the production content security policy', async ({ page }) => {
+  const { readFile } = await import('node:fs/promises')
+  const config = JSON.parse(await readFile('vercel.json', 'utf8'))
+  const policy = config.headers.flatMap((entry: { headers: { key: string; value: string }[] }) => entry.headers).find((header: { key: string }) => header.key === 'Content-Security-Policy').value
+  const violations: string[] = []
+  page.on('console', message => { if (/Refused to execute|violates.*script-src|blocked.*script-src/i.test(message.text())) violations.push(message.text()) })
+  await page.route('**/*', async route => {
+    if (route.request().resourceType() !== 'document') return route.continue()
+    const response = await route.fetch()
+    await route.fulfill({ response, headers: { ...response.headers(), 'content-security-policy': policy.replace('; upgrade-insecure-requests', '') } })
+  })
+  await page.goto('/')
+  await page.locator('.product-features button').nth(2).click()
+  await expect(page.locator('.product-features button').nth(2)).toHaveAttribute('aria-pressed', 'true')
+  expect(violations).toEqual([])
 })

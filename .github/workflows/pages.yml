@@ -28,7 +28,9 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Build for the repository path
-        run: npm run build -- --base=/lumen-stage/
+        env:
+          BASE_PATH: /lumen-stage/
+        run: npm run build
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:

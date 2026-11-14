@@ -38,8 +38,17 @@ async function sizesFor(extension) {
 const javascript = await sizesFor('.js')
 const stylesheets = await sizesFor('.css')
 const indexHtml = await readFile(new URL('dist/index.html', root), 'utf8')
-const initialScripts = [...indexHtml.matchAll(/(?:src|href)="\/assets\/([^"]+\.js)"/g)].map((match) => match[1])
-const initialHomepageJavaScript = (await Promise.all(initialScripts.map(async (file) => (await stat(join(assetsPath, file))).size))).reduce((sum, bytes) => sum + bytes, 0)
+// Astro's hydrated islands declare component/renderer URLs outside script tags.
+const initialScripts = new Set([...indexHtml.matchAll(/(?:src|href|component-url|renderer-url)="\/assets\/([^" ]+\.js)"/g)].map(match => match[1]))
+const pending = [...initialScripts]
+while (pending.length) {
+  const file = pending.pop()
+  const source = await readFile(join(assetsPath, file), 'utf8')
+  for (const match of source.matchAll(/(?:import|export)\s*(?:[^();"']*?\bfrom\s*)?["'](?:\.\/|\/assets\/)([^"']+\.js)["']/g)) {
+    if (!initialScripts.has(match[1])) { initialScripts.add(match[1]); pending.push(match[1]) }
+  }
+}
+const initialHomepageJavaScript = (await Promise.all([...initialScripts].map(async file => (await stat(join(assetsPath, file))).size))).reduce((sum, bytes) => sum + bytes, 0)
 const checks = [
   ['largest JavaScript asset', javascript[0]?.bytes ?? 0, budget.largestJavaScriptBytes],
   ['total JavaScript assets', javascript.reduce((sum, asset) => sum + asset.bytes, 0), budget.totalJavaScriptBytes],

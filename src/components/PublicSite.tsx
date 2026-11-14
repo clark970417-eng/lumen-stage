@@ -5,10 +5,8 @@ import { assetHref, routeHref, studioHref, type PublicRoute } from '../routing'
 import { SETUP_LIBRARY } from '../setups'
 import { BrandMark } from './BrandMark'
 import { useDialogFocus } from './DialogFocus'
-import '../site.css'
-import '../site-demo-video.css'
-import '../site-interactions.css'
-import '../site-simple.css'
+import { LightField } from './LightField'
+import '../public-site.css'
 
 type Copy = {
   nav: [string, string, string, string, string, string, string]
@@ -190,8 +188,7 @@ function setupHref(id: string) {
   return `${href}${href.includes('?') ? '&' : '?'}setup=${encodeURIComponent(id)}`
 }
 
-function LocaleSwitch() {
-  const locale = useLocaleStore((state) => state.locale)
+function LocaleSwitch({ locale }: { locale: Locale }) {
   const setLocale = useLocaleStore((state) => state.setLocale)
   const picker = useRef<HTMLDetailsElement>(null)
   const current = LOCALES.find((item) => item.id === locale)!
@@ -208,11 +205,11 @@ function LocaleSwitch() {
   </details>
 }
 
-function SiteHeader({ copy, onOpenStudio }: { copy: Copy; onOpenStudio?: () => void }) {
+function SiteHeader({ copy, locale, onOpenStudio }: { copy: Copy; locale: Locale; onOpenStudio?: () => void }) {
   const home = routeHref('home')
   const sectionHref = (id: string) => onOpenStudio ? `#${id}` : `${home}#${id}`
   const links = <><a href={sectionHref('capabilities')}>{copy.nav[0]}</a><a href={sectionHref('demo')}>{copy.nav[1]}</a><a href={sectionHref('setups')}>{copy.nav[4]}</a><a href={sectionHref('faq')}>{copy.nav[5]}</a></>
-  return <header className="site-header"><div className="site-header-shell"><a className="site-brand" href={home} aria-label="Lumen Stage home"><BrandMark /><span><b>LUMEN</b><small>STAGE / WEB</small></span></a><nav aria-label="Primary">{links}</nav><details className="site-menu"><summary aria-label="Navigation">☰</summary><nav aria-label="Mobile" onClick={(event) => { if ((event.target as HTMLElement).closest('a')) event.currentTarget.parentElement?.removeAttribute('open') }}>{links}</nav></details><div className="site-actions"><LocaleSwitch />{onOpenStudio ? <button className="site-cta compact" type="button" onClick={onOpenStudio}><span>{copy.open}</span><b aria-hidden="true">↗</b></button> : <a className="site-cta compact" href={studioHref()}><span>{copy.open}</span><b aria-hidden="true">↗</b></a>}</div></div></header>
+  return <header className="site-header"><div className="site-header-shell"><a className="site-brand" href={home} aria-label="Lumen Stage home"><BrandMark /><span><b>LUMEN</b><small>STAGE / WEB</small></span></a><nav aria-label="Primary">{links}</nav><details className="site-menu"><summary aria-label="Navigation">☰</summary><nav aria-label="Mobile" onClick={(event) => { if ((event.target as HTMLElement).closest('a')) event.currentTarget.parentElement?.removeAttribute('open') }}>{links}</nav></details><div className="site-actions"><LocaleSwitch locale={locale} />{onOpenStudio ? <button className="site-cta compact" type="button" onClick={onOpenStudio}><span>{copy.open}</span><b aria-hidden="true">↗</b></button> : <a className="site-cta compact" href={studioHref()}><span>{copy.open}</span><b aria-hidden="true">↗</b></a>}</div></div></header>
 }
 
 function SiteFooter({ copy }: { copy: Copy }) {
@@ -274,9 +271,11 @@ function FeedbackSection({ locale }: { locale: Locale }) {
 }
 
 function LegalPage({ route, copy, locale }: { route: Exclude<PublicRoute, 'home' | 'studio'>; copy: Copy; locale: Locale }) {
+  const [issueHref, setIssueHref] = useState('https://github.com/clark970417-eng/lumen-stage-showcase/issues/new')
+  useEffect(() => setIssueHref(reportIssueHref(locale)), [locale])
   const title = route === 'privacy' ? copy.privacyTitle : route === 'terms' ? copy.termsTitle : copy.supportTitle
   const paragraphs = route === 'privacy' ? copy.privacyBody : route === 'terms' ? copy.termsBody : copy.supportBody
-  return <><SiteHeader copy={copy} /><main className="legal-page"><span>LUMEN STAGE / {route.toUpperCase()}</span><h1>{title}</h1><div>{paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>{route === 'support' && <a className="site-cta" href={reportIssueHref(locale)} target="_blank" rel="noreferrer"><span>{copy.issues}</span><b aria-hidden="true">↗</b></a>}{route === 'support' && <FeedbackSection locale={locale} />}<a className="legal-back" href={routeHref('home')}>← {copy.back}</a></main><SiteFooter copy={copy} /></>
+  return <><SiteHeader copy={copy} locale={locale} /><main className="legal-page"><span>LUMEN STAGE / {route.toUpperCase()}</span><h1>{title}</h1><div>{paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>{route === 'support' && <a className="site-cta" href={issueHref} target="_blank" rel="noreferrer"><span>{copy.issues}</span><b aria-hidden="true">↗</b></a>}{route === 'support' && <FeedbackSection locale={locale} />}<a className="legal-back" href={routeHref('home')}>← {copy.back}</a></main><SiteFooter copy={copy} /></>
 }
 
 function ModeChooser({ copy, onClose }: { copy: Copy; onClose: () => void }) {
@@ -308,8 +307,12 @@ function ResultCompare({ copy }: { copy: Copy }) {
   </section>
 }
 
-export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> }) {
-  const locale = useLocaleStore((state) => state.locale)
+export function PublicSite({ route, initialLocale }: { route: Exclude<PublicRoute, 'studio'>; initialLocale?: Locale }) {
+  const storedLocale = useLocaleStore((state) => state.locale)
+  const [hydrated, setHydrated] = useState(false)
+  const locale = !hydrated && initialLocale ? initialLocale : storedLocale
+  const [activeFeature, setActiveFeature] = useState(0)
+  useEffect(() => setHydrated(true), [])
   const copy = COPY[locale]
   const features = FEATURE_MODULES[locale]
   const studioPreview = STUDIO_PREVIEWS[locale]
@@ -371,9 +374,9 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     void video.play().catch(() => {})
   }
   if (route !== 'home') return <LegalPage route={route} copy={copy} locale={locale} />
-  return <><SiteHeader copy={copy} onOpenStudio={() => setModeOpen(true)} />{modeOpen && <ModeChooser copy={copy} onClose={() => setModeOpen(false)} />}<main className="landing">
+  return <><SiteHeader copy={copy} locale={locale} onOpenStudio={() => setModeOpen(true)} />{modeOpen && <ModeChooser copy={copy} onClose={() => setModeOpen(false)} />}<main className="landing">
     <section className="site-hero" data-locale={locale} onPointerMove={moveHeroLight} ref={heroStage}>
-      <div className="hero-glow" aria-hidden="true" />
+      <LightField />
       <div className="hero-copy">
 
         <h1><span>{copy.title[0]}</span><em><span>{copy.title[1]}</span><span>{copy.title[2]}</span></em></h1>
@@ -397,7 +400,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
       </div>
       <a className="scroll-cue" href="#capabilities"><span>SCROLL TO FOCUS</span><i /></a>
     </section>
-    <section className="product-features" id="capabilities"><h2>{features.title}</h2><div>{features.items.map(([title, body]) => <article key={title}><h3>{title}</h3><p>{body}</p></article>)}</div></section>
+    <section className="product-features" id="capabilities"><header><h2>{features.title}</h2></header><div className="feature-workspace"><figure><img src={assetHref(`onboarding/${locale}/desktop-${[0, 2, 1, 3][activeFeature]}.webp`)} alt={features.items[activeFeature][0]} width="1600" height="900" loading="lazy" decoding="async" /><figcaption>{features.items[activeFeature][0]}</figcaption></figure><div className="feature-list">{features.items.map(([title, body], index) => <article key={title} className={activeFeature === index ? 'active' : ''}><h3><button type="button" aria-pressed={activeFeature === index} onClick={() => setActiveFeature(index)}>{title}<span aria-hidden="true">↗</span></button></h3><p>{body}</p></article>)}</div></div></section>
     <section className="site-demo" id="demo" data-reveal>
       <header><h2>{copy.demoTitle}</h2><p>{copy.demoBody}</p></header>
       <div className="demo-console">

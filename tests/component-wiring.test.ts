@@ -6,7 +6,7 @@ import { join } from 'node:path'
 const sources = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name)
-    return entry.isDirectory() ? sources(path) : /\.tsx?$/.test(entry.name) ? [path] : []
+    return entry.isDirectory() ? sources(path) : /\.(?:tsx?|astro)$/.test(entry.name) ? [path] : []
   })
 
 test('every component is reachable from the app', () => {

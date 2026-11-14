@@ -22,3 +22,5 @@ blob-report/
 # went up to the deployed site. Staged outside the project while converting.
 rocketbox-src/
 anim-src/
+
+.astro/
