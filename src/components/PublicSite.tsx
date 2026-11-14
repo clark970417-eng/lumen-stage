@@ -439,7 +439,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     </section>
     <section className="featured-setups" id="setups">
       <header data-reveal><h2>{copy.setupsTitle}</h2><p>{copy.setupsBody}</p></header>
-      <div className="setup-showcase">{FEATURED_SETUP_IDS.map((id, index) => {
+      <div className="preset-workbench"><div className="setup-showcase">{FEATURED_SETUP_IDS.map((id, index) => {
         const setup = SETUP_LIBRARY.find((item) => item.id === id)!
         const [title, body] = copy.setupNames[id]
         return <article key={id} data-reveal>
@@ -447,7 +447,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
           <div className="setup-copy"><span>{setup.category.toUpperCase()}</span><h3>{title}</h3><p>{body}</p><a href={setupHref(id)}>{copy.setupCta}<b aria-hidden="true">↗</b></a></div>
         </article>
       })}</div>
-      <ResultCompare copy={copy} />
+      <ResultCompare copy={copy} /></div>
     </section>
     <section className="faq" id="faq"><div className="faq-heading" data-reveal><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
   </main><SiteFooter copy={copy} /></>

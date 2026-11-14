@@ -187,3 +187,19 @@
   .landing .demo-console li:last-child { border-bottom: 0; }
   .landing .demo-console li button { height: 100%; min-height: 64px; align-items: center; }
 }
+/* Presets and their lighting comparison share one compact workbench. */
+@media(min-width:901px) {
+  .preset-workbench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 36px; max-width: 1180px; margin: auto; align-items: start; }
+  .preset-workbench .setup-showcase { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .preset-workbench .setup-showcase article { display: grid; grid-template-columns: 110px minmax(0, 1fr); }
+  .landing .preset-workbench .setup-visual { height: 100%; min-height: 132px; border-bottom: 0; }
+  .landing .preset-workbench .setup-visual svg { width: 104px; height: 110px; }
+  .preset-workbench .setup-visual > span, .preset-workbench .setup-visual > small, .preset-workbench .setup-copy > span { display: none; }
+  .landing .preset-workbench .setup-copy { padding: 14px 16px; }
+  .landing .preset-workbench .setup-copy h3 { font-size: 21px; margin-top: 0; }
+  .landing .preset-workbench .setup-copy p { font-size: 13px; line-height: 1.6; margin: 8px 0 10px; }
+  .preset-workbench .setup-copy a { padding-top: 10px; min-height: 36px; }
+  .landing .featured-setups .preset-workbench .preset-comparison { padding: 0; margin: 0; border: 0; }
+  .landing .preset-workbench .preset-comparison > header { padding: 0; margin: 0 0 18px; }
+  .landing .preset-workbench .compare-stage { width: 100%; max-width: none; aspect-ratio: 4 / 3; }
+}
