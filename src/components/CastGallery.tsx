@@ -12,9 +12,12 @@ const copy = {
 export function CastGallery() {
   const locale = useLocaleStore((state) => state.locale)
   const ct = useCatalogT()
+  const [showAll, setShowAll] = useState(false)
   const [selected, setSelected] = useState(CAST[0].id)
   const person = CAST.find((member) => member.id === selected) ?? CAST[0]
   const text = copy[locale]
+  const featured = [CAST[0], CAST[8], CAST[6], CAST[15]]
+  const visibleCast = showAll ? CAST : featured
   return <section className="cast-gallery" data-reveal>
     <header><span>THE CAST</span><h2>{text.title}</h2></header>
     <div className="cast-browser">
@@ -24,7 +27,7 @@ export function CastGallery() {
         <figcaption aria-live="polite"><strong>{ct(`cast.${person.id}`, person.label)}</strong><span>{person.height.toFixed(2)} m · {text.caption}</span></figcaption>
       </figure>
       </div>
-      <div className="cast-picker"><h3>{text.choose}<span>{CAST.length}</span></h3><div role="group" aria-label={text.choose}>{CAST.map((member) => <button key={member.id} type="button" aria-pressed={selected === member.id} onClick={() => setSelected(member.id)}><img src={assetHref(`models/lumen-human/cast/transparent/${member.id}.webp`)} alt="" width="44" height="80" loading="lazy" decoding="async" /><span>{ct(`cast.${member.id}`, member.label)}<small>{member.height.toFixed(2)} m</small></span></button>)}</div></div>
+      <div className="cast-picker"><h3>{text.choose}<span>{visibleCast.length}</span></h3><div role="group" aria-label={text.choose}>{visibleCast.map((member) => <button key={member.id} type="button" aria-pressed={selected === member.id} onClick={() => setSelected(member.id)}><img src={assetHref(`models/lumen-human/cast/transparent/${member.id}.webp`)} alt="" width="44" height="80" loading="lazy" decoding="async" /><span>{ct(`cast.${member.id}`, member.label)}<small>{member.height.toFixed(2)} m</small></span></button>)}</div><button className="cast-show-more" aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>{locale === 'zh' ? (showAll ? '收起角色' : '查看全部角色') : locale === 'ja' ? (showAll ? '閉じる' : 'すべて見る') : (showAll ? 'Show fewer characters' : 'Show all characters')}</button></div>
     </div>
   </section>
 }

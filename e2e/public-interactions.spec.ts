@@ -1,13 +1,16 @@
 import { expect, test } from '@playwright/test'
 
+// Keep the installed PWA cache from intercepting mocked feedback responses.
+test.use({ serviceWorkers: 'block' })
+
 test('switches all three languages', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: '中文' }).click()
   await expect(page.getByRole('heading', { level: 1 })).toContainText('進棚拍攝前')
   await page.getByRole('button', { name: '日本語' }).click()
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('スタジオに入る前に')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('撮影の前に')
   await page.getByRole('button', { name: 'English' }).click()
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Plan the lights')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Plan the light')
 })
 
 test('offers both simple and professional entry points', async ({ page }) => {
@@ -69,4 +72,49 @@ test('anonymous feedback preserves text after failure and clears after acceptanc
   await section.getByRole('button', { name: 'Send feedback', exact: true }).click()
   await expect(section.getByRole('status')).toContainText('Feedback sent')
   await expect(message).toHaveValue('')
+})
+
+
+test('keeps homepage navigation focused and optional characters keyboard accessible', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('navigation', { name: 'Primary', exact: true }).getByRole('link')).toHaveCount(3)
+  const characters = page.locator('.cast-extra')
+  await expect(characters).not.toHaveAttribute('open', '')
+  await expect(characters.getByRole('heading', { level: 2 })).toBeHidden()
+  await characters.locator('summary').focus()
+  await page.keyboard.press('Enter')
+  await expect(characters.getByRole('heading', { level: 2 })).toBeVisible()
+  await expect(characters.getByRole('group', { name: 'Choose a character', exact: true }).getByRole('button')).toHaveCount(4)
+  await characters.locator('summary').focus()
+  await page.keyboard.press('Enter')
+  await expect(characters.getByRole('heading', { level: 2 })).toBeHidden()
+  await expect(page.locator('.audience-strip, .site-trust, .release-proof')).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Load this setup' })).toHaveCount(3)
+})
+
+
+test('demo playback seeks through chapter buttons without a scrubber', async ({ page }) => {
+  await page.goto('/')
+  const demo = page.locator('#demo')
+  const video = demo.locator('video')
+  await expect(video).not.toHaveAttribute('controls')
+  await expect(demo.getByRole('slider')).toHaveCount(0)
+  await demo.getByRole('button', { name: /04 Confirm the camera/ }).click()
+  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThanOrEqual(5)
+  await demo.getByRole('button', { name: 'Pause', exact: true }).click()
+  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(true)
+})
+
+test('interactive trial leaves the saved project untouched', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => localStorage.setItem('lumen-stage-scene-v22', 'saved-project-sentinel'))
+  await page.getByRole('button', { name: 'Try the studio here' }).click()
+  const trial = page.frameLocator('iframe.studio-trial')
+  await expect(trial.locator('canvas')).toBeVisible({ timeout: 30000 })
+  await expect(trial.getByRole('slider').first()).toBeVisible({ timeout: 30000 })
+  await trial.getByRole('slider').first().focus()
+  await trial.getByRole('slider').first().press('ArrowRight')
+  // Allow the normal 900 ms autosave debounce to pass.
+  await page.waitForTimeout(1200)
+  expect(await page.evaluate(() => localStorage.getItem('lumen-stage-scene-v22'))).toBe('saved-project-sentinel')
 })
