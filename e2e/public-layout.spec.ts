@@ -66,3 +66,20 @@ test('keeps feature panels aligned and the comparison handle visible at both end
     expect(handle!.x + handle!.width).toBeLessThanOrEqual(stage!.x + stage!.width)
   }
 })
+
+test('shows the complete hero artwork beside desktop copy and below mobile copy', async ({ page }) => {
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/')
+    const artwork = page.locator('.hero-instrument img')
+    await expect(artwork).toHaveJSProperty('naturalWidth', 1280)
+    const image = await artwork.boundingBox()
+    const copy = await page.locator('.hero-copy').boundingBox()
+    if (width === 1440) expect(image!.x).toBeGreaterThan(copy!.x + copy!.width)
+    else expect(image!.y).toBeGreaterThan(copy!.y + copy!.height)
+    expect(image!.x).toBeGreaterThanOrEqual(0)
+    expect(image!.x + image!.width).toBeLessThanOrEqual(width)
+    expect(image!.width / image!.height).toBeCloseTo(1.25, 1)
+    await expect(page.locator('.hero-instrument figcaption')).toBeVisible()
+  }
+})

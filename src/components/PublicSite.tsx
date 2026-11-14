@@ -378,26 +378,20 @@ export function PublicSite({ route, initialLocale }: { route: Exclude<PublicRout
     <section className="site-hero" data-locale={locale} onPointerMove={moveHeroLight} ref={heroStage}>
       <LightField />
       <div className="hero-copy">
-
-        <h1><span>{copy.title[0]}</span><em><span>{copy.title[1]}</span><span>{copy.title[2]}</span></em></h1>
+        <p className="hero-eyebrow"><i aria-hidden="true" />{copy.eyebrow}</p>
+        <h1><span>{copy.title[0]}</span><em>{copy.title[1]}</em></h1>
+        <p className="hero-subtitle">{copy.title[2]}</p>
         <div className="hero-lower"><p>{copy.intro}</p><div className="hero-actions"><button className="site-cta" type="button" onClick={() => setModeOpen(true)}><span>{copy.open}</span><b aria-hidden="true">↗</b></button><a className="hero-demo-link" href="#demo"><i aria-hidden="true">▶</i>{copy.demoLink}</a></div><ul>{copy.proof.map((item) => <li key={item}>{item}</li>)}</ul></div>
       </div>
-      <div className="hero-instrument">
-        <picture key={locale}>
-
-          <img
-            src={studioPreview.desktop}
-            alt={studioPreview.alt}
-            width="3840"
-            height="2160"
-            sizes="(max-width: 620px) 100vw, (max-width: 900px) 96vw, 40vw"
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-            draggable={false}
-          />
-        </picture>
-      </div>
+      <figure className="hero-instrument">
+        <div className="hero-art-frame">
+          <div className="hero-art-heading" aria-hidden="true"><span><i /><i /><i /></span><b>LUMEN STAGE</b></div>
+          <img src={assetHref('site-art/studio-hero.webp')} alt={{ zh: '人物、相機與柔光箱組成的 3D 攝影棚概念圖', en: 'Illustrated 3D portrait studio with a subject, camera and softbox lighting', ja: '人物、カメラ、ソフトボックスを配置した3Dスタジオのコンセプトイラスト' }[locale]} width="1280" height="1024" loading="eager" decoding="async" fetchPriority="high" draggable={false} />
+          <figcaption>{{ zh: '攝影棚概念示意', en: 'Studio illustration', ja: 'スタジオのコンセプトイラスト' }[locale]}</figcaption>
+        </div>
+        <span className="hero-art-note note-light" aria-hidden="true">{features.items[2][0]}<i>↘</i></span>
+        <span className="hero-art-note note-camera" aria-hidden="true">{features.items[1][0]}<i>↗</i></span>
+      </figure>
       <a className="scroll-cue" href="#capabilities"><span>SCROLL TO FOCUS</span><i /></a>
     </section>
     <section className="product-features" id="capabilities"><header><h2>{features.title}</h2></header><div className="feature-workspace"><figure><img src={assetHref(`onboarding/${locale}/desktop-${[0, 2, 1, 3][activeFeature]}.webp`)} alt={features.items[activeFeature][0]} width="1600" height="900" loading="lazy" decoding="async" /><figcaption>{features.items[activeFeature][0]}</figcaption></figure><div className="feature-list">{features.items.map(([title, body], index) => <article key={title} className={activeFeature === index ? 'active' : ''}><h3><button type="button" aria-pressed={activeFeature === index} onClick={() => setActiveFeature(index)}>{title}<span aria-hidden="true">→</span></button></h3><p>{body}</p></article>)}</div></div></section>

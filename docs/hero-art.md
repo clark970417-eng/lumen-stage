@@ -1,0 +1,8 @@
+# Homepage studio illustration
+
+Asset: `public/site-art/studio-hero.webp`.
+Generated with the built-in imagegen tool, then encoded as WebP for the website. The original product screenshots and demonstration videos remain in the feature and workflow sections. The hero artwork is labeled as an illustration in each supported language.
+
+## Final generation prompt
+
+Use case: stylized-concept. Asset type: original hero illustration for Lumen Stage, a virtual photography lighting planning website. Create a polished editorial 3D miniature of a portrait photography studio, landscape 5:4 composition, viewed from a slightly elevated three-quarter angle. A small fully clothed neutral mannequin subject on a softly lit matte circular platform, two professional black softboxes on slender tripods, a camera on tripod in the foreground, a curved seamless backdrop behind the subject. Clear believable equipment geometry and warm key light plus subtle cool fill light, a thoughtful photography composition, tactile charcoal materials with restrained amber and slate-blue accents. Studio objects centered with breathing room on all sides, completely visible without clipping. Background is uniform very dark ink navy #0b121b, with a subtle pool of warm light and delicate floor shadows. Sophisticated friendly precise product illustration, not cartoon and not a screenshot. No text, no letters, no logos, no buttons, no UI panels, no watermark. Intended for the right half of a dark landing page; keep the scene readable at mobile sizes. Make the objects visually substantial and clear, not lost in darkness.
