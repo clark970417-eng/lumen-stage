@@ -322,6 +322,17 @@ export function PublicSite({ route, initialLocale }: { route: Exclude<PublicRout
   const heroStage = useRef<HTMLDivElement>(null)
   const demoRef = useRef<HTMLVideoElement>(null)
   useEffect(() => {
+    const hero = heroStage.current
+    if (!hero || route !== 'home') return
+    let visible = false
+    const sync = () => { hero.dataset.motion = visible && !document.hidden ? 'running' : 'paused' }
+    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; sync() })
+    observer.observe(hero)
+    document.addEventListener('visibilitychange', sync)
+    sync()
+    return () => { observer.disconnect(); document.removeEventListener('visibilitychange', sync) }
+  }, [route])
+  useEffect(() => {
     const video = demoRef.current
     if (!video || route !== 'home') return
     let visible = false
