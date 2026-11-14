@@ -134,3 +134,19 @@ test('hydrates under the production content security policy', async ({ page }) =
   await expect(page.locator('.product-features button').nth(2)).toHaveAttribute('aria-pressed', 'true')
   expect(violations).toEqual([])
 })
+
+test('keeps the floating mobile navigation usable after scrolling', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await page.locator('#faq').scrollIntoViewIfNeeded()
+  await expect(page.getByRole('link', { name: 'Lumen Stage home' })).toBeInViewport()
+  await page.getByLabel('Navigation', { exact: true }).click()
+  await page.getByRole('navigation', { name: 'Mobile', exact: true }).getByRole('link', { name: 'Workflow' }).click()
+  await expect(page.locator('.site-menu')).not.toHaveAttribute('open')
+  await expect(page).toHaveURL(/#demo$/)
+  await expect.poll(async () => {
+    const header = await page.locator('.site-header').boundingBox()
+    const section = await page.locator('#demo').boundingBox()
+    return section!.y - header!.y - header!.height
+  }).toBeGreaterThanOrEqual(0)
+})
