@@ -1,4 +1,3 @@
-import { CastGallery } from './CastGallery'
 import { useEffect, useRef, useState } from 'react'
 import { DEMO_STEP_MOVEMENT_STARTS, demoStepAt } from '../demoTimeline'
 import { LOCALES, useLocaleStore, type Locale } from '../i18n'
@@ -178,6 +177,12 @@ const DEMO_VIDEOS: Record<Locale, { src: string; mobile: string; poster: string 
   ja: { src: assetHref('site-demo/ja.mp4'), mobile: assetHref('site-demo/ja-mobile.mp4'), poster: assetHref('site-demo/ja.jpg') },
 }
 
+const FEATURE_MODULES: Record<Locale, { title: string; items: Array<[string, string]> }> = {
+  zh: { title: '四個功能，完成一份拍攝計畫', items: [['人物', '選擇拍攝主體，調整位置、身高與姿勢。'], ['相機', '設定焦段、光圈與構圖，確認鏡頭畫面。'], ['燈光', '安排主光與補光，調整功率、方向和色溫。'], ['配置', '用俯視圖安排人物、相機、燈具與背景。']] },
+  en: { title: 'Four tools for one shoot plan.', items: [['Person', 'Choose your subject and adjust position, height and pose.'], ['Camera', 'Set the lens, aperture and framing, then check the viewfinder.'], ['Light', 'Place your key and fill; adjust output, direction and colour.'], ['Layout', 'Arrange subjects, camera, lights and backdrop from above.']] },
+  ja: { title: '4つの機能で、撮影を計画。', items: [['人物', '被写体を選び、位置・身長・ポーズを調整。'], ['カメラ', '焦点距離・絞り・構図を設定して画面を確認。'], ['照明', 'キーとフィルを配置し、出力・方向・色を調整。'], ['配置', '俯瞰図で人物・カメラ・照明・背景を配置。']] },
+}
+
 const FEATURED_SETUP_IDS = ['rembrandt', 'three-point', 'clamshell'] as const
 
 function setupHref(id: string) {
@@ -188,13 +193,25 @@ function setupHref(id: string) {
 function LocaleSwitch() {
   const locale = useLocaleStore((state) => state.locale)
   const setLocale = useLocaleStore((state) => state.setLocale)
-  return <div className="site-locale" role="group" aria-label="Language">{LOCALES.map((item) => <button key={item.id} className={locale === item.id ? 'active' : ''} aria-pressed={locale === item.id} aria-label={item.native} onClick={() => setLocale(item.id)}>{item.short}</button>)}</div>
+  const picker = useRef<HTMLDetailsElement>(null)
+  const current = LOCALES.find((item) => item.id === locale)!
+  useEffect(() => {
+    const dismiss = (event: PointerEvent) => { if (!picker.current?.contains(event.target as Node)) picker.current?.removeAttribute('open') }
+    document.addEventListener('pointerdown', dismiss)
+    return () => document.removeEventListener('pointerdown', dismiss)
+  }, [])
+  return <details className="site-language-picker" ref={picker} onKeyDown={(event) => {
+    if (event.key === 'Escape') { picker.current?.removeAttribute('open'); picker.current?.querySelector('summary')?.focus() }
+  }}>
+    <summary aria-label="Language"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9" /><ellipse cx="12" cy="12" rx="4" ry="9" /><path d="M3 12h18" /></svg><span>{current.native}</span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg></summary>
+    <div className="site-language-options" role="group" aria-label="Language">{LOCALES.map((item) => <button key={item.id} aria-pressed={locale === item.id} onClick={() => { setLocale(item.id); picker.current?.removeAttribute('open'); picker.current?.querySelector('summary')?.focus() }}>{item.native}</button>)}</div>
+  </details>
 }
 
 function SiteHeader({ copy, onOpenStudio }: { copy: Copy; onOpenStudio?: () => void }) {
   const home = routeHref('home')
   const sectionHref = (id: string) => onOpenStudio ? `#${id}` : `${home}#${id}`
-  const links = <><a href={sectionHref('demo')}>{copy.nav[1]}</a><a href={sectionHref('setups')}>{copy.nav[4]}</a><a href={sectionHref('faq')}>{copy.nav[5]}</a></>
+  const links = <><a href={sectionHref('capabilities')}>{copy.nav[0]}</a><a href={sectionHref('demo')}>{copy.nav[1]}</a><a href={sectionHref('setups')}>{copy.nav[4]}</a><a href={sectionHref('faq')}>{copy.nav[5]}</a></>
   return <header className="site-header"><div className="site-header-shell"><a className="site-brand" href={home} aria-label="Lumen Stage home"><BrandMark /><span><b>LUMEN</b><small>STAGE / WEB</small></span></a><nav aria-label="Primary">{links}</nav><details className="site-menu"><summary aria-label="Navigation">☰</summary><nav aria-label="Mobile" onClick={(event) => { if ((event.target as HTMLElement).closest('a')) event.currentTarget.parentElement?.removeAttribute('open') }}>{links}</nav></details><div className="site-actions"><LocaleSwitch />{onOpenStudio ? <button className="site-cta compact" type="button" onClick={onOpenStudio}><span>{copy.open}</span><b aria-hidden="true">↗</b></button> : <a className="site-cta compact" href={studioHref()}><span>{copy.open}</span><b aria-hidden="true">↗</b></a>}</div></div></header>
 }
 
@@ -259,7 +276,7 @@ function FeedbackSection({ locale }: { locale: Locale }) {
 function LegalPage({ route, copy, locale }: { route: Exclude<PublicRoute, 'home' | 'studio'>; copy: Copy; locale: Locale }) {
   const title = route === 'privacy' ? copy.privacyTitle : route === 'terms' ? copy.termsTitle : copy.supportTitle
   const paragraphs = route === 'privacy' ? copy.privacyBody : route === 'terms' ? copy.termsBody : copy.supportBody
-  return <><SiteHeader copy={copy} /><main className="legal-page"><span>LUMEN STAGE / {route.toUpperCase()}</span><h1>{title}</h1><div>{paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>{route === 'support' && <a className="site-cta" href={reportIssueHref(locale)} target="_blank" rel="noreferrer"><span>{copy.issues}</span><b aria-hidden="true">↗</b></a>}<a className="legal-back" href={routeHref('home')}>← {copy.back}</a></main><SiteFooter copy={copy} /></>
+  return <><SiteHeader copy={copy} /><main className="legal-page"><span>LUMEN STAGE / {route.toUpperCase()}</span><h1>{title}</h1><div>{paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>{route === 'support' && <a className="site-cta" href={reportIssueHref(locale)} target="_blank" rel="noreferrer"><span>{copy.issues}</span><b aria-hidden="true">↗</b></a>}{route === 'support' && <FeedbackSection locale={locale} />}<a className="legal-back" href={routeHref('home')}>← {copy.back}</a></main><SiteFooter copy={copy} /></>
 }
 
 function ModeChooser({ copy, onClose }: { copy: Copy; onClose: () => void }) {
@@ -279,7 +296,7 @@ function ModeChooser({ copy, onClose }: { copy: Copy; onClose: () => void }) {
 
 function ResultCompare({ copy }: { copy: Copy }) {
   const [split, setSplit] = useState(50)
-  return <section className="result-compare" id="outcomes" data-reveal>
+  return <section className="result-compare preset-comparison" id="outcomes" data-reveal>
     <header><h2>{copy.compareTitle}</h2><p>{copy.compareBody}</p></header>
     <div className="compare-stage" style={{ '--compare-split': `${split}%` } as React.CSSProperties}>
       <img src={assetHref('onboarding/render-before.webp')} alt={copy.compareBefore} width="1600" height="900" loading="lazy" decoding="async" />
@@ -294,6 +311,7 @@ function ResultCompare({ copy }: { copy: Copy }) {
 export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> }) {
   const locale = useLocaleStore((state) => state.locale)
   const copy = COPY[locale]
+  const features = FEATURE_MODULES[locale]
   const studioPreview = STUDIO_PREVIEWS[locale]
   const demoVideo = DEMO_VIDEOS[locale]
   const [demoStep, setDemoStep] = useState(0)
@@ -389,6 +407,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
       </div>
       <a className="scroll-cue" href="#capabilities"><span>SCROLL TO FOCUS</span><i /></a>
     </section>
+    <section className="product-features" id="capabilities"><h2>{features.title}</h2><div>{features.items.map(([title, body]) => <article key={title}><h3>{title}</h3><p>{body}</p></article>)}</div></section>
     <section className="site-demo" id="demo" data-reveal>
       <header><h2>{copy.demoTitle}</h2><p>{copy.demoBody}</p></header>
       <div className="demo-console">
@@ -418,10 +437,6 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
         <ol>{copy.demoSteps.map(([title, body], index) => <li key={title} className={index === demoStep ? 'active' : ''}><button type="button" onClick={() => seekDemo(index)} aria-current={index === demoStep ? 'step' : undefined}><span>0{index + 1}</span><div><strong>{title}</strong><small>{body}</small></div></button></li>)}</ol>
       </div>
     </section>
-    <section className="site-intro" id="capabilities" data-reveal><h2>{copy.instrument}</h2><p>{copy.instrumentBody}</p></section>
-    <section className="capability-grid" data-reveal>{copy.capabilities.map(([title, body]) => <article key={title}>
-      <h3>{title}</h3><p>{body}</p>
-    </article>)}</section>
     <section className="featured-setups" id="setups">
       <header data-reveal><h2>{copy.setupsTitle}</h2><p>{copy.setupsBody}</p></header>
       <div className="setup-showcase">{FEATURED_SETUP_IDS.map((id, index) => {
@@ -432,11 +447,8 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
           <div className="setup-copy"><span>{setup.category.toUpperCase()}</span><h3>{title}</h3><p>{body}</p><a href={setupHref(id)}>{copy.setupCta}<b aria-hidden="true">↗</b></a></div>
         </article>
       })}</div>
+      <ResultCompare copy={copy} />
     </section>
-    <details className="site-extra cast-extra"><summary>{locale === 'zh' ? '選擇攝影棚人物' : locale === 'ja' ? '撮影人物を見る' : 'Explore studio characters'}</summary><CastGallery /></details>
-    <ResultCompare copy={copy} />
     <section className="faq" id="faq"><div className="faq-heading" data-reveal><h2>{copy.faqTitle}</h2></div><div>{copy.faq.map(([question, answer], index) => <details key={question} data-reveal><summary><span>0{index + 1}</span>{question}</summary><p>{answer}</p></details>)}</div></section>
-    <details className="site-extra"><summary>{locale === 'zh' ? '關於模擬與現場測量' : locale === 'ja' ? 'シミュレーションについて' : 'About simulation and on-set measurement'}</summary><p>{copy.methodBody}</p>{copy.methodPoints.map(([title, body]) => <p key={title}><strong>{title}</strong> — {body}</p>)}</details>
-    <FeedbackSection locale={locale} />
   </main><SiteFooter copy={copy} /></>
 }

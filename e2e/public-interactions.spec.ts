@@ -5,10 +5,13 @@ test.use({ serviceWorkers: 'block' })
 
 test('switches all three languages', async ({ page }) => {
   await page.goto('/')
+  await page.locator('.site-language-picker summary').click()
   await page.getByRole('button', { name: '中文' }).click()
   await expect(page.getByRole('heading', { level: 1 })).toContainText('進棚拍攝前')
+  await page.locator('.site-language-picker summary').click()
   await page.getByRole('button', { name: '日本語' }).click()
   await expect(page.getByRole('heading', { level: 1 })).toContainText('撮影の前に')
+  await page.locator('.site-language-picker summary').click()
   await page.getByRole('button', { name: 'English' }).click()
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Plan the light')
 })
@@ -54,7 +57,7 @@ test('keeps the 3D engine out of the homepage payload', async ({ page }) => {
 })
 
 test('anonymous feedback preserves text after failure and clears after acceptance', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/support')
   const section = page.locator('#feedback')
   const message = section.locator('textarea')
   await message.fill('Please add more lighting examples.')
@@ -75,23 +78,14 @@ test('anonymous feedback preserves text after failure and clears after acceptanc
 })
 
 
-test('keeps homepage navigation focused and optional characters keyboard accessible', async ({ page }) => {
+test('keeps the homepage focused on features, workflow, presets and FAQ', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('navigation', { name: 'Primary', exact: true }).getByRole('link')).toHaveCount(3)
-  const characters = page.locator('.cast-extra')
-  await expect(characters).not.toHaveAttribute('open', '')
-  await expect(characters.getByRole('heading', { level: 2 })).toBeHidden()
-  await characters.locator('summary').focus()
-  await page.keyboard.press('Enter')
-  await expect(characters.getByRole('heading', { level: 2 })).toBeVisible()
-  await expect(characters.getByRole('group', { name: 'Choose a character', exact: true }).getByRole('button')).toHaveCount(4)
-  await characters.locator('summary').focus()
-  await page.keyboard.press('Enter')
-  await expect(characters.getByRole('heading', { level: 2 })).toBeHidden()
-  await expect(page.locator('.audience-strip, .site-trust, .release-proof')).toHaveCount(0)
+  await expect(page.getByRole('navigation', { name: 'Primary', exact: true }).getByRole('link')).toHaveCount(4)
+  await expect(page.locator('.product-features article')).toHaveCount(4)
+  await expect(page.locator('.cast-gallery, .release-proof, #feedback')).toHaveCount(0)
+  await expect(page.locator('#setups .preset-comparison')).toHaveCount(1)
   await expect(page.getByRole('link', { name: 'Load this setup' })).toHaveCount(3)
 })
-
 
 test('demo playback seeks through chapter buttons without a scrubber', async ({ page }) => {
   await page.goto('/')
