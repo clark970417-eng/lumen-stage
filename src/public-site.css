@@ -83,18 +83,18 @@ html.public-site-root {
 .public-site-body h2 { font-size: clamp(28px, 3.1vw, 42px); line-height: 1.25; font-weight: 500; letter-spacing: -.03em; text-wrap: balance; }
 .product-features > header { max-width: 680px; margin-bottom: 28px; }
 .feature-workspace { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 0; align-items: stretch; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #0e1720; }
-.feature-workspace figure { margin: 0; min-width: 0; padding: 20px; display: flex; flex-direction: column; justify-content: center; background: #0b121a; }
+.feature-workspace figure { margin: 0; min-width: 0; padding: 16px; display: flex; flex-direction: column; justify-content: center; background: #0b121a; }
 .feature-workspace img { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: contain; border: 1px solid #263340; border-radius: 5px; }
-.feature-workspace figcaption { padding: 14px 0 0; color: #b6c4d2; font-size: 11px; }
-.feature-list { display: grid; grid-template-rows: repeat(4, 1fr); padding: 8px 24px; border-left: 1px solid var(--line); }
-.feature-list article { padding: 17px 0; border-top: 1px solid var(--line); }
+.feature-workspace figcaption { padding: 10px 0 0; color: #b6c4d2; font-size: 11px; }
+.feature-list { display: grid; grid-template-rows: repeat(4, auto); align-content: center; padding: 12px 20px; border-left: 1px solid var(--line); }
+.feature-list article { padding: 12px 0; border-top: 1px solid var(--line); }
 .feature-list article:first-child { border-top: 0; }
-.feature-list h3 { margin: 0 0 6px; }
+.feature-list h3 { margin: 0 0 4px; }
 .feature-list button { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 32px; padding: 0; background: none; border: 0; text-align: left; font-size: 18px; font-weight: 500; }
 .feature-list button span { color: #788b9e; font-size: 20px; transition: transform .2s; }
 .feature-list article.active button { color: var(--signal); }
 .feature-list article.active button span { color: var(--signal); transform: translateX(3px); }
-.feature-list p { font-size: 12px; line-height: 1.75; max-width: 44ch; margin-bottom: 0; }
+.feature-list p { font-size: 12px; line-height: 1.65; max-width: 44ch; margin-bottom: 0; }
 
 .site-demo { border-top: 1px solid #2b3643; }
 .site-demo > header, .featured-setups > header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .7fr); gap: 60px; align-items: end; margin-bottom: 30px; }
