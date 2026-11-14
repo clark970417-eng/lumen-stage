@@ -37,7 +37,3 @@ export function studioHref(mode?: 'mobile' | 'full') {
   if (!mode) return href
   return `${href}${href.includes('?') ? '&' : '?'}ui=${mode}`
 }
-
-export function isStudioTrial() {
-  return typeof location !== 'undefined' && new URLSearchParams(location.search).get('preview') === '1'
-}

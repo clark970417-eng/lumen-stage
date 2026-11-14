@@ -1,4 +1,3 @@
-import { isStudioTrial } from './routing'
 import { create } from 'zustand'
 import { CAMERA_BODIES, LENS_PROFILES, type CameraBodyId, type LensProfileId } from './cameraProfiles'
 import type { ColorProfileId, HistogramMode, ImageFormat } from './colorScience'
@@ -1058,7 +1057,6 @@ const normalizeSnapshot = (value: unknown): SceneSnapshot => {
 }
 
 const readStoredShots = (): StudioShot[] => {
-  if (isStudioTrial()) return []
   try {
     const value = JSON.parse(localStorage.getItem(SHOT_STORAGE_KEY) ?? '[]')
     return Array.isArray(value) ? value.filter((shot) => shot && typeof shot.id === 'string' && typeof shot.sceneJson === 'string') : []
@@ -1066,7 +1064,6 @@ const readStoredShots = (): StudioShot[] => {
 }
 
 const persistShots = (shots: StudioShot[]) => {
-  if (isStudioTrial()) return true
   try {
     localStorage.setItem(SHOT_STORAGE_KEY, JSON.stringify(shots))
     return true
@@ -1731,7 +1728,6 @@ export const useStudio = create<StudioState>((set, get) => ({
     return { ...snapshotState(next), selected: next.selected, selectedIds: next.selectedIds, undoStack: [...state.undoStack, historyFrom(state)].slice(-30), redoStack: state.redoStack.slice(0, -1) }
   }),
   saveProject: () => {
-    if (isStudioTrial()) return
     try {
       const state = get()
       const serialized = JSON.stringify(snapshotFrom(state))
@@ -1743,7 +1739,6 @@ export const useStudio = create<StudioState>((set, get) => ({
     } catch { set({ saveStatus: 'error' }) }
   },
   loadProject: () => {
-    if (isStudioTrial()) return
     try {
       const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(V21_STORAGE_KEY) ?? localStorage.getItem(V20_STORAGE_KEY) ?? localStorage.getItem(V19_STORAGE_KEY) ?? localStorage.getItem(V18_STORAGE_KEY) ?? localStorage.getItem(V17_STORAGE_KEY) ?? localStorage.getItem(V16_STORAGE_KEY) ?? localStorage.getItem(V15_STORAGE_KEY) ?? localStorage.getItem(V14_STORAGE_KEY) ?? localStorage.getItem(V13_STORAGE_KEY) ?? localStorage.getItem(V12_STORAGE_KEY) ?? localStorage.getItem(V11_STORAGE_KEY) ?? localStorage.getItem(V10_STORAGE_KEY) ?? localStorage.getItem(V9_STORAGE_KEY) ?? localStorage.getItem(V8_STORAGE_KEY) ?? localStorage.getItem(V7_STORAGE_KEY) ?? localStorage.getItem(V6_STORAGE_KEY) ?? localStorage.getItem(V5_STORAGE_KEY) ?? localStorage.getItem(V4_STORAGE_KEY) ?? localStorage.getItem(V3_STORAGE_KEY) ?? localStorage.getItem(V2_STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)
       if (!raw) throw new Error('No save')
@@ -1815,4 +1810,4 @@ const autosaveController = createAutosaveScheduler<StudioState>({
   },
 })
 
-useStudio.subscribe((state) => { if (!isStudioTrial()) autosaveController.schedule(state) })
+useStudio.subscribe((state) => autosaveController.schedule(state))

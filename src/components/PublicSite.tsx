@@ -299,7 +299,6 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
   const [demoStep, setDemoStep] = useState(0)
   const [demoPlaying, setDemoPlaying] = useState(false)
   const [modeOpen, setModeOpen] = useState(false)
-  const [trialOpen, setTrialOpen] = useState(false)
   const heroStage = useRef<HTMLDivElement>(null)
   const demoRef = useRef<HTMLVideoElement>(null)
   const userPaused = useRef(false)
@@ -373,7 +372,6 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
         <div className="hero-lower"><p>{copy.intro}</p><div className="hero-actions"><button className="site-cta" type="button" onClick={() => setModeOpen(true)}><span>{copy.open}</span><b aria-hidden="true">↗</b></button><a className="hero-demo-link" href="#demo"><i aria-hidden="true">▶</i>{copy.demoLink}</a></div><ul>{copy.proof.map((item) => <li key={item}>{item}</li>)}</ul></div>
       </div>
       <div className="hero-instrument">
-        {trialOpen ? <iframe className="studio-trial" title={locale === 'zh' ? '互動攝影棚試用' : locale === 'ja' ? '撮影スタジオ体験' : 'Interactive studio trial'} src={`${studioHref('mobile')}&preview=1&setup=rembrandt`} /> : <button className="studio-trial-launch" onClick={() => setTrialOpen(true)} aria-label={locale === 'zh' ? '直接試用攝影棚' : locale === 'ja' ? 'スタジオを試す' : 'Try the studio here'}>
         <picture key={locale}>
 
           <img
@@ -387,7 +385,7 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
             fetchPriority="high"
             draggable={false}
           />
-        </picture><span className="trial-launch-label">{locale === 'zh' ? '點此操作攝影棚' : locale === 'ja' ? 'クリックして操作' : 'Click to try the studio'}</span></button>}
+        </picture>
       </div>
       <a className="scroll-cue" href="#capabilities"><span>SCROLL TO FOCUS</span><i /></a>
     </section>

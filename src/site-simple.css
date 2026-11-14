@@ -37,11 +37,6 @@
   .site-extra summary { font-size: 16px; padding-block: 20px; }
   .landing .capability-grid article { padding-inline: 8px; }
 }
-.studio-trial-launch { position: relative; display: block; width: 100%; padding: 0; border: 0; background: #0a1117; color: #edf2f5; cursor: pointer; }
-.trial-launch-label { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 14px 22px; border-radius: 8px; background: #ffb454; color: #17120b; font-weight: 600; white-space: nowrap; box-shadow: 0 8px 28px #0008; }
-.studio-trial-launch:hover .trial-launch-label { background: #ffd08c; }
-.studio-trial-launch:focus-visible { outline: 3px solid #ffb454; outline-offset: -4px; }
-.studio-trial { display: block; width: 100%; height: 720px; border: 0; background: #080b0f; }
 .landing .capability-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; max-width: 1320px; margin: auto; }
 .landing .capability-grid article { min-height: 0; padding: 0; }
 .landing .capability-grid h3 { margin: 0 0 12px; }
@@ -49,7 +44,6 @@
 @media(max-width:620px) {
   .landing .hero-instrument picture { aspect-ratio: 16 / 10; }
   .landing .hero-instrument picture img { width: 100%; height: 100%; object-fit: cover; }
-  .studio-trial { height: 680px; }
   .landing .capability-grid { grid-template-columns: 1fr; padding: 0 18px 48px; gap: 28px; }
   .landing .demo-console ol { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; }
   .landing .demo-console li { flex: 0 0 75%; scroll-snap-align: start; border-bottom: 0; }
@@ -85,7 +79,6 @@
 .landing .setup-copy p { min-height: 0; margin-bottom: 20px; }
 .landing .site-intro { padding-top: 44px; padding-bottom: 24px; }
 .landing .site-intro h2, .landing .faq h2 { font-size: clamp(26px, 2.8vw, 38px); }
-.studio-trial { height: 560px; }
 @media(max-width:620px) {
   .landing .site-demo, .landing .featured-setups, .landing .result-compare, .landing .faq { padding-top: 32px; padding-bottom: 32px; }
   .landing .site-intro { padding-top: 32px; }
@@ -101,5 +94,4 @@
   .landing .setup-copy p { margin-bottom: 14px; font-size: 13px; }
   .landing .setup-copy a { padding-top: 12px; min-height: 44px; }
   .landing .site-feedback { padding: 24px 0; }
-  .studio-trial { height: 580px; }
 }

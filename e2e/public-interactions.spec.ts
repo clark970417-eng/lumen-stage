@@ -104,21 +104,3 @@ test('demo playback seeks through chapter buttons without a scrubber', async ({ 
   await demo.getByRole('button', { name: 'Pause', exact: true }).click()
   await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(true)
 })
-
-test('interactive trial leaves the saved project untouched', async ({ page }) => {
-  test.setTimeout(60000)
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/')
-  await page.evaluate(() => localStorage.setItem('lumen-stage-scene-v22', 'saved-project-sentinel'))
-  await page.getByRole('button', { name: 'Try the studio here' }).click()
-  await page.locator('iframe.studio-trial').scrollIntoViewIfNeeded()
-  const trial = page.frameLocator('iframe.studio-trial')
-  await expect(trial.locator('canvas')).toBeVisible({ timeout: 30000 })
-  await trial.getByRole('tab', { name: 'Light', exact: true }).click()
-  await expect(trial.getByRole('slider').first()).toBeVisible({ timeout: 30000 })
-  await trial.getByRole('slider').first().focus()
-  await trial.getByRole('slider').first().press('ArrowRight')
-  // Allow the normal 900 ms autosave debounce to pass.
-  await page.waitForTimeout(1200)
-  expect(await page.evaluate(() => localStorage.getItem('lumen-stage-scene-v22'))).toBe('saved-project-sentinel')
-})

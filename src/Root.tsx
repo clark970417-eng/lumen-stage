@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { useT } from './i18n'
 import { useMobileShell, usePhoneScreen, useUiModeStore } from './uiMode'
 import { BrandMark } from './components/BrandMark'
-import { isStudioTrial, routeFromLocation, routeHref } from './routing'
+import { routeFromLocation, routeHref } from './routing'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { supportsWebGL } from './webgl'
 import './ui-mode.css'
@@ -50,11 +50,6 @@ function StudioShell() {
     // React.lazy reuses the same module request, removing a serial network round trip.
     const shell = mobile ? loadMobileApp() : loadApp()
     Promise.all([import('./store'), import('./share'), import('./persistence'), shell]).then(async ([store, share, persistence]) => {
-      if (isStudioTrial()) {
-        store.useStudio.getState().applyLightingSetup('rembrandt')
-        store.useStudio.setState({ qualityPreset: 'performance' })
-        return
-      }
       const requestedSetup = new URLSearchParams(location.search).get('setup')
       const shared = await share.readSceneFromLocation()
       if (shared) store.useStudio.getState().importProject(shared)
