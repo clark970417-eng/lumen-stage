@@ -3,6 +3,7 @@ import { Suspense, useCallback, useState } from 'react'
 import { Aperture, Orbit } from 'lucide-react'
 import { StudioScene } from './StudioScene'
 import { CanvasHealth } from './CanvasHealth'
+import { isStudioTrial } from '../routing'
 
 type MobileStageProps = {
   pageVisible: boolean
@@ -35,7 +36,7 @@ export default function MobileStage({
     <section className="viewport m-viewport">
       <Canvas
         onCreated={() => setSceneReady(true)}
-        frameloop={pageVisible ? 'always' : 'never'}
+        frameloop={pageVisible ? (isStudioTrial() ? 'demand' : 'always') : 'never'}
         shadows="percentage"
         dpr={[1, 1.5]}
         gl={{ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' }}

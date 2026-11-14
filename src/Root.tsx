@@ -52,6 +52,7 @@ function StudioShell() {
     Promise.all([import('./store'), import('./share'), import('./persistence'), shell]).then(async ([store, share, persistence]) => {
       if (isStudioTrial()) {
         store.useStudio.getState().applyLightingSetup('rembrandt')
+        store.useStudio.setState({ qualityPreset: 'performance' })
         return
       }
       const requestedSetup = new URLSearchParams(location.search).get('setup')

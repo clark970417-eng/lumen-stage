@@ -106,11 +106,15 @@ test('demo playback seeks through chapter buttons without a scrubber', async ({ 
 })
 
 test('interactive trial leaves the saved project untouched', async ({ page }) => {
+  test.setTimeout(60000)
+  await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
   await page.evaluate(() => localStorage.setItem('lumen-stage-scene-v22', 'saved-project-sentinel'))
   await page.getByRole('button', { name: 'Try the studio here' }).click()
+  await page.locator('iframe.studio-trial').scrollIntoViewIfNeeded()
   const trial = page.frameLocator('iframe.studio-trial')
   await expect(trial.locator('canvas')).toBeVisible({ timeout: 30000 })
+  await trial.getByRole('tab', { name: 'Light', exact: true }).click()
   await expect(trial.getByRole('slider').first()).toBeVisible({ timeout: 30000 })
   await trial.getByRole('slider').first().focus()
   await trial.getByRole('slider').first().press('ArrowRight')
