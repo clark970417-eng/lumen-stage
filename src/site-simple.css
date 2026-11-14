@@ -56,9 +56,6 @@
 .landing .demo-console li { min-width: 0; padding: 16px 10px; border-bottom: 0; }
 .landing .demo-console li button { min-height: 58px; }
 .landing .demo-console li small { display: none; }
-.demo-play-toggle { position: absolute; z-index: 4; bottom: 16px; left: 16px; min-height: 44px; padding: 10px 20px; background: #111c24; color: #edf2f5; border: 1px solid #637783; border-radius: 8px; cursor: pointer; }
-.demo-play-toggle:hover { background: #253743; }
-.demo-play-toggle:focus-visible { outline: 2px solid #ffb454; outline-offset: 3px; }
 @media(max-width:620px) {
   .landing .demo-console ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .landing .demo-console li { padding: 10px 6px; }
@@ -203,3 +200,27 @@
   .landing .preset-workbench .preset-comparison > header { padding: 0; margin: 0 0 18px; }
   .landing .preset-workbench .compare-stage { width: 100%; max-width: none; aspect-ratio: 4 / 3; }
 }
+/* Phones in either orientation: stack media and controls without cropping. */
+@media(max-width:900px) {
+  .landing .demo-console { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; }
+  .landing .demo-screen { width: 100%; min-width: 0; aspect-ratio: auto; max-height: none; }
+  .landing .demo-screen video { width: 100%; height: auto; max-width: 100%; object-fit: contain; object-position: center; }
+  .landing .demo-console ol { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; min-width: 0; margin: 0; overflow: visible; border-left: 0; border-top: 1px solid #293b46; }
+  .landing .demo-console li { min-width: 0; border-right: 0; }
+  .landing .demo-console li button { width: 100%; height: auto; min-width: 0; min-height: 64px; display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: start; gap: 12px; padding: 14px 16px; }
+  .landing .demo-console li button > div { min-width: 0; }
+  .landing .demo-console li strong, .landing .demo-console li small { white-space: normal; overflow-wrap: anywhere; }
+  .landing .demo-console li small { display: block; margin-top: 4px; font-size: 12px; line-height: 1.6; }
+  .landing .preset-workbench { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; width: 100%; min-width: 0; }
+  .landing .preset-workbench > * { width: 100%; min-width: 0; max-width: 100%; }
+  .landing .featured-setups .preset-workbench .preset-comparison { margin-top: 0; padding: 24px 0 0; }
+  .landing .preset-workbench .compare-stage { width: 100%; max-width: 100%; aspect-ratio: 16 / 9; }
+  .landing .preset-workbench .compare-stage > img, .landing .preset-workbench .compare-after img { object-fit: contain; object-position: center; }
+  .landing .setup-copy { min-width: 0; }
+  .landing .setup-copy h3, .landing .setup-copy p, .landing .setup-copy a { overflow-wrap: anywhere; }
+}
+
+/* Match the source video's 4:3 frame so it needs neither bars nor cropping. */
+.landing .demo-screen { width: 100%; min-width: 0; aspect-ratio: 4 / 3; max-height: none; }
+.landing .demo-screen video { display: block; width: 100%; height: auto; object-fit: contain; }
+@media(min-width:901px) { .landing .demo-console { max-width: 980px; } }

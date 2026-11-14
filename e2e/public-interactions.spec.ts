@@ -87,7 +87,7 @@ test('keeps the homepage focused on features, workflow, presets and FAQ', async 
   await expect(page.getByRole('link', { name: 'Load this setup' })).toHaveCount(3)
 })
 
-test('demo playback seeks through chapter buttons without a scrubber', async ({ page }) => {
+test('demo playback uses chapter buttons without player controls', async ({ page }) => {
   await page.goto('/')
   const demo = page.locator('#demo')
   const video = demo.locator('video')
@@ -95,6 +95,6 @@ test('demo playback seeks through chapter buttons without a scrubber', async ({ 
   await expect(demo.getByRole('slider')).toHaveCount(0)
   await demo.getByRole('button', { name: /04 Confirm the camera/ }).click()
   await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThanOrEqual(5)
-  await demo.getByRole('button', { name: 'Pause', exact: true }).click()
-  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(true)
+  await expect(demo.locator('.demo-screen button')).toHaveCount(0)
+  await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.paused)).toBe(false)
 })

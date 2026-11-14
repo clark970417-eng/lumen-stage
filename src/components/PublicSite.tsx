@@ -315,18 +315,16 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
   const studioPreview = STUDIO_PREVIEWS[locale]
   const demoVideo = DEMO_VIDEOS[locale]
   const [demoStep, setDemoStep] = useState(0)
-  const [demoPlaying, setDemoPlaying] = useState(false)
   const [modeOpen, setModeOpen] = useState(false)
   const heroStage = useRef<HTMLDivElement>(null)
   const demoRef = useRef<HTMLVideoElement>(null)
-  const userPaused = useRef(false)
   useEffect(() => {
     const video = demoRef.current
     if (!video || route !== 'home') return
     let visible = false
     const sync = () => {
       if (!visible || document.hidden) video.pause()
-      else if (!userPaused.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) void video.play().catch(() => {})
+      else if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) void video.play().catch(() => {})
     }
     const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; sync() }, { threshold: .15 })
     observer.observe(video)
@@ -372,14 +370,6 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
     setDemoStep(step)
     void video.play().catch(() => {})
   }
-  const toggleDemo = () => {
-    const video = demoRef.current
-    if (!video) return
-    userPaused.current = !video.paused
-    if (video.paused) void video.play().catch(() => {})
-    else video.pause()
-  }
-
   if (route !== 'home') return <LegalPage route={route} copy={copy} locale={locale} />
   return <><SiteHeader copy={copy} onOpenStudio={() => setModeOpen(true)} />{modeOpen && <ModeChooser copy={copy} onClose={() => setModeOpen(false)} />}<main className="landing">
     <section className="site-hero" data-locale={locale} onPointerMove={moveHeroLight} ref={heroStage}>
@@ -413,13 +403,11 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
       <div className="demo-console">
         <div className="demo-screen">
           <video ref={demoRef} key={locale} muted loop playsInline preload="metadata" poster={demoVideo.poster} aria-label={studioPreview.alt}
-            onPause={() => setDemoPlaying(false)}
             onTimeUpdate={(event) => {
               const video = event.currentTarget
               setDemoStep(demoStepAt(video.currentTime))
             }}
             onPlay={(event) => {
-              setDemoPlaying(true)
               const video = event.currentTarget
               if (!video.requestVideoFrameCallback) return
               const syncToFrame = (_now: number, metadata: VideoFrameCallbackMetadata) => {
@@ -431,7 +419,6 @@ export function PublicSite({ route }: { route: Exclude<PublicRoute, 'studio'> })
             <source media="(max-width: 620px)" src={demoVideo.mobile} type="video/mp4" />
             <source src={demoVideo.src} type="video/mp4" />
           </video>
-          <button className="demo-play-toggle" type="button" onClick={toggleDemo}>{demoPlaying ? copy.demoControls.pause : copy.demoControls.play}</button>
 
         </div>
         <ol>{copy.demoSteps.map(([title, body], index) => <li key={title} className={index === demoStep ? 'active' : ''}><button type="button" onClick={() => seekDemo(index)} aria-current={index === demoStep ? 'step' : undefined}><span>0{index + 1}</span><div><strong>{title}</strong><small>{body}</small></div></button></li>)}</ol>
