@@ -1,7 +1,7 @@
 # Homepage studio illustration
 
 Asset: `public/site-art/studio-hero.webp`.
-Generated with the built-in imagegen tool, then encoded as WebP for the website. The original product screenshots and demonstration videos remain in the feature and workflow sections. The hero artwork is labeled as an illustration in each supported language.
+Generated with the built-in imagegen tool, then encoded as WebP for the website. The original product screenshots and demonstration videos remain in the feature and workflow sections. The static hero image has localized alternative text identifying it as an illustration.
 
 ## Final generation prompt
 

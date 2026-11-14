@@ -67,7 +67,8 @@ test('keeps feature panels aligned and the comparison handle visible at both end
   }
 })
 
-test('shows the complete hero artwork beside desktop copy and below mobile copy', async ({ page }) => {
+test('shows static hero artwork beside desktop copy and below mobile copy', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/')
@@ -80,40 +81,7 @@ test('shows the complete hero artwork beside desktop copy and below mobile copy'
     expect(image!.x).toBeGreaterThanOrEqual(0)
     expect(image!.x + image!.width).toBeLessThanOrEqual(width)
     expect(image!.width / image!.height).toBeCloseTo(1.25, 1)
-    await expect(page.locator('.hero-instrument figcaption')).toBeVisible()
+    await expect(page.locator('.hero-art-note, .hero-art-heading, .hero-instrument figcaption')).toHaveCount(0)
+    expect(await page.locator('.hero-instrument').evaluate(element => element.getAnimations({ subtree: true }).length)).toBe(0)
   }
-})
-
-test('floats hero artwork within mobile bounds and respects reduced motion', async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' })
-  for (const width of [320, 390, 1440]) {
-    await page.setViewportSize({ width, height: 900 })
-    await page.goto('/')
-    await expect(page.locator('.site-hero')).toHaveAttribute('data-motion', 'running')
-    const positions: number[] = []
-    for (const time of [1200, 3000, 5000, 7000]) {
-      const geometry = await page.locator('.site-hero').evaluate((hero, currentTime) => {
-        for (const animation of hero.getAnimations({ subtree: true })) { animation.pause(); animation.currentTime = currentTime }
-        const section = hero.getBoundingClientRect()
-        const targets = Array.from(hero.querySelectorAll('.hero-art-frame, .hero-art-note')).map(node => {
-          const box = node.getBoundingClientRect()
-          return { x: box.x, right: box.right, top: box.top, bottom: box.bottom }
-        })
-        return { top: section.top, bottom: section.bottom, targets }
-      }, time)
-      positions.push(geometry.targets[0].top)
-      for (const box of geometry.targets) {
-        expect(box.x).toBeGreaterThanOrEqual(0)
-        expect(box.right).toBeLessThanOrEqual(width)
-        expect(box.top).toBeGreaterThanOrEqual(geometry.top)
-        expect(box.bottom).toBeLessThanOrEqual(geometry.bottom)
-      }
-    }
-    expect(Math.max(...positions) - Math.min(...positions)).toBeGreaterThan(1)
-  }
-  await page.emulateMedia({ reducedMotion: 'reduce' })
-  const moving = await page.locator('.hero-instrument').evaluate(element => element.getAnimations({ subtree: true }).filter(animation => animation.playState === 'running').length)
-  expect(moving).toBe(0)
-  await page.locator('#faq').scrollIntoViewIfNeeded()
-  await expect(page.locator('.site-hero')).toHaveAttribute('data-motion', 'paused')
 })

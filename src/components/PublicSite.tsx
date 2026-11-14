@@ -322,17 +322,6 @@ export function PublicSite({ route, initialLocale }: { route: Exclude<PublicRout
   const heroStage = useRef<HTMLDivElement>(null)
   const demoRef = useRef<HTMLVideoElement>(null)
   useEffect(() => {
-    const hero = heroStage.current
-    if (!hero || route !== 'home') return
-    let visible = false
-    const sync = () => { hero.dataset.motion = visible && !document.hidden ? 'running' : 'paused' }
-    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; sync() })
-    observer.observe(hero)
-    document.addEventListener('visibilitychange', sync)
-    sync()
-    return () => { observer.disconnect(); document.removeEventListener('visibilitychange', sync) }
-  }, [route])
-  useEffect(() => {
     const video = demoRef.current
     if (!video || route !== 'home') return
     let visible = false
@@ -395,13 +384,7 @@ export function PublicSite({ route, initialLocale }: { route: Exclude<PublicRout
         <div className="hero-lower"><p>{copy.intro}</p><div className="hero-actions"><button className="site-cta" type="button" onClick={() => setModeOpen(true)}><span>{copy.open}</span><b aria-hidden="true">↗</b></button><a className="hero-demo-link" href="#demo"><i aria-hidden="true">▶</i>{copy.demoLink}</a></div><ul>{copy.proof.map((item) => <li key={item}>{item}</li>)}</ul></div>
       </div>
       <figure className="hero-instrument">
-        <div className="hero-art-frame">
-          <div className="hero-art-heading" aria-hidden="true"><span><i /><i /><i /></span><b>LUMEN STAGE</b></div>
           <img src={assetHref('site-art/studio-hero.webp')} alt={{ zh: '人物、相機與柔光箱組成的 3D 攝影棚概念圖', en: 'Illustrated 3D portrait studio with a subject, camera and softbox lighting', ja: '人物、カメラ、ソフトボックスを配置した3Dスタジオのコンセプトイラスト' }[locale]} width="1280" height="1024" loading="eager" decoding="async" fetchPriority="high" draggable={false} />
-          <figcaption>{{ zh: '攝影棚概念示意', en: 'Studio illustration', ja: 'スタジオのコンセプトイラスト' }[locale]}</figcaption>
-        </div>
-        <span className="hero-art-note note-light" aria-hidden="true">{features.items[2][0]}<i>↘</i></span>
-        <span className="hero-art-note note-camera" aria-hidden="true">{features.items[1][0]}<i>↗</i></span>
       </figure>
       <a className="scroll-cue" href="#capabilities"><span>SCROLL TO FOCUS</span><i /></a>
     </section>
